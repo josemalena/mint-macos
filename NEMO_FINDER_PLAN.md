@@ -14,7 +14,7 @@ comportamiento.
 
 ## Decisiones de José
 
-1. **Alcance: la Fase 1 (puntos 1 a 5).** Corrección de José del mismo día: lo
+1. **Alcance: la Fase 1 (puntos 1 a 6; el 6, el formato de fecha, se sumó el mismo día).** Corrección de José del mismo día: lo
    que llamó «etiquetas» eran **los títulos de sección de la barra lateral**
    (Favorites, iCloud, Locations), que es el punto 3, **sin la sección Tags**. El
    punto 8 (etiquetas de archivos) queda fuera. También fuera, por ahora: la barra
@@ -72,6 +72,7 @@ Estimación de Marketing para alguien con C y GTK 3; Dev la corrige.
 | 3 | **Barra lateral con las secciones del Finder**: **Favorites, iCloud y Locations** (sin Tags) | `nemo-places-sidebar.c`: «My Computer» (:779), «Bookmarks» (:928), «Devices» (:348), «Network» (:1240) | Renombrar y reordenar; «Favorites» une las carpetas del usuario con los marcadores; «iCloud» enseña el iCloud Drive montado (ver abajo); «Locations», los discos y la red | `sidebar-finder-sections` | 1–3 días |
 | 4 | **Selector de vista segmentado** | `nemo-toolbar.c:355-361`: tres botones sueltos (íconos, lista, compacta) | Ponerlos en una caja `linked` para que el tema los pinte pegados | `toolbar-linked-view-switcher` | ½–1 día |
 | 5 | **Búsqueda siempre visible a la derecha** | `nemo-toolbar.c:344` (botón) y `nemo-window-slot.c:389` (el editor de búsqueda vive en cada panel) | Un campo fijo en la barra que maneje la búsqueda del panel activo; cuidar el modo de dos paneles | `toolbar-search-entry` | 3–5 días |
+| 6 | **Formato de fecha «finder»**: `Today, 9:48 PM` · `Yesterday, 9:48 PM` · `dd/mm/yyyy, 9:48 PM` (hora en 12 h con AM/PM; 24 h si `org.cinnamon.desktop.interface clock-use-24h` está encendido) | `libnemo-private/nemo-file.c` ~5206-5340 (`nemo_file_get_date_as_string`): hoy enseña solo la hora, ayer «Yesterday 9:48 PM», la semana con el día, el año con el mes en letras | Un valor nuevo en el enum de `date-format` (`finder`) en el esquema del fork; las demás opciones no cambian. Pedido de José, 07-10-2026 | `date-format = finder` | ½ día |
 
 ## La sección iCloud
 
@@ -94,7 +95,9 @@ fork.** El fork solo necesita una ruta configurable: si existe, sale la sección
 
 - **Nombre** (José): ejecutable `nemo-mac`, ID `io.github.josemalena.NemoMac`,
   esquemas `io.github.josemalena.nemo-mac.*`, sin la marca Kóralis.
-- **Alcance** (José): Fase 1, puntos 1 a 5; sin etiquetas de archivos.
+- **Alcance** (José): Fase 1, puntos 1 a 6; sin etiquetas de archivos. Mientras
+  tanto, el Nemo de Mint quedó con `date-format = informal`, lo más cercano.
+- **Quién aplica el punto 6** (José): Codex.
 - **Quién lo hace** (José): una sesión nueva o Codex; Planner prepara el encargo.
 - **FileManager1** (Planner): lo reclama solo si el fork está como predeterminado.
 - **Acciones** (Planner): se comparten; las extensiones compiladas no cargan.
