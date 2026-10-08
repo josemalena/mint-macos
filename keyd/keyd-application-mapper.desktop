@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=keyd application mapper
+Comment=Excepciones de teclado por aplicación (keyd/app.conf del repo mint-macos)
+Exec=keyd-application-mapper -d
+X-GNOME-Autostart-enabled=true
+NoDisplay=true

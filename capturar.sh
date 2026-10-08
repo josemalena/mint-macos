@@ -16,6 +16,9 @@ else
   sed -n '/^# Keybindings estilo macOS/,$p' "$HOME/.config/kitty/kitty.conf" > "$REPO/kitty/macos-keys.conf"
 fi
 
+[ -f /etc/keyd/default.conf ] && cp /etc/keyd/default.conf "$REPO/keyd/default.conf"
+[ -f "$HOME/.config/keyd/app.conf" ] && cp "$HOME/.config/keyd/app.conf" "$REPO/keyd/app.conf"
+
 cp "$HOME/.config/Code/User/keybindings.json" "$REPO/vscode/keybindings.json"
 
 for a in "$REPO"/applets/*@macos; do

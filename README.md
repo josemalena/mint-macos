@@ -8,9 +8,10 @@ panel lleva el menú Apple y el nombre de la aplicación activa.
 
 | Carpeta | Qué lleva | Dónde va |
 |---|---|---|
+| `keyd/` | ⌘ + letra → Ctrl + letra y ⌥←/→ por palabra en todo el sistema; excepciones por aplicación | `/etc/keyd/default.conf`, `~/.config/keyd/app.conf` |
 | `cinnamon/` | Atajos del escritorio y fuentes de entrada (dconf) | `/org/cinnamon/desktop/keybindings/`, `input-sources/` |
 | `kitty/macos-keys.conf` | ⌘T, ⌘W, ⌘⏎, ⌘←/→ entre pestañas, ⌥←/→ y ⌥⌫ por palabra | `~/.config/kitty/`, incluido desde `kitty.conf` |
-| `vscode/keybindings.json` | ⌘N/O/S/W, ⌘P, ⌘⇧P, ⌘F, ⌘/, ⌘D, ⌥ por palabra | `~/.config/Code/User/` |
+| `vscode/keybindings.json` | Lo que keyd no traduce: ⌘⌥F, ⌘1…3, ⌘⇧[ ] | `~/.config/Code/User/` |
 | `applets/` | `applemenu@macos` (menú Apple, Force Quit) y `appmenu@macos` (app activa, Quit) | `~/.local/share/cinnamon/applets/` |
 
 Atajos del escritorio que ya están:
@@ -40,10 +41,33 @@ git diff
 git commit -am "…"
 ```
 
-## Lo que falta
+## keyd: ⌘ en todas las aplicaciones
 
-- **⌘C / ⌘V / ⌘Z en todas las aplicaciones.** Hoy funcionan en kitty y VS
-  Code porque cada uno tiene su mapa. En Chrome, el explorador de archivos
-  y las demás, copiar sigue siendo Ctrl+C. Para que sea global hace falta
-  un reasignador a nivel de teclado (keyd, Toshy o xremap), que traduce
-  ⌘ a Ctrl salvo en las terminales.
+[keyd](https://github.com/rvaiya/keyd) intercepta el teclado por debajo
+del escritorio. `install.sh` lo compila (v2.6.0; no está en los
+repositorios de Mint 22) y lo deja como servicio.
+
+- **⌘ + letra sale como Ctrl + letra**: ⌘C, ⌘V, ⌘Z, ⌘⇧Z, ⌘S, ⌘T, ⌘W, ⌘F,
+  ⌘L, ⌘R… en Chrome, Edge, el explorador de archivos y VS Code.
+- **⌘← ⌘→** van al inicio y al fin de la línea, **⌘↑ ⌘↓** al inicio y al
+  fin del documento, **⌘⌫** borra hasta el inicio de la línea. Con ⇧
+  seleccionan.
+- **⌥← ⌥→** saltan por palabra y **⌥⌫** borra la palabra anterior.
+- **Sin traducir**, para que Cinnamon las siga viendo como Super: ⌘Q (⌘⇧Q
+  cierra sesión), ⌘H y ⌘M, los números, ⌘Tab, ⌘Espacio, ⌘⇧4 y ⌘⇧5.
+- **kitty** recibe ⌘ y ⌥ tal cual (`keyd/app.conf`), así que sus atajos
+  `cmd+…` y `opt+…` del `kitty.conf` siguen mandando. Las excepciones las
+  aplica `keyd-application-mapper`, que arranca con la sesión.
+
+Ojo:
+
+- Cinnamon usa ⌘←/→/↑/↓ para acomodar ventanas; con keyd esas teclas
+  pasan a ser de texto. Si se quiere acomodar ventanas, hay que darle
+  otra combinación en System Settings → Keyboard → Shortcuts.
+- Para que funcionen las excepciones por aplicación, el usuario tiene que
+  estar en el grupo `keyd`: después de instalar hay que cerrar sesión y
+  volver a entrar.
+- Si el teclado se traba: **Backspace + Escape + Enter** a la vez detiene
+  keyd.
+- Ver qué tecla llega: `sudo keyd monitor`. Ver la clase de una ventana
+  para `app.conf`: `wmctrl -lx` (va en minúsculas).

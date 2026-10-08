@@ -29,6 +29,35 @@ dconf load /org/cinnamon/desktop/input-sources/ < "$REPO/cinnamon/input-sources.
 dconf load /org/gnome/libgnomekbd/keyboard/     < "$REPO/cinnamon/libgnomekbd-keyboard.dconf"
 echo "  respaldo de dconf en $RESPALDO"
 
+paso "keyd: ⌘ y ⌥ como en macOS en todo el sistema"
+KEYD_VERSION=v2.6.0
+if ! command -v keyd >/dev/null || ! keyd --version | grep -q "$KEYD_VERSION"; then
+  # No está en los repositorios de Mint 22 (Ubuntu 24.04): se compila.
+  sudo apt install -y build-essential git python3-xlib
+  TMP="$(mktemp -d)"
+  git clone -q --depth 1 --branch "$KEYD_VERSION" https://github.com/rvaiya/keyd.git "$TMP/keyd"
+  make -C "$TMP/keyd"
+  sudo make -C "$TMP/keyd" install
+else
+  echo "  keyd $KEYD_VERSION ya está"
+fi
+[ -e /etc/keyd/default.conf ] && sudo cp -a /etc/keyd/default.conf "$RESPALDO/keyd-default.conf"
+keyd check "$REPO/keyd/default.conf"
+sudo install -D -m 644 "$REPO/keyd/default.conf" /etc/keyd/default.conf
+sudo systemctl enable --now keyd
+sudo keyd reload
+# El mapeador por aplicación habla con keyd por /var/run/keyd.socket, que
+# es del grupo keyd. Hace falta salir y volver a entrar para que valga.
+if ! id -nG "$USER" | grep -qw keyd; then
+  sudo groupadd -f keyd
+  sudo usermod -aG keyd "$USER"
+  echo "  $USER entra al grupo keyd: cierra sesión y vuelve a entrar"
+fi
+mkdir -p "$HOME/.config/keyd" "$HOME/.config/autostart"
+respaldar "$HOME/.config/keyd/app.conf"
+cp "$REPO/keyd/app.conf" "$HOME/.config/keyd/app.conf"
+cp "$REPO/keyd/keyd-application-mapper.desktop" "$HOME/.config/autostart/"
+
 paso "kitty: atajos ⌘ y ⌥ (se incluyen, no se reemplaza el kitty.conf)"
 KITTY="$HOME/.config/kitty"
 mkdir -p "$KITTY"
@@ -59,4 +88,5 @@ done
 paso "Listo"
 echo "  Agrega los applets al panel en System Settings → Applets."
 echo "  En kitty: ctrl+shift+F5 recarga la configuración."
+echo "  Si el teclado se traba: Backspace+Escape+Enter a la vez detiene keyd."
 echo "  Para deshacer: los originales están en $RESPALDO"
