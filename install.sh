@@ -75,6 +75,18 @@ mkdir -p "$VSCODE"
 respaldar "$VSCODE/keybindings.json"
 cp "$REPO/vscode/keybindings.json" "$VSCODE/keybindings.json"
 
+paso "Ulauncher: ⌘Espacio, como Spotlight"
+UL="$HOME/.config/ulauncher/settings.json"
+if [ -f "$UL" ]; then
+  respaldar "$UL"
+  python3 -c "import json,sys; p=sys.argv[1]; d=json.load(open(p)); d['hotkey-show-app']='<Super>space'; json.dump(d,open(p,'w'),indent=4)" "$UL"
+  # ⌘Espacio era del diálogo Run de Cinnamon; se queda con Alt+F2.
+  dconf write /org/cinnamon/desktop/keybindings/wm/panel-run-dialog "['<Alt>F2']"
+  echo "  reinicia Ulauncher para que tome el atajo"
+else
+  echo "  Ulauncher no está configurado: se salta"
+fi
+
 paso "Applets del menú Apple"
 APPLETS="$HOME/.local/share/cinnamon/applets"
 mkdir -p "$APPLETS"
