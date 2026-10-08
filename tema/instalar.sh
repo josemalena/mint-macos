@@ -66,7 +66,10 @@ gsettings set org.cinnamon.desktop.interface cursor-theme 'McMojave-cursors' 2>/
 gsettings set org.cinnamon.desktop.wm.preferences button-layout 'close,minimize,maximize:'
 dconf write /net/launchpad/plank/docks/dock1/theme "'Constanza-Oscuro'"
 
-if fc-list : family | grep -q '^\.SF NS$\|,\.SF NS$\|^\.SF NS,'; then
+# Ojo con pipefail: «fc-list | grep -q» falla al azar porque grep corta la
+# tubería y fc-list muere por SIGPIPE. Por eso se lee primero a una variable.
+FAMILIAS="$(fc-list : family)"
+if grep -q '^\.SF NS$\|,\.SF NS$\|^\.SF NS,' <<< "$FAMILIAS"; then
   FUENTE='.SF NS'; TITULO='.SF NS Semibold'
 else
   dpkg -s fonts-inter >/dev/null 2>&1 || sudo apt install -y fonts-inter
@@ -85,7 +88,7 @@ echo "  fuente: $FUENTE"
 
 # kitty con SF Mono, si está. Los glifos de Nerd Font del prompt siguen
 # saliendo de MesloLGS NF con symbol_map.
-if [ -f "$KITTY" ] && fc-list : family | grep -qx 'SF Mono'; then
+if [ -f "$KITTY" ] && grep -qx 'SF Mono' <<< "$FAMILIAS"; then
   sed -i -e 's/^font_family .*/font_family      SF Mono/' \
          -e 's/^bold_font .*/bold_font        auto/' \
          -e 's/^italic_font .*/italic_font      auto/' \

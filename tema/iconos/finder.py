@@ -37,7 +37,7 @@ COLOR = [
     (f'{CT}/UsersFolderIcon.icns',        ['folder-users']),
     (f'{CT}/UtilitiesFolder.icns',        ['folder-utilities']),
     (f'{CT}/SmartFolderIcon.icns',        ['folder-saved-search']),
-    (f'{CT}/GenericFileServerIcon.icns',  ['folder-remote', 'network-server']),
+    (f'{CT}/GenericFileServerIcon.icns',  ['network-server']),
     (f'{CT}/GenericDocumentIcon.icns',    ['text-x-generic', 'text-plain', 'application-x-generic', 'unknown']),
     (f'{CT}/ExecutableBinaryIcon.icns',   ['application-x-executable']),
     (f'{CT}/GenericApplicationIcon.icns', ['application-default-icon']),
