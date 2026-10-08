@@ -1,2 +1,9 @@
 __pycache__/
 *.pyc
+
+# Nada de Apple entra al repo: íconos y fuentes se generan en local.
+*.icns
+*.ttf
+*.otf
+*.ttc
+tema/**/*.png

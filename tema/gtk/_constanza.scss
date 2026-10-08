@@ -1,0 +1,61 @@
+// Constanza: lo propio encima del tema base (Mojave-gtk-theme, GPL-3.0).
+// Se compila con sassc a gtk-3.0/constanza.css y lo importa el gtk.css del
+// tema después del de Mojave, así que estas reglas ganan.
+//
+// Todo va acotado a ventanas de Nemo para no cambiar otras aplicaciones.
+
+
+/* Selector de vista como el control segmentado del Finder.
+   nemo-mac le pone la clase «linked» a la caja de los tres botones cuando
+   io.github.josemalena.nemo-mac.preferences toolbar-linked-view-switcher
+   es true. El Nemo del sistema nunca la pone, así que esto no lo toca. */
+.nemo-window .primary-toolbar .linked > button,
+.nemo-window .primary-toolbar .linked > button.flat {
+  background-color: rgba(255, 255, 255, 0.09);
+  background-image: none;
+  border: 1px solid rgba(0, 0, 0, 0.45);
+  border-radius: 0;
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.06);
+  margin: 0;
+  min-height: 20px;
+  min-width: 26px;
+  padding: 2px 6px;
+}
+
+/* Un solo separador fino entre botones: cada uno sin borde izquierdo. */
+.nemo-window .primary-toolbar .linked > button:not(:first-child) {
+  border-left-width: 0;
+}
+
+/* Esquinas redondeadas solo en los extremos. */
+.nemo-window .primary-toolbar .linked > button:first-child {
+  border-radius: 6px 0 0 6px;
+}
+.nemo-window .primary-toolbar .linked > button:last-child {
+  border-radius: 0 6px 6px 0;
+}
+.nemo-window .primary-toolbar .linked > button:only-child {
+  border-radius: 6px;
+}
+
+.nemo-window .primary-toolbar .linked > button:hover {
+  background-color: rgba(255, 255, 255, 0.14);
+}
+
+/* La vista activa, resaltada como en el Finder. */
+.nemo-window .primary-toolbar .linked > button:checked,
+.nemo-window .primary-toolbar .linked > button.flat:checked,
+.nemo-window .primary-toolbar .linked > button:active {
+  background-color: rgba(255, 255, 255, 0.32);
+  box-shadow: none;
+}
+
+/* Ventana sin foco: todo más apagado, como en macOS. */
+.nemo-window:backdrop .primary-toolbar .linked > button {
+  background-color: rgba(255, 255, 255, 0.05);
+  border-color: rgba(0, 0, 0, 0.30);
+}
+.nemo-window:backdrop .primary-toolbar .linked > button:checked,
+.nemo-window:backdrop .primary-toolbar .linked > button.flat:checked {
+  background-color: rgba(255, 255, 255, 0.20);
+}
