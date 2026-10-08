@@ -1,0 +1,4 @@
+# Nunca subir archivos de fuentes de Apple
+*.ttf
+*.otf
+*.ttc
