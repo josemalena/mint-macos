@@ -74,6 +74,10 @@ Estimación de Marketing para alguien con C y GTK 3; Dev la corrige.
 | 5 | **Búsqueda siempre visible a la derecha** | `nemo-toolbar.c:344` (botón) y `nemo-window-slot.c:389` (el editor de búsqueda vive en cada panel) | Un campo fijo en la barra que maneje la búsqueda del panel activo; cuidar el modo de dos paneles | `toolbar-search-entry` | 3–5 días |
 | 6 | **Formato de fecha «finder»**: `Today, 9:48 PM` · `Yesterday, 9:48 PM` · `dd/mm/yyyy, 9:48 PM` (hora en 12 h con AM/PM; 24 h si `org.cinnamon.desktop.interface clock-use-24h` está encendido) | `libnemo-private/nemo-file.c` ~5206-5340 (`nemo_file_get_date_as_string`): hoy enseña solo la hora, ayer «Yesterday 9:48 PM», la semana con el día, el año con el mes en letras | Un valor nuevo en el enum de `date-format` (`finder`) en el esquema del fork; las demás opciones no cambian. Pedido de José, 07-10-2026 | `date-format = finder` | ½ día |
 
+**Estado de la prueba gráfica (07-10-2026):**
+- **Punto 6** (`39326479`): pasa. Con `finder`, la lista enseña `Today, 21:48`, `Yesterday, 21:48` y `04/10/2026, 09:05` (24 h porque el reloj está en 24 h). Con `informal`, sigue igual que en Nemo.
+- **Punto 4** (`46ceaff8`): pasa. La caja `linked` se aplica, y el fondo del segmentado lo pone el CSS del tema (`fe64378`, hoy dentro del tema Constanza).
+
 ## La sección iCloud
 
 En Linux no hay cliente oficial de iCloud Drive. Para que «iCloud» enseñe algo,
@@ -95,6 +99,8 @@ fork.** El fork solo necesita una ruta configurable: si existe, sale la sección
 
 - **Nombre** (José): ejecutable `nemo-mac`, ID `io.github.josemalena.NemoMac`,
   esquemas `io.github.josemalena.nemo-mac.*`, sin la marca Kóralis.
+- **Nombre visible** (José, 07-10-2026): «Nemo Finder» en el lanzador, «About», los menús y los mensajes. El ejecutable, el ID y los esquemas siguen siendo `nemo-mac`.
+- **Defaults** (José, 08-10-2026): el modo Finder viene **encendido por defecto** (`date-format=finder`, `toolbar-linked-view-switcher`, `toolbar-finder-layout`, `sidebar-finder-sections`), por `c66498d4`. Esto reemplaza la regla de «apagado por defecto» de Mantenimiento; los cambios siguen detrás de su ajuste.
 - **Alcance** (José): Fase 1, puntos 1 a 6; sin etiquetas de archivos. Mientras
   tanto, el Nemo de Mint quedó con `date-format = informal`, lo más cercano.
 - **Quién aplica el punto 6** (José): Codex.
