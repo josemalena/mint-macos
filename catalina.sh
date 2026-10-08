@@ -64,6 +64,15 @@ for d in 16x16/places 16x16@2x/places symbolic/places; do
 done
 gsettings set org.cinnamon.desktop.interface icon-theme 'Os-Catalina'
 
+# Si está el disco de la Mac en esta computadora, el lateral usa los íconos
+# originales del Finder (Os-Catalina-Finder, hereda de Os-Catalina). Se
+# generan aquí mismo desde el disco: los íconos de Apple no van al repo.
+# Sin disco de Mac (sale con 3), se queda Os-Catalina.
+REPO_CAT="$(cd "$(dirname "$0")" && pwd)"
+if "$REPO_CAT/iconos/finder-desde-mac.sh"; then
+  gsettings set org.cinnamon.desktop.interface icon-theme 'Os-Catalina-Finder'
+fi
+
 paso "Fuente: San Francisco si está instalada, si no Inter"
 # San Francisco se instala aparte desde el disco de la Mac (fuentes/san-francisco.md);
 # no viene en el repo. Su familia en gsettings es «.SF NS». Si no está, Inter
