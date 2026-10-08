@@ -1,6 +1,6 @@
 # Fork de Nemo con aspecto y comportamiento de Finder
 
-**Estado: PLAN para revisión de Planner → Dev (José, 07-10-2026).** Lo redactó
+**Estado: PLAN REVISADO por Planner (07-10-2026). Lo ejecuta una sesión nueva o Codex, no Dev ni Dev-2.** Lo redactó
 Marketing a partir de una captura del Finder de Mojave en modo oscuro y del código
 de Nemo (`linuxmint/nemo`, rama principal al 06-10-2026, `66eabf4`).
 
@@ -45,16 +45,16 @@ Sale del tema o ya existe en Nemo:
 Que el ejecutable se llame distinto no basta. Nemo se identifica en varios
 sitios, y si el fork comparte alguno, las dos copias se pisan:
 
-| Qué | Nemo de Mint | Fork (nombre propuesto, lo decide José) |
+| Qué | Nemo de Mint | Fork (decidido por José, 07-10-2026) |
 |---|---|---|
 | Ejecutable | `nemo` | `nemo-mac` |
-| ID de aplicación (GApplication, D-Bus de instancia única) | `org.Nemo` | `org.koralis.NemoMac`. **Si se repite, abrir el fork abre el Nemo del sistema.** |
-| Esquemas de gsettings | `org.nemo.*` | `org.koralis.nemo-mac.*`, con los ajustes propios y los heredados copiados |
+| ID de aplicación (GApplication, D-Bus de instancia única) | `org.Nemo` | `io.github.josemalena.NemoMac`. **Si se repite, abrir el fork abre el Nemo del sistema.** Sin la marca Kóralis: es una herramienta personal |
+| Esquemas de gsettings | `org.nemo.*` | `io.github.josemalena.nemo-mac.*`, con los ajustes propios y los heredados copiados |
 | Archivo `.desktop` | `nemo.desktop` | `nemo-mac.desktop` |
-| Dónde se instala | `/usr` (apt) | `/usr/local` u `/opt/nemo-mac`, **nunca `/usr`** |
+| Dónde se instala | `/usr` (apt) | **`/usr/local`** (Planner): así los esquemas en `/usr/local/share/glib-2.0/schemas` se encuentran sin variables de entorno. **Nunca `/usr`** |
 | Escritorio (`nemo-desktop`) | lo dibuja Nemo | **el fork no lo dibuja**: se queda el del sistema |
-| `org.freedesktop.FileManager1` (D-Bus de «mostrar en carpeta») | lo reclama Nemo | decidir quién lo reclama. Si lo quiere el fork, hay que evitar que lo tome el de Mint |
-| Extensiones (`libnemo-extension`, nemo-python, acciones) | las del sistema | las compiladas para el Nemo de Mint pueden no cargar en el fork. Decidir si se comparten las acciones (`~/.local/share/nemo/actions`) o van aparte |
+| `org.freedesktop.FileManager1` (D-Bus de «mostrar en carpeta») | lo reclama Nemo | **El fork lo reclama solo si está puesto como predeterminado** (un ajuste); si no, se lo deja al de Mint. Probar «Mostrar en carpeta» desde Chrome y Firefox |
+| Extensiones (`libnemo-extension`, nemo-python, acciones) | las del sistema | **El fork lee también `~/.local/share/nemo/actions`.** Las extensiones compiladas (nemo-python) no se cargan, y se acepta |
 
 Después: hacerlo el administrador de archivos por defecto
 (`xdg-mime default nemo-mac.desktop inode/directory`), y revisar qué partes de
@@ -90,11 +90,16 @@ fork.** El fork solo necesita una ruta configurable: si existe, sale la sección
   nueva de Nemo.
 - Los puntos 1 y 2 podrían proponerse al Nemo original.
 
-## Lo que Planner tiene que decidir o pedir
+## Decisiones tomadas (07-10-2026)
 
-1. **El nombre del fork** (propuesta: `nemo-mac`, `org.koralis.NemoMac`), con José.
-2. **Cómo se monta iCloud Drive** en este host (Infra), y en qué ruta.
-3. **Quién reclama `FileManager1`**, y si las acciones de Nemo se comparten.
-4. **Dónde vive el código del fork**: repo propio (`nemo-mac`, fork de
-   `linuxmint/nemo`) con su instalador llamado desde `mint-macos`.
-5. **Repartir el trabajo con Infra**, que lleva `mint-macos`.
+- **Nombre** (José): ejecutable `nemo-mac`, ID `io.github.josemalena.NemoMac`,
+  esquemas `io.github.josemalena.nemo-mac.*`, sin la marca Kóralis.
+- **Alcance** (José): Fase 1, puntos 1 a 5; sin etiquetas de archivos.
+- **Quién lo hace** (José): una sesión nueva o Codex; Planner prepara el encargo.
+- **FileManager1** (Planner): lo reclama solo si el fork está como predeterminado.
+- **Acciones** (Planner): se comparten; las extensiones compiladas no cargan.
+- **Instalación** (Planner): `/usr/local`.
+- **Código** (Planner): repo propio **`josemalena/nemo-mac`**, fork de
+  `linuxmint/nemo`. `mint-macos` trae solo el guion que lo compila e instala.
+- **Pendiente de Infra:** montar iCloud Drive en el host (ruta para
+  `sidebar-icloud-path`) y que `catalina.sh` use San Francisco si está instalada.
