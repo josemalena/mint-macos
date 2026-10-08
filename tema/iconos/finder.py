@@ -78,23 +78,31 @@ SIMBOLICOS = [
     (f'{CT}/ToolbarAdvanced.icns',        ['emblem-system-symbolic']),
 ]
 
-# Glifos de la barra exportados en la Mac con macos/exportar-glifos.swift
-# (/Users/Shared/glifos-finder/png en el volumen de datos). Nombre del PNG →
-# nombres freedesktop. Si no están, la barra sigue con los de Os-Catalina.
+# Glifos de la barra del Finder de Catalina. Están en
+# SystemAppearance.bundle/Contents/Resources/Assets.car, con nombres sin NS ni
+# Template (GoBack, IconView, Action…). Ese catálogo solo se desempaca con
+# CoreUI en una Mac: GLIFOS_FINDER apunta a la carpeta con los PNG extraídos
+# (<Nombre>@1x.png y @2x.png). Si no está, la barra sigue con Os-Catalina.
 BARRA = [
-    ('NSGoLeftTemplate',      ['go-previous-symbolic']),
-    ('NSGoRightTemplate',     ['go-next-symbolic']),
-    ('NSIconViewTemplate',    ['view-grid-symbolic', 'view-app-grid-symbolic']),
-    ('NSListViewTemplate',    ['view-list-symbolic']),
-    ('NSColumnViewTemplate',  ['view-column-symbolic', 'view-dual-symbolic']),
-    ('NSFlowViewTemplate',    ['view-paged-symbolic']),
-    ('NSActionTemplate',      ['emblem-system-symbolic', 'open-menu-symbolic']),
-    ('NSShareTemplate',       ['emblem-shared-symbolic', 'send-to-symbolic']),
-    ('NSSearchField-lupa',    ['edit-find-symbolic', 'system-search-symbolic']),
-    ('NSSearchField-borrar',  ['edit-clear-symbolic']),
-    ('NSQuickLookTemplate',   ['view-reveal-symbolic']),
-    ('NSAddTemplate',         ['list-add-symbolic']),
-    ('NSRemoveTemplate',      ['list-remove-symbolic']),
+    ('GoBack',           ['go-previous-symbolic']),
+    ('GoForward',        ['go-next-symbolic']),
+    ('IconView',         ['view-grid-symbolic', 'view-app-grid-symbolic']),
+    ('ListView',         ['view-list-symbolic']),
+    ('ColumnView',       ['view-column-symbolic', 'view-dual-symbolic']),
+    ('GalleryView',      ['view-paged-symbolic']),
+    ('Action',           ['emblem-system-symbolic']),
+    ('Share',            ['emblem-shared-symbolic', 'send-to-symbolic']),
+    ('SearchMagGlass',   ['edit-find-symbolic', 'system-search-symbolic']),
+    ('Cancel',           ['edit-clear-symbolic']),
+    ('ToolbarTagIcon',   ['tag-symbolic']),
+    ('ToolbarGetInfo',   ['document-properties-symbolic', 'dialog-information-symbolic']),
+    ('ToolbarDelete',    ['edit-delete-symbolic', 'user-trash-symbolic', 'user-trash-full-symbolic']),
+    ('ToolbarNewFolder', ['folder-new-symbolic']),
+    ('QuickLook',        ['view-reveal-symbolic']),
+    ('Sidebar',          ['view-sidebar-symbolic', 'sidebar-show-symbolic']),
+    ('Refresh',          ['view-refresh-symbolic']),
+    ('Add',              ['list-add-symbolic']),
+    ('Remove',           ['list-remove-symbolic']),
 ]
 GLIFOS = os.environ.get('GLIFOS_FINDER', '')
 
@@ -143,32 +151,41 @@ def generar(lista, tamanos, carpeta, simbolico):
 
 
 def generar_barra(tamanos, carpeta):
-    """Los PNG exportados en la Mac (1x y @2x), pintados de gris."""
-    dirs, hechos = [], 0
-    if not GLIFOS or not os.path.isdir(os.path.join(GLIFOS, 'png')):
-        return dirs, hechos
+    """Glifos de la barra a su tamaño natural, centrados en el cuadrado del
+    tamaño pedido (16 px = 1x del Finder) y pintados de gris."""
+    hechos = 0
+    if not GLIFOS or not os.path.isdir(GLIFOS):
+        return [], hechos
     for t, esc in tamanos:
         sub = f'{t}x{t}' + ('@2x' if esc == 2 else '') + f'/{carpeta}'
         os.makedirs(os.path.join(TEMA, sub), exist_ok=True)
+        lado = t * esc
+        k = lado / 16                      # cuánto crece respecto del 1x
         for origen, nombres in BARRA:
-            base = os.path.join(GLIFOS, 'png', origen)
-            ruta = base + '@2x.png' if os.path.exists(base + '@2x.png') else base + '.png'
-            if not os.path.exists(ruta):
+            uno = os.path.join(GLIFOS, origen + '@1x.png')
+            dos = os.path.join(GLIFOS, origen + '@2x.png')
+            if not os.path.exists(uno):
                 continue
-            im = Image.open(ruta).convert('RGBA')
-            # Se centra en un lienzo cuadrado: los glifos de la barra son anchos.
-            lado = max(im.size); lienzo = Image.new('RGBA', (lado, lado), (0, 0, 0, 0))
-            lienzo.paste(im, ((lado - im.size[0]) // 2, (lado - im.size[1]) // 2))
-            im = pintar(lienzo.resize((t * esc, t * esc), Image.LANCZOS))
+            w1, h1 = Image.open(uno).size
+            fuente = dos if (k > 1 and os.path.exists(dos)) else uno
+            im = Image.open(fuente).convert('RGBA')
+            w, h = max(1, round(w1 * k)), max(1, round(h1 * k))
+            if (w, h) != im.size:
+                im = im.resize((w, h), Image.LANCZOS)
+            if w > lado or h > lado:       # por si un glifo es más ancho que el cuadro
+                f = lado / max(w, h); im = im.resize((max(1, int(w * f)), max(1, int(h * f))), Image.LANCZOS)
+            lienzo = Image.new('RGBA', (lado, lado), (0, 0, 0, 0))
+            lienzo.paste(im, ((lado - im.size[0]) // 2, (lado - im.size[1]) // 2), im)
+            im = pintar(lienzo)
             for n in nombres:
                 im.save(os.path.join(TEMA, sub, n + '.png'))
             hechos += (t, esc) == tamanos[0]
-    return dirs, hechos
+    return [], hechos
 
 
 d1, h1, f1 = generar(COLOR, TAM_COLOR, 'finder', False)
-_, h3 = generar_barra(TAM_SIMB, 'finder-symbolic')
 d2, h2, f2 = generar(SIMBOLICOS, TAM_SIMB, 'finder-symbolic', True)
+_, h3 = generar_barra(TAM_SIMB, 'finder-symbolic')
 with open(os.path.join(TEMA, 'finder-dirs.txt'), 'w') as f:
     for sub, t, esc in d1 + d2:
         f.write(f'{sub} {t} {esc}\n')

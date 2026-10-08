@@ -59,3 +59,32 @@
 .nemo-window:backdrop .primary-toolbar .linked > button.flat:checked {
   background-color: rgba(255, 255, 255, 0.20);
 }
+
+/* Los demás botones de la barra (atrás, adelante, búsqueda…) con el mismo
+   fondo gris redondeado del Finder. Los del segmentado ya tienen el suyo. */
+.nemo-window .primary-toolbar button.flat,
+.nemo-window .primary-toolbar toolbutton > button {
+  background-color: rgba(255, 255, 255, 0.09);
+  background-image: none;
+  border: 1px solid rgba(0, 0, 0, 0.45);
+  border-radius: 6px;
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.06);
+  min-height: 20px;
+  min-width: 26px;
+  padding: 2px 6px;
+}
+.nemo-window .primary-toolbar button.flat:hover {
+  background-color: rgba(255, 255, 255, 0.14);
+}
+.nemo-window .primary-toolbar button.flat:active,
+.nemo-window .primary-toolbar button.flat:checked {
+  background-color: rgba(255, 255, 255, 0.26);
+}
+.nemo-window .primary-toolbar button.flat:disabled {
+  background-color: rgba(255, 255, 255, 0.04);
+  border-color: rgba(0, 0, 0, 0.25);
+}
+.nemo-window:backdrop .primary-toolbar button.flat {
+  background-color: rgba(255, 255, 255, 0.05);
+  border-color: rgba(0, 0, 0, 0.30);
+}
