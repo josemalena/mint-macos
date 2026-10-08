@@ -78,6 +78,26 @@ SIMBOLICOS = [
     (f'{CT}/ToolbarAdvanced.icns',        ['emblem-system-symbolic']),
 ]
 
+# Glifos de la barra exportados en la Mac con macos/exportar-glifos.swift
+# (/Users/Shared/glifos-finder/png en el volumen de datos). Nombre del PNG →
+# nombres freedesktop. Si no están, la barra sigue con los de Os-Catalina.
+BARRA = [
+    ('NSGoLeftTemplate',      ['go-previous-symbolic']),
+    ('NSGoRightTemplate',     ['go-next-symbolic']),
+    ('NSIconViewTemplate',    ['view-grid-symbolic', 'view-app-grid-symbolic']),
+    ('NSListViewTemplate',    ['view-list-symbolic']),
+    ('NSColumnViewTemplate',  ['view-column-symbolic', 'view-dual-symbolic']),
+    ('NSFlowViewTemplate',    ['view-paged-symbolic']),
+    ('NSActionTemplate',      ['emblem-system-symbolic', 'open-menu-symbolic']),
+    ('NSShareTemplate',       ['emblem-shared-symbolic', 'send-to-symbolic']),
+    ('NSSearchField-lupa',    ['edit-find-symbolic', 'system-search-symbolic']),
+    ('NSSearchField-borrar',  ['edit-clear-symbolic']),
+    ('NSQuickLookTemplate',   ['view-reveal-symbolic']),
+    ('NSAddTemplate',         ['list-add-symbolic']),
+    ('NSRemoveTemplate',      ['list-remove-symbolic']),
+]
+GLIFOS = os.environ.get('GLIFOS_FINDER', '')
+
 TAM_COLOR = [(16, 1), (22, 1), (24, 1), (32, 1), (48, 1), (64, 1), (96, 1), (128, 1), (256, 1),
              (16, 2), (24, 2), (32, 2), (48, 2), (128, 2)]
 TAM_SIMB = [(16, 1), (22, 1), (24, 1), (32, 1), (16, 2), (22, 2), (24, 2), (32, 2)]
@@ -122,9 +142,34 @@ def generar(lista, tamanos, carpeta, simbolico):
     return dirs, hechos, faltan
 
 
+def generar_barra(tamanos, carpeta):
+    """Los PNG exportados en la Mac (1x y @2x), pintados de gris."""
+    dirs, hechos = [], 0
+    if not GLIFOS or not os.path.isdir(os.path.join(GLIFOS, 'png')):
+        return dirs, hechos
+    for t, esc in tamanos:
+        sub = f'{t}x{t}' + ('@2x' if esc == 2 else '') + f'/{carpeta}'
+        os.makedirs(os.path.join(TEMA, sub), exist_ok=True)
+        for origen, nombres in BARRA:
+            base = os.path.join(GLIFOS, 'png', origen)
+            ruta = base + '@2x.png' if os.path.exists(base + '@2x.png') else base + '.png'
+            if not os.path.exists(ruta):
+                continue
+            im = Image.open(ruta).convert('RGBA')
+            # Se centra en un lienzo cuadrado: los glifos de la barra son anchos.
+            lado = max(im.size); lienzo = Image.new('RGBA', (lado, lado), (0, 0, 0, 0))
+            lienzo.paste(im, ((lado - im.size[0]) // 2, (lado - im.size[1]) // 2))
+            im = pintar(lienzo.resize((t * esc, t * esc), Image.LANCZOS))
+            for n in nombres:
+                im.save(os.path.join(TEMA, sub, n + '.png'))
+            hechos += (t, esc) == tamanos[0]
+    return dirs, hechos
+
+
 d1, h1, f1 = generar(COLOR, TAM_COLOR, 'finder', False)
+_, h3 = generar_barra(TAM_SIMB, 'finder-symbolic')
 d2, h2, f2 = generar(SIMBOLICOS, TAM_SIMB, 'finder-symbolic', True)
 with open(os.path.join(TEMA, 'finder-dirs.txt'), 'w') as f:
     for sub, t, esc in d1 + d2:
         f.write(f'{sub} {t} {esc}\n')
-print(f'finder: {h1} íconos a color y {h2} glifos', ('· faltan ' + ', '.join(f1 + f2)) if f1 + f2 else '')
+print(f'finder: {h1} íconos a color, {h2} glifos del lateral y {h3} de la barra', ('· faltan ' + ', '.join(f1 + f2)) if f1 + f2 else '')

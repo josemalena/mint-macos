@@ -61,6 +61,10 @@ logo /opt/microsoft/msedge/product_logo_256.png microsoft-edge microsoft-edge-st
 
 # Íconos del Finder si hay disco de Mac.
 if montar_mac_sistema; then
+  # Glifos de la barra, si ya se exportaron en la Mac (macos/exportar-glifos.swift).
+  for g in "${GLIFOS_FINDER:-}" "/media/$USER/MacMini/Users/Shared/glifos-finder"; do
+    [ -n "$g" ] && [ -d "$g/png" ] && { export GLIFOS_FINDER="$g"; break; }
+  done
   python3 "$AQUI/finder.py" "$MAC_SISTEMA" "$TEMA" "#c4c4c4"
   while read -r sub t esc; do DIRS+=("$sub $t $esc Fixed"); done < "$TEMA/finder-dirs.txt"
   rm -f "$TEMA/finder-dirs.txt"
