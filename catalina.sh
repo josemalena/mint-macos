@@ -17,6 +17,17 @@ dconf dump /net/launchpad/plank/docks/            > "$RESPALDO/plank.dconf"
 dconf dump /org/nemo/                             > "$RESPALDO/nemo.dconf"
 echo "  $RESPALDO"
 
+paso "Tema Mojave oscuro: ventanas, bordes y panel (pide sassc y glib-compile-resources)"
+if ! command -v sassc >/dev/null || ! command -v glib-compile-resources >/dev/null; then
+  sudo apt install -y sassc libglib2.0-dev-bin
+fi
+git clone -q --depth 1 https://github.com/vinceliuice/Mojave-gtk-theme.git "$TMP/Mojave-gtk-theme"
+rm -rf "$HOME/.themes/Mojave-Dark"*
+"$TMP/Mojave-gtk-theme/install.sh" -d "$HOME/.themes" -c dark >/dev/null
+gsettings set org.cinnamon.desktop.interface gtk-theme 'Mojave-Dark'
+gsettings set org.cinnamon.desktop.wm.preferences theme 'Mojave-Dark'
+gsettings set org.cinnamon.theme name 'Mojave-Dark'
+
 paso "Íconos Os-Catalina (formas de Catalina; lo que falta lo toma de McMojave)"
 git clone -q --depth 1 https://github.com/vinceliuice/McMojave-circle.git "$TMP/McMojave-circle"
 "$TMP/McMojave-circle/install.sh" -d "$HOME/.icons" >/dev/null
@@ -38,10 +49,36 @@ logo() {  # logo <png oficial> <nombre principal> [otros nombres…]
 }
 logo /usr/share/code/resources/app/resources/linux/code.png vscode code visual-studio-code com.visualstudio.code visualstudiocode
 logo /opt/microsoft/msedge/product_logo_256.png microsoft-edge microsoft-edge-stable com.microsoft.Edge
+# En 16 y 24 px el tema usa carpetas monocromas oscuras (pensadas para
+# fondo claro): en Nemo oscuro salen negras. Finder las enseña azules a
+# cualquier tamaño, así que los chicos apuntan al dibujo de 128 px. Los
+# *-symbolic (los del lateral) no se tocan.
+I="$HOME/.icons/Os-Catalina"
+for d in 16x16/places 16x16@2x/places symbolic/places; do
+  for f in "$I/$d"/*.svg; do
+    b="$(basename "$f")"
+    case "$b" in *-symbolic.svg) continue ;; esac
+    [ -e "$I/128x128/places/$b" ] || continue
+    rm -f "$f"; ln -s "../../128x128/places/$b" "$f"
+  done
+done
 gsettings set org.cinnamon.desktop.interface icon-theme 'Os-Catalina'
 
+paso "Fuente: Inter (la alternativa libre a San Francisco)"
+# San Francisco solo se puede usar en equipos Apple (licencia de Apple).
+# Inter tiene las mismas proporciones; «Inter» y no «Inter Display», que
+# es para títulos grandes.
+dpkg -s fonts-inter >/dev/null 2>&1 || sudo apt install -y fonts-inter
+{ gsettings get org.cinnamon.desktop.interface font-name
+  gsettings get org.gnome.desktop.interface document-font-name
+  gsettings get org.cinnamon.desktop.wm.preferences titlebar-font; } > "$RESPALDO/fuentes.txt"
+gsettings set org.cinnamon.desktop.interface font-name 'Inter 10'
+gsettings set org.gnome.desktop.interface font-name 'Inter 10'
+gsettings set org.gnome.desktop.interface document-font-name 'Inter 10'
+gsettings set org.cinnamon.desktop.wm.preferences titlebar-font 'Inter Semi-Bold 10'
+gsettings set org.nemo.desktop font 'Inter 10'
+
 paso "Dock: tema Mojave oscuro"
-git clone -q --depth 1 https://github.com/vinceliuice/Mojave-gtk-theme.git "$TMP/Mojave-gtk-theme"
 mkdir -p "$HOME/.local/share/plank/themes/Mojave-Dark"
 cp "$TMP/Mojave-gtk-theme/src/other/plank/Theme-Dark/"* "$HOME/.local/share/plank/themes/Mojave-Dark/"
 dconf write /net/launchpad/plank/docks/dock1/theme "'Mojave-Dark'"
@@ -72,5 +109,5 @@ sleep 2
 setsid nohup plank >/dev/null 2>&1 < /dev/null &
 
 paso "Listo"
-echo "  Pendiente: el tema Mojave de ventanas, Cinnamon y la ventana de login."
+echo "  Pendiente: la ventana de login."
 echo "  Para volver atrás: dconf load con los archivos de $RESPALDO"

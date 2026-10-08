@@ -1,0 +1,5 @@
+# Disco APFS de la Mac, en solo lectura, montado al primer acceso.
+# Cambia el UUID por el de tu partición (lsblk -o NAME,FSTYPE,UUID) y, si el
+# volumen de datos no es el 1, ajusta «-f 1» en /sbin/mount.fsapfs
+# (fsapfsinfo /dev/sdXN lista los volúmenes del contenedor).
+UUID=<uuid-de-la-particion>  /media/<usuario>/MacMini  fsapfs  ro,nofail,x-systemd.automount,x-systemd.device-timeout=10  0  0

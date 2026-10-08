@@ -1,0 +1,8 @@
+#!/bin/bash
+# mount(8) helper para el volumen APFS "MacMini - Data" via fsapfsmount (FUSE, userspace)
+# Invocado automaticamente por mount/systemd cuando fstab usa fstype=fsapfs
+SRC="$1"
+shift
+TARGET="$1"
+shift
+exec /usr/local/bin/fsapfsmount -f 1 -X allow_other "$SRC" "$TARGET"

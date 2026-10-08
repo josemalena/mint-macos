@@ -9,6 +9,7 @@ panel lleva el menú Apple y el nombre de la aplicación activa.
 | Carpeta | Qué lleva | Dónde va |
 |---|---|---|
 | `keyd/` | ⌘ + letra → Ctrl + letra y ⌥←/→ por palabra en todo el sistema; excepciones por aplicación | `/etc/keyd/default.conf`, `~/.config/keyd/app.conf` |
+| `apfs/` | Leer el disco de una Mac (APFS) en solo lectura por FUSE: instalador, helper de `mount`, ejemplo de fstab y recuperación | ver `apfs/README.md` |
 | `cinnamon/` | Atajos del escritorio y fuentes de entrada (dconf) | `/org/cinnamon/desktop/keybindings/`, `input-sources/` |
 | `kitty/macos-keys.conf` | ⌘T, ⌘W, ⌘⏎, ⌘←/→ entre pestañas, ⌥←/→ y ⌥⌫ por palabra | `~/.config/kitty/`, incluido desde `kitty.conf` |
 | `vscode/keybindings.json` | Lo que keyd no traduce: ⌘⌥F, ⌘1…3, ⌘⇧[ ] | `~/.config/Code/User/` |
