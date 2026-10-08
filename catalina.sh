@@ -64,19 +64,33 @@ for d in 16x16/places 16x16@2x/places symbolic/places; do
 done
 gsettings set org.cinnamon.desktop.interface icon-theme 'Os-Catalina'
 
-paso "Fuente: Inter (la alternativa libre a San Francisco)"
-# San Francisco solo se puede usar en equipos Apple (licencia de Apple).
-# Inter tiene las mismas proporciones; «Inter» y no «Inter Display», que
-# es para títulos grandes.
-dpkg -s fonts-inter >/dev/null 2>&1 || sudo apt install -y fonts-inter
+paso "Fuente: San Francisco si está instalada, si no Inter"
+# San Francisco se instala aparte desde el disco de la Mac (fuentes/san-francisco.md);
+# no viene en el repo. Su familia en gsettings es «.SF NS». Si no está, Inter
+# (la alternativa libre con las mismas proporciones; «Inter», no «Inter
+# Display», que es para títulos grandes).
+if fc-list : family | grep -q '^\.SF NS$\|,\.SF NS$\|^\.SF NS,'; then
+  FUENTE='.SF NS'; TITULO='.SF NS Semibold'
+else
+  dpkg -s fonts-inter >/dev/null 2>&1 || sudo apt install -y fonts-inter
+  FUENTE='Inter'; TITULO='Inter Semi-Bold'
+fi
 { gsettings get org.cinnamon.desktop.interface font-name
   gsettings get org.gnome.desktop.interface document-font-name
   gsettings get org.cinnamon.desktop.wm.preferences titlebar-font; } > "$RESPALDO/fuentes.txt"
-gsettings set org.cinnamon.desktop.interface font-name 'Inter 10'
-gsettings set org.gnome.desktop.interface font-name 'Inter 10'
-gsettings set org.gnome.desktop.interface document-font-name 'Inter 10'
-gsettings set org.cinnamon.desktop.wm.preferences titlebar-font 'Inter Semi-Bold 10'
-gsettings set org.nemo.desktop font 'Inter 10'
+gsettings set org.cinnamon.desktop.interface font-name "$FUENTE 10"
+gsettings set org.gnome.desktop.interface font-name "$FUENTE 10"
+gsettings set org.gnome.desktop.interface document-font-name "$FUENTE 10"
+gsettings set org.cinnamon.desktop.wm.preferences titlebar-font "$TITULO 10"
+gsettings set org.nemo.desktop font "$FUENTE 10"
+echo "  fuente: $FUENTE"
+
+paso "Retoques de GTK (selector de vista segmentado de nemo-mac)"
+REPO="$(cd "$(dirname "$0")" && pwd)"
+mkdir -p "$HOME/.config/gtk-3.0"
+cp "$REPO/gtk/mint-macos.css" "$HOME/.config/gtk-3.0/mint-macos.css"
+touch "$HOME/.config/gtk-3.0/gtk.css"
+grep -q 'mint-macos.css' "$HOME/.config/gtk-3.0/gtk.css" || sed -i '1i @import url("mint-macos.css");' "$HOME/.config/gtk-3.0/gtk.css"
 
 paso "Dock: tema Mojave oscuro"
 mkdir -p "$HOME/.local/share/plank/themes/Mojave-Dark"
