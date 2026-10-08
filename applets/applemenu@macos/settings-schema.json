@@ -1,0 +1,7 @@
+{
+  "icon-path": {
+    "type": "entry",
+    "default": "/usr/share/icons/WhiteSur-dark/places@2x/16/folder-apple.svg",
+    "description": "Path to Apple icon SVG/PNG for the applet button"
+  }
+}

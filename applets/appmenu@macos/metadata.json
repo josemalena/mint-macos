@@ -1,0 +1,13 @@
+{
+  "uuid": "appmenu@macos",
+  "name": "Application Menu (macOS-style)",
+  "description": "Shows focused app name, with Quit\u2026 and About\u2026 (package/version info when available).",
+  "max-instances": 1,
+  "cinnamon-version": [
+    "5.8",
+    "6.0",
+    "6.2",
+    "6.4",
+    "6.6"
+  ]
+}

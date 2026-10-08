@@ -1,0 +1,15 @@
+{
+  "fallback-label": {
+    "type": "entry",
+    "default": "Finder",
+    "description": "Label to show when no application window is focused (or nemo-desktop)"
+  },
+  "label-padding-left": {
+    "type": "spinbutton",
+    "default": 6,
+    "min": 0,
+    "max": 20,
+    "step": 1,
+    "description": "Left padding for label (px)"
+  }
+}
