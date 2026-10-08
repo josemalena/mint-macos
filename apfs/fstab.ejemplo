@@ -1,5 +1,7 @@
-# Disco APFS de la Mac, en solo lectura, montado al primer acceso.
+# Disco APFS de la Mac, en solo lectura, montado al primer acceso y visible
+# en Nemo con nombre e ícono propios.
 # Cambia el UUID por el de tu partición (lsblk -o NAME,FSTYPE,UUID) y, si el
 # volumen de datos no es el 1, ajusta «-f 1» en /sbin/mount.fsapfs
 # (fsapfsinfo /dev/sdXN lista los volúmenes del contenedor).
-UUID=<uuid-de-la-particion>  /media/<usuario>/MacMini  fsapfs  ro,nofail,x-systemd.automount,x-systemd.device-timeout=10  0  0
+# En x-gvfs-name los espacios van como \040.
+UUID=<uuid-de-la-particion>  /media/<usuario>/MacMini  fsapfs  ro,nofail,x-systemd.automount,x-systemd.device-timeout=10,x-gvfs-show,x-gvfs-name=MacMini\040-\040Data,x-gvfs-icon=drive-harddisk  0  0

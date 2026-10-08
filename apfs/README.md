@@ -7,7 +7,11 @@ seguro para un disco con datos de una Mac.
 ## Requisitos
 
 - Paquetes: `build-essential autoconf automake autopoint libtool pkg-config
-  libfuse3-dev fuse3 curl` (los instala el script).
+  libssl-dev libfuse3-dev fuse3 curl` (los instala el script). Sin
+  `libssl-dev`, la lectura falla con *unable to set padding in context*.
+  No usar el `libfsapfs` de apt: está viejo y roto con OpenSSL 3.
+- `user_allow_other` activo en `/etc/fuse.conf`, para montar desde Nemo.
+- Opcional: el usuario en el grupo `disk`, para montar a mano sin `sudo`.
 - libfsapfs **20260921**, compilado desde la versión publicada; no está en
   los repositorios de Mint. Otra versión: `LIBFSAPFS_VERSION=… ./instalar-fsapfs.sh`.
 - Para el montaje automático, el disco en el `fstab` con `fstype=fsapfs`.
@@ -18,9 +22,9 @@ seguro para un disco con datos de una Mac.
 ./instalar-fsapfs.sh
 ```
 
-Compila e instala `fsapfsinfo` y `fsapfsmount` en `/usr/local/bin`, y copia
-`mount.fsapfs` a `/sbin`, que es el que llama `mount` cuando el fstab dice
-`fsapfs`.
+Compila e instala `fsapfsinfo` y `fsapfsmount` en `/usr/local/bin`, copia
+`mount.fsapfs` a `/sbin` (el que llama `mount` cuando el fstab dice
+`fsapfs`), activa `user_allow_other` y te agrega al grupo `disk`.
 
 ## Montar
 
@@ -33,10 +37,17 @@ fsapfsinfo /dev/sdb2                       # lista los volúmenes
 fsapfsmount -f 1 /dev/sdb2 ~/macmini-ro    # a mano, sin sudo si estás en el grupo disk
 ```
 
-Automático al primer acceso: la línea de `fstab.ejemplo` en `/etc/fstab`
-(con el UUID de `lsblk -o NAME,FSTYPE,UUID`) y luego
-`sudo systemctl daemon-reload`. El volumen se elige en `mount.fsapfs`
-(`-f 1` = «MacMini - Data»).
+Automático y en Nemo: la línea de `fstab.ejemplo` en `/etc/fstab` (con el
+UUID de `lsblk -o NAME,FSTYPE,UUID`) y luego `sudo systemctl daemon-reload`.
+Se monta solo al primer acceso, y en Nemo aparece como «MacMini - Data»
+con clic para montar. El volumen se elige en `mount.fsapfs` (`-f 1`).
+
+| Error | Causa | Arreglo |
+|---|---|---|
+| *option allow_other only allowed if 'user_allow_other' is set* | Montaste desde Nemo (como usuario) y falta la línea en `/etc/fuse.conf` | `sudo sed -i 's/^#user_allow_other/user_allow_other/' /etc/fuse.conf` |
+| *invalid volume index value out of bounds* | No se dijo qué volumen del contenedor | `-f 1` (o el que diga `fsapfsinfo`) |
+| *unable to set padding in context* | libfsapfs sin OpenSSL o el de apt | Reinstalar con `./instalar-fsapfs.sh` |
+| *Transport endpoint is not connected* | El proceso FUSE murió | `./recuperar.sh` |
 
 ## Cuando se cuelga
 
@@ -49,11 +60,10 @@ solo:
 ./recuperar.sh /otro/punto
 ```
 
-## Escritura (no recomendada)
+## Por qué fsapfsmount y no el módulo del kernel
 
-Existe un módulo del kernel con escritura experimental,
-[linux-apfs-rw](https://github.com/linux-apfs/linux-apfs-rw) (v0.3.21). Hay
-que recompilarlo con cada kernel nuevo (`linux-headers-$(uname -r)`, `make`,
-o por DKMS) y su propio README advierte riesgo real de corromper datos. Para
-un disco con información de la Mac, quedarse con fsapfsmount en solo
-lectura.
+Hay un módulo con escritura experimental, linux-apfs-rw, pero hay que
+recompilarlo con cada kernel nuevo (en esta computadora quedó compilado
+para el 6.17 y no carga en el 7.0) y su propio README advierte riesgo de
+corromper datos. fsapfsmount no depende del kernel y en solo lectura no
+puede dañar el disco de la Mac: es el único camino que se usa aquí.
