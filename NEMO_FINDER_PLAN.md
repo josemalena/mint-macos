@@ -28,9 +28,12 @@ comportamiento.
 
 Sale del tema o ya existe en Nemo:
 - **Colores, tipografía, alturas de fila y esquinas:** tema GTK. **La fuente es
-  Inter** (OFL), la que ya instala `catalina.sh`. San Francisco no se usa: no tiene
-  versión libre y su licencia limita el uso a plataformas de Apple (José pidió «la
-  versión open source de San Francisco» el 07-10-2026; no existe).
+  San Francisco, instalada en local por José** desde su propia copia (decisión
+  del 07-10-2026, sabiendo que la licencia de Apple la limita a sus sistemas
+  operativos). **Los archivos de SF nunca entran al repo** (es público en GitHub:
+  sería redistribuirla). `catalina.sh` la usa si la encuentra instalada y, si no,
+  cae en **Inter** (OFL), que sigue siendo la fuente por defecto del repo.
+  Esto es de Infra, no del fork: Nemo toma la fuente del sistema.
 - **Filas en cebra:** la lista ya activa `gtk_tree_view_set_rules_hint`
   (`nemo-list-view.c:2680`); el color lo da el tema.
 - **Triángulos para desplegar carpetas en la lista:** ya es una opción
