@@ -14,9 +14,12 @@ comportamiento.
 
 ## Decisiones de José
 
-1. **Alcance: la Fase 1 (puntos 1 a 5) y el punto 8 (etiquetas).** Fuera, por
-   ahora: la barra unificada con el título (CSD), «Agrupar por», compartir, y las
-   vistas de columnas y de galería.
+1. **Alcance: la Fase 1 (puntos 1 a 5).** Corrección de José del mismo día: lo
+   que llamó «etiquetas» eran **los títulos de sección de la barra lateral**
+   (Favorites, iCloud, Locations), que es el punto 3, **sin la sección Tags**. El
+   punto 8 (etiquetas de archivos) queda fuera. También fuera, por ahora: la barra
+   unificada con el título (CSD), «Agrupar por», compartir, y las vistas de columnas
+   y de galería.
 2. **Cada cambio es una opción en gsettings.**
 3. **El fork es un binario propio, con otro nombre**, para que una actualización
    del sistema no lo pise ni lo mezcle con el Nemo de Mint.
@@ -60,30 +63,18 @@ Estimación de Marketing para alguien con C y GTK 3; Dev la corrige.
 |---|---|---|---|---|---|
 | 1 | **Archivos ocultos atenuados** (los que empiezan por punto) | `nemo-list-view.c` (lo que pinta la celda del nombre) y la vista de íconos | Bajar la opacidad del texto y del ícono | `dim-hidden-files` | ½–1 día |
 | 2 | **Texto de la barra de estado centrado** | `nemo-statusbar.c:160-225`: el `GtkStatusbar` va entre botones y el zoom | Etiqueta centrada; decidir si el zoom se esconde (el Finder no lo tiene) | `statusbar-centered`, `statusbar-show-zoom` | ½ día |
-| 3 | **Barra lateral con las secciones del Finder**: Favoritos, Ubicaciones, Etiquetas | `nemo-places-sidebar.c`: «My Computer» (:779), «Bookmarks» (:928), «Devices» (:348), «Network» (:1240) | Renombrar y reordenar; «Favoritos» une las carpetas del usuario con los marcadores | `sidebar-finder-sections` | 1–3 días |
+| 3 | **Barra lateral con las secciones del Finder**: **Favorites, iCloud y Locations** (sin Tags) | `nemo-places-sidebar.c`: «My Computer» (:779), «Bookmarks» (:928), «Devices» (:348), «Network» (:1240) | Renombrar y reordenar; «Favorites» une las carpetas del usuario con los marcadores; «iCloud» enseña el iCloud Drive montado (ver abajo); «Locations», los discos y la red | `sidebar-finder-sections` | 1–3 días |
 | 4 | **Selector de vista segmentado** | `nemo-toolbar.c:355-361`: tres botones sueltos (íconos, lista, compacta) | Ponerlos en una caja `linked` para que el tema los pinte pegados | `toolbar-linked-view-switcher` | ½–1 día |
 | 5 | **Búsqueda siempre visible a la derecha** | `nemo-toolbar.c:344` (botón) y `nemo-window-slot.c:389` (el editor de búsqueda vive en cada panel) | Un campo fijo en la barra que maneje la búsqueda del panel activo; cuidar el modo de dos paneles | `toolbar-search-entry` | 3–5 días |
 
-## Punto 8: etiquetas
+## La sección iCloud
 
-Nemo no tiene etiquetas; tiene **emblemas** (en `nemo-list-model.c`,
-`nemo-list-view.c` y `nemo-icon-view-container.c`). Dos caminos, **lo decide José
-con Dev**:
-
-- **A. Etiquetas sobre emblemas, alrededor de 1 semana.** Siete colores como los
-  del Finder, guardados como emblemas (metadatos de gvfs); un menú «Etiquetas»
-  en el clic derecho; la sección «Etiquetas» de la barra lateral filtra por color.
-  Limitación: el metadato vive solo en este host, **no viaja con el archivo**.
-- **B. Etiquetas compatibles con macOS, 3 semanas o más.** Leer y escribir las
-  etiquetas del Finder en el atributo extendido del archivo
-  (`com.apple.metadata:_kMDItemUserTags`, en plist binario), para que una etiqueta
-  puesta en el Mac se vea aquí y al revés, en discos o carpetas compartidas que
-  conserven los atributos extendidos (el NAS por SMB, por ejemplo; el APFS del Mac
-  Mini está en solo lectura). **Es el que encaja con la idea de «transparente»**,
-  pero hay que comprobar primero que los atributos sobreviven en el camino real
-  (SMB del NAS → este host).
-
-Ajustes: `tags-enabled` y `tags-backend` (`emblems` o `macos-xattr`).
+En Linux no hay cliente oficial de iCloud Drive. Para que «iCloud» enseñe algo,
+el iCloud Drive tiene que estar montado en este host (rclone tiene un conector de
+iCloud Drive; versión y estabilidad por verificar). **Eso es de Infra, no del
+fork.** El fork solo necesita una ruta configurable: si existe, sale la sección
+«iCloud» con «iCloud Drive»; si no, la sección no aparece. Ajuste:
+`sidebar-icloud-path`.
 
 ## Mantenimiento
 
@@ -96,8 +87,7 @@ Ajustes: `tags-enabled` y `tags-backend` (`emblems` o `macos-xattr`).
 ## Lo que Planner tiene que decidir o pedir
 
 1. **El nombre del fork** (propuesta: `nemo-mac`, `org.koralis.NemoMac`), con José.
-2. **El camino de las etiquetas** (A o B), con José, después de comprobar los
-   atributos extendidos por SMB si se va por B.
+2. **Cómo se monta iCloud Drive** en este host (Infra), y en qué ruta.
 3. **Quién reclama `FileManager1`**, y si las acciones de Nemo se comparten.
 4. **Dónde vive el código del fork**: repo propio (`nemo-mac`, fork de
    `linuxmint/nemo`) con su instalador llamado desde `mint-macos`.
