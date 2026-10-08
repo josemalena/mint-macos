@@ -69,6 +69,7 @@ SIMBOLICOS = [
     (f'{CT}/SidebarRemovableDisk.icns',   ['drive-removable-media-symbolic', 'drive-removable-media-usb-symbolic']),
     (f'{CT}/SidebarOpticalDisk.icns',     ['drive-optical-symbolic', 'media-optical-symbolic']),
     (f'{CT}/SidebarNetwork.icns',         ['network-workgroup-symbolic']),
+    (f'{CT}/SidebarServerDrive.icns',     ['folder-remote-symbolic', 'network-server-symbolic']),
     (f'{CT}/SidebarMacMini.icns',         ['computer-symbolic']),
     (f'{CT}/SidebarGenericFolder.icns',   ['folder-symbolic']),
     # Los Toolbar*.icns son los íconos viejos de Aqua a color (el «prohibido»
