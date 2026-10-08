@@ -27,7 +27,10 @@ comportamiento.
 ## Lo que no hace falta programar
 
 Sale del tema o ya existe en Nemo:
-- **Colores, tipografía, alturas de fila y esquinas:** tema GTK.
+- **Colores, tipografía, alturas de fila y esquinas:** tema GTK. **La fuente es
+  Inter** (OFL), la que ya instala `catalina.sh`. San Francisco no se usa: no tiene
+  versión libre y su licencia limita el uso a plataformas de Apple (José pidió «la
+  versión open source de San Francisco» el 07-10-2026; no existe).
 - **Filas en cebra:** la lista ya activa `gtk_tree_view_set_rules_hint`
   (`nemo-list-view.c:2680`); el color lo da el tema.
 - **Triángulos para desplegar carpetas en la lista:** ya es una opción
