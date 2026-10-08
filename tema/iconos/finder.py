@@ -101,6 +101,8 @@ BARRA = [
     ('ToolbarNewFolder', ['folder-new-symbolic']),
     ('QuickLook',        ['view-reveal-symbolic']),
     ('Sidebar',          ['view-sidebar-symbolic', 'sidebar-show-symbolic']),
+    ('ToolbarArrangeBy', ['view-sort-ascending-symbolic']),
+    ('Path',             ['view-path-symbolic']),
     ('Refresh',          ['view-refresh-symbolic']),
     ('Add',              ['list-add-symbolic']),
     ('Remove',           ['list-remove-symbolic']),
