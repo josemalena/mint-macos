@@ -88,3 +88,12 @@
   background-color: rgba(255, 255, 255, 0.05);
   border-color: rgba(0, 0, 0, 0.30);
 }
+
+// Menús contextuales (el clic derecho de las apps GTK y del escritorio, que
+// pinta nemo-desktop): Mojave les pone «font: initial», que reinicia la
+// familia y se salta gtk-font-name. Se les devuelve la SF; sin ella, Inter.
+.context-menu,
+popover.touch-selection {
+  font-family: ".SF NS", "Inter", sans-serif;
+  font-size: 10pt;
+}

@@ -62,4 +62,52 @@ mv "$BASE" "$DEST/$NOMBRE"
 PLANK="$HOME/.local/share/plank/themes/$NOMBRE"
 rm -rf "$PLANK"; mkdir -p "$PLANK"
 cp "$TMP/mojave/src/other/plank/Theme-Dark/"* "$PLANK/"
+# El Dock de Catalina, medido por la sesión de Plank contra las capturas de
+# José (alto 73 con íconos de 56, paso de 60, el punto de 4 px). Las claves
+# nuevas de plank-reloaded (IndicatorStyle=4 es el punto, BlurRadius,
+# SeparatorPadding) van en [PlankDockTheme]. Cada clave se escribe en su
+# línea: plank-reloaded reescribe el archivo al cargarlo y, si una clave
+# queda repetida, manda la última.
+python3 - "$PLANK/dock.theme" <<'PY'
+import sys
+ruta = sys.argv[1]
+VALORES = {
+    'PlankTheme': {
+        'TopRoundness': '5', 'BottomRoundness': '0', 'LineWidth': '1',
+        'OuterStrokeColor': '7;;10;;15;;255',
+        'FillStartColor': '22;;31;;43;;200', 'FillEndColor': '22;;31;;43;;200',
+        'InnerStrokeColor': '56;;63;;75;;255',
+    },
+    'PlankDockTheme': {
+        'HorizPadding': '1.7', 'TopPadding': '1.4', 'BottomPadding': '1.5',
+        'ItemPadding': '0.75', 'IconShadowSize': '0',
+        'IndicatorStyle': '4', 'IndicatorColor': '131;;140;;152;;255',
+        'IndicatorSize': '0.75', 'IndicatorOffset': '-0.6',
+        'BlurRadius': '30', 'SeparatorPadding': '-2.2',
+    },
+}
+lineas, seccion, vistos = open(ruta).read().splitlines(), None, set()
+salida = []
+def cerrar(sec):
+    for k, v in VALORES.get(sec, {}).items():
+        if (sec, k) not in vistos:
+            salida.append(f'{k}={v}')
+for l in lineas:
+    if l.startswith('['):
+        cerrar(seccion); seccion = l.strip('[]')
+        # Mojave usa los nombres viejos de las secciones; Plank y el fork
+        # leen [PlankTheme] y [PlankDockTheme].
+        NUEVO = {'PlankDrawingTheme': 'PlankTheme', 'PlankDrawingDockTheme': 'PlankDockTheme'}
+        if seccion in NUEVO:
+            seccion = NUEVO[seccion]; l = f'[{seccion}]'
+    elif '=' in l and seccion in VALORES:
+        k = l.split('=', 1)[0].strip()
+        if k in VALORES[seccion]:
+            if (seccion, k) in vistos:
+                continue
+            vistos.add((seccion, k)); l = f'{k}={VALORES[seccion][k]}'
+    salida.append(l)
+cerrar(seccion)
+open(ruta, 'w').write('\n'.join(salida) + '\n')
+PY
 echo "  tema: $DEST/$NOMBRE"

@@ -11,6 +11,7 @@ RESP_BASE="$HOME/.mint-macos-respaldo"
 ULTIMO="$RESP_BASE/ultimo-constanza"
 KITTY="$HOME/.config/kitty/kitty.conf"
 GTKCSS="$HOME/.config/gtk-3.0/gtk.css"
+LANZADORES="$HOME/.config/plank/dock1/launchers"
 paso() { printf '\n▸ %s\n' "$*"; }
 
 DCONF_RUTAS=(/org/cinnamon/desktop/interface/ /org/gnome/desktop/interface/ \
@@ -32,6 +33,9 @@ if [ "${1:-}" = "--deshacer" ]; then
   done
   [ -f "$R/kitty.conf" ] && cp "$R/kitty.conf" "$KITTY"
   [ -f "$R/gtk.css" ] && cp "$R/gtk.css" "$GTKCSS"
+  if [ -d "$R/lanzadores" ]; then
+    rm -f "$LANZADORES"/*.dockitem; cp "$R/lanzadores/"*.dockitem "$LANZADORES/" 2>/dev/null || true
+  fi
   reiniciar_plank
   echo "  listo; en kitty, ctrl+shift+F5 recarga la fuente"
   exit 0
@@ -58,6 +62,8 @@ for ruta in "${DCONF_RUTAS[@]}"; do
 done
 [ -f "$KITTY" ] && cp "$KITTY" "$R/kitty.conf"
 [ -f "$GTKCSS" ] && cp "$GTKCSS" "$R/gtk.css"
+# Los lanzadores del dock son archivos, no dconf: van aparte.
+[ -d "$LANZADORES" ] && { mkdir -p "$R/lanzadores"; cp "$LANZADORES"/*.dockitem "$R/lanzadores/" 2>/dev/null || true; }
 echo "$R" > "$ULTIMO"; echo "  $R"
 
 paso "Activando"
@@ -68,6 +74,9 @@ gsettings set org.cinnamon.desktop.interface icon-theme 'Constanza'
 gsettings set org.cinnamon.desktop.interface cursor-theme 'McMojave-cursors' 2>/dev/null || true
 gsettings set org.cinnamon.desktop.wm.preferences button-layout 'close,minimize,maximize:'
 dconf write /net/launchpad/plank/docks/dock1/theme "'Constanza-Oscuro'"
+# El resto del dock (tamaño, zoom, posición, monitor, lanzadores) lo pone
+# plank/configurar.sh, de la sesión de Plank.
+"$AQUI/plank/configurar.sh" || echo "  ✗ plank/configurar.sh falló; el dock queda como estaba"
 
 # Fondo: Catalina al atardecer, si se pudo sacar de la Mac; si no, se queda
 # el que haya. «zoom» llena los dos monitores (16:10 y 5:4) recortando
