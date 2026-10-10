@@ -142,7 +142,10 @@ fi
 MARCA_I="# >>> menú global (mint-macos/menu-global) >>>"
 MARCA_F="# <<< menú global <<<"
 touch "$HOME/.xsessionrc"
-sed -i "/^$MARCA_I\$/,/^$MARCA_F\$/d" "$HOME/.xsessionrc"
+# Quita el bloque de una corrida anterior (comparación exacta: la marca lleva
+# «/» y «#», que un sed tomaría por delimitadores).
+awk -v i="$MARCA_I" -v f="$MARCA_F" '$0 == i {fuera=1} !fuera {print} $0 == f {fuera=0}' \
+  "$HOME/.xsessionrc" > "$HOME/.xsessionrc.nuevo" && mv "$HOME/.xsessionrc.nuevo" "$HOME/.xsessionrc"
 cat >> "$HOME/.xsessionrc" <<EOF
 $MARCA_I
 case ":\${GTK_MODULES:-}:" in *:appmenu-gtk-module:*) ;; *) export GTK_MODULES="\${GTK_MODULES:+\$GTK_MODULES:}appmenu-gtk-module" ;; esac
