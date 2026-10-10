@@ -63,14 +63,20 @@ class NotificationCenter extends Applet.Applet {
     this._senal = Main.messageTray.connect("notify-applet-update", (_t, n) => this._agregar(n));
   }
 
+  // El contador de Cinnamon se sube ANTES de armar el menú: si el armado
+  // falla y se baja al quitar el applet, queda en 0 y Cinnamon deja de
+  // pasarle las notificaciones a nadie (pasó el 10-10-2026).
   on_applet_added_to_panel() {
+    if (!this._contado) { MessageTray.extensionsHandlingNotifications++; this._contado = true; }
     this._armarMenu();
-    MessageTray.extensionsHandlingNotifications++;
   }
 
   on_applet_removed_from_panel() {
     if (this._senal) Main.messageTray.disconnect(this._senal);
-    MessageTray.extensionsHandlingNotifications--;
+    if (this._contado) {
+      MessageTray.extensionsHandlingNotifications = Math.max(0, MessageTray.extensionsHandlingNotifications - 1);
+      this._contado = false;
+    }
     if (MessageTray.extensionsHandlingNotifications === 0) this._borrarTodo();
   }
 
@@ -99,13 +105,14 @@ class NotificationCenter extends Applet.Applet {
     this.menu.box.set_style(`width: ${ANCHO_PANEL}px; padding: 8px 0; background-color: rgba(30, 30, 32, 0.96);` +
                             " border: 1px solid #45474a; border-radius: 0;");
 
-    // Arriba a la derecha, «Clear All» solo cuando hay algo que borrar.
-    this._cabecera = new St.BoxLayout({ style: "padding: 0 12px 6px 12px;" });
-    this._cabecera.add(new St.Label({ text: "" }), { expand: true });
+    // «Clear All» arriba, alineado con las tarjetas, solo cuando hay algo que
+    // borrar. A la izquierda: el menú de un applet pegado a la esquina queda
+    // unos píxeles fuera de la pantalla y lo de la derecha se cortaba.
+    this._cabecera = new St.BoxLayout({ style: "padding: 0 0 6px 10px;" });
     this._botonBorrar = new St.Button({ label: "Clear All", reactive: true, track_hover: true,
                                         style: FUENTE + " font-size: 9pt; color: rgba(255,255,255,0.6);" });
     this._botonBorrar.connect("clicked", () => this._borrarTodo());
-    this._cabecera.add(this._botonBorrar);
+    this._cabecera.add_child(this._botonBorrar);
     this.menu.addActor(this._cabecera);
 
     this._vacio = new St.Label({ text: "No Notifications", x_align: Clutter.ActorAlign.CENTER,
