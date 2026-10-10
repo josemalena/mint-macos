@@ -1,3 +1,5 @@
-.globalmenu-boton { padding: 0 8px; font-weight: normal; }
-.globalmenu-boton:hover, .globalmenu-boton:checked { background-color: rgba(255, 255, 255, 0.14); border-radius: 4px; }
+/* Con #panel delante: el tema de Mojave le pone padding 0 y negrita a los
+   botones del panel con más especificidad que una clase sola. */
+#panel .globalmenu-boton { padding: 0 8px; font-weight: normal; }
+#panel .globalmenu-boton:hover, #panel .globalmenu-boton:checked { background-color: rgba(255, 255, 255, 0.14); border-radius: 4px; }
 .globalmenu-atajo { color: rgba(255, 255, 255, 0.45); padding-left: 24px; }

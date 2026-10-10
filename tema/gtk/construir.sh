@@ -35,6 +35,17 @@ done
 
 # Lo propio encima del panel y los menús de Cinnamon.
 cat "$AQUI/_constanza-cinnamon.css" >> "$BASE/cinnamon/cinnamon.css"
+# La fuente del shell (menú de Cinnamon, panel, menús de applets, OSD): Mojave
+# pide «Futura Bk bt», que no está, y fontconfig la cambia por Noto Sans. Va
+# la SF a 10 pt (13 px, como los menús de macOS), o Inter si no está. Los
+# textos fijos de 10 px (about, run dialog, ventanas agrupadas) suben a 11.
+# Ojo con pipefail: fc-list se lee a una variable antes del grep.
+FAMILIAS="$(fc-list : family)"
+if grep -q '^\.SF NS$\|,\.SF NS$\|^\.SF NS,' <<< "$FAMILIAS"; then SHELL_FUENTE='".SF NS"'
+else SHELL_FUENTE='"Inter"'; fi
+sed -i -e "0,/font-family: Futura[^;]*;/s//font-family: $SHELL_FUENTE, sans-serif;/" \
+       -e '0,/font-size: 9pt;/s//font-size: 10pt;/' \
+       -e 's/font-size: 10px;/font-size: 11px;/' "$BASE/cinnamon/cinnamon.css"
 
 # Nombre propio y metatema.
 sed -i -e "s/^Name=.*/Name=$NOMBRE/" -e "s/^GtkTheme=.*/GtkTheme=$NOMBRE/" \
