@@ -146,3 +146,36 @@
 #panelRight {
   padding-right: 17px;
 }
+
+/* Notificaciones como las de Catalina (José, 10-10-2026): tarjeta de 344 px
+   con esquinas de 12, fondo oscuro translúcido con un borde fino, la SF, el
+   título en negrita y el texto un poco atenuado. Vale para el aviso que sale
+   arriba a la derecha y para las tarjetas del panel de la Notification Center
+   (notificaciones@macos), que son la misma pieza de Cinnamon. Referencia
+   pública de Catalina: José no tiene captura de una notificación. */
+#notification,
+.menu #notification,
+.popup-menu #notification {
+  font-family: ".SF NS", sans-serif;
+  font-size: 10pt;
+  width: 320px;
+  padding: 10px 12px 11px 10px;
+  spacing-rows: 3px;
+  spacing-columns: 10px;
+  margin-from-right-edge-of-screen: 15px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background-color: rgba(44, 44, 46, 0.95);
+  color: rgba(255, 255, 255, 0.85);
+}
+#notification.multi-line-notification {
+  padding-bottom: 11px;
+  color: rgba(255, 255, 255, 0.85);
+}
+#notification-body {
+  spacing: 2px;
+}
+/* En el panel la tarjeta ya trae su propio aire. */
+.notification-applet-padding {
+  padding: 0;
+}
