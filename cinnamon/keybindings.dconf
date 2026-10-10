@@ -1,10 +1,15 @@
 [/]
-custom-list=['custom0']
+custom-list=['custom0', 'custom1']
 
 [custom-keybindings/custom0]
-binding=['<Alt><Shift><Super>Escape']
+binding=['<Alt><Super>Escape']
 command='python3 /home/jmalena/.local/share/cinnamon/applets/applemenu@macos/forcekill.py'
-name='Force Quit'
+name='Force Quit…'
+
+[custom-keybindings/custom1]
+binding=['<Alt><Shift><Super>Escape']
+command='python3 /home/jmalena/.local/share/cinnamon/applets/applemenu@macos/forzar-app-del-frente.py'
+name='Force Quit (app del frente)'
 
 [media-keys]
 area-screenshot=@as []
