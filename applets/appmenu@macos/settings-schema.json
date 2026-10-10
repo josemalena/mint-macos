@@ -4,12 +4,12 @@
     "default": "Finder",
     "description": "Label to show when no application window is focused (or nemo-desktop)"
   },
-  "label-padding-left": {
+  "button-padding": {
     "type": "spinbutton",
-    "default": 6,
+    "default": 10,
     "min": 0,
     "max": 20,
     "step": 1,
-    "description": "Left padding for label (px)"
+    "description": "Padding around the app name, inside the highlight (px)"
   }
 }

@@ -24,6 +24,13 @@ const ATTR_ACCEL = "accel";
 const LINK_SUBMENU = "submenu";
 const LINK_SECTION = "section";
 
+// La barra de menús va siempre en SF, como en macOS, aunque el shell de
+// Cinnamon use otra fuente. Va en línea: el tema de Mojave le gana a un
+// stylesheet de applet (padding 0 y negrita en los botones del panel), y
+// después de recargar el tema el stylesheet no siempre vuelve a ganar.
+const ESTILO_FUENTE = 'font-family: ".SF NS", sans-serif; font-size: 10pt;';
+const ESTILO_BOTON = ESTILO_FUENTE + " font-weight: normal; padding: 0 8px;";
+
 function atributo(modelo, i, nombre) {
   let v = modelo.get_item_attribute_value(i, nombre, null);
   return v ? v : null;
@@ -192,12 +199,14 @@ class GlobalMenuApplet extends Applet.Applet {
 
   _agregarBoton(etiqueta, submenu) {
     let boton = new St.Button({ label: etiqueta, style_class: "globalmenu-boton", reactive: true,
-                                can_focus: true, track_hover: true, toggle_mode: false });
+                                can_focus: true, track_hover: true, toggle_mode: false,
+                                style: ESTILO_BOTON });
     this._caja.add_actor(boton);
 
     let lado = this._orientation === St.Side.BOTTOM ? St.Side.BOTTOM : St.Side.TOP;
     let menu = new PopupMenu.PopupMenu(boton, lado);
     menu._calculatePosition = alinearALaIzquierda;
+    menu.actor.set_style(ESTILO_FUENTE);
     Main.uiGroup.add_actor(menu.actor);
     menu.actor.hide();
     this.menuManager.addMenu(menu);

@@ -255,7 +255,7 @@ class AppMenuApplet extends Applet.TextApplet {
 
     this.settings = new Settings.AppletSettings(this, metadata.uuid, instance_id);
     this.settings.bind("fallback-label", "fallbackLabel", this._updateLabel.bind(this));
-    this.settings.bind("label-padding-left", "labelPaddingLeft", this._applyLabelStyle.bind(this));
+    this.settings.bind("button-padding", "buttonPadding", this._applyLabelStyle.bind(this));
 
     this.set_applet_tooltip("Application Menu");
 
@@ -287,10 +287,15 @@ class AppMenuApplet extends Applet.TextApplet {
     });
   }
 
+  // El relleno va en el botón, no en la etiqueta: así el resaltado empieza y
+  // termina 10 px antes y después del nombre, como en la barra de macOS. Va
+  // en línea porque el .applet-box del tema le gana a un stylesheet. La
+  // fuente también: la barra va en SF aunque el shell use otra.
   _applyLabelStyle() {
     try {
-      let px = Number(this.labelPaddingLeft ?? 6);
-      this._label.set_style(`padding-left: ${px}px; padding-right: 4px;`);
+      let px = Number(this.buttonPadding ?? 10);
+      this.actor.set_style(`padding-left: ${px}px; padding-right: ${px}px;`);
+      this._applet_label.set_style('padding-left: 0; padding-right: 0; font-family: ".SF NS", sans-serif; font-size: 10pt;');
     } catch (e) {}
   }
 
