@@ -90,13 +90,25 @@ PY
 )"
 fi
 
-dconf write "$CLAVES/dock-items" "$items"
+# El orden de la Mac se pone una sola vez: después José reorganiza el dock a
+# mano (arrastrar, «Keep in Dock», «Remove from Dock») y una reinstalación no
+# se lo deshace. Para volver al orden de la Mac: borrar la marca y correr esto.
+MARCA="$LANZADORES/../.orden-mac-aplicado"
+if [ ! -f "$MARCA" ]; then
+  dconf write "$CLAVES/dock-items" "$items"
+  touch "$MARCA"
+else
+  items="(se respeta el orden de José)"
+fi
 dconf write "$CLAVES/icon-size" 56
 dconf write "$CLAVES/zoom-enabled" true
 dconf write "$CLAVES/zoom-percent" 170
 dconf write "$CLAVES/position" "'bottom'"
 dconf write "$CLAVES/alignment" "'center'"
 dconf write "$CLAVES/hide-mode" "'none'"
+# Sin bloquear: se reordena arrastrando y se quita sacándolo del dock o con
+# «Options ▸ Remove from Dock», como en macOS.
+dconf write "$CLAVES/lock-items" false
 dconf write "$CLAVES/monitor" "'$PLANK_MONITOR'"
 
 echo "Plank: Finder $(basename "$FINDER_DESKTOP" .desktop), ${#lista[@]} ítems, ícono 56, ampliación 170 %, monitor «${PLANK_MONITOR:-el principal}»."
