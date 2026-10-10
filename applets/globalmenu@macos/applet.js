@@ -59,6 +59,22 @@ function separador() {
   return s;
 }
 
+// Los renglones reparten sus hijos con las columnas del menú, pero Clutter
+// guarda el ancho que pidieron antes de recibirlas, y Cinnamon solo lo
+// invalida si el tema tiene background-image (_menuQueueRelayout). Sin esto,
+// al llenar un menú abierto la caja queda en 257 y el renglón se pinta a 276:
+// el separador y el resaltado se salen por la derecha. Pasaba en los dos
+// caminos (en GTK, el Go de Fynder, foto de José del 10-10-2026). Se baja
+// también a los submenús en línea.
+function relanzar(menu) {
+  for (let a of menu.box.get_children()) {
+    a.queue_relayout();
+    let d = a._delegate;
+    if (d && d.menu && d.menu.box && d.menu !== menu) relanzar(d.menu);
+  }
+  menu.box.queue_relayout();
+}
+
 // Lo que se ve de un menú dbusmenu, para saber si cambió al abrirlo.
 function firmaDbus(items) {
   return JSON.stringify(items, (k, v) => (typeof v === "function" ? undefined : v));
@@ -295,6 +311,7 @@ class GlobalMenuApplet extends Applet.Applet {
     this._soltarSubmodelos();
     menu.removeAll();
     this._agregarItems(menu, modelo, 0);
+    relanzar(menu);
     // Si un submenú llega por D-Bus con el menú ya abierto, se rehace.
     this._vigilar(modelo, menu, modelo);
   }
@@ -434,13 +451,7 @@ class GlobalMenuApplet extends Applet.Applet {
   _llenarDbus(menu, items) {
     menu.removeAll();
     this._itemsDbus(menu, items, 0);
-    // Los renglones reparten sus hijos con las columnas del menú, pero Clutter
-    // guarda el ancho que pidieron antes de recibirlas, y Cinnamon solo lo
-    // invalida si el tema tiene background-image (_menuQueueRelayout). Sin
-    // esto, la caja queda en 257 y el renglón se pinta a 276: el separador y
-    // el resaltado se salen por la derecha.
-    for (let a of menu.box.get_children()) a.queue_relayout();
-    menu.box.queue_relayout();
+    relanzar(menu);
   }
 
   _itemsDbus(menu, items, profundidad) {
