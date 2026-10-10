@@ -15,6 +15,11 @@
 # Plank del sistema esos dos lanzadores no existen y no se ponen.
 #
 # Variables:
+#   PLANK_FINDER    el Finder del dock: nemo-mac (por defecto) o fynder. El
+#                   lanzador fijado tiene que ser el .desktop de la app que
+#                   abre las ventanas, para que caigan en ese ícono y no salgan
+#                   aparte: Plank empareja la ventana con el .desktop por su
+#                   clase (nemo-mac, fynder). Si no está, el nemo del sistema.
 #   PLANK_MONITOR   monitor al que se fija el dock. Por defecto, el principal
 #                   de ahora, por su nombre: si se desconecta, el dock se va al
 #                   otro; cuando vuelve, regresa solo. Vacío = el principal del
@@ -30,7 +35,7 @@ DOCKLETS="$HOME/.local/lib/x86_64-linux-gnu/plank/docklets"
 # Code. Cada uno va en el lugar de su equivalente; los que no tienen uno van
 # donde va su par por función: Thunderbird donde Spark (el correo), kitty donde
 # Terminal y Firefox donde Safari. Los que no existan aquí se saltan.
-ANTES=(nemo launchpad applications thunderbird org.gnome.Calendar mintinstall
+ANTES=(finder launchpad applications thunderbird org.gnome.Calendar mintinstall
        cinnamon-settings kitty microsoft-edge firefox code)
 DESPUES=(separator downloads-stack trash)
 
@@ -41,6 +46,14 @@ escribir_lanzador() { # nombre uri
   [ -f "$f" ] && grep -q "^Launcher=$2\$" "$f" && return
   printf '[PlankDockItemPreferences]\nLauncher=%s\n' "$2" > "$f"
 }
+
+# El Finder: el .desktop de la app que de verdad abre las ventanas.
+FINDER_DESKTOP="$HOME/.local/share/applications/${PLANK_FINDER:-nemo-mac}.desktop"
+[ -f "$FINDER_DESKTOP" ] || FINDER_DESKTOP=/usr/share/applications/nemo.desktop
+escribir_lanzador finder "file://$FINDER_DESKTOP"
+# El lanzador viejo apuntaba a nemo.desktop: sus ventanas (nemo-mac) salían
+# como otro ícono.
+rm -f "$LANZADORES/nemo.dockitem"
 
 if [ -f "$DOCKLETS/libdocklet-separator.so" ] && [ -f "$DOCKLETS/libdocklet-stacks.so" ]; then
   escribir_lanzador separator docklet://separator
@@ -59,7 +72,7 @@ agregar() { [ -f "$LANZADORES/$1.dockitem" ] && lista+=("'$1.dockitem'") || true
 for n in "${ANTES[@]}"; do agregar "$n"; done
 for f in "$LANZADORES"/*.dockitem; do
   n="$(basename "$f" .dockitem)"
-  [[ " ${ANTES[*]} ${DESPUES[*]} downloads " == *" $n "* ]] && continue
+  [[ " ${ANTES[*]} ${DESPUES[*]} downloads nemo " == *" $n "* ]] && continue
   agregar "$n"
 done
 for n in "${DESPUES[@]}"; do agregar "$n"; done
@@ -86,4 +99,4 @@ dconf write "$CLAVES/alignment" "'center'"
 dconf write "$CLAVES/hide-mode" "'none'"
 dconf write "$CLAVES/monitor" "'$PLANK_MONITOR'"
 
-echo "Plank: ${#lista[@]} ítems, ícono 56, ampliación 170 %, monitor «${PLANK_MONITOR:-el principal}»."
+echo "Plank: Finder $(basename "$FINDER_DESKTOP" .desktop), ${#lista[@]} ítems, ícono 56, ampliación 170 %, monitor «${PLANK_MONITOR:-el principal}»."
