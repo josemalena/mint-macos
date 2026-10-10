@@ -1,5 +1,8 @@
 # mint-macos
 
+> **Para migrar a un usuario de macOS Catalina a Linux Mint, paso a paso:** [LEEME.md](LEEME.md)
+> (`requisitos.sh` → `instalar.sh` → `migrar-datos.sh`).
+
 Ajustes para que Linux Mint (Cinnamon) se maneje como macOS: la tecla
 Super hace de ⌘ y Alt de ⌥, en el escritorio, en kitty y en VS Code, y el
 panel lleva el menú Apple y el nombre de la aplicación activa.

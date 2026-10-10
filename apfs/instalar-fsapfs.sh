@@ -34,10 +34,12 @@ echo "▸ /etc/fuse.conf: user_allow_other"
 sudo sed -i 's/^#\s*user_allow_other/user_allow_other/' /etc/fuse.conf
 grep -q '^user_allow_other' /etc/fuse.conf || echo user_allow_other | sudo tee -a /etc/fuse.conf >/dev/null
 
-# Leer /dev/sdXN sin sudo (montar a mano en una carpeta propia).
-if ! id -nG "$USER" | grep -qw disk; then
-  sudo usermod -aG disk "$USER"
-  echo "  $USER entra al grupo disk: vale desde la próxima sesión"
+# Leer /dev/sdXN sin sudo (montar a mano en una carpeta propia). Con sudo
+# (o en un contenedor como root) $USER puede no estar: va SUDO_USER o id -un.
+USUARIO="${SUDO_USER:-${USER:-$(id -un)}}"
+if ! id -nG "$USUARIO" | grep -qw disk; then
+  sudo usermod -aG disk "$USUARIO"
+  echo "  $USUARIO entra al grupo disk: vale desde la próxima sesión"
 fi
 
 fsapfsmount -V | head -1
