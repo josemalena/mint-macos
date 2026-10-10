@@ -24,6 +24,9 @@ for ruta in /org/cinnamon/desktop/keybindings/ /org/cinnamon/desktop/input-sourc
   nombre="$(echo "$ruta" | tr '/' '_' | sed 's/^_//;s/_$//').dconf"
   dconf dump "$ruta" > "$RESPALDO/$nombre"
 done
+# Los atajos de capturas y emojis (custom2…custom7) llaman a ~/.local/bin/
+# mac-captura y mac-emojis: van antes de cargar los atajos.
+"$REPO/capturas/instalar.sh"
 # Los atajos propios (Force Quit) llevan la ruta del applet en el $HOME: el
 # archivo trae la de la máquina donde se armó y aquí se pone la de este usuario.
 sed "s#/home/jmalena#$HOME#g" "$REPO/cinnamon/keybindings.dconf" | dconf load /org/cinnamon/desktop/keybindings/

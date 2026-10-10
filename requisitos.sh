@@ -49,6 +49,8 @@ EJECUCION=(
   wmctrl xdotool cinnamon-screensaver
   # migrar-datos.sh
   rsync
+  # capturas/ (⇧⌘3, ⇧⌘4…) y la carpeta del escritorio
+  gnome-screenshot xdg-user-dirs
   # icloud/icloud.sh: la clave de rclone.conf cifrado en el llavero; unzip
   libsecret-tools unzip
 )
