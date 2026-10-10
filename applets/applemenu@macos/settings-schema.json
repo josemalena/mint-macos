@@ -3,5 +3,19 @@
     "type": "entry",
     "default": "",
     "description": "Otra imagen para el botón (vacío: la manzana de la Mac que genera Constanza)"
+  },
+  "reemplazar-dialogo-sistema": {
+    "type": "switch",
+    "default": false,
+    "description": "Usar el diálogo de la Mac también en ⇧⌘Q y en el botón de encendido",
+    "tooltip": "Encendido: Log Out con ⇧⌘Q y el botón de encendido abren el diálogo de la Mac en vez del de Cinnamon. Apagado, todo vuelve a como estaba."
+  },
+  "antes-logout": {
+    "type": "generic",
+    "default": ""
+  },
+  "antes-boton-encendido": {
+    "type": "generic",
+    "default": ""
   }
 }

@@ -72,6 +72,9 @@ class AppleMenuApplet extends Applet.IconApplet {
 
     this.settings = new Settings.AppletSettings(this, metadata.uuid, instance_id);
     this.settings.bind("icon-path", "iconPath", this._syncIcon.bind(this));
+    this.settings.bind("antes-logout", "antesLogout");
+    this.settings.bind("antes-boton-encendido", "antesBotonEncendido");
+    this.settings.bind("reemplazar-dialogo-sistema", "reemplazarSistema", () => this._syncReemplazo());
 
     this.set_applet_tooltip("");
 
@@ -88,6 +91,7 @@ class AppleMenuApplet extends Applet.IconApplet {
 
     this._buildMenu();
     this._syncIcon();
+    this._syncReemplazo();
 
 
     this.menu.connect("open-state-changed", (menu, abierto) => {
@@ -368,6 +372,66 @@ class AppleMenuApplet extends Applet.IconApplet {
 
   _cerrarRecientes() {
     if (this._recientes && this._recientes.isOpen) this._recientes.close(true);
+  }
+
+  // ── El diálogo de la Mac en lugar del de Cinnamon (opcional) ─────────────
+  //
+  // Del menú Apple siempre sale el de la Mac. Con la opción encendida, también
+  // de ⇧⌘Q (Log Out) y del botón de encendido (Shut Down): se le quita a
+  // Cinnamon su atajo de Log Out y el manejo del botón, y se ponen dos atajos
+  // propios que abren applemenu.py. Lo que había se guarda y se devuelve al
+  // apagarla.
+
+  _syncReemplazo() {
+    const ATAJOS = "org.cinnamon.desktop.keybindings";
+    const MEDIA = "org.cinnamon.desktop.keybindings.media-keys";
+    const POWER = "org.cinnamon.settings-daemon.plugins.power";
+    let atajos, media, power;
+    try {
+      atajos = new Gio.Settings({ schema_id: ATAJOS });
+      media = new Gio.Settings({ schema_id: MEDIA });
+      power = new Gio.Settings({ schema_id: POWER });
+    } catch (e) {
+      global.logError(e, "[AppleMenu] no se pudo leer la configuración de atajos o de energía");
+      return;
+    }
+    let lista = atajos.get_strv("custom-list");
+    const propios = ["applemenu-logout", "applemenu-encendido"];
+    let script = GLib.build_filenamev([this._appletPath, "applemenu.py"]);
+
+    if (this.reemplazarSistema) {
+      if (!this.antesLogout) this.antesLogout = JSON.stringify(media.get_strv("logout"));
+      if (!this.antesBotonEncendido) this.antesBotonEncendido = power.get_string("button-power");
+      media.set_strv("logout", []);
+      power.set_string("button-power", "nothing");
+      this._atajoPropio("applemenu-logout", "Log Out (diálogo de la Mac)",
+        `python3 '${script}' --mode logoff`, ["<Shift><Super>q"]);
+      this._atajoPropio("applemenu-encendido", "Botón de encendido (diálogo de la Mac)",
+        `python3 '${script}' --mode shutdown`, ["XF86PowerOff"]);
+      for (let p of propios) if (lista.indexOf(p) < 0) lista.push(p);
+      atajos.set_strv("custom-list", lista);
+    } else if (lista.some(p => propios.indexOf(p) >= 0) || this.antesLogout || this.antesBotonEncendido) {
+      atajos.set_strv("custom-list", lista.filter(p => propios.indexOf(p) < 0));
+      try {
+        let antes = this.antesLogout ? JSON.parse(this.antesLogout) : ["<Shift><Super>q"];
+        media.set_strv("logout", antes);
+      } catch (e) {
+        media.set_strv("logout", ["<Shift><Super>q"]);
+      }
+      power.set_string("button-power", this.antesBotonEncendido || "interactive");
+      this.antesLogout = "";
+      this.antesBotonEncendido = "";
+    }
+  }
+
+  _atajoPropio(nombre, titulo, comando, teclas) {
+    let s = new Gio.Settings({
+      schema_id: "org.cinnamon.desktop.keybindings.custom-keybinding",
+      path: `/org/cinnamon/desktop/keybindings/custom-keybindings/${nombre}/`,
+    });
+    s.set_string("name", titulo);
+    s.set_string("command", comando);
+    s.set_strv("binding", teclas);
   }
 
   // ── Restart, Shut Down y Log Out: el diálogo de applemenu.py ─────────────

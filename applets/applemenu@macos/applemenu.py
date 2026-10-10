@@ -1,34 +1,23 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-macOS-style dialogs (theme-driven, NO CSS) for Cinnamon/Mint using GTK3.
+Diálogos de la Mac para el menú Apple (applemenu@macos), en GTK3.
 
-Modes:
-  - forcequit : "Force Quit Applications" window; auto-builds app list using wmctrl (X11),
-               ignores Plank, maps nemo-desktop -> Finder with Nemo icon from current theme,
-               and does TERM then KILL on selected app PIDs.
-  - shutdown  : confirmation dialog like macOS shutdown (custom icon from script-relative path)
-  - restart   : confirmation dialog like macOS restart  (custom icon from script-relative path)
-  - logoff    : confirmation dialog like macOS logout   (custom icon from script-relative path)
+Modos:
+  - forcequit : la ventana «Force Quit Applications» (lista por wmctrl, X11).
+  - restart   : «Are you sure you want to restart…» con la cuenta regresiva.
+  - shutdown  : lo mismo para apagar.
+  - logoff    : lo mismo para cerrar la sesión.
 
-Notes:
-  - Visual styling relies on your GTK theme (you said it already matches macOS).
-  - forcequit list generation requires X11 and `wmctrl -lpGx`.
-  - "Reopen windows..." checkbox is captured; on Linux there is no universal equivalent,
-    so we print it to stdout as JSON for your applet (optional use). We don't enforce it.
+Los tres de confirmación son el de Catalina medido en c42 (ver ConfirmDialog):
+nunca sale encima el diálogo de Cinnamon, porque la acción va con --no-prompt
+y sin plan B que lo abra. «Reopen windows when logging back in» es el guardado
+de sesión de Cinnamon (org.cinnamon.SessionManager auto-save-session).
 
-CLI examples:
-  Force Quit:
-    python3 macos_dialogs.py --mode forcequit
-
-  Shutdown with 60s countdown:
-    python3 macos_dialogs.py --mode shutdown --seconds 60 --icon icons/shutdown.png
-
-  Restart:
-    python3 macos_dialogs.py --mode restart --seconds 60 --icon icons/restart.png
-
-  Log out:
-    python3 macos_dialogs.py --mode logoff --seconds 60 --icon icons/logoff.png
+Uso:
+    python3 applemenu.py --mode forcequit
+    python3 applemenu.py --mode restart [--seconds 60] [--print-json]
+    python3 applemenu.py --mode restart --prueba   # lo enseña y no hace nada
 """
 
 import argparse
@@ -62,7 +51,6 @@ CONF_PRESETS: Dict[str, Dict[str, object]] = {
         "countdown": "If you do nothing, the computer will shut down automatically\nin {n} seconds.",
         "action_label": "Shut Down",
         "default_reopen": True,
-        "default_icon_rel": "icons/shutdown.png",
         "primary_cmd": ["cinnamon-session-quit", "--power-off", "--no-prompt"],
         "fallback_cmds": [
             ["systemctl", "poweroff"],
@@ -74,7 +62,6 @@ CONF_PRESETS: Dict[str, Dict[str, object]] = {
         "countdown": "If you do nothing, the computer will restart automatically\nin {n} seconds.",
         "action_label": "Restart",
         "default_reopen": True,
-        "default_icon_rel": "icons/restart.png",
         "primary_cmd": ["cinnamon-session-quit", "--reboot", "--no-prompt"],
         "fallback_cmds": [
             ["systemctl", "reboot"],
@@ -86,12 +73,10 @@ CONF_PRESETS: Dict[str, Dict[str, object]] = {
         "countdown": "If you do nothing, you will be logged out automatically in\n{n} seconds.",
         "action_label": "Log Out",
         "default_reopen": False,
-        "default_icon_rel": "icons/logoff.png",
         "primary_cmd": ["cinnamon-session-quit", "--logout", "--no-prompt"],
-        "fallback_cmds": [
-            # fallback: ask cinnamon-session-quit without --no-prompt (some builds)
-            ["cinnamon-session-quit", "--logout"],
-        ],
+        # Sin plan B: «cinnamon-session-quit --logout» sin --no-prompt abría el
+        # diálogo del sistema encima de este (José: que no salga).
+        "fallback_cmds": [],
     },
 }
 
@@ -390,103 +375,236 @@ class ForceQuitWindow(Gtk.Window):
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Confirmation dialog (Shutdown / Restart / Log Out)
+# Diálogo de Restart / Shut Down / Log Out, como el de Catalina (c42)
 # ──────────────────────────────────────────────────────────────────────────────
-class ConfirmDialog(Gtk.Dialog):
-    """
-    Layout:
-      [ icon ]  [ big bold title ]
-              [ countdown text ]
-              [ checkbox reopen windows ]
-                        [ Cancel ] [ Action ]
-    """
-    def __init__(self, mode: str, countdown_seconds: int, icon_path: str, reopen_default: bool):
+# Medido en la captura de la Mac mini a 1x:
+#   ventana de 416 × 196: franja superior de 21 px (degradado #3B3B3C → #313233,
+#   línea negra debajo), cuerpo #2A2B2C, borde de 1 px #545556, esquinas de 5;
+#   ícono: círculo #8B8D8E de 64 px a 20 px del borde y 21 px bajo la franja;
+#   texto desde x 91, #DEDFDF: título en negrita (13 px) y la cuenta regresiva
+#   en chico (11 px); casilla de 14 × 14 #4B4E51;
+#   botones de 70 × 19 a 20 px del borde derecho y del de abajo, 14 px entre
+#   ellos: Cancel #5F6061 y la acción en azul (#165EE1 → #1555CB).
+# La fuente es SF (obligatoria): «.SF NS».
+# Los íconos se dibujan aquí: ningún archivo de Apple.
+
+ANCHO, ALTO, FRANJA, SOMBRA = 416, 196, 21, 24
+
+CSS_DIALOGO = b"""
+#mac-dialogo { background: transparent; }
+#mac-caja {
+  background-color: #2a2b2c;
+  border: 1px solid #545556;
+  border-radius: 5px;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.55);
+}
+#mac-franja {
+  background-image: linear-gradient(to bottom, #3b3b3c, #313233);
+  border-bottom: 1px solid #000000;
+  border-radius: 5px 5px 0 0;
+}
+#mac-titulo { font-family: ".SF NS"; font-weight: bold; font-size: 13px; color: #dedfdf; }
+#mac-cuenta { font-family: ".SF NS"; font-size: 11px; color: #dedfdf; }
+#mac-casilla, #mac-casilla label { font-family: ".SF NS"; font-size: 13px; color: #dedfdf; }
+#mac-casilla check {
+  min-width: 14px; min-height: 14px; margin: 0 6px 0 0;
+  border-radius: 3px; border: 1px solid #5a5d60;
+  background-image: none; background-color: #4b4e51;
+}
+#mac-casilla check:checked { background-color: #165ee1; border-color: #165ee1; color: #ffffff; }
+button.mac-boton {
+  font-family: ".SF NS"; font-size: 13px; color: #e7e7e7;
+  min-height: 19px; min-width: 50px; padding: 0 10px; margin: 0; outline: none;
+  border-radius: 5px; border: none; box-shadow: none; text-shadow: none;
+  background-image: none; background-color: #5f6061;
+}
+button.mac-boton label { padding: 0; margin: 0; min-width: 0; }
+button.mac-boton:hover { background-color: #6a6b6c; }
+button.mac-boton.mac-boton-accion { background-image: linear-gradient(to bottom, #165ee1, #1555cb); color: #ffffff; }
+button.mac-boton.mac-boton-accion:hover { background-image: linear-gradient(to bottom, #2a6cec, #1a5ed6); }
+"""
+
+
+def _dibujar_icono(modo, cr):
+    """El círculo gris de Catalina con su signo en blanco, a 64 × 64."""
+    import math
+    cr.set_source_rgb(139 / 255, 141 / 255, 142 / 255)
+    cr.arc(32, 32, 32, 0, 2 * math.pi)
+    cr.fill()
+    cr.set_source_rgb(1, 1, 1)
+    cr.set_line_width(2.6)
+    cr.set_line_join(1)  # redondo
+    cr.set_line_cap(1)
+    if modo == "restart":
+        # ◁ como en c42.
+        cr.move_to(20, 32)
+        cr.line_to(41, 19.5)
+        cr.line_to(41, 44.5)
+        cr.close_path()
+        cr.stroke()
+    elif modo == "shutdown":
+        # ⏻: el arco con la raya arriba.
+        cr.arc(32, 33, 13, -math.pi / 2 + 0.55, 3 * math.pi / 2 - 0.55)
+        cr.stroke()
+        cr.move_to(32, 16)
+        cr.line_to(32, 31)
+        cr.stroke()
+    else:
+        # La persona: Log Out cierra la sesión de alguien.
+        cr.arc(32, 24, 7.5, 0, 2 * math.pi)
+        cr.stroke()
+        cr.arc(32, 50, 15, math.pi + 0.15, 2 * math.pi - 0.15)
+        cr.stroke()
+
+
+class ConfirmDialog(Gtk.Window):
+    """Restart / Shut Down / Log Out con la cuenta regresiva de 60 s (c42)."""
+
+    def __init__(self, mode: str, countdown_seconds: int, reopen_default: bool):
         if mode not in CONF_PRESETS:
             raise ValueError(f"Unknown mode: {mode}")
-
+        super().__init__(title="")
         self.mode = mode
         self.p = CONF_PRESETS[mode]
         self.remaining = max(1, int(countdown_seconds))
-        self.reopen_default = bool(reopen_default)
+        self.respuesta = Gtk.ResponseType.CANCEL
+        self._timer_id = 0
 
-        super().__init__(title="", flags=Gtk.DialogFlags.MODAL | Gtk.DialogFlags.DESTROY_WITH_PARENT)
-        # macOS reference size: ~450x200, fixed size
-        self.set_default_size(450, 200)
-        self.set_size_request(450, 200)
-        self.set_border_width(16)
+        self.set_name("mac-dialogo")
+        self.set_decorated(False)
         self.set_resizable(False)
+        self.set_keep_above(True)
+        self.set_skip_taskbar_hint(True)
         self.set_type_hint(Gdk.WindowTypeHint.DIALOG)
+        self.set_position(Gtk.WindowPosition.CENTER)
+        pantalla = self.get_screen()
+        visual = pantalla.get_rgba_visual()
+        if visual is not None and pantalla.is_composited():
+            self.set_visual(visual)
+            self.set_app_paintable(True)
+            margen = SOMBRA
+        else:
+            margen = 0
+        self.set_default_size(ANCHO + 2 * margen, ALTO + 2 * margen)
 
-        # Buttons (Cancel left, Action right)
-        self.add_button("Cancel", Gtk.ResponseType.CANCEL)
-        self.action_button = self.add_button(str(self.p["action_label"]), Gtk.ResponseType.OK)
-        self.set_default_response(Gtk.ResponseType.OK)
+        css = Gtk.CssProvider()
+        css.load_from_data(CSS_DIALOGO)
+        Gtk.StyleContext.add_provider_for_screen(pantalla, css, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION + 1)
 
-        content = self.get_content_area()
-        content.set_spacing(12)
+        # El fondo, el borde y la sombra van en una caja: el Fixed (que pone
+        # cada pieza en su píxel) no pinta su propio CSS.
+        fondo = Gtk.Box()
+        fondo.set_name("mac-caja")
+        fondo.set_size_request(ANCHO, ALTO)
+        fondo.set_margin_top(margen); fondo.set_margin_bottom(margen)
+        fondo.set_margin_start(margen); fondo.set_margin_end(margen)
+        caja = Gtk.Fixed()
+        caja.set_size_request(ANCHO, ALTO)
+        fondo.pack_start(caja, True, True, 0)
+        self.add(fondo)
 
-        # Main horizontal layout (icon left, text right)
-        h = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=18)
-        content.pack_start(h, True, True, 0)
+        franja = Gtk.Box()
+        franja.set_name("mac-franja")
+        franja.set_size_request(ANCHO - 2, FRANJA)
+        caja.put(franja, 1, 1)
 
-        # Icon
-        img = self._load_icon(icon_path)
-        # Align top like macOS dialogs
-        icon_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        icon_box.pack_start(img, False, False, 0)
-        h.pack_start(icon_box, False, False, 0)
+        icono = Gtk.DrawingArea()
+        icono.set_size_request(64, 64)
+        icono.connect("draw", lambda _w, cr: _dibujar_icono(self.mode, cr))
+        caja.put(icono, 20, FRANJA + 21)
 
-        # Right side
-        right = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-        h.pack_start(right, True, True, 0)
+        derecha = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        derecha.set_size_request(ANCHO - 91 - 20, -1)
+        caja.put(derecha, 91, FRANJA + 20)
 
-        title_lbl = Gtk.Label()
-        title_lbl.set_xalign(0.0)
-        title_lbl.set_line_wrap(True)
-        title_lbl.set_markup(f"<b>{GLib.markup_escape_text(str(self.p['title']))}</b>")
-        right.pack_start(title_lbl, False, False, 0)
+        titulo = Gtk.Label(label=str(self.p["title"]).replace("\n", " "))
+        titulo.set_name("mac-titulo")
+        titulo.set_xalign(0.0)
+        titulo.set_line_wrap(True)
+        titulo.set_size_request(ANCHO - 91 - 20, -1)
+        derecha.pack_start(titulo, False, False, 0)
 
         self.countdown_lbl = Gtk.Label()
+        self.countdown_lbl.set_name("mac-cuenta")
         self.countdown_lbl.set_xalign(0.0)
         self.countdown_lbl.set_line_wrap(True)
-        right.pack_start(self.countdown_lbl, False, False, 0)
+        self.countdown_lbl.set_size_request(ANCHO - 91 - 20, -1)
+        self.countdown_lbl.set_margin_top(8)
+        derecha.pack_start(self.countdown_lbl, False, False, 0)
 
         self.reopen_cb = Gtk.CheckButton.new_with_label("Reopen windows when logging back in")
-        self.reopen_cb.set_active(self.reopen_default)
-        right.pack_start(self.reopen_cb, False, False, 0)
+        self.reopen_cb.set_name("mac-casilla")
+        self.reopen_cb.set_active(bool(reopen_default))
+        self.reopen_cb.set_can_focus(False)
+        self.reopen_cb.set_margin_top(6)
+        derecha.pack_start(self.reopen_cb, False, False, 0)
+
+        cancelar = Gtk.Button(label="Cancel")
+        cancelar.get_style_context().add_class("mac-boton")
+        cancelar.set_size_request(70, 19)
+        cancelar.connect("clicked", lambda *_: self._terminar(Gtk.ResponseType.CANCEL))
+        accion = Gtk.Button(label=str(self.p["action_label"]))
+        accion.get_style_context().add_class("mac-boton")
+        accion.get_style_context().add_class("mac-boton-accion")
+        accion.set_size_request(70, 19)
+        accion.connect("clicked", lambda *_: self._terminar(Gtk.ResponseType.OK))
+        # Pegados a la derecha, a 16 px del borde interior (con el borde quedan
+        # los 20 de la Mac: c42, x 241–310 y 325–394), 14 entre ellos. Miden 70
+        # como mínimo y crecen con el texto, como «Shut Down» en la Mac.
+        fila = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=14)
+        fila.set_size_request(ANCHO - 16, 19)
+        fila.pack_end(accion, False, False, 0)
+        fila.pack_end(cancelar, False, False, 0)
+        caja.put(fila, 0, ALTO - 20 - 19)
+
+        # ⏎ hace la acción, ⎋ cancela: como en la Mac.
+        self.connect("key-press-event", self._on_tecla)
+        self.connect("delete-event", lambda *_: (self._terminar(Gtk.ResponseType.CANCEL), True)[1])
+        self.connect("destroy", self._on_destroy)
 
         self._timer_id = GLib.timeout_add(1000, self._tick)
         self._update_countdown()
-
-        self.connect("destroy", self._on_destroy)
         self.show_all()
+        accion.grab_focus()
+        # Al frente y con el teclado, como en la Mac: ⏎ y ⎋ funcionan de una.
+        GLib.idle_add(self._al_frente)
 
-    def _load_icon(self, icon_path: str) -> Gtk.Image:
-        # If path doesn't exist, fallback to a symbolic icon (still theme-driven)
+    def _al_frente(self):
         try:
-            if icon_path and os.path.exists(icon_path):
-                img = Gtk.Image.new_from_file(icon_path)
-                # try to size-ish (GTK will keep aspect)
-                img.set_pixel_size(64)
-                return img
+            self.present_with_time(Gdk.CURRENT_TIME)
+            ventana = self.get_window()
+            if ventana is not None:
+                ventana.focus(Gdk.CURRENT_TIME)
         except Exception:
             pass
+        return False
 
-        # fallback to theme icon based on mode
-        fallback_icon = "system-shutdown" if self.mode == "shutdown" else "view-refresh" if self.mode == "restart" else "system-log-out"
-        img = Gtk.Image.new_from_icon_name(fallback_icon, Gtk.IconSize.DIALOG)
-        img.set_pixel_size(64)
-        return img
+    def _on_tecla(self, _w, event):
+        if event.keyval in (Gdk.KEY_Return, Gdk.KEY_KP_Enter):
+            self._terminar(Gtk.ResponseType.OK)
+            return True
+        if event.keyval == Gdk.KEY_Escape:
+            self._terminar(Gtk.ResponseType.CANCEL)
+            return True
+        return False
+
+    def _terminar(self, respuesta):
+        self.respuesta = respuesta
+        Gtk.main_quit()
+
+    def run(self):
+        Gtk.main()
+        return self.respuesta
 
     def _update_countdown(self):
-        tmpl = str(self.p["countdown"])
+        tmpl = str(self.p["countdown"]).replace("\n", " ")
         self.countdown_lbl.set_text(tmpl.format(n=self.remaining))
 
     def _tick(self):
         self.remaining -= 1
         if self.remaining <= 0:
-            # Auto-confirm
-            self.response(Gtk.ResponseType.OK)
+            self._timer_id = 0
+            self._terminar(Gtk.ResponseType.OK)
             return False
         self._update_countdown()
         return True
@@ -498,6 +616,22 @@ class ConfirmDialog(Gtk.Dialog):
             except Exception:
                 pass
             self._timer_id = 0
+
+
+def _reabrir_ventanas_actual() -> bool:
+    """«Reopen windows» es el guardado de sesión de Cinnamon."""
+    try:
+        return bool(Gio.Settings.new("org.cinnamon.SessionManager").get_boolean("auto-save-session"))
+    except Exception:
+        return False
+
+
+def _guardar_reabrir_ventanas(valor: bool) -> None:
+    try:
+        Gio.Settings.new("org.cinnamon.SessionManager").set_boolean("auto-save-session", bool(valor))
+        Gio.Settings.sync()
+    except Exception:
+        pass
 
 
 def _run_command(cmd: List[str]) -> bool:
@@ -531,8 +665,9 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--mode", required=True, choices=["forcequit", "shutdown", "restart", "logoff"])
     ap.add_argument("--seconds", type=int, default=DEFAULT_COUNTDOWN_SECONDS, help="Countdown seconds (confirm dialogs).")
-    ap.add_argument("--icon", default="", help="Icon path (relative to script or absolute).")
     ap.add_argument("--print-json", action="store_true", help="Print result JSON to stdout (for applet).")
+    ap.add_argument("--prueba", action="store_true",
+                    help="Enseña el diálogo y no hace nada al confirmar ni al agotarse la cuenta: para medirlo.")
     args = ap.parse_args()
 
     if args.mode == "forcequit":
@@ -541,29 +676,17 @@ def main() -> int:
         Gtk.main()
         return 0
 
-    # confirm dialogs:
-    preset = CONF_PRESETS[args.mode]
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-
-    icon_path = str(args.icon or "").strip()
-    if not icon_path:
-        icon_path = os.path.join(script_dir, str(preset["default_icon_rel"]))
-    elif not os.path.isabs(icon_path):
-        icon_path = os.path.join(script_dir, icon_path)
-
-    dlg = ConfirmDialog(
-        mode=args.mode,
-        countdown_seconds=args.seconds,
-        icon_path=icon_path,
-        reopen_default=bool(preset.get("default_reopen", False)),
-    )
-
+    # Restart / Shut Down / Log Out: la casilla arranca como esté guardada
+    # la sesión (en c42, desmarcada).
+    dlg = ConfirmDialog(mode=args.mode, countdown_seconds=args.seconds,
+                        reopen_default=_reabrir_ventanas_actual())
     resp = dlg.run()
     reopen = bool(dlg.reopen_cb.get_active())
     dlg.destroy()
 
     did_execute = False
-    if resp == Gtk.ResponseType.OK:
+    if resp == Gtk.ResponseType.OK and not args.prueba:
+        _guardar_reabrir_ventanas(reopen)
         did_execute = execute_action(args.mode, reopen)
 
     if args.print_json:
@@ -572,7 +695,7 @@ def main() -> int:
             "confirmed": (resp == Gtk.ResponseType.OK),
             "reopen": reopen,
             "executed": did_execute,
-            "icon": icon_path,
+            "prueba": bool(args.prueba),
             "seconds": int(args.seconds),
         }
         print(json.dumps(out, ensure_ascii=False))
