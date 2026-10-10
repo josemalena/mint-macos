@@ -12,6 +12,7 @@
 #
 # Antes, sin sudo: ./desde-mac.sh --login (el fondo y la foto de la Mac en
 # ~/.local/share/constanza/login) y las SF en ~/.local/share/fonts.
+# Después, sin sudo: login/bloqueo.sh, para bloquear con esta misma pantalla.
 #
 # La vuelta atrás es UN archivo, /etc/lightdm/lightdm.conf.d/90-mint-macos-login.conf,
 # y un comando que se instala primero: si la pantalla de inicio no sale,
@@ -67,6 +68,13 @@ echo "  $RESPALDO"
 paso "La vuelta atrás, antes que nada"
 install -Dm755 "$AQUI/login-mac-revertir" "$REVERTIR"
 echo "  $REVERTIR  (si el login no sale: Ctrl+Alt+F2 y sudo login-mac-revertir)"
+
+paso "Paquetes: xss-lock (el bloqueo por inactividad, login/bloqueo.sh)"
+if dpkg -s xss-lock >/dev/null 2>&1; then
+  echo "  ya está"
+else
+  apt-get install -y xss-lock >/dev/null && echo "  instalado"
+fi
 
 paso "Compilar slick-greeter-mac (como $USUARIO)"
 [ -f "$FUENTE/src/login-mac.vala" ] || { echo "  ✗ $FUENTE no es el fork (falta src/login-mac.vala); usa --fuente" >&2; exit 1; }
@@ -158,7 +166,8 @@ if [ "$ACCION" = activar ]; then
 [Seat:*]
 greeter-session=slick-greeter-mac
 CONF
-  echo "  activado: sale en el próximo inicio de sesión o al bloquear y cambiar de usuario."
+  echo "  activado: sale en el próximo inicio de sesión y al cambiar de usuario."
+  echo "  Para bloquear también con ella: $AQUI/bloqueo.sh (sin sudo)"
 else
   paso "Instalado, sin activar"
   echo "  El login sigue siendo el de Mint. Para ponerlo: sudo $0 --activar"
