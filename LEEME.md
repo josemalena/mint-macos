@@ -58,6 +58,7 @@ En orden:
 3. `install.sh`: el teclado (keyd por app, kitty, VS Code, y Ulauncher en
    ⌘Espacio si está instalado: viene de su PPA, no de requisitos.sh), los
    applets de la barra y el menú global de las apps.
+   Además, el ⌘Tab de Catalina (`extensions/cmdtab@macos`).
 4. `tema/instalar.sh`: el tema **Constanza** (GTK, Cinnamon, íconos, fuentes,
    fondo, el Dock).
 5. `cinnamon/barra.sh`: la barra de menús arriba, a 22 px, con los applets en
@@ -157,9 +158,9 @@ hay ni uno en el repo** (`.gitignore` bloquea `.icns`, `.png`, `.ttf`, `.otf`,
 
 ## Cosas que saber
 
-- Cinnamon guarda en caché los módulos de los applets: después de actualizar
-  los applets, hay que cerrar sesión (o `cinnamon --replace`), no basta
-  recargarlos.
+- Cinnamon guarda en caché los módulos de los applets (`dbusmenu.js`,
+  `catalina.js`…): después de actualizarlos hay que cerrar sesión (o
+  `cinnamon --replace`), no basta recargar el applet.
 - El hinting de las fuentes queda en «none» y el suavizado en gris, como en
   macOS: afecta a todo el escritorio.
 - `cinnamon/barra.sh` deja el panel arriba con el id 1; si la máquina tiene

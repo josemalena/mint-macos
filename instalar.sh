@@ -56,6 +56,9 @@ if $DESHACER; then
     [ -f "$R/$f" ] && { echo "  $d"; cp -a "$R/$f" "$d"; }
   done
   [ -f "$R/kitty.conf" ] && cp -a "$R/kitty.conf" "$HOME/.config/kitty/kitty.conf"
+  if [ -f "$R/extensiones.ruta" ] && [ -x "$(cat "$R/extensiones.ruta")/volver.sh" ]; then
+    echo "  extensiones (⌘Tab)"; "$(cat "$R/extensiones.ruta")/volver.sh" || true
+  fi
   if [ -f "$R/menu-global.ruta" ] && [ -x "$(cat "$R/menu-global.ruta")/volver.sh" ]; then
     echo "  menú global"; "$(cat "$R/menu-global.ruta")/volver.sh" || true
   fi
@@ -91,6 +94,10 @@ paso "3. Teclado, applets y menú global";   "$REPO/install.sh"
 # El menú global deja su respaldo y su volver.sh en una carpeta con fecha: la
 # más reciente es la de esta corrida.
 ls -d "$HOME"/.local/share/respaldos/menu-global-* 2>/dev/null | sort | tail -1 > "$R/menu-global.ruta" || true
+
+paso "3b. ⌘Tab como el de Catalina (extensión de Cinnamon)"
+"$REPO/extensions/instalar.sh" --encender
+ls -d "$HOME"/.local/share/respaldos/extensiones-* 2>/dev/null | sort | tail -1 > "$R/extensiones.ruta" || true
 
 paso "4. Tema Constanza";                    "$REPO/tema/instalar.sh"
 
