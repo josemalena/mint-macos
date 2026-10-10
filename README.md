@@ -13,7 +13,7 @@ panel lleva el menú Apple y el nombre de la aplicación activa.
 | `cinnamon/` | Atajos del escritorio y fuentes de entrada (dconf) | `/org/cinnamon/desktop/keybindings/`, `input-sources/` |
 | `kitty/macos-keys.conf` | ⌘T, ⌘W, ⌘⏎, ⌘←/→ entre pestañas, ⌥←/→ y ⌥⌫ por palabra | `~/.config/kitty/`, incluido desde `kitty.conf` |
 | `vscode/keybindings.json` | Lo que keyd no traduce: ⌘⌥F, ⌘1…3, ⌘⇧[ ] | `~/.config/Code/User/` |
-| `applets/` | `applemenu@macos` (menú Apple, Force Quit) y `appmenu@macos` (app activa, Quit) | `~/.local/share/cinnamon/applets/` |
+| `applets/` | `applemenu@macos` (menú Apple, Force Quit), `appmenu@macos` (app activa, Quit) y `globalmenu@macos` (la barra de menú de la ventana enfocada, para apps que la publican por D-Bus con el protocolo de GTK: `gtk_application_set_menubar`; nemo-mac con `global-menu` encendido) | `~/.local/share/cinnamon/applets/` |
 
 Atajos del escritorio que ya están:
 
