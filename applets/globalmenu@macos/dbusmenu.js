@@ -80,7 +80,11 @@ function atajo(item) {
   const TECLA = { Delete: "⌦", BackSpace: "⌫", Return: "↩", Escape: "⎋", Tab: "⇥", space: "Space",
                   Left: "←", Right: "→", Up: "↑", Down: "↓", Page_Up: "⇞", Page_Down: "⇟",
                   Home: "↖", End: "↘", plus: "+", minus: "-", equal: "=", comma: ",", period: ".",
-                  Esc: "⎋", Del: "⌦", Backspace: "⌫", Enter: "↩", KP_Enter: "⌤" };
+                  bracketleft: "[", bracketright: "]", slash: "/", backslash: "\\", semicolon: ";",
+                  apostrophe: "'", grave: "`", Insert: "Ins",
+                  Esc: "⎋", Del: "⌦", Backspace: "⌫", Enter: "↩", KP_Enter: "⌤",
+                  // Edge manda algunas teclas como carácter de control, no por nombre.
+                  "\u001b": "⎋", "\u007f": "⌦", "\u0008": "⌫", "\t": "⇥", "\r": "↩", "\n": "↩" };
   let mods = [], tecla = "";
   for (let k of s[0]) {
     if (MOD[k]) mods.push(MOD[k]);
@@ -135,6 +139,8 @@ var Registrador = class Registrador {
 /** Un ítem del árbol en la forma que pinta el applet. `menu` es el lector. */
 function aItem(menu, item) {
   if (esSeparador(item)) return { separador: true };
+  // Thunderbird deja ítems sin etiqueta (los que esconde por contexto).
+  if (!etiqueta(item) && !tieneSubmenu(item)) return null;
   let m = marca(item);
   let hijos = item.hijos.filter(esVisible);
   return {
@@ -153,6 +159,7 @@ function aItem(menu, item) {
 function limpiarSeparadores(items) {
   let fuera = [];
   for (let it of items) {
+    if (!it) continue;
     if (it.separador && (!fuera.length || fuera[fuera.length - 1].separador)) continue;
     fuera.push(it);
   }
