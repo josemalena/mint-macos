@@ -43,7 +43,15 @@ function _acomodar(n) {
 
     // Ícono a 30 px, a la izquierda y centrado en los tres renglones.
     if (n._icon) {
-      if (n._icon instanceof St.Icon) n._icon.icon_size = ICONO;
+      if (n._icon instanceof St.Icon) {
+        n._icon.icon_size = ICONO;
+        // Cinnamon pide el ícono de la app en simbólico («prefers symbolic
+        // icons»): sale un glifo blanco. La Mac pone el ícono a color de la
+        // app; el genérico (xsi-…) y los -symbolic se quedan como vienen.
+        let nombre = n._icon.icon_name || "";
+        if (nombre && !nombre.startsWith("xsi-") && !nombre.endsWith("-symbolic"))
+          n._icon.icon_type = St.IconType.FULLCOLOR;
+      }
       n._table.child_set(n._icon, { row: 0, col: 0, row_span: 2, y_align: St.Align.MIDDLE, y_fill: false });
     }
 
