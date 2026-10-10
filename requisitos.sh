@@ -49,6 +49,8 @@ EJECUCION=(
   wmctrl xdotool cinnamon-screensaver
   # migrar-datos.sh
   rsync
+  # icloud/icloud.sh: la clave de rclone.conf cifrado en el llavero; unzip
+  libsecret-tools unzip
 )
 
 paso "Paquetes de apt (${#COMPILAR[@]} para compilar, ${#EJECUCION[@]} en ejecución)"

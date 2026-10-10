@@ -96,6 +96,31 @@ otro disco, copia allá. Antes de copiar mide el tamaño y el espacio libre y
 no empieza si no cabe. La fototeca (`.photoslibrary`) se copia entera, como
 carpeta: las fotos están dentro, en `originals`.
 
+### 6. iCloud Drive (opcional)
+
+    icloud/icloud.sh alta      # una vez: el Apple ID, su contraseña y el código los escribes tú
+    icloud/icloud.sh montar    # ~/iCloud Drive, en el lateral de Fynder (iCloud → iCloud Drive)
+    icloud/icloud.sh fotos     # opcional: Fotos en solo lectura, en ~/Pictures/iCloud Photos
+
+Usa rclone (su backend `iclouddrive`, desde v1.69; se instala el oficial
+v1.75.1 en `~/.local/bin` con su checksum, sin tocar el de Mint, que es viejo).
+Lo que hay que saber:
+
+- **Del lado de Apple:** en el iPhone, Ajustes → [nombre] → iCloud → «Access
+  iCloud Data on the Web» encendido. La contraseña es la **normal** del Apple ID
+  (no una de aplicación) y pide el código de 2FA. Con Advanced Data Protection
+  también funciona, pero hay que aprobar en un dispositivo de confianza; si
+  rclone dice «Missing PCS cookies», es eso: aprobar y volver a hacer el alta.
+- **La sesión dura 30 días.** Un aviso del escritorio sale desde el día 26;
+  se renueva con `icloud/icloud.sh renovar` (otro código al iPhone).
+- **Es experimental** en rclone («Tier 4»): iCloud Drive se lee y se escribe;
+  Fotos, solo se lee. La caché va en `~/.cache/rclone` (máximo 10 GB).
+- **La configuración** queda en `~/.config/rclone/rclone.conf`, en tu `$HOME`.
+  Se puede cifrar (en `rclone config`, «s»); entonces el montaje toma la
+  clave del llavero de la sesión.
+- **Desconectar:** `icloud/icloud.sh deshacer` quita el montaje, el aviso y la
+  entrada de Fynder; `rclone config delete icloud` borra la sesión.
+
 ### Volver atrás
 
     ./instalar.sh --deshacer
