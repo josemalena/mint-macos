@@ -25,10 +25,13 @@ CLAVES=/net/launchpad/plank/docks/dock1
 LANZADORES="$HOME/.config/plank/dock1/launchers"
 DOCKLETS="$HOME/.local/lib/x86_64-linux-gnu/plank/docklets"
 
-# El orden del Dock de la Mac, con los equivalentes que eligió José. Los que no
-# existan en esta computadora se saltan.
-ANTES=(launchpad nemo mintinstall applications microsoft-edge thunderbird
-       org.gnome.Calendar firefox cinnamon-settings kitty code)
+# El orden del Dock de la Mac (c17): Finder, Siri, Launchpad, Spark, Calendar…
+# App Store, System Preferences, Console, Terminal… Edge, Chrome, Safari y VS
+# Code. Cada uno va en el lugar de su equivalente; los que no tienen uno van
+# donde va su par por función: Thunderbird donde Spark (el correo), kitty donde
+# Terminal y Firefox donde Safari. Los que no existan aquí se saltan.
+ANTES=(nemo launchpad applications thunderbird org.gnome.Calendar mintinstall
+       cinnamon-settings kitty microsoft-edge firefox code)
 DESPUES=(separator downloads-stack trash)
 
 mkdir -p "$LANZADORES"
