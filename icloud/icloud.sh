@@ -66,25 +66,24 @@ alta() {
   fi
   cat <<EOF
   Antes, en el iPhone: Ajustes → [tu nombre] → iCloud → «Access iCloud Data
-  on the Web» encendido. Ten el iPhone a mano para el código de 2FA.
+  on the Web» encendido. Ten el iPhone a mano: llega un código de 6 dígitos.
 
-  Ahora se abre «rclone config». Contesta así (lo demás, Enter):
-    n                         (nuevo remoto)
-    name>  $REMOTO
-    Storage>  iclouddrive
-    apple_id>  tu correo del Apple ID
-    password>  y, y escribe la contraseña NORMAL del Apple ID (dos veces)
-    ... el código de 6 dígitos que llega al iPhone
-    q                         (salir)
-  La contraseña y el código los escribes tú; quedan solo en
-  ${RCLONE_CONFIG:-~/.config/rclone/rclone.conf}, en tu \$HOME.
-  Si quieres cifrar ese archivo: en el menú de rclone config, «s» (set
-  configuration password). Ojo: cifrado, el montaje automático necesita la
-  clave; este guion la guarda en el llavero de la sesión (secret-tool) si
-  lo eliges abajo.
+  Solo se piden tres cosas: el Apple ID, su contraseña NORMAL (no una de
+  aplicación) y el código. Quedan solo en ${RCLONE_CONFIG:-~/.config/rclone/rclone.conf},
+  en tu \$HOME; la contraseña no sale en pantalla, y en la lista de procesos
+  solo aparece oscurecida (lo mismo que guarda rclone.conf).
 EOF
-  read -r -p "  ¿Abro rclone config? [s/N] " r; [[ "$r" =~ ^[sS] ]] || { echo "  no se abrió nada"; return; }
-  "$BIN" config
+  local id clave oscura
+  read -r -p "  Apple ID (correo): " id
+  [ -n "$id" ] || { echo "  no se hizo nada"; return; }
+  read -r -s -p "  Contraseña del Apple ID: " clave; echo
+  [ -n "$clave" ] || { echo "  no se hizo nada"; return; }
+  # Se oscurece por stdin («rclone obscure -») para que la clave en claro no
+  # vaya en la línea de comandos (ps la mostraría); a create va ya oscurecida.
+  oscura="$(printf '%s' "$clave" | "$BIN" obscure -)"; clave=""
+  echo "  Conectando con Apple; cuando lo pida, escribe el código que llegó al iPhone."
+  # create sin --non-interactive pregunta en la terminal lo que falte: el 2FA.
+  "$BIN" config create "$REMOTO" iclouddrive apple_id="$id" password="$oscura" --no-obscure
   "$BIN" listremotes | grep -qx "$REMOTO:" || { echo "  ✗ no quedó el remoto «$REMOTO»"; exit 1; }
   mkdir -p "$ESTADO"; date +%F > "$ALTA"
   if grep -q '^RCLONE_ENCRYPT_V0' "${RCLONE_CONFIG:-$HOME/.config/rclone/rclone.conf}" 2>/dev/null; then

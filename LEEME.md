@@ -98,7 +98,7 @@ carpeta: las fotos están dentro, en `originals`.
 
 ### 6. iCloud Drive (opcional)
 
-    icloud/icloud.sh alta      # una vez: el Apple ID, su contraseña y el código los escribes tú
+    icloud/icloud.sh alta      # una vez: pide el Apple ID, su contraseña y el código del iPhone, nada más
     icloud/icloud.sh montar    # ~/iCloud Drive, en el lateral de Fynder (iCloud → iCloud Drive)
     icloud/icloud.sh fotos     # opcional: Fotos en solo lectura, en ~/Pictures/iCloud Photos
 
