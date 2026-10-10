@@ -133,6 +133,9 @@ class AppleMenuApplet extends Applet.IconApplet {
       // recargar el tema, el .applet-box de Mojave (padding 3px) le gana al
       // stylesheet.
       this.actor.set_style("margin-left: 9px; padding: 0 11px 0 12px;");
+      // La clase es para el tema: en la Mac el botón no se resalta al pasar el
+      // puntero (#panel .applemenu-boton:hover, en Constanza).
+      this.actor.add_style_class_name("applemenu-boton");
       this._applet_icon_box.hide();
       let uri = Gio.File.new_for_path(ruta).get_uri();
       this._manzana = new St.Bin({ style_class: "applemenu-manzana", y_align: St.Align.MIDDLE,
