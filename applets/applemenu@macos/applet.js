@@ -124,12 +124,13 @@ class AppleMenuApplet extends Applet.IconApplet {
       // ícono, Cinnamon la escala al alto del panel en un cuadrado de 22×22 y
       // la estira a lo ancho. Queda en x 21–33 y y 2–17, como en la Mac.
       //
-      // El botón (lo que se resalta y de donde cae el menú) va de x 9 a x 45,
-      // con la manzana centrada: 12 px a cada lado. En x 45 empieza el de la
-      // app (appmenu), como el «Finder» de la Mac. En línea: después de
+      // El botón (lo que se resalta y de donde cae el menú) va de x 9 a x 44,
+      // con la manzana al centro: 12 px a la izquierda y 11 a la derecha (37
+      // de ancho se comía un píxel). En x 45 empieza el de la app (appmenu),
+      // como el «Finder» de la Mac; el panel ya no deja aire entre applets. En línea: después de
       // recargar el tema, el .applet-box de Mojave (padding 3px) le gana al
       // stylesheet.
-      this.actor.set_style("margin-left: 9px; padding: 0 12px;");
+      this.actor.set_style("margin-left: 9px; padding: 0 11px 0 12px;");
       this._applet_icon_box.hide();
       let uri = Gio.File.new_for_path(ruta).get_uri();
       this._manzana = new St.Bin({ style_class: "applemenu-manzana", y_align: St.Align.MIDDLE,
