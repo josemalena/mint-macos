@@ -15,3 +15,48 @@
 #panelLeft {
   spacing: 0;
 }
+
+/* Menús de la barra (menú Apple, menú de la app y los del menú global): una
+   sola clase para que no se separen. Medido por la sesión de la barra en las
+   capturas c28 y c11 de la Mac: texto blanco, SF 10 pt, fondo #24272A con
+   borde #45474A y esquinas de 5 px, renglones de 19 px, texto a 21 px del
+   borde y atajos a 8 px del derecho, resaltado #0267EB, separadores de 2 px
+   #45484B de borde a borde. Cada applet pone constanza-menu en menu.actor y
+   constanza-menu-box en menu.box. */
+.constanza-menu {
+  font-family: ".SF NS", "Inter", sans-serif;
+  font-size: 10pt;
+  color: #ffffff;
+}
+.constanza-menu-box {
+  background-color: #24272a;
+  border: 1px solid #45474a;
+  border-radius: 5px;
+  padding: 5px 0;
+  color: #ffffff;
+}
+.constanza-menu .popup-menu-item {
+  color: #ffffff;
+  padding: 1px 8px 1px 21px;
+  min-height: 17px;
+  spacing: 24px;
+  border-radius: 0;
+}
+.constanza-menu .popup-menu-item:active,
+.constanza-menu .popup-menu-item:hover,
+.constanza-menu .popup-menu-item:focus {
+  background-color: #0267eb;
+  background-gradient-direction: none;
+  color: #ffffff;
+}
+.constanza-menu .popup-menu-item:insensitive {
+  color: rgba(255, 255, 255, 0.35);
+}
+.constanza-menu .popup-separator-menu-item {
+  height: 2px;
+  -gradient-height: 2px;
+  -gradient-start: #45484b;
+  -gradient-end: #45484b;
+  -margin-horizontal: 0px;
+  padding: 5px 0;
+}

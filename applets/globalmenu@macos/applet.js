@@ -207,6 +207,8 @@ class GlobalMenuApplet extends Applet.Applet {
     let menu = new PopupMenu.PopupMenu(boton, lado);
     menu._calculatePosition = alinearALaIzquierda;
     menu.actor.set_style(ESTILO_FUENTE);
+    menu.actor.add_style_class_name("constanza-menu");
+    menu.box.add_style_class_name("constanza-menu-box");
     Main.uiGroup.add_actor(menu.actor);
     menu.actor.hide();
     this.menuManager.addMenu(menu);

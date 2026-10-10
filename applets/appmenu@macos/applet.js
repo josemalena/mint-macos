@@ -261,6 +261,9 @@ class AppMenuApplet extends Applet.TextApplet {
 
     this.menuManager = new PopupMenu.PopupMenuManager(this);
     this.menu = new Applet.AppletPopupMenu(this, orientation);
+    // El mismo aspecto que el menú Apple: la clase común del tema Constanza.
+    this.menu.actor.add_style_class_name("constanza-menu");
+    this.menu.box.add_style_class_name("constanza-menu-box");
     this.menuManager.addMenu(this.menu);
 
     this._buildMenu();
