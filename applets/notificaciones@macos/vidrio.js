@@ -72,6 +72,10 @@ function poner(menu) {
     if (menu._vidrio) menu._vidrio.allocate(caja, flags);
   });
   menu._vidrio = v;
+  // El tema solo vuelve translúcida la caja con esta clase: sin vidrio.js
+  // (otra máquina, el applet quitado) los menús quedan opacos y no dejan ver
+  // el escritorio nítido detrás.
+  menu.box.add_style_class_name("con-vidrio");
   menu._boxWrapper.queue_relayout();
   _ubicar(menu);
   // Otra vez al terminar la animación de abrir.
@@ -86,6 +90,7 @@ function quitar(menu) {
   if (menu._vidrioTiempo) { GLib.source_remove(menu._vidrioTiempo); menu._vidrioTiempo = 0; }
   if (menu._vidrioSenal) { try { menu._boxWrapper.disconnect(menu._vidrioSenal); } catch (e) {} menu._vidrioSenal = 0; }
   if (menu._vidrio) { menu._vidrio.destroy(); menu._vidrio = null; }
+  if (menu.box) menu.box.remove_style_class_name("con-vidrio");
 }
 
 /* Todos los menús emergentes de Cinnamon (los de la barra, los del escritorio). */
