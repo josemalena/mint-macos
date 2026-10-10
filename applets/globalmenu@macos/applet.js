@@ -38,6 +38,9 @@ const ESTILO_FUENTE = 'font-family: ".SF NS", sans-serif; font-size: 10pt;';
 // Blanco y peso 600: la Mac los pinta algo más gruesos que el regular
 // (medido contra la captura de José); 9 px por lado dejan 20-21 px de tinta
 // a tinta entre títulos, como allá.
+// Los desplegables, con la SF del grado de los menús de Catalina (regla de
+// fontconfig de tema/fuentes); si no está, cae a la SF normal.
+const ESTILO_MENU = 'font-family: ".SF NS Menú", ".SF NS", sans-serif; font-size: 10pt;';
 const ESTILO_BOTON = ESTILO_FUENTE + " color: #ffffff; font-weight: 600; padding: 0 9px;";
 
 function atributo(modelo, i, nombre) {
@@ -284,7 +287,7 @@ class GlobalMenuApplet extends Applet.Applet {
     let lado = this._orientation === St.Side.BOTTOM ? St.Side.BOTTOM : St.Side.TOP;
     let menu = new PopupMenu.PopupMenu(boton, lado);
     menu._calculatePosition = alinearALaIzquierda;
-    menu.actor.set_style(ESTILO_FUENTE);
+    menu.actor.set_style(ESTILO_MENU);
     menu.actor.add_style_class_name("constanza-menu");
     menu.box.add_style_class_name("constanza-menu-box");
     Main.uiGroup.add_actor(menu.actor);
@@ -426,7 +429,7 @@ class GlobalMenuApplet extends Applet.Applet {
     let lado = this._orientation === St.Side.BOTTOM ? St.Side.BOTTOM : St.Side.TOP;
     let menu = new PopupMenu.PopupMenu(boton, lado);
     menu._calculatePosition = alinearALaIzquierda;
-    menu.actor.set_style(ESTILO_FUENTE);
+    menu.actor.set_style(ESTILO_MENU);
     menu.actor.add_style_class_name("constanza-menu");
     menu.box.add_style_class_name("constanza-menu-box");
     Main.uiGroup.add_actor(menu.actor);

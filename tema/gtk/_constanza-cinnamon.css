@@ -60,10 +60,12 @@
    capturas c28 y c11 de la Mac: texto blanco, SF 10 pt, fondo #24272A con
    borde #45474A y esquinas de 5 px, renglones de 19 px, texto a 21 px del
    borde y atajos a 8 px del derecho, resaltado #0267EB, separadores de 2 px
-   #45484B de borde a borde. Cada applet pone constanza-menu en menu.actor y
+   #45484B de borde a borde. La letra es «.SF NS Menú»: la SF con el grado
+   de los menús de Catalina (regla de fontconfig de tema/fuentes; mismo ancho,
+   más cuerpo). Cada applet pone constanza-menu en menu.actor y
    constanza-menu-box en menu.box. */
 .constanza-menu {
-  font-family: ".SF NS", "Inter", sans-serif;
+  font-family: ".SF NS Menú", ".SF NS", "Inter", sans-serif;
   font-size: 10pt;
   color: #ffffff;
 }

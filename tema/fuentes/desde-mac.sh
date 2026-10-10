@@ -20,5 +20,9 @@ for f in "$MAC_SISTEMA"/System/Library/Fonts/SF*.{ttf,otf} \
   [ -f "$f" ] || continue
   cp -u "$f" "$DEST/"; n=$((n+1))
 done
+# «.SF NS Menú»: la misma SF con el grado de los menús de Catalina (GRAD 620),
+# por una regla de fontconfig (el archivo está en el repo: no es de Apple).
+mkdir -p "$HOME/.config/fontconfig/conf.d"
+cp "$AQUI/60-sf-ns-menu.conf" "$HOME/.config/fontconfig/conf.d/"
 fc-cache -f "$DEST" >/dev/null
 echo "  fuentes: $n archivos en $DEST"
