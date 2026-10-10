@@ -29,7 +29,10 @@ const LINK_SECTION = "section";
 // stylesheet de applet (padding 0 y negrita en los botones del panel), y
 // después de recargar el tema el stylesheet no siempre vuelve a ganar.
 const ESTILO_FUENTE = 'font-family: ".SF NS", sans-serif; font-size: 10pt;';
-const ESTILO_BOTON = ESTILO_FUENTE + " font-weight: normal; padding: 0 10px;";
+// Blanco y peso 600: la Mac los pinta algo más gruesos que el regular
+// (medido contra la captura de José); 9 px por lado dejan 20-21 px de tinta
+// a tinta entre títulos, como allá.
+const ESTILO_BOTON = ESTILO_FUENTE + " color: #ffffff; font-weight: 600; padding: 0 9px;";
 
 function atributo(modelo, i, nombre) {
   let v = modelo.get_item_attribute_value(i, nombre, null);

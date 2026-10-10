@@ -432,8 +432,11 @@ class AppMenuApplet extends Applet.TextApplet {
   _applyLabelStyle() {
     try {
       let px = Number(this.buttonPadding ?? 10);
-      this.actor.set_style(`padding-left: ${px}px; padding-right: ${px}px;`);
-      this._applet_label.set_style('padding-left: 0; padding-right: 0; font-family: ".SF NS", sans-serif; font-size: 10pt;');
+      // A la derecha 4 px menos: el primer título del menú global trae los
+      // suyos, y en la Mac hay 20 px de la app a File. El nombre va en blanco
+      // y peso 800, como el de la Mac.
+      this.actor.set_style(`padding-left: ${px}px; padding-right: ${Math.max(0, px - 4)}px;`);
+      this._applet_label.set_style('padding-left: 0; padding-right: 0; font-family: ".SF NS", sans-serif; font-size: 10pt; font-weight: 800; color: #ffffff;');
     } catch (e) {}
   }
 

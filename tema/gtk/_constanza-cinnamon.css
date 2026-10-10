@@ -80,3 +80,30 @@
 #panel .globalmenu-boton:hover {
   background-color: transparent;
 }
+
+/* Barra de menús, grosor y aire medidos por la sesión de la barra contra la
+   captura de José (Screen Shot 12.32.05): la Mac pinta el texto en blanco
+   puro y algo más grueso que el regular; los íconos de la derecha van a
+   13-16 px entre sí y a 24 px del borde. */
+.panel-top {
+  color: #ffffff;
+}
+#panelRight .applet-box {
+  padding: 0 5px;
+}
+#panelRight .applet-label {
+  color: #ffffff;
+  font-weight: 600;
+}
+#panelRight .xapp-status-cinnamon-org-applet {
+  spacing: 8px;
+  padding: 0 3px;
+}
+/* En la Mac el reloj deja 24 px antes del ícono del usuario. */
+#panelRight .calendar-cinnamon-org-applet {
+  padding-right: 15px;
+}
+/* 24 px de tinta al borde derecho, como en la Mac. */
+#panelRight {
+  padding-right: 17px;
+}
