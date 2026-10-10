@@ -70,7 +70,9 @@
   color: #ffffff;
 }
 .constanza-menu-box {
-  background-color: #24272a;
+  /* Translúcido: detrás va el vidrio desenfocado (notificaciones@macos,
+     vidrio.js), como los menús de Catalina. Opaco era #24272a. */
+  background-color: rgba(36, 39, 42, 0.72);
   border: 1px solid #45474a;
   border-radius: 5px;
   padding: 5px 0;
@@ -205,3 +207,20 @@
 .notification-applet-padding {
   padding: 0;
 }
+
+/* El vidrio de Catalina en los demás menús emergentes (sonido, red, reloj,
+   usuario, el del escritorio): sin el marco opaco de Mojave (border-image),
+   la misma caja translúcida de los menús de la barra, y detrás el escritorio
+   desenfocado (notificaciones@macos, vidrio.js). José, 10-10-2026. */
+.popup-menu {
+  border-image: none;
+  background: none;
+  padding: 0;
+}
+.popup-menu .popup-menu-content {
+  background-color: rgba(36, 39, 42, 0.72);
+  border: 1px solid #45474a;
+  border-radius: 5px;
+  padding: 5px 0;
+}
+
