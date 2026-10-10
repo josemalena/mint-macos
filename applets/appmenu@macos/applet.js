@@ -428,10 +428,13 @@ class AppMenuApplet extends Applet.TextApplet {
 
     this._buildMenu();
 
-    // ⌘H y ⌥⌘H: keyd deja pasar ⌘ como Super y Cinnamon no usa esas teclas.
+    // ⌘H, ⌥⌘H y ⌘Q: keyd deja pasar ⌘ como Super y Cinnamon no usa esas
+    // teclas. ⌘Q es el Quit del menú para TODAS las apps: muchas (Nemo,
+    // Fynder, Edge) no tienen un atajo de salir que keyd pueda traducir.
     this._atajos = [
       ["appmenu-macos-ocultar", "<Super>h", () => this._ocultarApp()],
       ["appmenu-macos-ocultar-otras", "<Super><Alt>h", () => this._ocultarOtras()],
+      ["appmenu-macos-salir", "<Super>q", () => this._salirDeApp()],
     ];
     for (let [n, k, f] of this._atajos) Main.keybindingManager.addHotKey(n, k, f);
     this._applyLabelStyle();
@@ -587,6 +590,9 @@ class AppMenuApplet extends Applet.TextApplet {
     let app = appDe(w), pid = w.get_pid();
     let ahora = GLib.get_monotonic_time();
     let p = this._quitPendiente;
+    // La repetición de la tecla (⌘Q sostenida) llega en menos de 0,7 s: eso no
+    // cuenta como segundo Quit; un segundo Quit de verdad, antes de 5 s, mata.
+    if (p && p.pid === pid && ahora - p.cuando < 700000) return;
     if (p && p.pid === pid && ahora - p.cuando < 5000000) {
       this._quitPendiente = null;
       killProcessTree(pid);
