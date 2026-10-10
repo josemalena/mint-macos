@@ -1,3 +1,11 @@
+[/]
+custom-list=['custom0']
+
+[custom-keybindings/custom0]
+binding=['<Alt><Shift><Super>Escape']
+command='python3 /home/jmalena/.local/share/cinnamon/applets/applemenu@macos/forcekill.py'
+name='Force Quit'
+
 [media-keys]
 area-screenshot=@as []
 area-screenshot-clip=['<Shift><Super>dollar']
