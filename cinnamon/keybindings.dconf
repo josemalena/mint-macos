@@ -1,5 +1,5 @@
 [/]
-custom-list=['custom0', 'custom1']
+custom-list=['custom0', 'custom1', 'custom2', 'custom3', 'custom4', 'custom5', 'custom6', 'custom7']
 
 [custom-keybindings/custom0]
 binding=['<Alt><Super>Escape']
@@ -11,13 +11,44 @@ binding=['<Alt><Shift><Super>Escape']
 command='python3 /home/jmalena/.local/share/cinnamon/applets/applemenu@macos/forzar-app-del-frente.py'
 name='Force Quit (app del frente)'
 
+[custom-keybindings/custom2]
+binding=['<Shift><Super>periodcentered']
+command='/home/jmalena/.local/bin/mac-captura pantalla'
+name='Captura: pantalla al escritorio (⇧⌘3)'
+
+[custom-keybindings/custom3]
+binding=['<Shift><Super>dollar']
+command='/home/jmalena/.local/bin/mac-captura area'
+name='Captura: área al escritorio (⇧⌘4)'
+
+[custom-keybindings/custom4]
+binding=['<Shift><Super>percent']
+command='/home/jmalena/.local/bin/mac-captura herramienta'
+name='Captura: herramienta (⇧⌘5)'
+
+[custom-keybindings/custom5]
+binding=['<Control><Shift><Super>periodcentered']
+command='/home/jmalena/.local/bin/mac-captura pantalla --clip'
+name='Captura: pantalla al portapapeles (⌃⇧⌘3)'
+
+[custom-keybindings/custom6]
+binding=['<Control><Shift><Super>dollar']
+command='/home/jmalena/.local/bin/mac-captura area --clip'
+name='Captura: área al portapapeles (⌃⇧⌘4)'
+
+[custom-keybindings/custom7]
+binding=['<Control><Super>space']
+command='/home/jmalena/.local/bin/mac-emojis'
+name='Emojis (⌃⌘Espacio)'
+
 [media-keys]
 area-screenshot=@as []
-area-screenshot-clip=['<Shift><Super>dollar']
+area-screenshot-clip=@as []
 logout=['<Shift><Super>q']
 screensaver=['<Control><Super>q']
+screenshot=['Print']
 screenshot-clip=@as []
-window-screenshot-clip=['<Shift><Super>percent']
+window-screenshot-clip=@as []
 
 [wm]
 switch-group=['<Super>masculine', '<Super>Above_Tab']

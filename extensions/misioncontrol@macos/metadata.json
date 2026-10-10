@@ -1,0 +1,9 @@
+{
+    "uuid": "misioncontrol@macos",
+    "name": "Mission Control de macOS",
+    "description": "⌃↑ todas las ventanas, ⌃↓ las de la app del frente y ⌃← ⌃→ entre escritorios, como en macOS Catalina.",
+    "version": "1.0",
+    "cinnamon-version": ["6.0", "6.2", "6.4", "6.6"],
+    "author": "mint-macos",
+    "url": "https://github.com/josemalena/mint-macos"
+}

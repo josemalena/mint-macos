@@ -5,8 +5,12 @@
 #   ./instalar.sh --encender   además las enciende (enabled-extensions), sin
 #                              apagar las que ya estén encendidas
 #
-# Hoy: cmdtab@macos, el ⌘Tab de Catalina. Encendida reemplaza el selector de
-# Cinnamon; apagada (o con volver.sh) vuelve el de Cinnamon.
+# Hoy:
+#   cmdtab@macos         el ⌘Tab de Catalina; encendida reemplaza el selector
+#                        de Cinnamon, apagada vuelve el de Cinnamon.
+#   misioncontrol@macos  ⌃↑ todas las ventanas, ⌃↓ las de la app del frente,
+#                        ⌃← ⌃→ entre escritorios (necesita la capa [control]
+#                        de keyd/default.conf).
 #
 # Respalda enabled-extensions y deja volver.sh en
 # ~/.local/share/respaldos/extensiones-<fecha>/.
@@ -14,7 +18,7 @@ set -euo pipefail
 
 AQUI="$(cd "$(dirname "$0")" && pwd)"
 DESTINO="$HOME/.local/share/cinnamon/extensions"
-EXTENSIONES=(cmdtab@macos)
+EXTENSIONES=(cmdtab@macos misioncontrol@macos)
 ENCENDER=false
 [ "${1:-}" = "--encender" ] && ENCENDER=true
 
