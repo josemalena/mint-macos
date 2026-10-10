@@ -27,6 +27,7 @@ const ICONO = 128;          // tamaño del ícono en el panel (se encoge si no c
 const AIRE_ICONO = 8;       // aire del resaltado alrededor del ícono
 const SUELTA_MS = 40;       // espera antes de tomar ⌘ como suelta (keyd)
 const HOVER_MS = 300;       // el mouse no elige hasta pasado esto (panel debajo del puntero)
+const BLOQUEO_MS = 600;     // Q o H sostenida no se repite (ver _sobreElegida)
 
 const ATAJOS = ['switch-windows', 'switch-windows-backward', 'switch-group', 'switch-group-backward'];
 
@@ -236,7 +237,16 @@ class Selector {
     return Clutter.EVENT_STOP;
   }
 
+  // Q y H actúan una vez por pulsación. Mantener la tecla la repite, y con
+  // keyd cada repetición llega como una pulsación nueva (suelta y vuelve a
+  // apretar ⌘ para mandar Ctrl+Q): sin esto se cerraban una tras otra todas
+  // las apps que iban quedando elegidas. Una tecla vale de nuevo solo después
+  // de BLOQUEO_MS sin recibirla.
   _sobreElegida(fn) {
+    let ahora = GLib.get_monotonic_time() / 1000;
+    let ultima = this._ultimaAccion;
+    this._ultimaAccion = ahora;
+    if (ultima && ahora - ultima < BLOQUEO_MS) return;
     let e = this._apps[this._indice];
     if (e) fn(e);
   }
