@@ -122,11 +122,12 @@ class AppleMenuApplet extends Applet.IconApplet {
     if (ruta) {
       // A su tamaño exacto, 13×16 (c10), como fondo de un bloque propio: como
       // ícono, Cinnamon la escala al alto del panel en un cuadrado de 22×22 y
-      // la estira a lo ancho. Arriba a 2 px y a 21 px del borde, como la Mac.
+      // la estira a lo ancho. Arriba a 2 px y a 21 px del borde de la pantalla,
+      // como la Mac (18 de margen: el applet empieza en x 3).
       this._applet_icon_box.hide();
       let uri = Gio.File.new_for_path(ruta).get_uri();
       this._manzana = new St.Bin({ style_class: "applemenu-manzana", y_align: St.Align.MIDDLE,
-        style: `width: 13px; height: 16px; margin-left: 5px; background-image: url("${uri}"); background-size: 13px 16px;` });
+        style: `width: 13px; height: 16px; margin-left: 18px; background-image: url("${uri}"); background-size: 13px 16px;` });
       this.actor.add_child(this._manzana);
       return;
     }
