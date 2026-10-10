@@ -330,14 +330,18 @@ class GlobalMenuApplet extends Applet.Applet {
     try { if (grupo && nombre && grupo.has_action(nombre)) estado = grupo.get_action_state(nombre); } catch (e) {}
 
     let item;
+    // Las marcas como en macOS: una ✓ a la izquierda del texto, sin
+    // interruptor; vale para los booleanos y para los grupos de radio.
     if (estado && estado.get_type_string() === "b" && !objetivo) {
-      // Interruptor (p. ej. «Show Hidden Files»).
-      item = new PopupMenu.PopupSwitchMenuItem(etiqueta, estado.get_boolean());
-      item.connect("toggled", (_it, valor) => grupo.change_action_state(nombre, GLib.Variant.new_boolean(valor)));
+      // Booleano (p. ej. «Show Hidden Files»).
+      let valor = estado.get_boolean();
+      item = new PopupMenu.PopupMenuItem(etiqueta);
+      if (valor) try { item.setOrnament(PopupMenu.OrnamentType.CHECK); } catch (e) {}
+      item.connect("activate", () => grupo.change_action_state(nombre, GLib.Variant.new_boolean(!valor)));
     } else if (estado && objetivo) {
       // Grupo de radio: marcado si el estado es igual al objetivo del ítem.
       item = new PopupMenu.PopupMenuItem(etiqueta);
-      try { if (estado.equal(objetivo)) item.setOrnament(PopupMenu.OrnamentType.DOT); } catch (e) {}
+      try { if (estado.equal(objetivo)) item.setOrnament(PopupMenu.OrnamentType.CHECK); } catch (e) {}
       item.connect("activate", () => grupo.change_action_state(nombre, objetivo));
     } else {
       item = new PopupMenu.PopupMenuItem(etiqueta);
@@ -425,17 +429,12 @@ class GlobalMenuApplet extends Applet.Applet {
         sub.setSensitive(it.activo);
         continue;
       }
-      let item;
-      if (it.marca === "check") {
-        item = new PopupMenu.PopupSwitchMenuItem(it.etiqueta, it.marcado);
-        item.connect("toggled", () => it.activar());
-      } else {
-        item = new PopupMenu.PopupMenuItem(it.etiqueta);
-        if (it.marca === "radio" && it.marcado) {
-          try { item.setOrnament(PopupMenu.OrnamentType.DOT); } catch (e) {}
-        }
-        item.connect("activate", () => it.activar());
+      // Marcas como en macOS: ✓ a la izquierda, sin interruptor.
+      let item = new PopupMenu.PopupMenuItem(it.etiqueta);
+      if (it.marca && it.marcado) {
+        try { item.setOrnament(PopupMenu.OrnamentType.CHECK); } catch (e) {}
       }
+      item.connect("activate", () => it.activar());
       if (it.atajo) {
         try {
           item.addActor(new St.Label({ text: it.atajo, style_class: "globalmenu-atajo", y_align: Clutter.ActorAlign.CENTER }),
