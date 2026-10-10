@@ -58,6 +58,11 @@ function separador() {
   return s;
 }
 
+// Lo que se ve de un menú dbusmenu, para saber si cambió al abrirlo.
+function firmaDbus(items) {
+  return JSON.stringify(items, (k, v) => (typeof v === "function" ? undefined : v));
+}
+
 // «_File» → «File» (el guion bajo marca el atajo de teclado en GTK).
 function limpiarEtiqueta(s) {
   return (s || "").replace(/__/g, "\u0000").replace(/_/g, "").replace(/\u0000/g, "_");
@@ -388,9 +393,12 @@ class GlobalMenuApplet extends Applet.Applet {
       if (!abierto) { try { t.cerrar(); } catch (e) {} return; }
       // Lo que ya se sabe, en seguida; y otra vez cuando la app lo llene
       // (Chrome, Firefox y Electron arman el menú al abrirlo).
+      // Si abrir() no cambió nada (Edge casi nunca cambia), no se rehace: así
+      // no parpadea.
+      let antes = firmaDbus(t.items());
       this._llenarDbus(menu, t.items());
       await t.abrir();
-      if (menu.isOpen) this._llenarDbus(menu, t.items());
+      if (menu.isOpen && firmaDbus(t.items()) !== antes) this._llenarDbus(menu, t.items());
     });
     boton.connect("clicked", () => menu.toggle());
   }
@@ -398,6 +406,13 @@ class GlobalMenuApplet extends Applet.Applet {
   _llenarDbus(menu, items) {
     menu.removeAll();
     this._itemsDbus(menu, items, 0);
+    // Los renglones reparten sus hijos con las columnas del menú, pero Clutter
+    // guarda el ancho que pidieron antes de recibirlas, y Cinnamon solo lo
+    // invalida si el tema tiene background-image (_menuQueueRelayout). Sin
+    // esto, la caja queda en 257 y el renglón se pinta a 276: el separador y
+    // el resaltado se salen por la derecha.
+    for (let a of menu.box.get_children()) a.queue_relayout();
+    menu.box.queue_relayout();
   }
 
   _itemsDbus(menu, items, profundidad) {
