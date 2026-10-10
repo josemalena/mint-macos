@@ -49,6 +49,19 @@ function _ubicar(menu) {
   if (!v) return;
   let [x, y] = menu._boxWrapper.get_transformed_position();
   v._lienzo.set_position(-Math.round(x), -Math.round(y));
+  _medir(menu);
+}
+
+// El desenfoque, del tamaño de la caja del menú. Se llama fuera de la
+// asignación (al abrir y al terminar la animación): set_size dentro de un
+// allocate pediría otro relayout.
+function _medir(menu) {
+  let v = menu._vidrio;
+  if (!v || !v._desenfoque || !menu.box) return;
+  let [w, h] = menu.box.get_size();
+  w = Math.max(1, Math.round(w)); h = Math.max(1, Math.round(h));
+  let [dw, dh] = v._desenfoque.get_size();
+  if (dw !== w || dh !== h) v._desenfoque.set_size(w, h);
 }
 
 function poner(menu) {
@@ -59,8 +72,14 @@ function poner(menu) {
   // pantalla) > lienzo (el escritorio, corrido a la posición del menú).
   let v = new Clutter.Actor({ clip_to_allocation: true, reactive: false });
   let desenfoque = new Clutter.Actor({ clip_to_allocation: true });
-  desenfoque.add_constraint(new Clutter.BindConstraint({ source: v, coordinate: Clutter.BindCoordinate.SIZE }));
+  // OJO: nada de BindConstraint del desenfoque a «v». v calcula su tamaño
+  // preguntándole a sus hijos, y la restricción le pregunta otra vez a v: una
+  // recursión sin fin que tumbó Cinnamon (SIGSEGV en
+  // clutter_actor_get_preferred_width, 10-10-2026). El desenfoque lleva el
+  // tamaño de la caja, fijo, y se actualiza fuera de la asignación (_medir).
   let [w, h] = menu.box.get_size();
+  desenfoque.set_size(Math.max(1, Math.round(w)), Math.max(1, Math.round(h)));
+  v._desenfoque = desenfoque;
   let pasadas = w * h > AREA_CHICO ? PASADAS_GRANDE : PASADAS_CHICO;
   for (let i = 0; i < pasadas; i++) desenfoque.add_effect(new Clutter.BlurEffect());
   v._lienzo = _lienzo();
