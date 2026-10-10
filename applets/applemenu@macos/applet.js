@@ -21,7 +21,9 @@
  *
  * Los atajos van alineados a la derecha, como en la Mac, y son los mismos que
  * tiene Cinnamon (cinnamon/keybindings.dconf). El estilo (fondo, borde,
- * renglones de 19 px, separadores, fuente SF) va en stylesheet.css.
+ * renglones de 19 px, fuente SF, blanco) es la clase común del tema,
+ * .constanza-menu, la misma de los menús de la app (appmenu y globalmenu):
+ * los menús de la barra no pueden verse distintos (José, 10-10-2026).
  *
  * Restart, Shut Down y Log Out abren el diálogo de applemenu.py (la cuenta
  * regresiva de 60 s); Force Quit… abre forcekill.py.
@@ -75,8 +77,8 @@ class AppleMenuApplet extends Applet.IconApplet {
 
     this.menuManager = new PopupMenu.PopupMenuManager(this);
     this.menu = new Applet.AppletPopupMenu(this, orientation);
-    this.menu.actor.add_style_class_name("applemenu-menu");
-    this.menu.box.add_style_class_name("applemenu-menu-box");
+    this.menu.actor.add_style_class_name("constanza-menu");
+    this.menu.box.add_style_class_name("constanza-menu-box");
     // 353 px por dentro, como la Mac (c28). En línea: el tema le gana al CSS.
     this.menu.box.set_style("min-width: 353px;");
     this.menuManager.addMenu(this.menu);
@@ -157,7 +159,6 @@ class AppleMenuApplet extends Applet.IconApplet {
    *  atajo su ancho y lo cortaba («⌥⌘» en vez de «⌥⌘⎋»). */
   _renglon(texto, derecha, claseDerecha) {
     let item = new PopupMenu.PopupBaseMenuItem();
-    item.actor.add_style_class_name("applemenu-item");
     let caja = new St.BoxLayout({ x_expand: true });
     item.label = new St.Label({ text: texto, x_expand: true, y_align: Clutter.ActorAlign.CENTER });
     caja.add_child(item.label);
@@ -175,8 +176,11 @@ class AppleMenuApplet extends Applet.IconApplet {
   _nuevoSeparador() {
     let sep = new PopupMenu.PopupSeparatorMenuItem();
     sep.actor.add_style_class_name("applemenu-separador");
-    sep.actor.set_style("padding: 5px 0; margin: 0;");
-    sep._drawingArea.set_style("height: 2px; border-bottom-width: 0; -margin-horizontal: 0px; " +
+    // 12 px en total (7 + 2 + 3), con la línea donde la pone la Mac (c28);
+    // sin el min-height de 17
+    // que la clase común les da a los renglones.
+    sep.actor.set_style("padding: 7px 0 3px 0; margin: 0; min-height: 0; spacing: 0;");
+    sep._drawingArea.set_style("height: 2px; padding: 0; margin: 0; border-bottom-width: 0; -margin-horizontal: 0px; " +
       "-gradient-height: 2px; -gradient-start: #45484b; -gradient-end: #45484b;");
     return sep;
   }
@@ -300,8 +304,8 @@ class AppleMenuApplet extends Applet.IconApplet {
     // su izquierda). Como hijo del menú Apple, el gestor no lo trata como un
     // clic afuera.
     this._recientes = new PopupMenu.PopupMenu(this._recientesItem.actor, St.Side.LEFT);
-    this._recientes.actor.add_style_class_name("applemenu-menu");
-    this._recientes.box.add_style_class_name("applemenu-menu-box");
+    this._recientes.actor.add_style_class_name("constanza-menu");
+    this._recientes.box.add_style_class_name("constanza-menu-box");
     Main.uiGroup.add_actor(this._recientes.actor);
     this._recientes.actor.hide();
     // Con «Recent Items» abierto el teclado lo tiene este menú: Shift también
@@ -327,13 +331,11 @@ class AppleMenuApplet extends Applet.IconApplet {
 
     if (!docs.length) {
       let vacio = new PopupMenu.PopupMenuItem("No recent documents", { reactive: false });
-      vacio.actor.add_style_class_name("applemenu-item");
       menu.addMenuItem(vacio);
     }
     for (let doc of docs) {
-      let item = new PopupMenu.PopupIconMenuItem(doc.name, "text-x-generic", St.IconType.FULLCOLOR, { style_class: "applemenu-item" });
+      let item = new PopupMenu.PopupIconMenuItem(doc.name, "text-x-generic", St.IconType.FULLCOLOR, {});
       try { item.setIconName(null); item._icon.set_gicon(doc.gicon); } catch (e) {}
-      item.actor.add_style_class_name("applemenu-item");
       item.connect("activate", () => {
         this.menu.close();
         try { Gio.app_info_launch_default_for_uri(doc.uri, global.create_app_launch_context()); } catch (e) {
@@ -346,7 +348,6 @@ class AppleMenuApplet extends Applet.IconApplet {
     menu.addMenuItem(this._nuevoSeparador());
 
     let limpiar = new PopupMenu.PopupMenuItem("Clear Menu");
-    limpiar.actor.add_style_class_name("applemenu-item");
     limpiar.setSensitive(docs.length > 0);
     limpiar.connect("activate", () => {
       this.menu.close();

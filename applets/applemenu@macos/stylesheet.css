@@ -1,62 +1,24 @@
 /*
- * Menú Apple (applemenu@macos), medido en la captura c28 de la Mac mini a 1x:
- *   fondo #24272A, borde de 1 px #45474A, esquinas de 5 px;
- *   texto a 21 px del borde, renglones de 19 px, atajos a 8 px del borde;
- *   separadores de 2 px #45484B de borde a borde, con 5 px de aire (van en
- *   línea en applet.js: el tema les resta el relleno del renglón);
- *   la fuente es SF (obligatoria): «.SF NS», nunca «SF NS Text», que no está
- *   instalada y cae en Noto Sans sin avisar.
+ * Menú Apple (applemenu@macos). Fondo, borde, renglones, resaltado, fuente SF
+ * y texto blanco vienen de la clase común del tema, .constanza-menu (Infra),
+ * la misma de los menús de la app: los menús de la barra no pueden verse
+ * distintos (José, 10-10-2026).
+ *
+ * Aquí solo lo que es del menú Apple: los atajos y la ▸ a la derecha, y el
+ * título de «Recent Items». Los separadores van en línea en applet.js: el
+ * tema les resta el relleno del renglón y les pinta un borde de más.
  */
-
-.applemenu-menu {
-  font-family: ".SF NS";
-  font-size: 10pt;
-}
-
-.applemenu-menu-box {
-  background-color: #24272a;
-  border: 1px solid #45474a;
-  border-radius: 5px;
-  padding: 5px 0;
-  min-width: 356px;
-  color: #ffffff;
-}
-
-.applemenu-menu .applemenu-item {
-  font-family: ".SF NS";
-  font-size: 10pt;
-  color: #ffffff;
-  padding: 1px 8px 1px 21px;
-  min-height: 17px;
-  border-radius: 0;
-}
-
-.applemenu-menu .applemenu-item:active,
-.applemenu-menu .applemenu-item:hover,
-.applemenu-menu .applemenu-item:focus {
-  background-color: #0267eb;
-  background-gradient-direction: none;
-  color: #ffffff;
-}
-
-.applemenu-menu .applemenu-item:insensitive {
-  color: rgba(255, 255, 255, 0.35);
-}
 
 .applemenu-atajo,
 .applemenu-flecha {
-  font-family: ".SF NS";
-  font-size: 10pt;
-  color: #ffffff;
   padding-left: 24px;
 }
 
-.applemenu-menu .applemenu-item:insensitive .applemenu-atajo {
+.constanza-menu .popup-menu-item:insensitive .applemenu-atajo {
   color: rgba(255, 255, 255, 0.35);
 }
 
-.applemenu-menu .applemenu-titulo {
-  font-family: ".SF NS";
+.constanza-menu .applemenu-titulo {
   font-size: 9pt;
   color: rgba(255, 255, 255, 0.5);
   padding: 1px 10px 1px 12px;
