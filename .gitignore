@@ -7,3 +7,6 @@ __pycache__/
 *.otf
 *.ttc
 tema/**/*.png
+*.heic
+*.jpg
+*.jpeg

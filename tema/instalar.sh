@@ -15,7 +15,8 @@ paso() { printf '\n▸ %s\n' "$*"; }
 
 DCONF_RUTAS=(/org/cinnamon/desktop/interface/ /org/gnome/desktop/interface/ \
              /org/cinnamon/desktop/wm/preferences/ /org/cinnamon/theme/ \
-             /net/launchpad/plank/docks/ /org/nemo/)
+             /net/launchpad/plank/docks/ /org/nemo/ \
+             /org/cinnamon/desktop/background/)
 
 reiniciar_plank() {
   for p in $(pgrep -x plank); do kill "$p"; done; sleep 1
@@ -37,13 +38,14 @@ if [ "${1:-}" = "--deshacer" ]; then
 fi
 
 trap desmontar_mac EXIT
-paso "Disco de la Mac (íconos del Finder y San Francisco)"
+paso "Disco de la Mac (íconos del Finder, San Francisco y fondo)"
 if montar_mac_sistema; then echo "  $MAC_SISTEMA"; export MAC_SISTEMA; HAY_MAC=1
 else echo "  no está: Os-Catalina e Inter"; HAY_MAC=0; fi
 
 paso "Tema GTK Constanza-Oscuro";  "$AQUI/gtk/construir.sh"
 paso "Íconos Constanza";           "$AQUI/iconos/construir.sh"
 paso "Fuentes San Francisco";      "$AQUI/fuentes/desde-mac.sh" || true
+paso "Fondo de Catalina";         "$AQUI/fondo/desde-mac.sh" || true
 desmontar_mac
 
 [ "${1:-}" = "--construir" ] && { echo; echo "Construido; no se activó nada."; exit 0; }
@@ -65,6 +67,16 @@ gsettings set org.cinnamon.desktop.interface icon-theme 'Constanza'
 gsettings set org.cinnamon.desktop.interface cursor-theme 'McMojave-cursors' 2>/dev/null || true
 gsettings set org.cinnamon.desktop.wm.preferences button-layout 'close,minimize,maximize:'
 dconf write /net/launchpad/plank/docks/dock1/theme "'Constanza-Oscuro'"
+
+# Fondo: Catalina al atardecer, si se pudo sacar de la Mac; si no, se queda
+# el que haya. «zoom» llena los dos monitores (16:10 y 5:4) recortando
+# arriba y abajo de la imagen cuadrada, sin franjas.
+FONDO="$HOME/.local/share/backgrounds/constanza/catalina.jpg"
+if [ -f "$FONDO" ]; then
+  gsettings set org.cinnamon.desktop.background picture-uri "file://$FONDO"
+  gsettings set org.cinnamon.desktop.background picture-options 'zoom'
+  echo "  fondo: $FONDO"
+fi
 
 # Ojo con pipefail: «fc-list | grep -q» falla al azar porque grep corta la
 # tubería y fc-list muere por SIGPIPE. Por eso se lee primero a una variable.
