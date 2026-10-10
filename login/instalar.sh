@@ -106,6 +106,13 @@ if [ -f "$LOCAL/fondo.jpg" ]; then
 else
   echo "  ✗ sin fondo ($LOCAL/fondo.jpg): saldrá negro. Corre antes ./desde-mac.sh --login"
 fi
+if [ -d "$LOCAL/iconos" ]; then
+  install -d "$DATOS/mac"
+  install -m644 "$LOCAL"/iconos/*.png "$DATOS/mac/"
+  echo "  botones de la Mac: $DATOS/mac"
+else
+  echo "  sin los botones de la Mac: van dibujados"
+fi
 if [ -f "$LOCAL/avatar.png" ]; then
   # Por AccountsService, que la copia a /var/lib/AccountsService/icons y la
   # anota en la cuenta: es la misma foto que enseña Cinnamon.

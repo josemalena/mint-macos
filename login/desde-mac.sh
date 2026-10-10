@@ -13,6 +13,9 @@
 #               pinta Catalina
 #   avatar.png  la foto de la cuenta (jpegphoto del usuario en dslocal; viene
 #               en TIFF aunque se llame así)
+#   iconos/     los botones de abajo, de loginwindow.app del volumen de
+#               SISTEMA (MAC_SISTEMA): Restart, ShutDown y Sleep en 1x y 2x.
+#               Cancel no está en la Mac: lo dibuja el greeter.
 #
 # Sin sudo: si el plist de la cuenta no se deja leer, lo dice y sigue sin foto.
 set -euo pipefail
@@ -36,6 +39,21 @@ if [ -n "$FONDO" ]; then
   echo "  fondo: $DESTINO/fondo.jpg"
 else
   echo "  ✗ no hay lockscreen.png en Library/Caches/Desktop Pictures (¿la Mac nunca bloqueó la pantalla?)"
+fi
+
+# Los botones de abajo (Sleep, Restart, Shut Down), del sistema.
+if [ -n "${MAC_SISTEMA:-}" ]; then
+  RES="$MAC_SISTEMA/System/Library/CoreServices/loginwindow.app/Contents/Resources"
+  mkdir -p "$DESTINO/iconos"
+  for n in Restart ShutDown Sleep; do
+    if [ -f "$RES/$n.tiff" ]; then
+      convert "$RES/$n.tiff[0]" "$DESTINO/iconos/$n@1x.png"
+      convert "$RES/$n.tiff[1]" "$DESTINO/iconos/$n@2x.png" 2>/dev/null || true
+    fi
+  done
+  echo "  botones: $(ls "$DESTINO/iconos" | wc -l) archivos en $DESTINO/iconos"
+else
+  echo "  sin MAC_SISTEMA: los botones de abajo quedan dibujados (corre ../desde-mac.sh --login)"
 fi
 
 # La foto de la cuenta.
