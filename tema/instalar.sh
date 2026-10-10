@@ -17,7 +17,8 @@ paso() { printf '\n▸ %s\n' "$*"; }
 DCONF_RUTAS=(/org/cinnamon/desktop/interface/ /org/gnome/desktop/interface/ \
              /org/cinnamon/desktop/wm/preferences/ /org/cinnamon/theme/ \
              /net/launchpad/plank/docks/ /org/nemo/ \
-             /org/cinnamon/desktop/background/)
+             /org/cinnamon/desktop/background/ \
+             /org/cinnamon/settings-daemon/plugins/xsettings/)
 
 reiniciar_plank() {
   for p in $(pgrep -x plank); do kill "$p"; done; sleep 1
@@ -103,8 +104,13 @@ gsettings set org.gnome.desktop.interface document-font-name "$FUENTE 10"
 gsettings set org.cinnamon.desktop.wm.preferences titlebar-font "$TITULO 10"
 # Los nombres del escritorio, como en macOS: negrita a 12 px (9 pt a 96 ppp).
 # Sin la SF se queda la fuente de interfaz normal.
+# Y sin hinting, como macOS: con «slight», la SF variable en negrita a 12 px
+# pierde el punto de la «i» y se deforma (lo comprobó Planner con pango-view).
+# Afecta a todo el escritorio; el suavizado en gris, sin colores en los bordes.
 if [ "$FUENTE" = '.SF NS' ]; then
   gsettings set org.nemo.desktop font '.SF NS Bold 9'
+  gsettings set org.cinnamon.settings-daemon.plugins.xsettings hinting 'none'
+  gsettings set org.cinnamon.settings-daemon.plugins.xsettings antialiasing 'grayscale'
 else
   gsettings set org.nemo.desktop font "$FUENTE 10"
 fi
