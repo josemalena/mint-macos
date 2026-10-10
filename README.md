@@ -14,6 +14,7 @@ panel lleva el menú Apple y el nombre de la aplicación activa.
 | `kitty/macos-keys.conf` | ⌘T, ⌘W, ⌘⏎, ⌘←/→ entre pestañas, ⌥←/→ y ⌥⌫ por palabra | `~/.config/kitty/`, incluido desde `kitty.conf` |
 | `vscode/keybindings.json` | Lo que keyd no traduce: ⌘⌥F, ⌘1…3, ⌘⇧[ ] | `~/.config/Code/User/` |
 | `applets/` | `applemenu@macos` (menú Apple, Force Quit), `appmenu@macos` (app activa, Quit) y `globalmenu@macos` (la barra de menú de la ventana enfocada, para apps que la publican por D-Bus con el protocolo de GTK: `gtk_application_set_menubar`; nemo-mac con `global-menu` encendido) | `~/.local/share/cinnamon/applets/` |
+| `menu-global/` | El lado de las apps del menú global: registrador `com.canonical.AppMenu.Registrar` como servicio de usuario y que las apps (GTK, Firefox, Thunderbird, Chromium/Electron, Qt) publiquen su menú; `install.sh` lo corre con `--sesion` y pide cerrar sesión. Detalle en su `LEEME.md` | servicio de usuario, `~/.xsessionrc` |
 
 Atajos del escritorio que ya están:
 

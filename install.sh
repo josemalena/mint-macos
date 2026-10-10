@@ -97,8 +97,16 @@ for a in "$REPO"/applets/*@macos; do
   echo "  $(basename "$a")"
 done
 
+# El lado de las apps del menú global (sesión de Plank/apps): el registrador y
+# que las apps publiquen su menú. Va con --sesion porque los applets de
+# arriba ya pintan los dos caminos (GTK y DBusMenu): sin ellos, las apps
+# esconderían su barra y quedarían sin menús. Respalda y deja volver.sh.
+paso "Menú global: que las apps publiquen su menú"
+"$REPO/menu-global/instalar.sh" --sesion
+
 paso "Listo"
 echo "  Agrega los applets al panel en System Settings → Applets."
+echo "  El menú global de las apps se activa al cerrar sesión y volver a entrar."
 echo "  En kitty: ctrl+shift+F5 recarga la configuración."
 echo "  Si el teclado se traba: Backspace+Escape+Enter a la vez detiene keyd."
 echo "  Para deshacer: los originales están en $RESPALDO"
