@@ -15,7 +15,8 @@
 # Plank del sistema esos dos lanzadores no existen y no se ponen.
 #
 # Variables:
-#   PLANK_FINDER    el Finder del dock: nemo-mac (por defecto) o fynder. El
+#   PLANK_FINDER    el Finder del dock: fynder (por defecto, si está su
+#                   .desktop; es el gestor de archivos de la casa) o nemo-mac. El
 #                   lanzador fijado tiene que ser el .desktop de la app que
 #                   abre las ventanas, para que caigan en ese ícono y no salgan
 #                   aparte: Plank empareja la ventana con el .desktop por su
@@ -48,7 +49,13 @@ escribir_lanzador() { # nombre uri
 }
 
 # El Finder: el .desktop de la app que de verdad abre las ventanas.
-FINDER_DESKTOP="$HOME/.local/share/applications/${PLANK_FINDER:-nemo-mac}.desktop"
+APPS="$HOME/.local/share/applications"
+if [ -z "${PLANK_FINDER:-}" ]; then
+  PLANK_FINDER=nemo-mac
+  [ -f "$APPS/fynder.desktop" ] && PLANK_FINDER=fynder
+fi
+FINDER_DESKTOP="$APPS/$PLANK_FINDER.desktop"
+[ -f "$FINDER_DESKTOP" ] || FINDER_DESKTOP="$APPS/nemo-mac.desktop"
 [ -f "$FINDER_DESKTOP" ] || FINDER_DESKTOP=/usr/share/applications/nemo.desktop
 escribir_lanzador finder "file://$FINDER_DESKTOP"
 # El lanzador viejo apuntaba a nemo.desktop: sus ventanas (nemo-mac) salían
