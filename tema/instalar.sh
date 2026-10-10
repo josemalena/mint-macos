@@ -46,6 +46,7 @@ paso "Tema GTK Constanza-Oscuro";  "$AQUI/gtk/construir.sh"
 paso "Íconos Constanza";           "$AQUI/iconos/construir.sh"
 paso "Fuentes San Francisco";      "$AQUI/fuentes/desde-mac.sh" || true
 paso "Fondo de Catalina";         "$AQUI/fondo/desde-mac.sh" || true
+paso "Manzana del menú Apple";     python3 "$AQUI/manzana/desde-fuente.py" || true
 desmontar_mac
 
 [ "${1:-}" = "--construir" ] && { echo; echo "Construido; no se activó nada."; exit 0; }
@@ -91,7 +92,13 @@ gsettings set org.cinnamon.desktop.interface font-name "$FUENTE 10"
 gsettings set org.gnome.desktop.interface font-name "$FUENTE 10"
 gsettings set org.gnome.desktop.interface document-font-name "$FUENTE 10"
 gsettings set org.cinnamon.desktop.wm.preferences titlebar-font "$TITULO 10"
-gsettings set org.nemo.desktop font "$FUENTE 10"
+# Los nombres del escritorio, como en macOS: negrita a 12 px (9 pt a 96 ppp).
+# Sin la SF se queda la fuente de interfaz normal.
+if [ "$FUENTE" = '.SF NS' ]; then
+  gsettings set org.nemo.desktop font '.SF NS Bold 9'
+else
+  gsettings set org.nemo.desktop font "$FUENTE 10"
+fi
 echo "  fuente: $FUENTE"
 
 # El segmentado y demás retoques ya vienen dentro del tema: el gtk.css del

@@ -16,6 +16,7 @@ fuentes. Reemplaza a `catalina.sh`.
 | `iconos/` | Os-Catalina con arreglos, y encima los íconos del Finder si hay disco de Mac | `~/.local/share/icons/Constanza` |
 | `fuentes/` | Copia San Francisco (sistema, Compact y SF Mono) del disco de la Mac | `~/.local/share/fonts/san-francisco` |
 | `fondo/` | Saca el fondo de Catalina del disco de la Mac: el cuadro 7 (atardecer) de `Catalina.heic`; `CUADRO=1` da la noche, el «oscuro» de Apple. Sin disco de Mac, el fondo no se toca | `~/.local/share/backgrounds/constanza/catalina.jpg` |
+| `manzana/` | La manzana del menú Apple: el carácter U+F8FF de SFNS.ttf, en SVG blanco y PNG a 1x/2x (13×16 px), para `applemenu@macos`. Necesita antes las fuentes de `fuentes/` | `~/.local/share/constanza/manzana/apple-menu.svg` |
 | `comun.sh` | Busca y monta en solo lectura el volumen de sistema de la Mac | — |
 
 ## Con disco de Mac y sin él

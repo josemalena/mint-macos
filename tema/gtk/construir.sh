@@ -33,6 +33,9 @@ for css in gtk.css gtk-dark.css; do
   echo '@import url("constanza.css");' >> "$BASE/gtk-3.0/$css"
 done
 
+# Lo propio encima del panel y los menús de Cinnamon.
+cat "$AQUI/_constanza-cinnamon.css" >> "$BASE/cinnamon/cinnamon.css"
+
 # Nombre propio y metatema.
 sed -i -e "s/^Name=.*/Name=$NOMBRE/" -e "s/^GtkTheme=.*/GtkTheme=$NOMBRE/" \
        -e "s/^MetacityTheme=.*/MetacityTheme=$NOMBRE/" -e "s/^IconTheme=.*/IconTheme=Constanza/" \

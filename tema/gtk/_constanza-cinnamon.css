@@ -1,0 +1,10 @@
+
+/* ── Constanza: retoques al panel y menús de Cinnamon ─────────────────────
+   Se agrega al final de cinnamon/cinnamon.css de Mojave, así que gana. */
+
+/* La barra de menús de Catalina en oscuro es #282828 sólido (medido en las
+   capturas de José); Mojave la deja gris translúcido, que sobre el fondo da
+   #2B2B2D. */
+.panel-top, .panel-bottom, .panel-left, .panel-right {
+  background-color: #282828;
+}
