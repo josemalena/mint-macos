@@ -16,6 +16,45 @@
   spacing: 0;
 }
 
+/* Los menús de los applets de la derecha (sonido, red, reloj, usuario,
+   notificaciones) y cualquier otro menú de Cinnamon, con la misma letra, los
+   mismos renglones y el mismo resaltado que los de la barra (.constanza-menu):
+   en la Mac todos los menús de la barra se ven iguales (José, 10-10-2026). El
+   tema base los pinta en #DEDEDE, con renglones de 0.4em y el resaltado de
+   imagen. */
+.popup-menu,
+.popup-combo-menu {
+  font-family: ".SF NS", "Inter", sans-serif;
+  font-size: 10pt;
+  color: #ffffff;
+}
+.popup-menu .popup-menu-item,
+.popup-combo-menu .popup-menu-item {
+  color: #ffffff;
+  padding: 1px 8px 1px 21px;
+  min-height: 17px;
+  spacing: 8px;
+}
+.popup-menu .popup-menu-item:active,
+.popup-menu .popup-menu-item:hover,
+.popup-menu .popup-menu-item:focus,
+.popup-combo-menu .popup-menu-item:active,
+.popup-combo-menu .popup-menu-item:hover,
+.popup-combo-menu .popup-menu-item:focus {
+  background-color: #0267eb;
+  background-gradient-direction: none;
+  border-image: none;
+  color: #ffffff;
+}
+.popup-menu .popup-menu-item:insensitive,
+.popup-combo-menu .popup-menu-item:insensitive {
+  color: rgba(255, 255, 255, 0.35);
+}
+.popup-menu .popup-menu-content,
+.popup-combo-menu .popup-menu-content {
+  padding: 5px 0;
+}
+
 /* Menús de la barra (menú Apple, menú de la app y los del menú global): una
    sola clase para que no se separen. Medido por la sesión de la barra en las
    capturas c28 y c11 de la Mac: texto blanco, SF 10 pt, fondo #24272A con
