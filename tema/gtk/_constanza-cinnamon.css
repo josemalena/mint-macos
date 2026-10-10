@@ -76,6 +76,7 @@
   border-radius: 0;
   color: #ffffff;
 }
+#panel .applet-box:hover,
 #panel .globalmenu-boton:hover {
   background-color: transparent;
 }
