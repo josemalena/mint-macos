@@ -35,13 +35,15 @@ const LINK_SECTION = "section";
 // stylesheet de applet (padding 0 y negrita en los botones del panel), y
 // después de recargar el tema el stylesheet no siempre vuelve a ganar.
 const ESTILO_FUENTE = 'font-family: ".SF NS", sans-serif; font-size: 10pt;';
-// Blanco y peso 600: la Mac los pinta algo más gruesos que el regular
-// (medido contra la captura de José); 9 px por lado dejan 20-21 px de tinta
-// a tinta entre títulos, como allá.
 // Los desplegables, con la SF del grado de los menús de Catalina (regla de
 // fontconfig de tema/fuentes); si no está, cae a la SF normal.
 const ESTILO_MENU = 'font-family: ".SF NS Menú", ".SF NS", sans-serif; font-size: 10pt;';
-const ESTILO_BOTON = ESTILO_FUENTE + " color: #ffffff; font-weight: 600; padding: 0 9px;";
+// Los títulos (File, Edit…): blancos y en peso regular. El cuerpo de más lo
+// pone el grado de la SF (GRAD 620); con 600 encima salían 22 % más gruesos
+// y 4 px más anchos que en la Mac (Dev-Dock, «Window»: 50 px allá). En la Mac
+// solo el nombre de la app va en negrita. 9 px por lado: unos 20 px de tinta
+// a tinta entre títulos.
+const ESTILO_BOTON = ESTILO_FUENTE + " color: #ffffff; font-weight: normal; padding: 0 9px;";
 
 function atributo(modelo, i, nombre) {
   let v = modelo.get_item_attribute_value(i, nombre, null);
