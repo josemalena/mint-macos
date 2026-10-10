@@ -113,7 +113,10 @@ fork.** El fork solo necesita una ruta configurable: si existe, sale la sección
 - **FileManager1** (Planner): lo reclama solo si el fork está como predeterminado.
 - **Acciones** (Planner): se comparten; las extensiones compiladas no cargan.
 - **Instalación** (Planner): `/usr/local`.
-- **Código** (Planner): repo propio **`josemalena/nemo-mac`** (con el cambio de nombre, Planner decide si se renombra a `fynder`), fork de
-  `linuxmint/nemo`. `mint-macos` trae solo el guion que lo compila e instala.
+- **Código** (Planner, 10-10-2026): **solo local**, en `~/Documents/Dev/repos/nemo-mac`,
+  fork de `linuxmint/nemo` con remoto `upstream`; no hay repo en GitHub. La carpeta y la
+  rama pasan a llamarse «fynder» cuando la sesión nemo-mac-e1 (la que lleva el fork,
+  ya no Codex) cierre su trabajo. `mint-macos` trae solo el guion que lo compila e
+  instala.
 - **Pendiente de Infra:** montar iCloud Drive en el host (ruta para
   `sidebar-icloud-path`) y que `catalina.sh` use San Francisco si está instalada.
