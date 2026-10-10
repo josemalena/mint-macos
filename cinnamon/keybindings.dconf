@@ -51,6 +51,7 @@ screenshot-clip=@as []
 window-screenshot-clip=@as []
 
 [wm]
+show-desktop=['F11']
 switch-group=['<Super>masculine', '<Super>Above_Tab']
 switch-group-backward=['<Shift><Super>masculine', '<Shift><Super>Above_Tab']
 switch-windows=['<Super>Tab']
