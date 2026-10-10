@@ -15,7 +15,7 @@ set -euo pipefail
 FYNDER_REPO=https://github.com/josemalena/fynder.git
 FYNDER_HASH=0af2f8235615cbe58b7edeabdea2399e52b03f47
 PLANK_REPO=https://github.com/josemalena/plank-reloaded.git
-PLANK_HASH=4cf5ae489e2be2dbde455d576e64722374c7a898
+PLANK_HASH=461786b42a3f4236f38c1f8fb237fa54a6a69076
 
 CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/mint-macos"
 PREFIJO="$HOME/.local"

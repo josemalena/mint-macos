@@ -1,0 +1,42 @@
+--- a/5.6/extension.js
++++ b/5.6/extension.js
+@@ -145,34 +145,12 @@
+          return icon;
+       }
+ 
+-      let monitor = actor.meta_window.get_monitor();
+-      let panels = Main.panelManager.getPanelsInMonitor(monitor);
+-      let loc = -1;
++      // mint-macos: sin región de ícono (una ventana que Plank todavía no
++      // conoce), la ventana va al centro del borde de ABAJO de su monitor,
++      // donde está el Dock, y no al panel de arriba, que en mint-macos es la
++      // barra de menús. get_monitor() devuelve el índice, no el monitor.
++      let monitor = Main.layoutManager.monitors[actor.meta_window.get_monitor()] || Main.layoutManager.primaryMonitor;
+       icon = {x: monitor.x + monitor.width / 2, y: monitor.y + monitor.height, width: 0, height: 0};
+-      // Find a panel and set the icon location to be the middle of the panel.
+-      // If more than one panel exists, use the below probability order to select
+-      // the most likely window-list location based on typical usage.
+-      // Window list location probability order: Bottom, Top, Left, Right
+-      for (let i = 0; i < panels.length; i++) {
+-         if (panels[i].panelPosition == Panel.PanelLoc.top) {
+-            loc = Panel.PanelLoc.top;
+-            icon.x = panels[i].monitor.x + panels[i].monitor.width / 2;
+-            icon.y = panels[i].monitor.y;
+-         } else if (loc != Panel.PanelLoc.top && loc != Panel.PanelLoc.left && panels[i].panelPosition == Panel.PanelLoc.right) {
+-            loc = Panel.PanelLoc.right;
+-            icon.x = panels[i].monitor.x + panels[i].monitor.width;
+-            icon.y = panels[i].monitor.y + panels[i].monitor.height / 2;
+-         } else if (loc != Panel.PanelLoc.top && panels[i].panelPosition == Panel.PanelLoc.left) {
+-            loc = Panel.PanelLoc.left;
+-            icon.x = panels[i].monitor.x;
+-            icon.y = panels[i].monitor.y + panels[i].monitor.height / 2;
+-         } else if (panels[i].panelPosition == Panel.PanelLoc.bottom) {
+-            loc = Panel.PanelLoc.bottom;
+-            icon.x = panels[i].monitor.x + panels[i].monitor.width / 2;
+-            icon.y = panels[i].monitor.y + panels[i].monitor.height;
+-            break;
+-         }
+-      }
+       return icon;
+    }
+ 

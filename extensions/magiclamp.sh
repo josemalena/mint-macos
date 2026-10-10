@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # El «efecto genio» de macOS al minimizar: Magic Lamp de klangman
 # (CinnamonMagicLamp@klangman, Cinnamon Spices, GPL-3; su LICENSE viene en la
-# carpeta y se instala con ella). No se copia al repo: se baja de
+# carpeta y se instala con ella; los parches de mint-macos, en
+# extensions/parches/, también son GPL-3). No se copia al repo: se baja de
 # linuxmint/cinnamon-spices-extensions en un commit fijo y se comprueba el
 # hash del árbol de la carpeta antes de instalarla.
 #
@@ -60,6 +61,13 @@ rm -rf "${DESTINO:?}"
 mkdir -p "$(dirname "$DESTINO")"
 cp -a "$CACHE/$RUTA" "$DESTINO"
 echo "  instalada en $DESTINO (con su LICENSE)"
+# Parches de mint-macos sobre esa versión (extensions/parches/magiclamp-*):
+# hoy, que una ventana sin ícono en el dock vaya al centro del borde de abajo
+# de su monitor (el Dock) y no al panel de arriba (Dev-Dock).
+for parche in "$(cd "$(dirname "$0")" && pwd)"/parches/magiclamp-*.patch; do
+  [ -f "$parche" ] || continue
+  patch -s -p1 -d "$DESTINO" < "$parche" && echo "  parche: $(basename "$parche")"
+done
 
 # Los ajustes: el archivo de Cinnamon es el esquema con «value» en cada clave.
 mkdir -p "$(dirname "$AJUSTES")"
