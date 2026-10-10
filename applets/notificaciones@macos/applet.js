@@ -57,6 +57,12 @@ class NotificationCenter extends Applet.Applet {
     // derecha (sin Siri, que aquí no existe).
     this.actor.set_style("padding-left: 12px;");
 
+    // El armado de Catalina para todas las notificaciones (catalina.js).
+    // Ojo: Cinnamon guarda los módulos del applet; un cambio en catalina.js
+    // pide reiniciar Cinnamon, ReloadXlet no lo vuelve a leer.
+    this._catalina = imports.ui.appletManager.applets[metadata.uuid].catalina;
+    this._catalina.aplicar();
+
     this._orientation = orientation;
     this.menuManager = new PopupMenu.PopupMenuManager(this);
     this.notificaciones = []; // de la más vieja a la más nueva
@@ -72,6 +78,7 @@ class NotificationCenter extends Applet.Applet {
   }
 
   on_applet_removed_from_panel() {
+    if (this._catalina) this._catalina.quitar();
     if (this._senal) Main.messageTray.disconnect(this._senal);
     if (this._contado) {
       MessageTray.extensionsHandlingNotifications = Math.max(0, MessageTray.extensionsHandlingNotifications - 1);
