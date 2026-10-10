@@ -79,6 +79,46 @@ function activarAccion(bus, ruta, nombre, objetivo) {
 }
 
 const RE_PREFS = /^(preferences|preferencias|settings|ajustes)\b/i;
+const RE_QUIT = /^(quit|exit|salir|close all windows|cerrar todas las ventanas)\b/i;
+
+// Las apps que publican por dbusmenu (Edge, Firefox, Thunderbird, Qt,
+// LibreOffice con appmenu-gtk-module): se busca el ítem en su árbol con el
+// lector del menú global (globalmenu@macos/dbusmenu.js). Devuelve una
+// función que lo activa, o null.
+async function buscarEnDbusmenu(w, patron) {
+  let D = null;
+  try { D = imports.ui.appletManager.applets["globalmenu@macos"].dbusmenu; } catch (e) {}
+  if (!D) return null;
+  let xid = 0;
+  try { xid = w.get_xwindow(); } catch (e) {}
+  let reg = new D.Registrador(() => {});
+  let par = null;
+  try { par = await reg.menuDe(xid); } finally { reg.destruir(); }
+  if (!par) return null;
+  let lector = new D.LectorDbusmenu(par[0], par[1], null);
+  let hallado = null;
+  let buscar = (items) => {
+    for (let it of items || []) {
+      if (hallado) return;
+      if (it.submenu) buscar(it.submenu);
+      else if (!it.separador && it.activo !== false && patron.test(it.etiqueta || "")) hallado = it;
+    }
+  };
+  try {
+    for (let t of await lector.titulos()) {
+      buscar(t.items());
+      if (hallado) break;
+      // Chromium y Electron llenan cada menú al abrirlo.
+      await t.abrir(); t.cerrar();
+      buscar(t.items());
+      if (hallado) break;
+    }
+  } catch (e) {
+    global.logError("appmenu@macos: dbusmenu: " + e);
+  }
+  if (!hallado) { lector.destruir(); return null; }
+  return () => { hallado.activar(); GLib.timeout_add(GLib.PRIORITY_DEFAULT, 2000, () => { lector.destruir(); return GLib.SOURCE_REMOVE; }); };
+}
 
 // Activa el primer ítem del menú publicado por la app cuya etiqueta cumpla
 // el patrón. Devuelve true si lo encontró y lo activó.
@@ -312,84 +352,61 @@ function getFocusedPid() {
   try { return w.get_pid ? w.get_pid() : 0; } catch (e) { return 0; }
 }
 
-function killProcessTree(pid) {
-  const root = Number(pid);
-  if (!root || root <= 0) return;
-
-  const qpid = shellQuote(String(root));
-
-  const bash = `
-set -e
-ROOT=${qpid}
-
-collect_children_pgrep() { local p="$1"; pgrep -P "$p" 2>/dev/null || true; }
-collect_children_proc()  { local p="$1"; local f="/proc/$p/task/$p/children"; [ -r "$f" ] && cat "$f" 2>/dev/null || true; }
-
-collect_all() {
-  local queue="$1"
-  local out=""
-  while [ -n "$queue" ]; do
-    local p="\${queue%% *}"
-    queue="\${queue#* }"
-    [ -z "$p" ] && continue
-    out="$out $p"
-
-    local kids=""
-    kids="$(collect_children_pgrep "$p")"
-    [ -z "$kids" ] && kids="$(collect_children_proc "$p")"
-
-    for k in $kids; do queue="$queue $k"; done
-  done
-  echo "$out"
-}
-
-PIDS="$(collect_all "$ROOT")"
-
-# TERM children-first
-for p in $(echo "$PIDS" | awk '{for(i=NF;i>=1;i--) printf $i" ";}'); do
-  kill -TERM "$p" 2>/dev/null || true
-done
-
-sleep 1.2
-
-# KILL children-first
-for p in $(echo "$PIDS" | awk '{for(i=NF;i>=1;i--) printf $i" ";}'); do
-  kill -KILL "$p" 2>/dev/null || true
-done
-`;
-  spawn(`bash -lc ${shellQuote(bash)}`);
-}
-
-class AboutAppDialog extends ModalDialog.ModalDialog {
-  constructor(title, bodyText) {
-    super({ styleClass: null });
-
-    this.contentLayout.add(new St.Label({
-      text: title,
-      style_class: "dialog-title",
-      x_align: St.Align.START
-    }));
-
-    let scroll = new St.ScrollView({ style_class: "vfade", overlay_scrollbars: true });
-    let label = new St.Label({
-      text: bodyText,
-      style_class: "dialog-description",
-      x_align: St.Align.START
-    });
-    label.clutter_text.line_wrap = true;
-    label.clutter_text.selectable = true;
-
-    scroll.add_actor(label);
-    this.contentLayout.add(scroll);
-
-    this.setButtons([
-      {
-        label: "OK",
-        action: () => this.close(),
-        key: 0
-      }
-    ]);
+// Último recurso del Quit: TERM al proceso y sus descendientes y, a los
+// 1.2 s, KILL a los que sigan vivos. Los descendientes se leen de /proc (el
+// guion de bash de antes se quedaba en un bucle y no mataba nada).
+function descendientes(raiz) {
+  let hijos = {};
+  try {
+    let dir = Gio.File.new_for_path("/proc");
+    let en = dir.enumerate_children("standard::name", Gio.FileQueryInfoFlags.NONE, null);
+    let info;
+    while ((info = en.next_file(null))) {
+      let n = info.get_name();
+      if (!/^[0-9]+$/.test(n)) continue;
+      let stat = readFileTrim(`/proc/${n}/stat`);
+      let m = stat.match(/\)\s+\S\s+(\d+)/);   // el ppid va después de «(comm) estado»
+      if (!m) continue;
+      (hijos[m[1]] = hijos[m[1]] || []).push(Number(n));
+    }
+  } catch (e) {}
+  let todos = [], cola = [Number(raiz)];
+  while (cola.length) {
+    let p = cola.shift();
+    if (todos.indexOf(p) >= 0) continue;
+    todos.push(p);
+    for (let h of hijos[String(p)] || []) cola.push(h);
   }
+  return todos;
+}
+
+function killProcessTree(pid) {
+  const raiz = Number(pid);
+  if (!raiz || raiz <= 1) return;
+  let pids = descendientes(raiz).map(String);
+  try { Util.spawn(["kill", "-TERM", ...pids]); } catch (e) {}
+  GLib.timeout_add(GLib.PRIORITY_DEFAULT, 1200, () => {
+    let vivos = pids.filter(p => GLib.file_test(`/proc/${p}`, GLib.FileTest.EXISTS));
+    if (vivos.length) { try { Util.spawn(["kill", "-KILL", ...vivos]); } catch (e) {} }
+    return GLib.SOURCE_REMOVE;
+  });
+}
+
+
+// El diálogo de respaldo del About: un ModalDialog normal que se llena aquí.
+// No se hereda de él: en este Cinnamon es una clase GObject, y una subclase
+// registrada choca al recargar el applet («already registered»).
+function AboutAppDialog(title, bodyText) {
+  let dlg = new ModalDialog.ModalDialog({ styleClass: null });
+  dlg.contentLayout.add(new St.Label({ text: title, style_class: "dialog-title", x_align: St.Align.START }));
+  let scroll = new St.ScrollView({ style_class: "vfade", overlay_scrollbars: true });
+  let label = new St.Label({ text: bodyText, style_class: "dialog-description", x_align: St.Align.START });
+  label.clutter_text.line_wrap = true;
+  label.clutter_text.selectable = true;
+  scroll.add_actor(label);
+  dlg.contentLayout.add(scroll);
+  dlg.setButtons([{ label: "OK", action: () => dlg.close(), key: 0 }]);
+  return dlg;
 }
 
 class AppMenuApplet extends Applet.TextApplet {
@@ -536,10 +553,7 @@ class AppMenuApplet extends Applet.TextApplet {
     this.hideOthersItem = item("Hide Others", "⌥⌘H", () => this._ocultarOtras());
     this.showAllItem = item("Show All", "", () => this._mostrarTodas());
     sep();
-    this.quitItem = item(`Quit ${name}`, "⌘Q", () => {
-      let pid = getFocusedPid();
-      if (pid > 0) killProcessTree(pid);
-    });
+    this.quitItem = item(`Quit ${name}`, "⌘Q", () => this._salirDeApp());
   }
 
   // alAbrir: solo al abrir el menú se pregunta a la app si tiene Preferences
@@ -560,6 +574,29 @@ class AppMenuApplet extends Applet.TextApplet {
     this.hideOthersItem.setSensitive(hayApp);
     this.quitItem.setSensitive(hayApp);
     this.showAllItem.setSensitive(ventanasNormales().some(v => v.minimized));
+  }
+
+  // Quit como en macOS: se le pide a la app que salga, para que pregunte si
+  // guarda. (a) su propio Quit/Exit, por GTK o por dbusmenu; (b) si no tiene,
+  // se cierran sus ventanas una por una; (c) un segundo Quit a la misma app
+  // antes de 5 s la mata (TERM y luego KILL), como último recurso.
+  async _salirDeApp() {
+    let w = getFocusedWindow();
+    if (!w || isDesktopWindow(w)) return;
+    let app = appDe(w), pid = w.get_pid();
+    let ahora = GLib.get_monotonic_time();
+    let p = this._quitPendiente;
+    if (p && p.pid === pid && ahora - p.cuando < 5000000) {
+      this._quitPendiente = null;
+      killProcessTree(pid);
+      return;
+    }
+    this._quitPendiente = { pid: pid, cuando: ahora };
+    if (activarDeMenu(w, RE_QUIT)) return;
+    let activar = await buscarEnDbusmenu(w, RE_QUIT);
+    if (activar) { activar(); return; }
+    let hora = global.get_current_time();
+    for (let v of ventanasNormales()) if (mismaApp(v, w)) { try { v.delete(hora); } catch (e) {} }
   }
 
   _ocultarApp() {
@@ -589,8 +626,14 @@ class AppMenuApplet extends Applet.TextApplet {
     }
 
     if (abrirAboutDeLaApp(w)) return;
+    // Si la app publica por dbusmenu (Edge lo tiene en Help).
+    buscarEnDbusmenu(w, RE_ABOUT).then(activar => {
+      if (activar) activar(); else this._aboutDeRespaldo(w, name);
+    });
+  }
 
-    let pid = getFocusedPid();
+  _aboutDeRespaldo(w, name) {
+    let pid = w.get_pid();
     let comm = pid > 0 ? procNameFromPid(pid) : "";
     let exe = pid > 0 ? (() => { try { return GLib.file_read_link(`/proc/${pid}/exe`); } catch (e) { return ""; } })() : "";
     let cmdline = pid > 0 ? readFileTrim(`/proc/${pid}/cmdline`).split("\u0000").filter(Boolean).join(" ") : "";
