@@ -64,6 +64,10 @@ En orden:
    el orden de la Mac.
 6. Fynder como administrador de archivos y el Dock del fork al entrar.
 
+El arranque con la manzana y la barra de progreso (Plymouth) cambia el
+initramfs y pide sudo; instalar.sh deja la vista previa y dice el comando:
+`sudo tema/arranque/instalar.sh` (vuelta atrás: `--deshacer`).
+
 Sin el disco de la Mac: `./instalar.sh --sin-mac` (Inter en vez de la SF,
 los íconos de Os-Catalina y el fondo que haya).
 

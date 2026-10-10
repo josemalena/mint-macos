@@ -1,0 +1,71 @@
+# Arranque como el de macOS (mint-macos/tema/arranque): fondo negro, la
+# manzana blanca en el centro y debajo la barra de progreso fina, de puntas
+# redondas, que se llena con el avance del arranque.
+#
+# Las imágenes no vienen del repo: instalar.sh las genera en cada máquina
+#   manzana.png     la manzana de la SF de la Mac (es de Apple: local)
+#   barra-fondo.png la pista de la barra (gris)
+#   barra-lleno.png lo lleno (blanco)
+# a la medida de la pantalla más chica que encuentre.
+
+Window.SetBackgroundTopColor(0, 0, 0);
+Window.SetBackgroundBottomColor(0, 0, 0);
+
+ancho = Window.GetWidth();
+alto = Window.GetHeight();
+
+manzana.imagen = Image("manzana.png");
+manzana.sprite = Sprite(manzana.imagen);
+# Como en la Mac: la manzana un poco por encima del centro.
+manzana.x = Window.GetX() + ancho / 2 - manzana.imagen.GetWidth() / 2;
+manzana.y = Window.GetY() + alto / 2 - manzana.imagen.GetHeight() * 0.62;
+manzana.sprite.SetPosition(manzana.x, manzana.y, 1);
+
+pista.imagen = Image("barra-fondo.png");
+pista.sprite = Sprite(pista.imagen);
+pista.x = Window.GetX() + ancho / 2 - pista.imagen.GetWidth() / 2;
+pista.y = manzana.y + manzana.imagen.GetHeight() + manzana.imagen.GetHeight() * 0.72;
+pista.sprite.SetPosition(pista.x, pista.y, 1);
+
+lleno.original = Image("barra-lleno.png");
+lleno.sprite = Sprite();
+lleno.sprite.SetPosition(pista.x, pista.y, 2);
+lleno.hecho = 0;
+
+# Plymouth avisa el avance (0 a 1); la barra nunca retrocede.
+fun progreso(duracion, avance) {
+  if (avance > lleno.hecho) lleno.hecho = avance;
+  w = Math.Int(lleno.original.GetWidth() * lleno.hecho);
+  if (w < 1) w = 1;
+  lleno.sprite.SetImage(lleno.original.Crop(0, 0, w, lleno.original.GetHeight()));
+}
+Plymouth.SetBootProgressFunction(progreso);
+
+# Si pide clave (disco cifrado): un renglón con viñetas bajo la barra.
+pregunta.sprite = Sprite();
+respuesta.sprite = Sprite();
+fun mostrar_clave(texto, vinetas) {
+  pregunta.sprite.SetImage(Image.Text(texto, 1, 1, 1));
+  pregunta.sprite.SetPosition(Window.GetX() + ancho / 2 - pregunta.sprite.GetImage().GetWidth() / 2, pista.y + 40, 3);
+  puntos = "";
+  i = 0;
+  while (i < vinetas) { puntos += "●"; i++; }
+  respuesta.sprite.SetImage(Image.Text(puntos, 1, 1, 1));
+  respuesta.sprite.SetPosition(Window.GetX() + ancho / 2 - respuesta.sprite.GetImage().GetWidth() / 2, pista.y + 70, 3);
+}
+fun mostrar_pregunta(texto, contenido) {
+  mostrar_clave(texto, 0);
+  respuesta.sprite.SetImage(Image.Text(contenido, 1, 1, 1));
+  respuesta.sprite.SetPosition(Window.GetX() + ancho / 2 - respuesta.sprite.GetImage().GetWidth() / 2, pista.y + 70, 3);
+}
+fun volver_normal() {
+  pregunta.sprite.SetOpacity(0);
+  respuesta.sprite.SetOpacity(0);
+}
+Plymouth.SetDisplayPasswordFunction(mostrar_clave);
+Plymouth.SetDisplayQuestionFunction(mostrar_pregunta);
+Plymouth.SetDisplayNormalFunction(volver_normal);
+
+# Los mensajes de los servicios no se muestran: en la Mac no hay texto.
+fun mensaje(texto) { }
+Plymouth.SetMessageFunction(mensaje);

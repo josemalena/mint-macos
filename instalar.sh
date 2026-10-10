@@ -128,6 +128,11 @@ if $LOGIN; then
   fi
 fi
 
+paso "El arranque como el de macOS (sudo)"
+"$REPO/tema/arranque/instalar.sh" --vista | sed 's/^/  /' || true
+echo "  Cambia el arranque y rehace el initramfs. Córrelo tú:"
+echo "    sudo $REPO/tema/arranque/instalar.sh        (vuelta atrás: --deshacer)"
+
 echo "$R" > "$ULTIMO"
 paso "Listo"
 echo "  Cierra sesión y vuelve a entrar: el menú global, keyd por aplicación y el"
