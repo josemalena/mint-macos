@@ -18,10 +18,12 @@ const Applet = imports.ui.applet;
 const Main = imports.ui.main;
 const PopupMenu = imports.ui.popupMenu;
 const MessageTray = imports.ui.messageTray;
-const { Gio, St, Clutter } = imports.gi;
+const { Gio, GLib, St, Clutter } = imports.gi;
 
 const ANCHO_ICONO = 18;
 const ANCHO_PANEL = 345;
+const FONDO_PANEL = 0.45;   // con el vidrio detrás; sin él era 0.96
+const PASADAS_VIDRIO = 14;
 const FUENTE = 'font-family: ".SF NS", sans-serif;';
 
 function dibujarIcono(area, alto) {
@@ -78,6 +80,7 @@ class NotificationCenter extends Applet.Applet {
   }
 
   on_applet_removed_from_panel() {
+    this._quitarVidrio();
     if (this._catalina) this._catalina.quitar();
     if (this._senal) Main.messageTray.disconnect(this._senal);
     if (this._contado) {
@@ -100,6 +103,7 @@ class NotificationCenter extends Applet.Applet {
 
   on_applet_clicked() {
     if (!this.menu.isOpen) this._ajustarAlto();
+    else this._quitarVidrio();
     this._actualizarHoras();
     this.menu.toggle();
   }
@@ -108,8 +112,15 @@ class NotificationCenter extends Applet.Applet {
     if (this.menu) this.menu.destroy();
     this.menu = new Applet.AppletPopupMenu(this, this._orientation);
     this.menuManager.addMenu(this.menu);
-    this.menu.actor.set_style(FUENTE);
-    this.menu.box.set_style(`width: ${ANCHO_PANEL}px; padding: 8px 0; background-color: rgba(30, 30, 32, 0.96);` +
+    // Sin el marco opaco del tema (border-image de .popup-menu): el tinte
+    // translúcido va solo en la caja, y detrás el vidrio.
+    this.menu.actor.set_style(FUENTE + " border-image: none; background: none; background-color: transparent; box-shadow: none; padding: 0;");
+    this.menu.connect("open-state-changed", (_m, abierto) => {
+      if (abierto) GLib.idle_add(GLib.PRIORITY_DEFAULT, () => { this._ponerVidrio(); return GLib.SOURCE_REMOVE; });
+      else this._quitarVidrio();
+    });
+    // Translúcido: detrás va el vidrio (_ponerVidrio).
+    this.menu.box.set_style(`width: ${ANCHO_PANEL}px; padding: 8px 0; background-color: rgba(30, 30, 32, ${FONDO_PANEL});` +
                             " border: 1px solid #45474a; border-radius: 0;");
 
     // «Clear All» arriba, alineado con las tarjetas, solo cuando hay algo que
@@ -142,6 +153,38 @@ class NotificationCenter extends Applet.Applet {
       this._lista.add_child(n.actor);
     }
     this._actualizar();
+  }
+
+  // El vidrio de Catalina («vibrancy»): lo que hay detrás del panel (el
+  // fondo y las ventanas), desenfocado. Es un clon en vivo con varias
+  // pasadas de Clutter.BlurEffect, puesto debajo del menú en uiGroup y
+  // recortado al panel; vive solo mientras el panel está abierto.
+  _ponerVidrio() {
+    this._quitarVidrio();
+    let caja = this.menu.box;
+    let [x, y] = caja.get_transformed_position();
+    let [w, h] = caja.get_transformed_size();
+    if (!w || !h) return;
+    let vidrio = new Clutter.Actor({ x, y, width: w, height: h, clip_to_allocation: true, reactive: false });
+    let dentro = new Clutter.Actor({ width: global.stage.width, height: global.stage.height, x: -x, y: -y });
+    // El fondo, y las ventanas una por una: los grupos de ventanas miden 0×0
+    // y un clon de ellos no pinta nada (así lo hace también Expo).
+    if (global.background_actor) dentro.add_child(new Clutter.Clone({ source: global.background_actor }));
+    let ws = global.workspace_manager.get_active_workspace();
+    for (let wa of global.get_window_actors()) {
+      let mw = wa.meta_window;
+      if (!wa.visible || !mw || mw.minimized) continue;
+      if (!mw.is_on_all_workspaces () && mw.get_workspace () !== ws) continue;
+      dentro.add_child(new Clutter.Clone({ source: wa, x: wa.x, y: wa.y }));
+    }
+    for (let i = 0; i < PASADAS_VIDRIO; i++) dentro.add_effect(new Clutter.BlurEffect());
+    vidrio.add_child(dentro);
+    Main.uiGroup.insert_child_below(vidrio, this.menu.actor);
+    this._vidrio = vidrio;
+  }
+
+  _quitarVidrio() {
+    if (this._vidrio) { this._vidrio.destroy(); this._vidrio = null; }
   }
 
   // El panel ocupa todo el alto bajo la barra, como en la Mac.
