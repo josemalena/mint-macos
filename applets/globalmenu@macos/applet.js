@@ -202,6 +202,10 @@ class GlobalMenuApplet extends Applet.Applet {
       let sub = m.get_item_link(i, LINK_SUBMENU);
       let etiqueta = limpiarEtiqueta(texto(m, i, ATTR_LABEL));
       if (!sub || !etiqueta) continue;
+      // El menú propio de la app (x-constanza-app-menu) lo pinta appmenu en
+      // el nombre de la app; aquí no se repite.
+      let propio = atributo(m, i, "x-constanza-app-menu");
+      try { if (propio && propio.get_boolean()) continue; } catch (e) {}
       this._agregarBoton(etiqueta, sub);
     }
   }

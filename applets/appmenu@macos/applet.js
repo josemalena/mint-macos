@@ -106,6 +106,77 @@ function activarDeMenu(w, patron) {
   }
 }
 
+// El menú propio de la app (About, Preferences…, Empty Trash…) si la app lo
+// publica como primer submenú de su barra con el atributo
+// x-constanza-app-menu = true (Fynder, acordado con su sesión). Devuelve una
+// lista plana: {etiqueta, accion, objetivo, activo} o {separador: true}.
+function leerMenuDeApp(w) {
+  let bus, ruta, rutaApp, rutaVentana;
+  try {
+    bus = w.get_gtk_unique_bus_name(); ruta = w.get_gtk_menubar_object_path();
+    rutaApp = w.get_gtk_application_object_path(); rutaVentana = w.get_gtk_window_object_path();
+  } catch (e) { return null; }
+  if (!bus || !ruta) return null;
+  let grupos = {}, pedidos = new Set();
+  let pedir = (gs) => {
+    gs = gs.filter(g => !pedidos.has(g));
+    if (!gs.length) return;
+    gs.forEach(g => pedidos.add(g));
+    let r = llamar(bus, ruta, "org.gtk.Menus", "Start", new GLib.Variant("(au)", [gs]), "(a(uuaa{sv}))").recursiveUnpack()[0];
+    for (let [g, m, items] of r) grupos[g + ":" + m] = items;
+  };
+  let lista = null;
+  try {
+    pedir([0]);
+    let raiz = (grupos["0:0"] || [])[0];
+    if (!raiz || raiz["x-constanza-app-menu"] !== true || !raiz[":submenu"]) return null;
+    let [g0, m0] = raiz[":submenu"];
+    // Las secciones pueden estar en otros grupos: se piden hasta tenerlas.
+    for (let vuelta = 0; vuelta < 4; vuelta++) {
+      pedir([g0]);
+      let faltan = [];
+      for (let k in grupos) for (let it of grupos[k]) if (it[":section"] && !grupos[it[":section"].join(":")]) faltan.push(it[":section"][0]);
+      if (!faltan.length) break;
+      pedir(faltan);
+    }
+    lista = [];
+    let estado = (accion) => {
+      let p = accion.indexOf("."), pref = accion.slice(0, p), n = accion.slice(p + 1);
+      let r = pref === "win" ? rutaVentana : pref === "app" ? rutaApp : null;
+      if (!r) return false;
+      try {
+        return llamar(bus, r, "org.gtk.Actions", "Describe", new GLib.Variant("(s)", [n]), "((bgav))").deepUnpack()[0][0];
+      } catch (e) { return true; }
+    };
+    let plano = (clave) => {
+      for (let it of grupos[clave] || []) {
+        if (it[":section"]) {
+          if (lista.length && !lista[lista.length - 1].separador) lista.push({ separador: true });
+          plano(it[":section"].join(":"));
+        } else if (it.label && it.action) {
+          lista.push({ etiqueta: it.label.replace(/_/g, ""), accion: it.action, objetivo: it.target, activo: estado(it.action) });
+        }
+      }
+    };
+    plano(g0 + ":" + m0);
+    while (lista.length && lista[lista.length - 1].separador) lista.pop();
+  } catch (e) {
+    global.logError("appmenu@macos: menú de la app: " + e);
+    lista = null;
+  }
+  try { llamar(bus, ruta, "org.gtk.Menus", "End", new GLib.Variant("(au)", [[...pedidos]]), null); } catch (e) {}
+  return lista && lista.length ? lista : null;
+}
+
+function activarEntrada(w, e) {
+  try {
+    let bus = w.get_gtk_unique_bus_name();
+    let p = e.accion.indexOf("."), pref = e.accion.slice(0, p), n = e.accion.slice(p + 1);
+    let r = pref === "win" ? w.get_gtk_window_object_path() : pref === "app" ? w.get_gtk_application_object_path() : null;
+    if (bus && r) activarAccion(bus, r, n, e.objetivo);
+  } catch (err) { global.logError("appmenu@macos: " + err); }
+}
+
 // ¿La app publica ese ítem? (para enseñar Preferences… solo si existe)
 function menuTiene(w, patron) {
   try {
@@ -411,12 +482,27 @@ class AppMenuApplet extends Applet.TextApplet {
     };
 
     let name = this._getFocusedAppName();
-    this.aboutItem = item(`About ${name}`, "", () => this._showAboutDialog());
-    this.prefsSep = sep();
-    this.prefsItem = item("Preferences…", "⌘,", () => {
-      let w = getFocusedWindow();
-      if (w) activarDeMenu(w, RE_PREFS);
-    });
+    let w = getFocusedWindow();
+    let propio = (w && !isDesktopWindow(w)) ? leerMenuDeApp(w) : null;
+    this._menuPropio = !!propio;
+    if (propio) {
+      // La app trae su menú (About, Preferences…, Empty Trash…): va tal cual,
+      // y aquí se le suman Hide y Quit, que hace Cinnamon.
+      this.aboutItem = null; this.prefsItem = null; this.prefsSep = null;
+      for (let e of propio) {
+        if (e.separador) { sep(); continue; }
+        let atajo = RE_PREFS.test(e.etiqueta) ? "⌘," : "";
+        let it = item(e.etiqueta, atajo, () => activarEntrada(w, e));
+        it.setSensitive(e.activo !== false);
+      }
+    } else {
+      this.aboutItem = item(`About ${name}`, "", () => this._showAboutDialog());
+      this.prefsSep = sep();
+      this.prefsItem = item("Preferences…", "⌘,", () => {
+        let v = getFocusedWindow();
+        if (v) activarDeMenu(v, RE_PREFS);
+      });
+    }
     sep();
     this.hideItem = item(`Hide ${name}`, "⌘H", () => this._ocultarApp());
     this.hideOthersItem = item("Hide Others", "⌥⌘H", () => this._ocultarOtras());
@@ -434,10 +520,10 @@ class AppMenuApplet extends Applet.TextApplet {
     let name = this._getFocusedAppName();
     let w = getFocusedWindow();
     let hayApp = !!(w && !isDesktopWindow(w));
-    this.aboutItem.label.text = `About ${name}`;
+    if (this.aboutItem) this.aboutItem.label.text = `About ${name}`;
     this.hideItem.label.text = `Hide ${name}`;
     this.quitItem.label.text = `Quit ${name}`;
-    if (alAbrir) {
+    if (alAbrir && this.prefsItem) {
       let prefs = hayApp && menuTiene(w, RE_PREFS);
       this.prefsItem.actor.visible = prefs;
       this.prefsSep.actor.visible = prefs;
