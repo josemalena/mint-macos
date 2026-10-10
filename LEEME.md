@@ -58,7 +58,9 @@ En orden:
 3. `install.sh`: el teclado (keyd por app, kitty, VS Code, y Ulauncher en
    ⌘Espacio si está instalado: viene de su PPA, no de requisitos.sh), los
    applets de la barra y el menú global de las apps.
-   Además, el ⌘Tab de Catalina (`extensions/cmdtab@macos`).
+   Además, el ⌘Tab de Catalina (`extensions/cmdtab@macos`) y el **efecto
+   genio** al minimizar (`extensions/magiclamp.sh`: Magic Lamp de klangman,
+   de Cinnamon Spices, bajado en un commit fijo y con el hash verificado).
 4. `tema/instalar.sh`: el tema **Constanza** (GTK, Cinnamon, íconos, fuentes,
    fondo, el Dock).
 5. `cinnamon/barra.sh`: la barra de menús arriba, a 22 px, con los applets en
@@ -154,6 +156,7 @@ hay ni uno en el repo** (`.gitignore` bloquea `.icns`, `.png`, `.ttf`, `.otf`,
 |---|---|---|
 | [josemalena/fynder](https://github.com/josemalena/fynder) | El administrador de archivos (fork de Nemo) | GPL-2+ |
 | [josemalena/plank-reloaded](https://github.com/josemalena/plank-reloaded) | El Dock (fork de zquestz/plank-reloaded) | GPL-3 |
+| [Magic Lamp](https://github.com/klangman/CinnamonMagicLamp) (klangman, Cinnamon Spices) | El efecto genio al minimizar; se baja en un commit fijo, no se copia | GPL-3 (su `LICENSE` va con ella) |
 | este | Tema, applets, teclado, menú global, instaladores | ver `tema/CREDITOS.md` |
 
 ## Cosas que saber

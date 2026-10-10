@@ -56,6 +56,7 @@ if $DESHACER; then
     [ -f "$R/$f" ] && { echo "  $d"; cp -a "$R/$f" "$d"; }
   done
   [ -f "$R/kitty.conf" ] && cp -a "$R/kitty.conf" "$HOME/.config/kitty/kitty.conf"
+  [ -f "$R/magiclamp" ] && { echo "  efecto genio"; "$REPO/extensions/magiclamp.sh" --deshacer || true; }
   if [ -f "$R/extensiones.ruta" ] && [ -x "$(cat "$R/extensiones.ruta")/volver.sh" ]; then
     echo "  extensiones (⌘Tab)"; "$(cat "$R/extensiones.ruta")/volver.sh" || true
   fi
@@ -98,6 +99,9 @@ ls -d "$HOME"/.local/share/respaldos/menu-global-* 2>/dev/null | sort | tail -1 
 paso "3b. ⌘Tab como el de Catalina (extensión de Cinnamon)"
 "$REPO/extensions/instalar.sh" --encender
 ls -d "$HOME"/.local/share/respaldos/extensiones-* 2>/dev/null | sort | tail -1 > "$R/extensiones.ruta" || true
+paso "3c. El efecto genio al minimizar (Magic Lamp, de Cinnamon Spices)"
+"$REPO/extensions/magiclamp.sh"
+touch "$R/magiclamp"
 
 paso "4. Tema Constanza";                    "$REPO/tema/instalar.sh"
 
