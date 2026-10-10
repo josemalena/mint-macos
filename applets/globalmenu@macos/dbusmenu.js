@@ -70,6 +70,22 @@ function esVisible(item) { return item.props.visible !== false; }
 function estaActivo(item) { return item.props.enabled !== false; }
 function tieneSubmenu(item) { return item.props["children-display"] === "submenu" || item.hijos.length > 0; }
 
+/** Las teclas como las escribe la Mac en los menús. Llegan por nombre de X
+ *  (slash, Page_Up; así las manda GTK y Thunderbird) o, en Edge, como
+ *  carácter de control. También la usa el camino GTK de applet.js. */
+var TECLAS = { Delete: "⌦", BackSpace: "⌫", Return: "↩", Escape: "⎋", Tab: "⇥", space: "Space",
+  Left: "←", Right: "→", Up: "↑", Down: "↓", Page_Up: "⇞", Page_Down: "⇟",
+  Home: "↖", End: "↘", plus: "+", minus: "-", equal: "=", comma: ",", period: ".",
+  bracketleft: "[", bracketright: "]", slash: "/", backslash: "\\", semicolon: ";",
+  apostrophe: "'", grave: "`", Insert: "Ins",
+  Esc: "⎋", Del: "⌦", Backspace: "⌫", Enter: "↩", KP_Enter: "⌤",
+  // Edge manda algunas teclas como carácter de control, no por nombre.
+  "\u001b": "⎋", "\u007f": "⌦", "\u0008": "⌫", "\t": "⇥", "\r": "↩", "\n": "↩" };
+
+function teclaBonita(k) {
+  return TECLAS[k] || (k.length === 1 ? k.toUpperCase() : k);
+}
+
 /** [["Control", "Shift", "n"]] → «⇧⌘N», en el orden de la Mac (⌥ ⇧ ⌘). Con
  *  keyd, ⌘ es Control. */
 function atajo(item) {
@@ -77,18 +93,10 @@ function atajo(item) {
   if (!s || !s.length || !s[0].length) return "";
   const MOD = { Control: "⌘", Ctrl: "⌘", Primary: "⌘", Shift: "⇧", Alt: "⌥", Super: "◆", Meta: "◆" };
   const ORDEN = "◆⌥⇧⌘";
-  const TECLA = { Delete: "⌦", BackSpace: "⌫", Return: "↩", Escape: "⎋", Tab: "⇥", space: "Space",
-                  Left: "←", Right: "→", Up: "↑", Down: "↓", Page_Up: "⇞", Page_Down: "⇟",
-                  Home: "↖", End: "↘", plus: "+", minus: "-", equal: "=", comma: ",", period: ".",
-                  bracketleft: "[", bracketright: "]", slash: "/", backslash: "\\", semicolon: ";",
-                  apostrophe: "'", grave: "`", Insert: "Ins",
-                  Esc: "⎋", Del: "⌦", Backspace: "⌫", Enter: "↩", KP_Enter: "⌤",
-                  // Edge manda algunas teclas como carácter de control, no por nombre.
-                  "\u001b": "⎋", "\u007f": "⌦", "\u0008": "⌫", "\t": "⇥", "\r": "↩", "\n": "↩" };
   let mods = [], tecla = "";
   for (let k of s[0]) {
     if (MOD[k]) mods.push(MOD[k]);
-    else tecla = TECLA[k] || (k.length === 1 ? k.toUpperCase() : k);
+    else tecla = teclaBonita(k);
   }
   // Un atajo sin tecla (Edge manda alguno así) no se pinta a medias: «⇧».
   if (!tecla) return "";

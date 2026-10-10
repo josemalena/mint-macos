@@ -21,6 +21,7 @@ const Applet = imports.ui.applet;
 const PopupMenu = imports.ui.popupMenu;
 const Main = imports.ui.main;
 const { Gio, GLib, St, Clutter, Cinnamon } = imports.gi;
+const Cairo = imports.cairo;
 
 const ATTR_LABEL = "label";
 const ATTR_ACTION = "action";
@@ -69,7 +70,7 @@ function limpiarEtiqueta(s) {
 }
 
 // «<Control><Shift>n» → «⇧⌘N», como en macOS: con keyd, ⌘ es Ctrl.
-function atajoBonito(accel) {
+function atajoBonito(accel, teclaBonita) {
   if (!accel) return "";
   let s = accel, out = "";
   const mods = [["<Primary>", "⌘"], ["<Control>", "⌘"], ["<Ctrl>", "⌘"], ["<Shift>", "⇧"],
@@ -84,7 +85,30 @@ function atajoBonito(accel) {
   // Orden de macOS: ⌥ ⇧ ⌘, y sin repetir (Primary y Control son el mismo ⌘).
   let orden = "◆⌥⇧⌘";
   out = [...new Set(out)].sort((a, b) => orden.indexOf(a) - orden.indexOf(b)).join("");
-  return out + (s.length === 1 ? s.toUpperCase() : s);
+  return out + (teclaBonita ? teclaBonita(s) : (s.length === 1 ? s.toUpperCase() : s));
+}
+
+// La ✓ de macOS va en el margen izquierdo, sin correr el texto: donde
+// Cinnamon pone el punto de radio (PopupBaseMenuItem._allocate lo coloca en
+// el relleno). setOrnament(CHECK) pinta una casilla, que la Mac no tiene.
+function marcar(item) {
+  item._onRepaintDot = dibujarCheck;
+  item.setShowDot(true);
+}
+
+function dibujarCheck(area) {
+  let cr = area.get_context();
+  let [w, h] = area.get_surface_size();
+  let c = area.get_theme_node().get_foreground_color();
+  cr.setSourceRGBA(c.red / 255, c.green / 255, c.blue / 255, c.alpha / 255);
+  cr.setLineWidth(1.6);
+  cr.setLineCap(Cairo.LineCap.ROUND);
+  cr.setLineJoin(Cairo.LineJoin.ROUND);
+  cr.moveTo(w * 0.08, h * 0.55);
+  cr.lineTo(w * 0.38, h * 0.88);
+  cr.lineTo(w * 0.95, h * 0.08);
+  cr.stroke();
+  cr.$dispose();
 }
 
 // Pide los ítems de un modelo y de sus enlaces para que GDBusMenuModel se
@@ -336,19 +360,19 @@ class GlobalMenuApplet extends Applet.Applet {
       // Booleano (p. ej. «Show Hidden Files»).
       let valor = estado.get_boolean();
       item = new PopupMenu.PopupMenuItem(etiqueta);
-      if (valor) try { item.setOrnament(PopupMenu.OrnamentType.CHECK); } catch (e) {}
+      if (valor) marcar(item);
       item.connect("activate", () => grupo.change_action_state(nombre, GLib.Variant.new_boolean(!valor)));
     } else if (estado && objetivo) {
       // Grupo de radio: marcado si el estado es igual al objetivo del ítem.
       item = new PopupMenu.PopupMenuItem(etiqueta);
-      try { if (estado.equal(objetivo)) item.setOrnament(PopupMenu.OrnamentType.CHECK); } catch (e) {}
+      try { if (estado.equal(objetivo)) marcar(item); } catch (e) {}
       item.connect("activate", () => grupo.change_action_state(nombre, objetivo));
     } else {
       item = new PopupMenu.PopupMenuItem(etiqueta);
       item.connect("activate", () => { if (grupo && nombre) grupo.activate_action(nombre, objetivo); });
     }
 
-    let atajo = atajoBonito(texto(modelo, i, ATTR_ACCEL));
+    let atajo = atajoBonito(texto(modelo, i, ATTR_ACCEL), this._D && this._D.teclaBonita);
     if (atajo) {
       try {
         item.addActor(new St.Label({ text: atajo, style_class: "globalmenu-atajo", y_align: Clutter.ActorAlign.CENTER }),
@@ -431,9 +455,7 @@ class GlobalMenuApplet extends Applet.Applet {
       }
       // Marcas como en macOS: ✓ a la izquierda, sin interruptor.
       let item = new PopupMenu.PopupMenuItem(it.etiqueta);
-      if (it.marca && it.marcado) {
-        try { item.setOrnament(PopupMenu.OrnamentType.CHECK); } catch (e) {}
-      }
+      if (it.marca && it.marcado) marcar(item);
       item.connect("activate", () => it.activar());
       if (it.atajo) {
         try {
