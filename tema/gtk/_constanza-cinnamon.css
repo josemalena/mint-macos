@@ -8,3 +8,10 @@
 .panel-top, .panel-bottom, .panel-left, .panel-right {
   background-color: #282828;
 }
+
+/* En la barra de macOS los resaltados de la manzana, del nombre de la app y
+   de cada menú van pegados: el aire sale del relleno de cada botón. Mojave
+   deja 4 px de «spacing» entre los applets de la izquierda. */
+#panelLeft {
+  spacing: 0;
+}
