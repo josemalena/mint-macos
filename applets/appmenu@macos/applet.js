@@ -20,6 +20,85 @@ const Settings = imports.ui.settings;
 const GLib = imports.gi.GLib;
 const St = imports.gi.St;
 const ModalDialog = imports.ui.modalDialog;
+const Gio = imports.gi.Gio;
+
+// «About» de la propia app. Si la ventana publica su menú por D-Bus con el
+// protocolo de GTK (nemo-mac, Fynder, cualquier GtkApplication con menubar),
+// se busca el ítem About/Acerca de en ese menú y se activa su acción, igual
+// que en macOS; si no hay menú pero la app exporta la acción app.about, se usa
+// esa. Devuelve true si la app se encargó del diálogo.
+const RE_ABOUT = /^(about|acerca de)\b/i;
+const DBUS_TIMEOUT = 400;
+
+function llamar(bus, ruta, iface, metodo, args, tipo) {
+  return Gio.DBus.session.call_sync(bus, ruta, iface, metodo, args,
+    tipo ? new GLib.VariantType(tipo) : null, Gio.DBusCallFlags.NONE, DBUS_TIMEOUT, null);
+}
+
+function buscarAboutEnMenu(bus, ruta) {
+  let pendientes = [0], vistos = new Set(), hallado = null;
+  try {
+    for (let vuelta = 0; vuelta < 6 && pendientes.length && !hallado; vuelta++) {
+      let grupos = pendientes.filter(g => !vistos.has(g));
+      pendientes = [];
+      if (!grupos.length) break;
+      grupos.forEach(g => vistos.add(g));
+      let r = llamar(bus, ruta, "org.gtk.Menus", "Start",
+        new GLib.Variant("(au)", [grupos]), "(a(uuaa{sv}))").recursiveUnpack()[0];
+      for (let [, , items] of r) {
+        for (let it of items) {
+          for (let enlace of [":submenu", ":section"])
+            if (it[enlace]) pendientes.push(it[enlace][0]);
+          let etiqueta = (it.label || "").replace(/_/g, "");
+          if (!hallado && it.action && RE_ABOUT.test(etiqueta))
+            hallado = { accion: it.action, objetivo: it.target };
+        }
+      }
+    }
+  } catch (e) {}
+  try {
+    llamar(bus, ruta, "org.gtk.Menus", "End", new GLib.Variant("(au)", [[...vistos]]), null);
+  } catch (e) {}
+  return hallado;
+}
+
+function activarAccion(bus, ruta, nombre, objetivo) {
+  let params = [];
+  if (objetivo !== undefined && objetivo !== null) {
+    try { params = [GLib.Variant.new_string(String(objetivo))]; } catch (e) {}
+  }
+  llamar(bus, ruta, "org.gtk.Actions", "Activate",
+    new GLib.Variant("(sava{sv})", [nombre, params, {}]), null);
+}
+
+function abrirAboutDeLaApp(w) {
+  let bus, rutaMenu, rutaApp, rutaVentana;
+  try {
+    bus = w.get_gtk_unique_bus_name();
+    rutaMenu = w.get_gtk_menubar_object_path();
+    rutaApp = w.get_gtk_application_object_path();
+    rutaVentana = w.get_gtk_window_object_path();
+  } catch (e) { return false; }
+  if (!bus) return false;
+  try {
+    if (rutaMenu) {
+      let a = buscarAboutEnMenu(bus, rutaMenu);
+      if (a) {
+        let p = a.accion.indexOf(".");
+        let prefijo = a.accion.slice(0, p), nombre = a.accion.slice(p + 1);
+        let ruta = prefijo === "win" ? rutaVentana : prefijo === "app" ? rutaApp : null;
+        if (ruta) { activarAccion(bus, ruta, nombre, a.objetivo); return true; }
+      }
+    }
+    if (rutaApp) {
+      let lista = llamar(bus, rutaApp, "org.gtk.Actions", "List", null, "(as)").deepUnpack()[0];
+      if (lista.indexOf("about") >= 0) { activarAccion(bus, rutaApp, "about", null); return true; }
+    }
+  } catch (e) {
+    global.logError("appmenu@macos: About de la app: " + e);
+  }
+  return false;
+}
 
 function spawn(cmd) {
   Util.spawnCommandLine(cmd);
@@ -270,6 +349,8 @@ class AppMenuApplet extends Applet.TextApplet {
       dlg.open();
       return;
     }
+
+    if (abrirAboutDeLaApp(w)) return;
 
     let pid = getFocusedPid();
     let comm = pid > 0 ? procNameFromPid(pid) : "";
