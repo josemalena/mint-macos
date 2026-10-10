@@ -52,11 +52,30 @@
 .constanza-menu .popup-menu-item:insensitive {
   color: rgba(255, 255, 255, 0.35);
 }
+/* La línea del separador. El tema base le suma un border-bottom de 1 px (la
+   segunda línea que se veía); el aire va en el renglón, que cada applet
+   ajusta en línea porque en CSS no se distingue de los demás renglones. */
 .constanza-menu .popup-separator-menu-item {
   height: 2px;
   -gradient-height: 2px;
   -gradient-start: #45484b;
   -gradient-end: #45484b;
   -margin-horizontal: 0px;
-  padding: 5px 0;
+  border-bottom-width: 0;
+}
+
+/* Barra de menús: el título cuyo menú está abierto (manzana, nombre de la app,
+   File, Edit…) se pinta azul #0267EB, cuadrado y a todo el alto, como en
+   macOS (captura c10). Sin resaltado al pasar el ratón: en la Mac no hay. */
+#panel .applet-box:checked,
+#panel .applet-box:checked:hover,
+#panel .globalmenu-boton:checked,
+#panel .globalmenu-boton:checked:hover {
+  background-color: #0267eb;
+  background-gradient-direction: none;
+  border-radius: 0;
+  color: #ffffff;
+}
+#panel .globalmenu-boton:hover {
+  background-color: transparent;
 }

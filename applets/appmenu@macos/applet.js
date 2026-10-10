@@ -5,9 +5,12 @@
  * What it does:
  * - Shows focused app name (WM_CLASS), fallback "Finder"
  * - Treats nemo-desktop as Finder
- * - Menu items:
- *    - Quit <App>…  (kills process tree of focused PID: TERM then KILL)
- *    - About <App>… (shows dialog with PID, exe, cmdline, dpkg package/version if available)
+ * - Menu items, como el menú de la app en macOS:
+ *    - About <App>     el About de la propia app si lo publica por D-Bus; si
+ *                      no, un diálogo con PID, ejecutable y paquete
+ *    - Preferences…    solo si la app lo publica en su menú
+ *    - Hide <App> ⌘H, Hide Others ⌥⌘H, Show All: minimiza/restaura ventanas
+ *    - Quit <App> ⌘Q   TERM y luego KILL al árbol de procesos de la ventana
  *
  * Notes:
  * - No dependency on imports.ui.windowTracker (some Cinnamon builds lack it).
@@ -21,6 +24,10 @@ const GLib = imports.gi.GLib;
 const St = imports.gi.St;
 const ModalDialog = imports.ui.modalDialog;
 const Gio = imports.gi.Gio;
+const Cinnamon = imports.gi.Cinnamon;
+const Meta = imports.gi.Meta;
+const Clutter = imports.gi.Clutter;
+const Main = imports.ui.main;
 
 // «About» de la propia app. Si la ventana publica su menú por D-Bus con el
 // protocolo de GTK (nemo-mac, Fynder, cualquier GtkApplication con menubar),
@@ -35,7 +42,7 @@ function llamar(bus, ruta, iface, metodo, args, tipo) {
     tipo ? new GLib.VariantType(tipo) : null, Gio.DBusCallFlags.NONE, DBUS_TIMEOUT, null);
 }
 
-function buscarAboutEnMenu(bus, ruta) {
+function buscarEnMenu(bus, ruta, patron) {
   let pendientes = [0], vistos = new Set(), hallado = null;
   try {
     for (let vuelta = 0; vuelta < 6 && pendientes.length && !hallado; vuelta++) {
@@ -50,7 +57,7 @@ function buscarAboutEnMenu(bus, ruta) {
           for (let enlace of [":submenu", ":section"])
             if (it[enlace]) pendientes.push(it[enlace][0]);
           let etiqueta = (it.label || "").replace(/_/g, "");
-          if (!hallado && it.action && RE_ABOUT.test(etiqueta))
+          if (!hallado && it.action && patron.test(etiqueta))
             hallado = { accion: it.action, objetivo: it.target };
         }
       }
@@ -71,6 +78,56 @@ function activarAccion(bus, ruta, nombre, objetivo) {
     new GLib.Variant("(sava{sv})", [nombre, params, {}]), null);
 }
 
+const RE_PREFS = /^(preferences|preferencias|settings|ajustes)\b/i;
+
+// Activa el primer ítem del menú publicado por la app cuya etiqueta cumpla
+// el patrón. Devuelve true si lo encontró y lo activó.
+function activarDeMenu(w, patron) {
+  let bus, rutaMenu, rutaApp, rutaVentana;
+  try {
+    bus = w.get_gtk_unique_bus_name();
+    rutaMenu = w.get_gtk_menubar_object_path();
+    rutaApp = w.get_gtk_application_object_path();
+    rutaVentana = w.get_gtk_window_object_path();
+  } catch (e) { return false; }
+  if (!bus || !rutaMenu) return false;
+  try {
+    let a = buscarEnMenu(bus, rutaMenu, patron);
+    if (!a) return false;
+    let p = a.accion.indexOf(".");
+    let prefijo = a.accion.slice(0, p), nombre = a.accion.slice(p + 1);
+    let ruta = prefijo === "win" ? rutaVentana : prefijo === "app" ? rutaApp : null;
+    if (!ruta) return false;
+    activarAccion(bus, ruta, nombre, a.objetivo);
+    return true;
+  } catch (e) {
+    global.logError("appmenu@macos: menú de la app: " + e);
+    return false;
+  }
+}
+
+// ¿La app publica ese ítem? (para enseñar Preferences… solo si existe)
+function menuTiene(w, patron) {
+  try {
+    let bus = w.get_gtk_unique_bus_name(), ruta = w.get_gtk_menubar_object_path();
+    return !!(bus && ruta && buscarEnMenu(bus, ruta, patron));
+  } catch (e) { return false; }
+}
+
+// Ventanas normales de la sesión (sin escritorio, paneles ni diálogos sueltos).
+function ventanasNormales() {
+  return global.get_window_actors().map(a => a.meta_window).filter(w =>
+    w && w.get_window_type() === Meta.WindowType.NORMAL && !w.is_skip_taskbar());
+}
+function appDe(w) {
+  try { return Cinnamon.WindowTracker.get_default().get_window_app(w); } catch (e) { return null; }
+}
+function mismaApp(a, b) {
+  let x = appDe(a), y = appDe(b);
+  if (x && y) return x === y;
+  return getWmClass(a) === getWmClass(b);
+}
+
 function abrirAboutDeLaApp(w) {
   let bus, rutaMenu, rutaApp, rutaVentana;
   try {
@@ -82,7 +139,7 @@ function abrirAboutDeLaApp(w) {
   if (!bus) return false;
   try {
     if (rutaMenu) {
-      let a = buscarAboutEnMenu(bus, rutaMenu);
+      let a = buscarEnMenu(bus, rutaMenu, RE_ABOUT);
       if (a) {
         let p = a.accion.indexOf(".");
         let prefijo = a.accion.slice(0, p), nombre = a.accion.slice(p + 1);
@@ -267,6 +324,13 @@ class AppMenuApplet extends Applet.TextApplet {
     this.menuManager.addMenu(this.menu);
 
     this._buildMenu();
+
+    // ⌘H y ⌥⌘H: keyd deja pasar ⌘ como Super y Cinnamon no usa esas teclas.
+    this._atajos = [
+      ["appmenu-macos-ocultar", "<Super>h", () => this._ocultarApp()],
+      ["appmenu-macos-ocultar-otras", "<Super><Alt>h", () => this._ocultarOtras()],
+    ];
+    for (let [n, k, f] of this._atajos) Main.keybindingManager.addHotKey(n, k, f);
     this._applyLabelStyle();
     this._updateLabel();
 
@@ -286,7 +350,7 @@ class AppMenuApplet extends Applet.TextApplet {
     }
 
     this.menu.connect("open-state-changed", (_m, open) => {
-      if (open) this._updateMenuLabels();
+      if (open) this._updateMenuLabels(true);
     });
   }
 
@@ -321,31 +385,83 @@ class AppMenuApplet extends Applet.TextApplet {
     this.set_applet_label(this._getFocusedAppName());
   }
 
+  // El menú de la app como en macOS: About, Preferences… (si la app lo
+  // publica), Hide, Hide Others, Show All y Quit. Hide y compañía los hace
+  // Cinnamon minimizando ventanas; no hace falta la app.
   _buildMenu() {
     this.menu.removeAll();
+    let item = (texto, atajo, accion) => {
+      let it = new PopupMenu.PopupMenuItem(texto);
+      if (atajo) {
+        it.addActor(new St.Label({ text: atajo, y_align: Clutter.ActorAlign.CENTER,
+                                   style: "color: rgba(255,255,255,0.45); padding-left: 24px;" }),
+                    { align: St.Align.END });
+      }
+      it.connect("activate", () => { this.menu.close(); accion(); });
+      this.menu.addMenuItem(it);
+      return it;
+    };
+    // Separador como el de macOS (medido por la sesión de la barra en c28): el
+    // renglón sin el relleno de los demás y la línea de 2 px de borde a borde.
+    let sep = () => {
+      let s = new PopupMenu.PopupSeparatorMenuItem();
+      s.actor.set_style("padding: 7px 0 3px 0; margin: 0; min-height: 0; spacing: 0;");
+      s._drawingArea.set_style("height: 2px; padding: 0; margin: 0; border-bottom-width: 0; -margin-horizontal: 0px; -gradient-height: 2px; -gradient-start: #45484b; -gradient-end: #45484b;");
+      this.menu.addMenuItem(s); return s;
+    };
 
-    this.quitItem = new PopupMenu.PopupMenuItem("Quit…");
-    this.quitItem.connect("activate", () => {
-      this.menu.close();
+    let name = this._getFocusedAppName();
+    this.aboutItem = item(`About ${name}`, "", () => this._showAboutDialog());
+    this.prefsSep = sep();
+    this.prefsItem = item("Preferences…", "⌘,", () => {
+      let w = getFocusedWindow();
+      if (w) activarDeMenu(w, RE_PREFS);
+    });
+    sep();
+    this.hideItem = item(`Hide ${name}`, "⌘H", () => this._ocultarApp());
+    this.hideOthersItem = item("Hide Others", "⌥⌘H", () => this._ocultarOtras());
+    this.showAllItem = item("Show All", "", () => this._mostrarTodas());
+    sep();
+    this.quitItem = item(`Quit ${name}`, "⌘Q", () => {
       let pid = getFocusedPid();
       if (pid > 0) killProcessTree(pid);
     });
-    this.menu.addMenuItem(this.quitItem);
-
-    this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
-
-    this.aboutItem = new PopupMenu.PopupMenuItem("About…");
-    this.aboutItem.connect("activate", () => {
-      this.menu.close();
-      this._showAboutDialog();
-    });
-    this.menu.addMenuItem(this.aboutItem);
   }
 
-  _updateMenuLabels() {
+  // alAbrir: solo al abrir el menú se pregunta a la app si tiene Preferences
+  // (es una llamada D-Bus; no se hace en cada cambio de foco).
+  _updateMenuLabels(alAbrir) {
     let name = this._getFocusedAppName();
-    this.quitItem.label.text = `Quit ${name}…`;
-    this.aboutItem.label.text = `About ${name}…`;
+    let w = getFocusedWindow();
+    let hayApp = !!(w && !isDesktopWindow(w));
+    this.aboutItem.label.text = `About ${name}`;
+    this.hideItem.label.text = `Hide ${name}`;
+    this.quitItem.label.text = `Quit ${name}`;
+    if (alAbrir) {
+      let prefs = hayApp && menuTiene(w, RE_PREFS);
+      this.prefsItem.actor.visible = prefs;
+      this.prefsSep.actor.visible = prefs;
+    }
+    this.hideItem.setSensitive(hayApp);
+    this.hideOthersItem.setSensitive(hayApp);
+    this.quitItem.setSensitive(hayApp);
+    this.showAllItem.setSensitive(ventanasNormales().some(v => v.minimized));
+  }
+
+  _ocultarApp() {
+    let w = getFocusedWindow();
+    if (!w || isDesktopWindow(w)) return;
+    for (let v of ventanasNormales()) if (mismaApp(v, w)) v.minimize();
+  }
+
+  _ocultarOtras() {
+    let w = getFocusedWindow();
+    if (!w || isDesktopWindow(w)) return;
+    for (let v of ventanasNormales()) if (!mismaApp(v, w)) v.minimize();
+  }
+
+  _mostrarTodas() {
+    for (let v of ventanasNormales()) if (v.minimized) v.unminimize();
   }
 
   _showAboutDialog() {
@@ -433,10 +549,16 @@ ${cmdline || "N/A"}`;
   }
 
   on_applet_clicked() {
+    // Se rehace antes de abrir y con los nombres ya puestos: Cinnamon mide
+    // las columnas al armar el menú, y un nombre cambiado después sale cortado.
+    if (!this.menu.isOpen) { this._buildMenu(); this._updateMenuLabels(true); }
     this.menu.toggle();
   }
 
   on_applet_removed_from_panel() {
+    for (let [n] of this._atajos || []) {
+      try { Main.keybindingManager.removeHotKey(n); } catch (e) {}
+    }
     if (this._focusSig) {
       try { global.display.disconnect(this._focusSig); } catch (e) {}
     }

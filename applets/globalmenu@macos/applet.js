@@ -29,7 +29,7 @@ const LINK_SECTION = "section";
 // stylesheet de applet (padding 0 y negrita en los botones del panel), y
 // después de recargar el tema el stylesheet no siempre vuelve a ganar.
 const ESTILO_FUENTE = 'font-family: ".SF NS", sans-serif; font-size: 10pt;';
-const ESTILO_BOTON = ESTILO_FUENTE + " font-weight: normal; padding: 0 8px;";
+const ESTILO_BOTON = ESTILO_FUENTE + " font-weight: normal; padding: 0 10px;";
 
 function atributo(modelo, i, nombre) {
   let v = modelo.get_item_attribute_value(i, nombre, null);
@@ -39,6 +39,15 @@ function atributo(modelo, i, nombre) {
 function texto(modelo, i, nombre) {
   let v = atributo(modelo, i, nombre);
   try { return v ? v.unpack() : null; } catch (e) { return null; }
+}
+
+// Separador como el de macOS (medido por la sesión de la barra en c28): el
+// renglón sin el relleno de los demás y la línea de 2 px de borde a borde.
+function separador() {
+  let s = new PopupMenu.PopupSeparatorMenuItem();
+  s.actor.set_style("padding: 7px 0 3px 0; margin: 0; min-height: 0; spacing: 0;");
+  s._drawingArea.set_style("height: 2px; padding: 0; margin: 0; border-bottom-width: 0; -margin-horizontal: 0px; -gradient-height: 2px; -gradient-start: #45484b; -gradient-end: #45484b;");
+  return s;
 }
 
 // «_File» → «File» (el guion bajo marca el atajo de teclado en GTK).
@@ -263,7 +272,7 @@ class GlobalMenuApplet extends Applet.Applet {
       let seccion = modelo.get_item_link(i, LINK_SECTION);
       if (seccion) {
         if (huboAlgo && seccion.get_n_items() > 0)
-          menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+          menu.addMenuItem(separador());
         if (this._agregarItems(menu, seccion, profundidad)) huboAlgo = true;
         continue;
       }

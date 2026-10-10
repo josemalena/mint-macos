@@ -97,3 +97,25 @@ popover.touch-selection {
   font-family: ".SF NS", "Inter", sans-serif;
   font-size: 10pt;
 }
+
+// Marcas de los menús GTK como en macOS (capturas c11 y c17): sin marcar no
+// se dibuja nada en el canal de la marca; marcada, una ✓ suelta del color del
+// texto, sin caja ni fondo, también sobre el renglón resaltado. Mojave pinta
+// una cajita azul siempre.
+menu menuitem check,
+menu menuitem check:hover,
+menu menuitem radio,
+menu menuitem radio:hover {
+  background: none;
+  border: none;
+  box-shadow: none;
+  -gtk-icon-source: none;
+  -gtk-icon-shadow: none;
+}
+menu menuitem check:checked,
+menu menuitem check:checked:hover,
+menu menuitem radio:checked,
+menu menuitem radio:checked:hover {
+  -gtk-icon-source: -gtk-icontheme("object-select-symbolic");
+  color: currentColor;
+}
