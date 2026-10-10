@@ -1,0 +1,32 @@
+/* ⌘Tab de Catalina en modo oscuro. Medidas provisionales (públicas) hasta
+   tener la captura del ⌘Tab de la Mac de José: se ajustan contra ella. */
+
+.cmdtab-panel {
+  background-color: rgba(38, 38, 40, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 18px;
+  padding: 12px 12px 8px 12px;
+  spacing: 0;
+}
+
+.cmdtab-celda {
+  spacing: 4px;
+}
+
+/* El resaltado del elegido: un cuadro gris redondeado detrás del ícono. */
+.cmdtab-marco {
+  padding: 8px;
+  border-radius: 10px;
+}
+.cmdtab-marco:elegido {
+  background-color: rgba(255, 255, 255, 0.16);
+}
+
+/* El nombre solo se ve debajo del elegido (la opacidad la pone el código). */
+.cmdtab-nombre {
+  font-family: ".SF NS", sans-serif;
+  font-size: 10pt;
+  color: rgba(255, 255, 255, 0.88);
+  text-align: center;
+  min-height: 17px;
+}
