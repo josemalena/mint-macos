@@ -10,6 +10,11 @@
  * Meta.Window. Si la ventana no publica menú, el applet queda vacío.
  *
  * Va a la derecha de appmenu@macos (el nombre de la app con Quit/About).
+ *
+ * Si la ventana no publica el menú de GTK, se le pregunta al registrador
+ * com.canonical.AppMenu.Registrar y se lee por com.canonical.dbusmenu (Edge,
+ * Chrome, Electron, Qt, Thunderbird…, y las GTK con appmenu-gtk-module).
+ * Ese lector es dbusmenu.js, de la sesión de la barra.
  */
 
 const Applet = imports.ui.applet;
@@ -124,6 +129,14 @@ class GlobalMenuApplet extends Applet.Applet {
     this._vivos = [];
     this._senalesSub = [];
 
+    this._D = imports.ui.appletManager.applets[metadata.uuid].dbusmenu;
+    this._lector = null;
+    // Varias apps anotan su menú tarde: si es la ventana enfocada, se rehace.
+    this._reg = new this._D.Registrador(xid => {
+      let w = this._ventana;
+      if (w && w.get_xwindow && w.get_xwindow() === xid) { this._ventana = null; this._alCambiarFoco(); }
+    });
+
     this._senalFoco = global.display.connect("notify::focus-window", () => this._alCambiarFoco());
     this._alCambiarFoco();
   }
@@ -138,6 +151,7 @@ class GlobalMenuApplet extends Applet.Applet {
   }
 
   _soltarModelo() {
+    if (this._lector) { try { this._lector.destruir(); } catch (e) {} this._lector = null; }
     if (this._modelo && this._senalModelo) {
       try { this._modelo.disconnect(this._senalModelo); } catch (e) {}
     }
@@ -171,12 +185,15 @@ class GlobalMenuApplet extends Applet.Applet {
     this._ventana = w;
     this._soltarModelo();
     this._limpiar();
-    if (!bus || !rutaMenu) return;
+    if (!bus || !rutaMenu) { this._probarDbusmenu(w); return; }
 
     let con = Gio.DBus.session;
     this._modelo = Gio.DBusMenuModel.get(con, bus, rutaMenu);
     if (rutaApp) this._grupos.app = Gio.DBusActionGroup.get(con, bus, rutaApp);
     if (rutaVentana) this._grupos.win = Gio.DBusActionGroup.get(con, bus, rutaVentana);
+    // appmenu-gtk-module publica las acciones en la misma ruta del menú, con
+    // el prefijo «unity.».
+    this._grupos.unity = Gio.DBusActionGroup.get(con, bus, rutaMenu);
     for (let g of Object.values(this._grupos)) { try { g.list_actions(); } catch (e) {} }
 
     this._senalModelo = this._modelo.connect("items-changed", () => this._programarArmado());
@@ -333,7 +350,90 @@ class GlobalMenuApplet extends Applet.Applet {
     menu.addMenuItem(item);
   }
 
+  // ── Camino dbusmenu (apps que no publican el menú de GTK) ──────────────
+  async _probarDbusmenu(w) {
+    let xid = 0;
+    try { xid = w.get_xwindow(); } catch (e) {}
+    let par = await this._reg.menuDe(xid);
+    if (w !== this._ventana || !par) return;   // el foco ya cambió, o no hay menú
+    this._lector = new this._D.LectorDbusmenu(par[0], par[1], () => this._armarDbusmenu(w));
+    this._armarDbusmenu(w);
+  }
+
+  async _armarDbusmenu(w) {
+    let lector = this._lector;
+    if (!lector) return;
+    let titulos = await lector.titulos();
+    if (w !== this._ventana || lector !== this._lector) return;
+    this._limpiar();
+    for (let t of titulos) this._agregarBotonDbus(t);
+  }
+
+  _agregarBotonDbus(t) {
+    let boton = new St.Button({ label: t.etiqueta, style_class: "globalmenu-boton", reactive: true,
+                                can_focus: true, track_hover: true, toggle_mode: false, style: ESTILO_BOTON });
+    this._caja.add_actor(boton);
+    let lado = this._orientation === St.Side.BOTTOM ? St.Side.BOTTOM : St.Side.TOP;
+    let menu = new PopupMenu.PopupMenu(boton, lado);
+    menu._calculatePosition = alinearALaIzquierda;
+    menu.actor.set_style(ESTILO_FUENTE);
+    menu.actor.add_style_class_name("constanza-menu");
+    menu.box.add_style_class_name("constanza-menu-box");
+    Main.uiGroup.add_actor(menu.actor);
+    menu.actor.hide();
+    this.menuManager.addMenu(menu);
+    this._menus.push(menu);
+    menu.connect("open-state-changed", async (_m, abierto) => {
+      boton.checked = abierto;
+      if (!abierto) { try { t.cerrar(); } catch (e) {} return; }
+      // Lo que ya se sabe, en seguida; y otra vez cuando la app lo llene
+      // (Chrome, Firefox y Electron arman el menú al abrirlo).
+      this._llenarDbus(menu, t.items());
+      await t.abrir();
+      if (menu.isOpen) this._llenarDbus(menu, t.items());
+    });
+    boton.connect("clicked", () => menu.toggle());
+  }
+
+  _llenarDbus(menu, items) {
+    menu.removeAll();
+    this._itemsDbus(menu, items, 0);
+  }
+
+  _itemsDbus(menu, items, profundidad) {
+    for (let it of items) {
+      if (it.separador) { menu.addMenuItem(separador()); continue; }
+      if (it.submenu) {
+        let sub = new PopupMenu.PopupSubMenuMenuItem(it.etiqueta);
+        menu.addMenuItem(sub);
+        if (profundidad < 4) this._itemsDbus(sub.menu, it.submenu, profundidad + 1);
+        sub.setSensitive(it.activo);
+        continue;
+      }
+      let item;
+      if (it.marca === "check") {
+        item = new PopupMenu.PopupSwitchMenuItem(it.etiqueta, it.marcado);
+        item.connect("toggled", () => it.activar());
+      } else {
+        item = new PopupMenu.PopupMenuItem(it.etiqueta);
+        if (it.marca === "radio" && it.marcado) {
+          try { item.setOrnament(PopupMenu.OrnamentType.DOT); } catch (e) {}
+        }
+        item.connect("activate", () => it.activar());
+      }
+      if (it.atajo) {
+        try {
+          item.addActor(new St.Label({ text: it.atajo, style_class: "globalmenu-atajo", y_align: Clutter.ActorAlign.CENTER }),
+                        { align: St.Align.END });
+        } catch (e) {}
+      }
+      item.setSensitive(it.activo);
+      menu.addMenuItem(item);
+    }
+  }
+
   on_applet_removed_from_panel() {
+    if (this._reg) { try { this._reg.destruir(); } catch (e) {} this._reg = null; }
     if (this._senalFoco) { try { global.display.disconnect(this._senalFoco); } catch (e) {} }
     if (this._pendiente) GLib.source_remove(this._pendiente);
     if (this._relleno) GLib.source_remove(this._relleno);

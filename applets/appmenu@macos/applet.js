@@ -193,6 +193,21 @@ function ventanasNormales() {
 function appDe(w) {
   try { return Cinnamon.WindowTracker.get_default().get_window_app(w); } catch (e) { return null; }
 }
+// macOS enseña el nombre propio de la app («Firefox»), no el descriptivo que
+// traen muchos .desktop («Firefox Web Browser», «Thunderbird Mail»): se le
+// quita el genérico del final, si lo hay. Si no queda nada («Text Editor»,
+// que es solo genérico), se deja entero.
+function nombreCorto(app) {
+  let n = (app.get_name() || "").trim();
+  let corto = n;
+  try {
+    let g = (app.get_app_info().get_generic_name() || "").trim();
+    if (g && corto.toLowerCase().endsWith(" " + g.toLowerCase())) corto = corto.slice(0, -(g.length + 1));
+  } catch (e) {}
+  corto = corto.replace(/\s+(web browser|browser|mail|email|e-mail|client)$/i, "").trim();
+  return corto || n;
+}
+
 function mismaApp(a, b) {
   let x = appDe(a), y = appDe(b);
   if (x && y) return x === y;
@@ -452,7 +467,17 @@ class AppMenuApplet extends Applet.TextApplet {
     let norm = cls.toLowerCase();
     if (norm === "nemo-desktop") return fallback;
 
-    return prettifyName(cls);
+    // El nombre de la app como lo conoce Cinnamon (su .desktop): «Microsoft
+    // Edge», no la clase de la ventana, que en Chromium con otro perfil trae
+    // la ruta del perfil («microsoft-edge (/tmp/…)»).
+    try {
+      let app = appDe(w);
+      if (app && !app.is_window_backed()) {
+        let n = nombreCorto(app);
+        if (n) return n;
+      }
+    } catch (e) {}
+    return prettifyName(cls.replace(/\s*\(.*\)\s*$/, ""));
   }
 
   _updateLabel() {
