@@ -1,0 +1,35 @@
+#!/bin/sh
+# Vuelve al slick-greeter de Mint. Es UN archivo: el que pone
+# slick-greeter-mac como greeter. Todo lo demás (el binario, su .conf, el
+# fondo) queda instalado y no estorba.
+#
+#   sudo login-mac-revertir
+#
+# Pensado para Ctrl+Alt+F2 si la pantalla de inicio no sale: desde una
+# consola (tty) reinicia LightDM y vuelve el login de siempre. Desde una
+# sesión gráfica NO lo reinicia (cerraría la sesión): vale para el próximo
+# inicio.
+set -eu
+ARCHIVO=/etc/lightdm/lightdm.conf.d/90-mint-macos-login.conf
+
+if [ "$(id -u)" -ne 0 ]; then
+  echo "Hay que correrlo con sudo: sudo login-mac-revertir" >&2
+  exit 1
+fi
+
+if [ -e "$ARCHIVO" ]; then
+  rm -f "$ARCHIVO"
+  echo "Listo: quité $ARCHIVO; el greeter vuelve a ser slick-greeter."
+else
+  echo "No estaba activado ($ARCHIVO no existe); el greeter ya es slick-greeter."
+fi
+
+case "$(tty 2>/dev/null)" in
+  /dev/tty[0-9]*)
+    echo "Reinicio LightDM para que salga el login de siempre…"
+    systemctl restart lightdm
+    ;;
+  *)
+    echo "No reinicio LightDM desde aquí (cerraría tu sesión). Vale al próximo inicio de sesión."
+    ;;
+esac
