@@ -47,17 +47,17 @@ sitios, y si el fork comparte alguno, las dos copias se pisan:
 
 | Qué | Nemo de Mint | Fork (decidido por José, 07-10-2026) |
 |---|---|---|
-| Ejecutable | `nemo` | `nemo-mac` |
-| ID de aplicación (GApplication, D-Bus de instancia única) | `org.Nemo` | `io.github.josemalena.NemoMac`. **Si se repite, abrir el fork abre el Nemo del sistema.** Sin la marca Kóralis: es una herramienta personal |
-| Esquemas de gsettings | `org.nemo.*` | `io.github.josemalena.nemo-mac.*`, con los ajustes propios y los heredados copiados |
-| Archivo `.desktop` | `nemo.desktop` | `nemo-mac.desktop` |
+| Ejecutable | `nemo` | `fynder` |
+| ID de aplicación (GApplication, D-Bus de instancia única) | `org.Nemo` | `io.github.josemalena.Fynder`. **Si se repite, abrir el fork abre el Nemo del sistema.** Sin la marca Kóralis: es una herramienta personal |
+| Esquemas de gsettings | `org.nemo.*` | `io.github.josemalena.fynder.*`, con los ajustes propios y los heredados copiados |
+| Archivo `.desktop` | `nemo.desktop` | `fynder.desktop` |
 | Dónde se instala | `/usr` (apt) | **`/usr/local`** (Planner): así los esquemas en `/usr/local/share/glib-2.0/schemas` se encuentran sin variables de entorno. **Nunca `/usr`** |
 | Escritorio (`nemo-desktop`) | lo dibuja Nemo | **el fork no lo dibuja**: se queda el del sistema |
 | `org.freedesktop.FileManager1` (D-Bus de «mostrar en carpeta») | lo reclama Nemo | **El fork lo reclama solo si está puesto como predeterminado** (un ajuste); si no, se lo deja al de Mint. Probar «Mostrar en carpeta» desde Chrome y Firefox |
 | Extensiones (`libnemo-extension`, nemo-python, acciones) | las del sistema | **El fork lee también `~/.local/share/nemo/actions`.** Las extensiones compiladas (nemo-python) no se cargan, y se acepta |
 
 Después: hacerlo el administrador de archivos por defecto
-(`xdg-mime default nemo-mac.desktop inode/directory`), y revisar qué partes de
+(`xdg-mime default fynder.desktop inode/directory`), y revisar qué partes de
 Cinnamon llaman a `nemo` por nombre (applet de lugares, «abrir carpeta»).
 Lo instala un guion de `mint-macos`, como el resto del repo.
 
@@ -97,9 +97,14 @@ fork.** El fork solo necesita una ruta configurable: si existe, sale la sección
 
 ## Decisiones tomadas (07-10-2026)
 
-- **Nombre** (José): ejecutable `nemo-mac`, ID `io.github.josemalena.NemoMac`,
-  esquemas `io.github.josemalena.nemo-mac.*`, sin la marca Kóralis.
-- **Nombre visible** (José, 07-10-2026): «Nemo Finder» en el lanzador, «About», los menús y los mensajes. El ejecutable, el ID y los esquemas siguen siendo `nemo-mac`.
+- **Nombre** (José, 10-10-2026, **reemplaza a `nemo-mac`**): **Fynder**. Ejecutable
+  `fynder`, ID `io.github.josemalena.Fynder`, esquemas
+  `io.github.josemalena.fynder.*`, `fynder.desktop`, sin la marca Kóralis. Es la
+  alusión más directa al Finder (marca de Apple) con una letra cambiada: José lo
+  eligió sabiendo que es la opción con algo de riesgo de marca, aceptable para una
+  herramienta personal.
+- **Nombre visible:** «Fynder» en el lanzador, «About», los menús y los mensajes
+  (reemplaza a «Nemo Finder», que también usaba la marca entera).
 - **Defaults** (José, 08-10-2026): el modo Finder viene **encendido por defecto** (`date-format=finder`, `toolbar-linked-view-switcher`, `toolbar-finder-layout`, `sidebar-finder-sections`), por `c66498d4`. Esto reemplaza la regla de «apagado por defecto» de Mantenimiento; los cambios siguen detrás de su ajuste.
 - **Alcance** (José): Fase 1, puntos 1 a 6; sin etiquetas de archivos. Mientras
   tanto, el Nemo de Mint quedó con `date-format = informal`, lo más cercano.
@@ -108,7 +113,7 @@ fork.** El fork solo necesita una ruta configurable: si existe, sale la sección
 - **FileManager1** (Planner): lo reclama solo si el fork está como predeterminado.
 - **Acciones** (Planner): se comparten; las extensiones compiladas no cargan.
 - **Instalación** (Planner): `/usr/local`.
-- **Código** (Planner): repo propio **`josemalena/nemo-mac`**, fork de
+- **Código** (Planner): repo propio **`josemalena/nemo-mac`** (con el cambio de nombre, Planner decide si se renombra a `fynder`), fork de
   `linuxmint/nemo`. `mint-macos` trae solo el guion que lo compila e instala.
 - **Pendiente de Infra:** montar iCloud Drive en el host (ruta para
   `sidebar-icloud-path`) y que `catalina.sh` use San Francisco si está instalada.
