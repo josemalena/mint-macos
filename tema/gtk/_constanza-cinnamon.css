@@ -70,13 +70,16 @@
   color: #ffffff;
 }
 .constanza-menu-box {
-  /* Translúcido: detrás va el vidrio desenfocado (notificaciones@macos,
-     vidrio.js), como los menús de Catalina. Opaco era #24272a. */
-  background-color: rgba(36, 39, 42, 0.72);
+  /* Opaco: sin vidrio.js detrás no se ve el escritorio nítido. Con el vidrio
+     (notificaciones@macos le pone .con-vidrio), translúcido como Catalina. */
+  background-color: #24272a;
   border: 1px solid #45474a;
   border-radius: 5px;
   padding: 5px 0;
   color: #ffffff;
+}
+.constanza-menu-box.con-vidrio {
+  background-color: rgba(36, 39, 42, 0.72);
 }
 .constanza-menu .popup-menu-item {
   color: #ffffff;
@@ -218,9 +221,12 @@
   padding: 0;
 }
 .popup-menu .popup-menu-content {
-  background-color: rgba(36, 39, 42, 0.72);
+  background-color: #24272a;
   border: 1px solid #45474a;
   border-radius: 5px;
   padding: 5px 0;
+}
+.popup-menu .popup-menu-content.con-vidrio {
+  background-color: rgba(36, 39, 42, 0.72);
 }
 
