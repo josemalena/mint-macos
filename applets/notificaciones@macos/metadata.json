@@ -1,0 +1,7 @@
+{
+  "uuid": "notificaciones@macos",
+  "name": "Notification Center (macOS)",
+  "description": "El ícono de la Notification Center de macOS, siempre en la esquina, con las notificaciones de Cinnamon en un panel a la derecha.",
+  "max-instances": 1,
+  "cinnamon-version": ["6.0", "6.2", "6.4", "6.6"]
+}
