@@ -6,10 +6,13 @@ Uso: finder.py <raíz del volumen de sistema> <directorio del tema> [gris]
 
 - Los íconos a color (carpetas, documentos, discos, papelera) salen con sus
   nombres freedesktop normales, en 16…256 px.
+- Las apps del Dock de la Mac con equivalente claro en Mint (Finder,
+  Launchpad, Calendar, System Preferences, App Store) prestan su ícono a la
+  app de Linux, con los nombres que esas apps piden.
 - Las plantillas de la barra lateral y de la barra de herramientas son negras
   con alfa: se pintan del gris del Finder oscuro y salen como *-symbolic.
 """
-import os, sys
+import os, sys, plistlib
 from PIL import Image
 from PIL.IcnsImagePlugin import IcnsFile
 
@@ -108,6 +111,19 @@ BARRA = [
     ('Add',              ['list-add-symbolic']),
     ('Remove',           ['list-remove-symbolic']),
 ]
+# Apps del Dock de la Mac → los nombres de ícono de su equivalente en Mint
+# (los que piden sus .desktop). El .icns se busca en el Info.plist de la app.
+APPS = [
+    ('System/Library/CoreServices/Finder.app',     ['system-file-manager', 'nemo', 'nemo-mac', 'fynder', 'io.github.josemalena.Fynder']),
+    ('System/Applications/Launchpad.app',          ['launchpad']),
+    ('System/Applications/Calendar.app',           ['org.gnome.Calendar', 'gnome-calendar']),
+    ('System/Applications/System Preferences.app', ['preferences-desktop', 'cinnamon-settings']),
+    ('System/Applications/App Store.app',          ['mintinstall']),
+]
+def icns_de_app(app):
+    with open(os.path.join(RAIZ, app, 'Contents/Info.plist'), 'rb') as f:
+        ic = plistlib.load(f).get('CFBundleIconFile') or 'AppIcon'
+    return os.path.join(app, 'Contents/Resources', ic if ic.endswith('.icns') else ic + '.icns')
 GLIFOS = os.environ.get('GLIFOS_FINDER', '')
 
 TAM_COLOR = [(16, 1), (22, 1), (24, 1), (32, 1), (48, 1), (64, 1), (96, 1), (128, 1), (256, 1),
@@ -188,9 +204,16 @@ def generar_barra(tamanos, carpeta):
 
 
 d1, h1, f1 = generar(COLOR, TAM_COLOR, 'finder', False)
+APPS_ICNS = []
+for app, nombres in APPS:
+    try:
+        APPS_ICNS.append((icns_de_app(app), nombres))
+    except OSError:
+        pass
+d4, h4, f4 = generar(APPS_ICNS, TAM_COLOR, 'finder-apps', False)
 d2, h2, f2 = generar(SIMBOLICOS, TAM_SIMB, 'finder-symbolic', True)
 _, h3 = generar_barra(TAM_SIMB, 'finder-symbolic')
 with open(os.path.join(TEMA, 'finder-dirs.txt'), 'w') as f:
-    for sub, t, esc in d1 + d2:
+    for sub, t, esc in d1 + d4 + d2:
         f.write(f'{sub} {t} {esc}\n')
-print(f'finder: {h1} íconos a color, {h2} glifos del lateral y {h3} de la barra', ('· faltan ' + ', '.join(f1 + f2)) if f1 + f2 else '')
+print(f'finder: {h1} íconos a color, {h4} apps del Dock, {h2} glifos del lateral y {h3} de la barra', ('· faltan ' + ', '.join(f1 + f4 + f2)) if f1 + f4 + f2 else '')
