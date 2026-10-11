@@ -184,7 +184,7 @@ fotos() {
 
 estado() {
   paso "Estado"
-  echo "  rclone: $("$BIN" version 2>/dev/null | head -1 || echo 'no está')"
+  echo "  rclone: $("$BIN" version 2>/dev/null | sed -n 1p || echo 'no está')"
   echo "  remotos: $("$BIN" listremotes 2>/dev/null | tr '\n' ' ')"
   for u in "$SERVICIO.service" "$SERVICIO-fotos.service" "$SERVICIO-vence.timer"; do
     [ -f "$UNIDADES/$u" ] && echo "  $u: $(systemctl --user is-active "$u" 2>/dev/null || true)"
