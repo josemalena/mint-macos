@@ -23,6 +23,7 @@
 set -euo pipefail
 
 RESPALDO="$HOME/.local/share/mint-macos/respaldos"
+BLOQUEAR="$HOME/.local/bin/mint-macos-bloquear"   # copia de login/bloquear.sh
 AUTOSTART="$HOME/.config/autostart/mint-macos-bloqueo.desktop"
 mkdir -p "$RESPALDO" "$(dirname "$AUTOSTART")"
 
@@ -35,7 +36,7 @@ parar_xss_lock() {
 if [ "${1:-}" = "--deshacer" ]; then
   ANTES="$(cat "$RESPALDO/custom-screensaver-command.txt" 2>/dev/null || echo "''")"
   gsettings set org.cinnamon.desktop.screensaver custom-screensaver-command "$ANTES"
-  rm -f "$AUTOSTART"
+  rm -f "$AUTOSTART" "$BLOQUEAR"
   parar_xss_lock
   xset s 0 0
   # El demonio de Cinnamon vuelve con el próximo bloqueo; se arranca ya para
@@ -54,8 +55,11 @@ command -v xss-lock >/dev/null || { echo "  ✗ falta xss-lock: sudo login/insta
 if [ ! -f "$RESPALDO/custom-screensaver-command.txt" ]; then
   gsettings get org.cinnamon.desktop.screensaver custom-screensaver-command > "$RESPALDO/custom-screensaver-command.txt"
 fi
-gsettings set org.cinnamon.desktop.screensaver custom-screensaver-command 'dm-tool lock'
-echo "  ⌃⌘Q, Lock Screen y la suspensión: dm-tool lock"
+# Los dos caminos pasan por bloquear.sh: dm-tool lock suelto se repite solo
+# (LightDM → logind Lock → xss-lock → otro dm-tool lock; ver bloquear.sh).
+install -Dm755 "$(dirname "$0")/bloquear.sh" "$BLOQUEAR"
+gsettings set org.cinnamon.desktop.screensaver custom-screensaver-command "$BLOQUEAR"
+echo "  ⌃⌘Q, Lock Screen y la suspensión: $BLOQUEAR (dm-tool lock, uno a la vez)"
 
 # Inactividad: xss-lock con el tiempo de Cinnamon (idle-delay, en segundos).
 ESPERA="$(gsettings get org.cinnamon.desktop.session idle-delay | awk '{print $NF}')"
@@ -64,14 +68,14 @@ cat > "$AUTOSTART" <<EOF
 Type=Application
 Name=Bloqueo de Catalina (mint-macos)
 Comment=Bloquea con la pantalla de inicio (dm-tool lock) por inactividad
-Exec=sh -c 'xset s $ESPERA $ESPERA; exec xss-lock --ignore-sleep -- dm-tool lock'
+Exec=sh -c 'xset s $ESPERA $ESPERA; exec xss-lock --ignore-sleep -- $BLOQUEAR'
 X-GNOME-Autostart-enabled=true
 NoDisplay=true
 EOF
 parar_xss_lock
 if [ "$ESPERA" -gt 0 ]; then
   xset s "$ESPERA" "$ESPERA"
-  (setsid xss-lock --ignore-sleep -- dm-tool lock >/dev/null 2>&1 &)
+  (setsid xss-lock --ignore-sleep -- "$BLOQUEAR" >/dev/null 2>&1 &)
   echo "  inactividad: xss-lock a los $ESPERA s (idle-delay de Cinnamon)"
 else
   echo "  inactividad: Cinnamon la tiene apagada (idle-delay 0), no se bloquea por tiempo"
