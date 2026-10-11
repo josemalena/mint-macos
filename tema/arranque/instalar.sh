@@ -24,11 +24,26 @@ MODO="${1:-instalar}"
 
 paso() { printf '\n▸ %s\n' "$*"; }
 
+# Fedora y Arch traen plymouth-set-default-theme; Ubuntu y Mint no: ahí el tema
+# es la alternativa default.plymouth.
+tema_actual() {
+  if command -v plymouth-set-default-theme >/dev/null; then plymouth-set-default-theme
+  else basename "$(dirname "$(update-alternatives --query default.plymouth | sed -n 's/^Value: //p')")"
+  fi
+}
+poner_tema() {
+  if command -v plymouth-set-default-theme >/dev/null; then plymouth-set-default-theme "$1"; return; fi
+  local f="$TEMAS/$1/$1.plymouth"
+  update-alternatives --query default.plymouth | grep -qx "Alternative: $f" \
+    || update-alternatives --install "$TEMAS/default.plymouth" default.plymouth "$f" 100
+  update-alternatives --set default.plymouth "$f"
+}
+
 if [ "$MODO" = --deshacer ]; then
   [ "$(id -u)" = 0 ] || { echo "✗ con sudo"; exit 1; }
   T="$(cat "$ANTERIOR" 2>/dev/null || echo mint-logo)"
   paso "Volviendo al tema de arranque «$T»"
-  plymouth-set-default-theme "$T"
+  poner_tema "$T"
   update-initramfs -u
   echo "  listo (el de Catalina queda en $DESTINO, sin usarse)"
   exit 0
@@ -85,8 +100,8 @@ echo "  vista previa: $LOCAL/vista.png"
 
 [ "$(id -u)" = 0 ] || { echo "✗ para instalarlo hace falta sudo: sudo $0"; exit 1; }
 paso "Tema de Plymouth «catalina»"
-command -v plymouth-set-default-theme >/dev/null || { echo "  ✗ falta plymouth"; exit 1; }
-plymouth-set-default-theme > "$ANTERIOR" 2>/dev/null || echo mint-logo > "$ANTERIOR"
+command -v plymouth >/dev/null || { echo "  ✗ falta plymouth"; exit 1; }
+tema_actual > "$ANTERIOR" 2>/dev/null || echo mint-logo > "$ANTERIOR"
 chown "$USUARIO": "$ANTERIOR"
 echo "  el de ahora: $(cat "$ANTERIOR") (se guarda para --deshacer)"
 install -d "$DESTINO"
@@ -102,7 +117,7 @@ ModuleName=script
 ImageDir=$DESTINO
 ScriptFile=$DESTINO/catalina.script
 EOF
-plymouth-set-default-theme catalina
+poner_tema catalina
 paso "initramfs (el arranque lo lee de ahí)"
 update-initramfs -u
 echo
