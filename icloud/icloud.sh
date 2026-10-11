@@ -102,6 +102,9 @@ unidad_montaje() { # nombre remoto carpeta extra
   grep -q '^RCLONE_ENCRYPT_V0' "${RCLONE_CONFIG:-$HOME/.config/rclone/rclone.conf}" 2>/dev/null && \
     clave='--password-command "secret-tool lookup rclone config"'
   mkdir -p "$UNIDADES" "$carpeta"
+  # --rc en un socket Unix ($XDG_RUNTIME_DIR, 0700): Fynder lee de ahí el
+  # progreso de subidas y bajadas (vfs/queue, core/stats). Sin clave porque
+  # solo el usuario llega al socket.
   cat > "$UNIDADES/$nombre.service" <<EOF
 [Unit]
 Description=$remoto montado en $carpeta (rclone, mint-macos)
@@ -110,7 +113,7 @@ After=network-online.target
 [Service]
 Type=notify
 ${RCLONE_CONFIG:+Environment=RCLONE_CONFIG=$RCLONE_CONFIG}
-ExecStart=$BIN mount "$remoto:" "$carpeta" $clave --vfs-cache-mode full --vfs-cache-max-size $CACHE_MAX --cache-dir "%h/.cache/rclone/$nombre" --dir-cache-time 1m $extra
+ExecStart=$BIN mount "$remoto:" "$carpeta" $clave --vfs-cache-mode full --vfs-cache-max-size $CACHE_MAX --cache-dir "%h/.cache/rclone/$nombre" --dir-cache-time 1m --rc --rc-addr "unix://%t/$nombre.sock" --rc-no-auth $extra
 ExecStop=/bin/fusermount -u "$carpeta"
 Restart=on-failure
 RestartSec=30
@@ -152,6 +155,9 @@ WantedBy=timers.target
 EOF
   systemctl --user daemon-reload
   systemctl --user enable --now "$SERVICIO.service" "$SERVICIO-vence.timer"
+  # enable --now no reinicia una unidad que ya corre: sin esto, una unidad
+  # regenerada (opciones nuevas) seguiría con el rclone viejo.
+  systemctl --user restart "$SERVICIO.service"
   [ -f "$ALTA" ] || { mkdir -p "$ESTADO"; date +%F > "$ALTA"; }
   paso "En el lateral de Fynder (iCloud → iCloud Drive)"
   if [ -n "${ICLOUD_SIN_FYNDER:-}" ]; then
