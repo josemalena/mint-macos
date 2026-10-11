@@ -13,7 +13,7 @@
 set -euo pipefail
 
 FYNDER_REPO=https://github.com/josemalena/fynder.git
-FYNDER_HASH=490a0dddf2575450d6103f2f483682ca1ed63621
+FYNDER_HASH=6df603c9598d92bef95cc13bc781a65abe53a043
 PLANK_REPO=https://github.com/josemalena/plank-reloaded.git
 PLANK_HASH=461786b42a3f4236f38c1f8fb237fa54a6a69076
 
