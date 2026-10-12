@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Instala mint-macos completo para el usuario que lo corre, sin sudo (lo que
 # pide sudo va antes, en requisitos.sh). Orden:
-#   1. construir.sh   Fynder y plank-reloaded en ~/.local, en hashes fijos
+#   1. construir.sh   Fynder y mint-macos-dock (el Dock) en ~/.local, en hashes fijos
 #   2. desde-mac.sh   lo de Apple, sacado del disco de la Mac (local)
 #   3. install.sh     teclado como macOS (keyd, kitty, VS Code), applets y el
 #                     lado de las apps del menú global
@@ -83,7 +83,7 @@ FALTA=""
 for c in fsapfsmount keyd meson ninja valac sassc convert rsync git; do command -v "$c" >/dev/null || FALTA="$FALTA $c"; done
 [ -z "$FALTA" ] && echo "  están" || { echo "  ✗ faltan:$FALTA — corre antes: sudo ./requisitos.sh"; exit 1; }
 
-paso "1. Compilar Fynder y plank-reloaded";  "$REPO/construir.sh"
+paso "1. Compilar Fynder y mint-macos-dock";  "$REPO/construir.sh"
 
 if $SIN_MAC; then
   paso "2. Disco de la Mac: se salta (--sin-mac); el tema usa sus sustitutos (Inter, Os-Catalina)"
@@ -123,7 +123,7 @@ cat > "$HOME/.config/autostart/plank.desktop" <<EOF
 [Desktop Entry]
 Type=Application
 Name=Plank
-Comment=El dock (plank-reloaded de mint-macos)
+Comment=El dock (mint-macos-dock)
 Exec=$HOME/.local/bin/plank
 X-GNOME-Autostart-enabled=true
 EOF

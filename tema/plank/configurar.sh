@@ -10,8 +10,8 @@
 # es del tema (Constanza-Oscuro, de Infra), y los lanzadores del separador y
 # de la pila de Descargas.
 #
-# El separador y la pila son docklets de plank-reloaded, compilado en
-# ~/.local desde ~/Documents/Dev/repos/plank-reloaded (rama macos). Con el
+# El separador y la pila son docklets de mint-macos-dock (el fork de
+# plank-reloaded), que construir.sh compila en ~/.local. Con el
 # Plank del sistema esos dos lanzadores no existen y no se ponen.
 #
 # Variables:

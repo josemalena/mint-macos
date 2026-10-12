@@ -7,7 +7,7 @@
 #   ./requisitos.sh --simular        dice qué haría, sin tocar nada (apt-get -s)
 #
 # Qué pone:
-#   - los paquetes de apt para compilar Fynder (fork de Nemo) y plank-reloaded,
+#   - los paquetes de apt para compilar Fynder (fork de Nemo) y mint-macos-dock,
 #     y los que usan en ejecución el tema, los applets y el menú global;
 #   - keyd (⌘ y ⌥ como en macOS), compilado: no está en Mint 22;
 #   - fsapfsinfo y fsapfsmount (leer el disco de la Mac), compilados: la
@@ -25,7 +25,7 @@ KEYD_VERSION=v2.6.0
 paso() { printf '\n▸ %s\n' "$*"; }
 
 # Fynder: lista explícita de nemo-mac-e1 (build-dep nemo pide deb-src y trae
-# de más). plank-reloaded: lista de la sesión de Plank.
+# de más). mint-macos-dock (fork de plank-reloaded): lista de la sesión de Plank.
 COMPILAR=(
   build-essential pkg-config git meson ninja-build gettext
   gobject-introspection libgirepository1.0-dev libglib2.0-dev libglib2.0-dev-bin

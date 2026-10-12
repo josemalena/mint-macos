@@ -13,7 +13,7 @@ Todo se instala para un usuario, en su `$HOME`. Lo único que pide `sudo` es
 - **Linux Mint 22** (Cinnamon) recién instalado, con el usuario ya creado.
 - **El disco de la Mac** conectado (interno o por USB). Se lee en **solo
   lectura**: nunca se escribe en él.
-- Internet (se bajan Fynder, plank-reloaded, keyd, libfsapfs y los temas base).
+- Internet (se bajan Fynder, mint-macos-dock, keyd, libfsapfs y los temas base).
 - Para los glifos de la barra del Finder, **una vez y opcional**, la Mac
   encendida en macOS (ver «Glifos de la barra»).
 
@@ -50,7 +50,7 @@ parámetros: `--disco /dev/sdb2 --volumen-sistema 5 --volumen-datos 1
 
 En orden:
 
-1. `construir.sh`: compila **Fynder** y **plank-reloaded** en `~/.local`, cada
+1. `construir.sh`: compila **Fynder** y **mint-macos-dock** (el Dock) en `~/.local`, cada
    uno en un hash fijo de su repo.
 2. `desde-mac.sh`: saca de la Mac las fuentes San Francisco, la manzana, los
    íconos del Finder y del Dock, y el fondo de Catalina (`--cuadro 7`, el
@@ -127,7 +127,7 @@ Lo que hay que saber:
 
 Devuelve el tema, la barra, los atajos, el menú global, el administrador de
 archivos y el Dock a como estaban antes de la última instalación. Fynder y
-plank-reloaded quedan en `~/.local`, sin usarse. Lo de `requisitos.sh` (keyd,
+mint-macos-dock quedan en `~/.local`, sin usarse. Lo de `requisitos.sh` (keyd,
 libfsapfs, los paquetes) no se quita.
 
 ## Glifos de la barra del Finder (en la Mac, una vez, opcional)
@@ -180,7 +180,8 @@ hay ni uno en el repo** (`.gitignore` bloquea `.icns`, `.png`, `.ttf`, `.otf`,
 | Repo | Qué es | Licencia |
 |---|---|---|
 | [josemalena/fynder](https://github.com/josemalena/fynder) | El administrador de archivos (fork de Nemo) | GPL-2+ |
-| [josemalena/plank-reloaded](https://github.com/josemalena/plank-reloaded) | El Dock (fork de zquestz/plank-reloaded) | GPL-3 |
+| [josemalena/mint-macos-dock](https://github.com/josemalena/mint-macos-dock) | El Dock (fork de zquestz/plank-reloaded; se instala como `plank`) | GPL-3 |
+| [josemalena/mint-macos-greeter](https://github.com/josemalena/mint-macos-greeter) | La pantalla de inicio y de bloqueo (fork de linuxmint/slick-greeter; se instala como `slick-greeter-mac`) | GPL-3 |
 | [Magic Lamp](https://github.com/klangman/CinnamonMagicLamp) (klangman, Cinnamon Spices) | El efecto genio al minimizar; se baja en un commit fijo, no se copia | GPL-3 (su `LICENSE` va con ella) |
 | este | Tema, applets, teclado, menú global, instaladores | ver `tema/CREDITOS.md` |
 

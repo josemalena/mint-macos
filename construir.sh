@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Compila e instala en ~/.local, sin sudo, los dos programas propios:
 #   - Fynder: el administrador de archivos con la cara del Finder (fork de Nemo)
-#   - plank-reloaded: el Dock de Catalina (fork de zquestz/plank-reloaded)
+#   - mint-macos-dock: el Dock de Catalina (fork de zquestz/plank-reloaded;
+#     se instala como plank, igual que el original)
 # Cada uno se clona de su repo público en un hash fijo: lo que se instala es
 # exactamente lo que se probó. Necesita los paquetes de requisitos.sh.
 #
@@ -14,7 +15,7 @@ set -euo pipefail
 
 FYNDER_REPO=https://github.com/josemalena/fynder.git
 FYNDER_HASH=6df603c9598d92bef95cc13bc781a65abe53a043
-PLANK_REPO=https://github.com/josemalena/plank-reloaded.git
+PLANK_REPO=https://github.com/josemalena/mint-macos-dock.git
 PLANK_HASH=461786b42a3f4236f38c1f8fb237fa54a6a69076
 
 CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/mint-macos"
@@ -63,7 +64,7 @@ if [ "$QUE" = todo ] || [ "$QUE" = fynder ]; then
 fi
 
 if [ "$QUE" = todo ] || [ "$QUE" = plank ]; then
-  paso "plank-reloaded ($PLANK_HASH)"
+  paso "mint-macos-dock ($PLANK_HASH)"
   clonar "$PLANK_REPO" "$PLANK_HASH" "$CACHE/src/plank-reloaded"
   B="$CACHE/build/plank-reloaded"
   # Sin el rpath el binario carga la libplank del sistema y no la del fork.

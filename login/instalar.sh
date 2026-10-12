@@ -7,8 +7,10 @@
 #   sudo login/instalar.sh --activar        además, lo pone como pantalla de inicio
 #   sudo login/instalar.sh --deshacer       quita todo y vuelve al de Mint
 #
-#   --fuente  la carpeta del fork (rama «mac» de slick-greeter). Sin ella,
-#             ../slick-greeter al lado de mint-macos.
+#   --fuente  una carpeta con el fork, para probar cambios sin publicar. Sin
+#             ella se clona josemalena/mint-macos-greeter en el hash fijo de
+#             GREETER_HASH (lo que se instala es lo que se probó), en
+#             ~/.cache/mint-macos/src/mint-macos-greeter del usuario.
 #
 # Antes, sin sudo: ./desde-mac.sh --login (el fondo y la foto de la Mac en
 # ~/.local/share/constanza/login) y las SF en ~/.local/share/fonts.
@@ -22,7 +24,9 @@ set -euo pipefail
 
 AQUI="$(cd "$(dirname "$0")" && pwd)"
 MINT_MACOS="$(dirname "$AQUI")"
-FUENTE="$(dirname "$MINT_MACOS")/slick-greeter"
+GREETER_REPO=https://github.com/josemalena/mint-macos-greeter.git
+GREETER_HASH=9d5c85334313a8e3328f8a789f3c19d94172471d
+FUENTE=""
 ACCION=instalar
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -77,6 +81,13 @@ else
 fi
 
 paso "Compilar slick-greeter-mac (como $USUARIO)"
+if [ -z "$FUENTE" ]; then
+  FUENTE="$HOGAR/.cache/mint-macos/src/mint-macos-greeter"
+  [ -d "$FUENTE/.git" ] || sudo -u "$USUARIO" git clone -q --filter=blob:none "$GREETER_REPO" "$FUENTE"
+  sudo -u "$USUARIO" git -C "$FUENTE" fetch -q origin "$GREETER_HASH" 2>/dev/null || sudo -u "$USUARIO" git -C "$FUENTE" fetch -q origin
+  sudo -u "$USUARIO" git -C "$FUENTE" checkout -q --detach "$GREETER_HASH"
+  [ "$(sudo -u "$USUARIO" git -C "$FUENTE" rev-parse HEAD)" = "$GREETER_HASH" ] || { echo "  ✗ no quedó en $GREETER_HASH" >&2; exit 1; }
+fi
 [ -f "$FUENTE/src/login-mac.vala" ] || { echo "  ✗ $FUENTE no es el fork (falta src/login-mac.vala); usa --fuente" >&2; exit 1; }
 if [ ! -d "$FUENTE/build" ]; then
   sudo -u "$USUARIO" meson setup "$FUENTE/build" "$FUENTE" --prefix=/usr/local >/dev/null
