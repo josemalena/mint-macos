@@ -58,6 +58,8 @@ logo() { [ -f "$1" ] || return 0; local origen="$1" n="$2" a dir; shift 2
   done; }
 logo /usr/share/code/resources/app/resources/linux/code.png vscode code visual-studio-code com.visualstudio.code visualstudiocode
 logo /opt/microsoft/msedge/product_logo_256.png microsoft-edge microsoft-edge-stable com.microsoft.Edge
+# Os-Catalina le pone a Thunderbird el sello del Mail viejo; José quiere el suyo.
+logo /usr/share/icons/hicolor/256x256/apps/thunderbird.png thunderbird mozilla-thunderbird thunderbird-bin net.thunderbird.Thunderbird org.mozilla.Thunderbird
 
 # Íconos del Finder si hay disco de Mac.
 if montar_mac_sistema; then
