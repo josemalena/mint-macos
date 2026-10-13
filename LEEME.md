@@ -118,6 +118,13 @@ Lo que hay que saber:
 - **La configuración** queda en `~/.config/rclone/rclone.conf`, en tu `$HOME`.
   Se puede cifrar (en `rclone config`, «s»); entonces el montaje toma la
   clave del llavero de la sesión.
+- **Tras un corte de luz** el equipo puede arrancar antes que el internet. El
+  montaje reintenta cada 30 s y, antes de cada intento, borra el socket que deja
+  el intento fallido; sin eso, ningún reintento entraba. Si Desktop o Documents
+  viven dentro de iCloud Drive, `montar` apaga la reescritura de
+  `xdg-user-dirs` (`~/.config/user-dirs.conf` con `enabled=False`): si no, al
+  iniciar sesión con iCloud todavía sin montar, el escritorio pasa a enseñar el
+  `$HOME`. `deshacer` lo devuelve como estaba.
 - **Desconectar:** `icloud/icloud.sh deshacer` quita el montaje, el aviso y la
   entrada de Fynder; `rclone config delete icloud` borra la sesión.
 

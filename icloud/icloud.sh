@@ -113,6 +113,9 @@ After=network-online.target
 [Service]
 Type=notify
 ${RCLONE_CONFIG:+Environment=RCLONE_CONFIG=$RCLONE_CONFIG}
+# Si el primer arranque falla (sin red al encender, como tras un corte de luz),
+# rclone deja el socket del --rc y cada reintento choca con él: se borra antes.
+ExecStartPre=-/bin/rm -f %t/$nombre.sock
 ExecStart=$BIN mount "$remoto:" "$carpeta" $clave --vfs-cache-mode full --vfs-cache-max-size $CACHE_MAX --cache-dir "%h/.cache/rclone/$nombre" --dir-cache-time 1m --rc --rc-addr "unix://%t/$nombre.sock" --rc-no-auth $extra
 ExecStop=/bin/fusermount -u "$carpeta"
 Restart=on-failure
@@ -153,6 +156,16 @@ Persistent=true
 [Install]
 WantedBy=timers.target
 EOF
+  # Si Desktop o Documents viven dentro de iCloud Drive y el montaje no ha
+  # subido al iniciar sesión, xdg-user-dirs-update los da por perdidos y los
+  # cambia a «$HOME/»: el escritorio enseña el $HOME. Se le apaga la
+  # reescritura; user-dirs.dirs se queda como está.
+  local conf="$HOME/.config/user-dirs.conf"
+  if ! grep -qx 'enabled=False' "$conf" 2>/dev/null; then
+    [ -f "$conf" ] && cp "$conf" "$ESTADO/user-dirs.conf.antes"
+    printf 'enabled=False\n' > "$conf"
+    touch "$ESTADO/user-dirs.conf.nuestro"
+  fi
   systemctl --user daemon-reload
   systemctl --user enable --now "$SERVICIO.service" "$SERVICIO-vence.timer"
   # enable --now no reinicia una unidad que ya corre: sin esto, una unidad
@@ -218,6 +231,11 @@ deshacer() {
   done
   rm -f "$UNIDADES/$SERVICIO-vence.service"
   systemctl --user daemon-reload
+  if [ -f "$ESTADO/user-dirs.conf.nuestro" ]; then
+    if [ -f "$ESTADO/user-dirs.conf.antes" ]; then mv "$ESTADO/user-dirs.conf.antes" "$HOME/.config/user-dirs.conf"
+    else rm -f "$HOME/.config/user-dirs.conf"; fi
+    rm -f "$ESTADO/user-dirs.conf.nuestro"
+  fi
   if [ -f "$ESTADO/$SERVICIO-fynder-antes.txt" ]; then
     gsettings set io.github.josemalena.fynder.preferences sidebar-icloud-path "$(tr -d "'" < "$ESTADO/$SERVICIO-fynder-antes.txt")" 2>/dev/null || true
   fi
