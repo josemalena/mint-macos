@@ -57,6 +57,7 @@ const ATAJO_LOGOUT = "⇧⌘Q";
 
 // Cuántos documentos enseña «Recent Items», como la Mac por defecto.
 const RECIENTES = 10;
+const RETRASO_RECIENTES_MS = 500;
 
 // System Preferences de mint-macos (settings/) si está instalada; si no, el
 // panel de Cinnamon de siempre.
@@ -109,8 +110,20 @@ class AppleMenuApplet extends Applet.IconApplet {
         this._conShift = (mods & Clutter.ModifierType.SHIFT_MASK) !== 0;
         this._syncForceQuit();
         this._llenarRecientes();
+        // Si el foco pasa a otra ventana (⌘Tab, clic en otra app…), el menú
+        // entero se cierra, con su submenú.
+        this._focoId = global.display.connect("notify::focus-window", () => {
+          // Perder el foco (null) es lo que pasa al abrir el menú: solo cuenta
+          // cuando pasa a OTRA ventana.
+          let f = global.display.focus_window;
+          if (f && f !== this._ventanaActiva) this.menu.close(true);
+        });
       } else {
         this._cerrarRecientes();
+        if (this._focoId) {
+          global.display.disconnect(this._focoId);
+          this._focoId = 0;
+        }
       }
     });
 
@@ -222,11 +235,12 @@ class AppleMenuApplet extends Applet.IconApplet {
     // Recent Items ▸: se abre al lado, como en la Mac, no adentro del menú.
     this._recientesItem = this._renglon("Recent Items", "▸", "applemenu-flecha");
     this._recientesItem.connect("active-changed", (item, activo) => {
-      if (activo) this._abrirRecientes();
+      if (activo) this._programarRecientes();
+      else this._cancelarRecientes();
     });
-    this._recientesItem.connect("activate", () => this._abrirRecientes());
+    this._recientesItem.connect("activate", () => { this._cancelarRecientes(); this._abrirRecientes(); });
     // Activar un renglón cierra el menú; este no debe cerrarlo.
-    this._recientesItem.activate = () => this._abrirRecientes();
+    this._recientesItem.activate = () => { this._cancelarRecientes(); this._abrirRecientes(); };
     this.menu.addMenuItem(this._recientesItem);
     this._crearMenuRecientes();
 
@@ -371,12 +385,31 @@ class AppleMenuApplet extends Applet.IconApplet {
     menu.addMenuItem(limpiar);
   }
 
+  // Como en la Mac: el submenú solo se abre si el renglón se queda seleccionado
+  // medio segundo; pasar de largo no lo abre.
+  _programarRecientes() {
+    this._cancelarRecientes();
+    this._tRecientes = GLib.timeout_add(GLib.PRIORITY_DEFAULT, RETRASO_RECIENTES_MS, () => {
+      this._tRecientes = 0;
+      if (this.menu.isOpen) this._abrirRecientes();
+      return GLib.SOURCE_REMOVE;
+    });
+  }
+
+  _cancelarRecientes() {
+    if (this._tRecientes) {
+      GLib.source_remove(this._tRecientes);
+      this._tRecientes = 0;
+    }
+  }
+
   _abrirRecientes() {
     if (!this._recientes || this._recientes.isOpen) return;
     this._recientes.open(true);
   }
 
   _cerrarRecientes() {
+    this._cancelarRecientes();
     if (this._recientes && this._recientes.isOpen) this._recientes.close(true);
   }
 
@@ -470,6 +503,10 @@ class AppleMenuApplet extends Applet.IconApplet {
 
   on_applet_removed_from_panel() {
     this._cerrarRecientes();
+    if (this._focoId) {
+      global.display.disconnect(this._focoId);
+      this._focoId = 0;
+    }
     if (this._recientes) {
       try { this._recientes.destroy(); } catch (e) {}
     }
