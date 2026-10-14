@@ -13,7 +13,7 @@
 #   2. sudo requisitos.sh
 #   3. Fynder y el Dock a ~/.local (ya compilados)
 #   4. lo de Apple a ~/.cache/mint-macos/mac-sistema, que hace de disco de la Mac
-#   5. instalar.sh --sin-compilar, Settings.app y las apps web de Apple
+#   5. instalar.sh --sin-compilar, Settings.app, Launchpad y las apps web de Apple
 #   6. dice lo que queda: el arranque (sudo) y cerrar sesión
 set -euo pipefail
 
@@ -64,6 +64,7 @@ paso "5. mint-macos"
 "$REPO/instalar.sh" --sin-compilar
 "$REPO/settings/desde-mac.sh"
 "$REPO/settings/instalar.sh"
+"$REPO/launchpad/instalar.sh"
 "$REPO/icloud/apps-web.sh"
 
 paso "Lo que queda"
