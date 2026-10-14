@@ -75,6 +75,10 @@ _GRUPOS_POR_TEMA = [
         Panel("com.apple.preference.sound", "Sound", ["sound"],
               palabras="sound, volume, output, input, microphone, speakers, alert"),
     ]),
+    ("equipo", [
+        Panel("com.apple.preference.startupdisk", "Startup Disk", [],
+              palabras="startup disk, boot, grub, efi, restart, default os, macos"),
+    ]),
     ("net", [
         Panel("com.apple.preferences.internetaccounts", "Internet Accounts", ["gnome-online-accounts-gtk"],
               palabras="accounts, google, microsoft, nextcloud, online",
@@ -112,7 +116,7 @@ _ORDEN = [
     ["general", "desktopscreeneffect", "dock", "expose", "Localization", "notifications",
      "internetaccounts", "users", "universalaccess", "extensions", "security"],
     ["softwareupdate", "network", "Bluetooth", "sound", "printfax", "keyboard", "trackpad", "mouse",
-     "displays", "energysaver", "datetime", "backup"],
+     "displays", "energysaver", "datetime", "backup", "startupdisk"],
 ]
 _TODOS = {p.id.rsplit(".", 1)[1]: p for _, ps in _GRUPOS_POR_TEMA for p in ps}
 GRUPOS = [("bloque%d" % (i + 1), [_TODOS[k] for k in orden if k in _TODOS]) for i, orden in enumerate(_ORDEN)]

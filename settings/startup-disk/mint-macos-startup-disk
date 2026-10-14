@@ -1,0 +1,142 @@
+#!/usr/bin/python3
+"""Ayudante de root de Startup Disk (System Preferences).
+
+Lo corre pkexec (acción org.mintmacos.startupdisk.run, con clave de administrador)
+y hace lo único que el panel no puede hacer como usuario: leer el menú de GRUB y
+cambiar el arranque. Vive en /usr/libexec/mint-macos/ con dueño root: no se debe
+correr una copia editable por el usuario.
+
+    auth                         no hace nada (sirve para pedir la clave y desbloquear el panel)
+    efi-order XXXX               pone la entrada EFI XXXX primera en BootOrder
+    efi-next XXXX                arranca con XXXX solo la próxima vez (BootNext)
+    grub-list                    JSON con las entradas de GRUB y la que está por defecto
+    grub-default ID              grub-set-default ID (ID: «0», «1>2»…, una de grub-list)
+    grub-enable-saved            pone GRUB_DEFAULT=saved en /etc/default/grub y corre update-grub
+
+Cada argumento se valida contra una lista cerrada antes de tocar nada.
+"""
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+
+GRUB_CFG = "/boot/grub/grub.cfg"
+DEFAULT_GRUB = "/etc/default/grub"
+HEX4 = re.compile(r"^[0-9A-Fa-f]{4}$")
+ID_GRUB = re.compile(r"^[0-9]+(>[0-9]+)*$")
+
+
+def salir(msg, codigo=1):
+    print(msg, file=sys.stderr)
+    sys.exit(codigo)
+
+
+def correr(*cmd):
+    r = subprocess.run(cmd, capture_output=True, text=True)
+    if r.returncode != 0:
+        salir((r.stderr or r.stdout).strip() or f"{cmd[0]} falló", r.returncode)
+    return r.stdout
+
+
+def efi_orden():
+    for linea in correr("efibootmgr").splitlines():
+        if linea.startswith("BootOrder:"):
+            return [x for x in linea.split(":", 1)[1].strip().split(",") if x]
+    return []
+
+
+def efi_entradas():
+    return {m.group(1).upper() for m in re.finditer(r"^Boot([0-9A-Fa-f]{4})\*?\s", correr("efibootmgr"), re.M)}
+
+
+def grub_entradas():
+    """[{'id': '0', 'title': 'Linux Mint'}, {'id': '1>0', 'title': 'Advanced options > …'}]"""
+    texto = open(GRUB_CFG, encoding="utf-8", errors="replace").read()
+    out, nivel, idx, prefijo, pila = [], 0, [0], "", []
+    for linea in texto.splitlines():
+        m = re.match(r"^(\s*)(menuentry|submenu)\s+'([^']*)'", linea) or re.match(r'^(\s*)(menuentry|submenu)\s+"([^"]*)"', linea)
+        if m:
+            titulo = m.group(3)
+            n = idx[-1]
+            if m.group(2) == "menuentry":
+                ident = ">".join(str(i) for i in idx[:-1] + [n])
+                out.append({"id": ident, "title": " > ".join(pila + [titulo])})
+                idx[-1] += 1
+            else:
+                pila.append(titulo)
+                idx.append(0)
+            continue
+        # el cierre de un submenu: una llave sola en la columna del submenu
+        if re.match(r"^\}\s*$", linea) and len(idx) > 1:
+            pila.pop()
+            idx.pop()
+            idx[-1] += 1
+    return out
+
+
+def grub_valor(clave):
+    try:
+        for linea in open(DEFAULT_GRUB, encoding="utf-8"):
+            m = re.match(rf"^{clave}=(.*)$", linea.strip())
+            if m:
+                return m.group(1).strip('"\'')
+    except OSError:
+        pass
+    return ""
+
+
+def main():
+    if os.geteuid() != 0:
+        salir("Solo root (lo corre pkexec).", 77)
+    a = sys.argv[1:]
+    if not a:
+        salir(__doc__)
+    cmd = a[0]
+    if cmd == "auth":
+        return
+    if cmd in ("efi-order", "efi-next"):
+        if len(a) != 2 or not HEX4.match(a[1]) or a[1].upper() not in efi_entradas():
+            salir("Entrada EFI no válida.", 2)
+        ident = a[1].upper()
+        if cmd == "efi-next":
+            correr("efibootmgr", "-n", ident)
+        else:
+            resto = [x for x in efi_orden() if x.upper() != ident]
+            correr("efibootmgr", "-o", ",".join([ident] + resto))
+        return
+    if cmd == "grub-list":
+        saved = ""
+        r = subprocess.run(["grub-editenv", "list"], capture_output=True, text=True)
+        for l in r.stdout.splitlines():
+            if l.startswith("saved_entry="):
+                saved = l.split("=", 1)[1]
+        print(json.dumps({"entries": grub_entradas(), "default": grub_valor("GRUB_DEFAULT"), "saved_entry": saved}))
+        return
+    if cmd == "grub-default":
+        if len(a) != 2 or not ID_GRUB.match(a[1]) or a[1] not in {e["id"] for e in grub_entradas()}:
+            salir("Entrada de GRUB no válida.", 2)
+        if grub_valor("GRUB_DEFAULT") != "saved":
+            salir("GRUB_DEFAULT no es «saved»: usa grub-enable-saved primero.", 3)
+        correr("grub-set-default", a[1])
+        return
+    if cmd == "grub-enable-saved":
+        if grub_valor("GRUB_DEFAULT") == "saved":
+            return
+        respaldo = DEFAULT_GRUB + ".mint-macos.bak"
+        if not os.path.exists(respaldo):
+            shutil.copy2(DEFAULT_GRUB, respaldo)
+        texto = open(DEFAULT_GRUB, encoding="utf-8").read()
+        if re.search(r"^GRUB_DEFAULT=", texto, re.M):
+            texto = re.sub(r"^GRUB_DEFAULT=.*$", "GRUB_DEFAULT=saved", texto, flags=re.M)
+        else:
+            texto += "\nGRUB_DEFAULT=saved\n"
+        open(DEFAULT_GRUB, "w", encoding="utf-8").write(texto)
+        correr("update-grub")
+        return
+    salir(f"Orden desconocida: {cmd}", 2)
+
+
+if __name__ == "__main__":
+    main()

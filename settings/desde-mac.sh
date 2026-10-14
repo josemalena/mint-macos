@@ -18,6 +18,7 @@
 #   <destino>/orden.json                             los grupos y el orden de los paneles,
 #                                                    tal como los define Catalina
 #   <destino>/glifos/GoBack@1x.png …                los glifos de la barra de herramientas
+#   <destino>/glifos/LockLocked@1x.png …            el candado cerrado y abierto de los paneles
 #
 # Un ícono que no se pueda abrir (Screen Time, Fibre Channel) no sale; Settings.app
 # usa entonces el del tema.
@@ -182,6 +183,17 @@ if car is not None:
     catalogo_app = os.path.join(app, "Contents/Resources/Assets.car")
     if os.path.exists(catalogo_app):
         car.glifos(catalogo_app, glifos_dir, {"ToolbarTopSites"})
+
+# El candado de «Click the lock to make changes» (cerrado y abierto), a 1x y 2x:
+# viven sueltos en SecurityInterface.framework y los usan todos los paneles.
+import shutil
+res_seg = os.path.join(sistema, "System/Library/Frameworks/SecurityInterface.framework/Versions/A/Resources")
+os.makedirs(os.path.join(destino, "glifos"), exist_ok=True)
+for origen, nombre in (("Lock_Locked State", "LockLocked"), ("Lock_Unlocked State", "LockUnlocked")):
+    for esc in ("1", "2"):
+        f = os.path.join(res_seg, origen + ("@2x" if esc == "2" else "") + ".png")
+        if os.path.exists(f):
+            shutil.copyfile(f, os.path.join(destino, "glifos", f"{nombre}@{esc}x.png"))
 
 # El ícono de la propia app: el nombre del archivo lo dice su Info.plist.
 try:
