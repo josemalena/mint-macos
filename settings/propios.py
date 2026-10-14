@@ -6,10 +6,8 @@ Cada uno es una clase con `id`, `nombre`, `panel` (para el buscador y el ícono)
 de Catalina (Screen Shot 2026-10-14 at 12.12.52 AM, panel Dock).
 
 Solo van los controles que de verdad hacen algo aquí. Los de Catalina que Linux o
-nuestro Plank no tienen (Prefer tabs when opening documents, Minimize windows into
-application icon, Animate opening applications, Show indicators for open
-applications, Show recent applications in Dock) no se dibujan: un control que no
-hace nada engaña.
+nuestro Plank no tienen (Prefer tabs when opening documents) no se dibujan: un
+control que no hace nada engaña.
 """
 import os
 import re
@@ -244,6 +242,15 @@ class PanelDock:
         indic.set_active(_tema_encendido(p, "IndicatorSize"))
         indic.connect("toggled", lambda b: _encender_tema(p, "IndicatorSize", b.get_active()))
         cuadro.attach(indic, 0, fila, 3, 1)
+        fila += 1
+
+        # Show recent applications in Dock: las últimas tres apps cerradas se quedan
+        # (clave show-recent-apps del Plank de mint-macos).
+        if p.props.settings_schema.has_key("show-recent-apps"):
+            recientes = Gtk.CheckButton(label="Show recent applications in Dock")
+            recientes.set_active(p.get_boolean("show-recent-apps"))
+            recientes.connect("toggled", lambda b: p.set_boolean("show-recent-apps", b.get_active()))
+            cuadro.attach(recientes, 0, fila, 3, 1)
 
         cuadro.show_all()
         return cuadro
