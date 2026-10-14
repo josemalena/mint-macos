@@ -4,7 +4,7 @@
     construir.py <Assets.car de SystemAppearance> [destino]
 
 De ese catálogo saca el vector de la lupa (SearchMagGlass, versión oscura) y
-lo dibuja a 20 y 40 px: la de Spotlight es más grande que la de la barra.
+lo dibuja a 21 y 42 px: la de Spotlight es más grande que la de la barra.
 [destino] por omisión: ~/.config/ulauncher/user-themes/constanza.
 La lupa se genera aquí desde el disco de la Mac; no va al repo.
 """
@@ -14,68 +14,74 @@ import sys
 
 from PIL import Image
 
-# Spotlight de Catalina, medido en una captura con la barra de menús de
-# referencia (22 pt = 15 px, escala 0.70): barra de 680 × 54 pt, lupa de 20
-# a 16 pt del borde, texto desde los 50 pt, letra de unos 26 px. Colores del
-# modo oscuro: fondo translúcido, lupa gris y el azul de selección de macOS.
-GRIS_LUPA = (152, 153, 155)        # #98999b, los glifos grises del Finder
+# Spotlight de Catalina en modo oscuro, medido en las capturas de José (las
+# medidas están junto a cada regla del CSS).
+GRIS_LUPA = (179, 187, 201)        # #b3bbc9, medido en la captura de Spotlight de Catalina
 
-CSS = """/* Constanza: ULauncher como Spotlight de Catalina (modo oscuro). */
-@define-color bg_color rgba(36, 37, 39, 0.92);
+CSS = """/* Constanza: ULauncher como Spotlight de Catalina en modo oscuro, medido en
+   una captura de pantalla completa que pasó José (1.5625 px por punto: la
+   barra de menús de 22 pt mide 35 px). */
+@define-color bg_color rgba(43, 46, 52, 0.97);
 @define-color window_bg @bg_color;
-@define-color window_border_color rgba(255, 255, 255, 0.12);
+@define-color window_border_color #56575c;
 @define-color prefs_backgroud rgba(255, 255, 255, 0.15);
 
-@define-color selected_bg_color #0b57d0;
+@define-color selected_bg_color #1367cc;
 @define-color selected_fg_color #ffffff;
-@define-color input_color #f2f2f2;
+@define-color input_color #ffffff;
 @define-color caret_color #ffffff;
 
-@define-color item_name #f2f2f2;
-@define-color item_text #9a9b9e;
-@define-color item_box_selected #0b57d0;
-@define-color item_text_selected rgba(255, 255, 255, 0.80);
+@define-color item_name #ffffff;
+@define-color item_text #bcbfc3;
+@define-color item_box_selected #1367cc;
+@define-color item_text_selected rgba(255, 255, 255, 0.85);
 @define-color item_name_selected #ffffff;
-@define-color item_shortcut_color #8e8f93;
+@define-color item_shortcut_color #8e9196;
 @define-color item_shortcut_shadow transparent;
 @define-color item_shortcut_color_sel rgba(255, 255, 255, 0.85);
 @define-color item_shortcut_shadow_sel transparent;
 
+/* La ventana: 680 de ancho (ULauncher lo trae fijo), esquinas de 5 px, filo
+   claro de 1 px y el borde negro por fuera. */
 .app {
     background-color: @window_bg;
     border: 1px solid @window_border_color;
-    border-radius: 10px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(0, 0, 0, 0.6);
+    border-radius: 5px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(0, 0, 0, 0.85);
 }
 
+/* El campo: 56 de alto, la lupa de 21 a 17 px del borde, el texto a 50 px
+   en letra de 26 px. */
 .input {
     color: @input_color;
     font-family: ".SF NS", "Inter", sans-serif;
     font-size: 19.5pt;
-    font-weight: 300;
-    min-height: 42px;
-    padding: 6px 12px 6px 50px;
+    font-weight: 400;
+    min-height: 44px;
+    padding: 6px 14px 6px 50px;
     background-color: transparent;
     background-image: -gtk-scaled(url("lupa.png"), url("lupa@2.png"));
     background-repeat: no-repeat;
-    background-position: 16px center;
+    background-position: 17px center;
     border: none;
     box-shadow: none;
 }
 .input *:selected,
 .input *:focus,
 *:selected:focus {
-    background-color: alpha(@selected_bg_color, 0.85);
+    background-color: alpha(@selected_bg_color, 0.9);
     color: @selected_fg_color;
 }
 
-.result-box { border-top: 1px solid rgba(255, 255, 255, 0.08); }
+/* La línea clara bajo el campo. */
+.result-box { border-top: 1px solid #52555a; }
 
-.item-box { border-radius: 5px; margin: 0 6px; }
+/* Filas de 26 px, de lado a lado; la elegida en el azul de macOS. */
+.item-box { border-radius: 0; margin: 0; border: none; }
 .item-name {
     color: @item_name;
     font-family: ".SF NS", "Inter", sans-serif;
-    font-size: 10.5pt;
+    font-size: 9.75pt;
 }
 .item-text { color: @item_text; }
 .item-descr { font-size: 9pt; }
@@ -85,7 +91,7 @@ CSS = """/* Constanza: ULauncher como Spotlight de Catalina (modo oscuro). */
 .item-shortcut { color: @item_shortcut_color; text-shadow: none; }
 .selected.item-box .item-shortcut { color: @item_shortcut_color_sel; text-shadow: none; }
 
-.small-result-item .item-name { font-size: 10.5pt; }
+.small-result-item .item-name { font-size: 9.75pt; }
 
 .prefs-btn { border-radius: 12px; opacity: 0.45; }
 .prefs-btn:hover { background-color: @prefs_backgroud; opacity: 0.9; }
@@ -111,7 +117,7 @@ def lupa(car_sistema, destino):
     with tempfile.TemporaryDirectory() as tmp:
         ent = os.path.join(tmp, "lupa.pdf")
         open(ent, "wb").write(pdf)
-        for alto, nombre in ((20, "lupa.png"), (40, "lupa@2.png")):
+        for alto, nombre in ((21, "lupa.png"), (42, "lupa@2.png")):
             base = os.path.join(tmp, str(alto))
             subprocess.run(["pdftocairo", "-png", "-singlefile", "-transp", "-scale-to-y", str(alto),
                             "-scale-to-x", "-1", ent, base], check=True)
