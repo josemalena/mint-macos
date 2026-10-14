@@ -1,0 +1,84 @@
+/* System Preferences de Catalina (modo oscuro).
+   Medidas provisionales hasta tener la captura de la Mac de José: se ajustan
+   contra ella, como el dock y el ⌘Tab. */
+
+window.mp-ventana {
+  background-color: #2b2b2b;
+}
+
+/* La barra de herramientas: atrás y adelante, Show All, el título y la búsqueda. */
+.mp-barra {
+  padding: 8px 12px;
+  background-color: #323232;
+  border-bottom: 1px solid #1d1d1d;
+}
+.mp-barra button {
+  min-height: 0;
+  min-width: 0;
+  padding: 3px 9px;
+}
+.mp-titulo {
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* La franja de la cuenta. */
+.mp-banner {
+  padding: 14px 24px 12px 24px;
+}
+.mp-nombre {
+  font-size: 13pt;
+  font-weight: 600;
+  color: #ffffff;
+}
+.mp-subtitulo {
+  font-size: 9pt;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+/* Cada grupo de paneles, separado del anterior por una línea. */
+.mp-grupo {
+  padding: 10px 14px 6px 14px;
+}
+.mp-raya {
+  min-height: 1px;
+  background-color: #3c3c3c;
+}
+.mp-celda {
+  padding: 5px 2px 4px 2px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: none;
+  box-shadow: none;
+  color: rgba(255, 255, 255, 0.85);
+}
+.mp-celda label {
+  font-size: 9pt;
+}
+.mp-celda:hover {
+  background-color: rgba(255, 255, 255, 0.07);
+}
+.mp-celda:active {
+  background-color: rgba(255, 255, 255, 0.14);
+}
+
+/* Las pestañas de un panel: una caja de botones juntos, como el control
+   segmentado de macOS. */
+.mp-fila-pestanas {
+  margin: 10px 0 2px 0;
+}
+.mp-pestana {
+  padding: 3px 16px;
+  min-height: 0;
+}
+.mp-pestanas {
+  margin: 6px 0 2px 0;
+}
+.mp-pestanas button {
+  padding: 3px 14px;
+  min-height: 0;
+}
+
+.mp-contenido {
+  padding: 8px 20px 16px 20px;
+}

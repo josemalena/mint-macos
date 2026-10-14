@@ -83,7 +83,12 @@ OCULTAR = {
 
 # Van en /Applications aunque su categoría diga «sistema»: son lo que la Mac
 # pone ahí (System Preferences y la App Store).
-ARRIBA = {"cinnamon-settings.desktop", "mintinstall.desktop"}
+ARRIBA = {"cinnamon-settings.desktop", "mintinstall.desktop", "mint-macos-settings.desktop"}
+
+# Con System Preferences de mint-macos instalada, «System Settings» (la misma cosa
+# con otro diseño) no sale: en la Mac solo hay una.
+PREFERENCIAS = "mint-macos-settings.desktop"
+AJUSTES_CINNAMON = "cinnamon-settings.desktop"
 
 # Nombres que el lanzador trae mal escritos o que la Mac llama distinto.
 NOMBRES = {"launchpad.desktop": "Launchpad"}
@@ -141,7 +146,10 @@ def leer_config():
 def aplicaciones(cfg):
     """Las apps que entran: [(id, app, nombre_visible, subcarpeta)], sin repetir."""
     vistas = {}
-    for app in Gio.AppInfo.get_all():
+    todas = Gio.AppInfo.get_all()
+    hay_preferencias = any(os.path.basename(a.get_filename() or "") == PREFERENCIAS
+                           for a in todas if a.should_show())
+    for app in todas:
         if not app.should_show():
             continue
         ruta = app.get_filename() or ""
@@ -149,6 +157,8 @@ def aplicaciones(cfg):
         if not ruta or not id_.endswith(".desktop"):
             continue
         if id_ in cfg["ocultar"] and id_ not in cfg["mostrar"]:
+            continue
+        if id_ == AJUSTES_CINNAMON and hay_preferencias and id_ not in cfg["mostrar"]:
             continue
         if RE_PANEL.match(id_) and id_ not in cfg["mostrar"]:
             continue
