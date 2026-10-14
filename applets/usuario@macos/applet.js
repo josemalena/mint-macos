@@ -20,9 +20,8 @@ const Applet = imports.ui.applet;
 const Lang = imports.lang;
 const PopupMenu = imports.ui.popupMenu;
 const Util = imports.misc.util;
-const UserWidget = imports.ui.userWidget;
 const AccountsService = imports.gi.AccountsService;
-const { Gio, GLib, St } = imports.gi;
+const { Clutter, Gio, GLib, St } = imports.gi;
 
 const TAMANO_AVATAR = 24;
 const ANCHO_MARCA = 16;
@@ -113,6 +112,8 @@ class UsuarioApplet extends Applet.Applet {
 
     this._usuarios = AccountsService.UserManager.get_default();
     this._actual = GLib.get_user_name();
+    // La lista de cuentas llega de AccountsService un momento después de arrancar.
+    this._usuarios.connect("notify::is-loaded", () => this._armar());
 
     this.menuManager = new PopupMenu.PopupMenuManager(this);
     this.menu = new Applet.AppletPopupMenu(this, orientation);
@@ -133,17 +134,20 @@ class UsuarioApplet extends Applet.Applet {
     this._icono.set_icon_size(this.getPanelIconSize(St.IconType.SYMBOLIC));
   }
 
-  // Un renglón: la marca (o su hueco), el avatar y el nombre.
+  // Un renglón: la marca (o su hueco), el avatar y el nombre, en una caja a la izquierda.
   _fila(conMarca, avatar, texto, habilitado, alActivar) {
     let item = new PopupMenu.PopupBaseMenuItem({ reactive: habilitado, activate: habilitado });
-    let hueco = new St.Bin({ width: ANCHO_MARCA, height: ANCHO_MARCA, style: "margin-right: 6px;" });
+    let caja = new St.BoxLayout({ vertical: false, x_expand: true });
+    let hueco = new St.Bin({ width: ANCHO_MARCA, height: ANCHO_MARCA, y_align: St.Align.MIDDLE, style: "margin-right: 6px;" });
     if (conMarca) hueco.set_child(marca());
-    item.addActor(hueco);
-    avatar.set_style("margin-right: 8px;");
-    item.addActor(avatar);
-    let etiqueta = new St.Label({ text: texto, y_align: 2 });
-    if (!habilitado) etiqueta.set_style("color: rgba(255,255,255,0.45);");
-    item.addActor(etiqueta);
+    caja.add_actor(hueco);
+    let marco = new St.Bin({ style: "margin-right: 8px;", y_align: St.Align.MIDDLE });
+    marco.set_child(avatar);
+    caja.add_actor(marco);
+    let etiqueta = new St.Label({ text: texto, y_align: Clutter.ActorAlign.CENTER });
+    if (!habilitado) etiqueta.set_style("color: rgba(255,255,255,0.6);");
+    caja.add_actor(etiqueta);
+    item.addActor(caja, { span: -1, expand: true });
     if (alActivar) item.connect("activate", alActivar);
     return item;
   }
@@ -165,9 +169,16 @@ class UsuarioApplet extends Applet.Applet {
 
     for (let u of this._usuarios.list_users()) {
       let nombre = u.get_user_name();
-      if (u.get_uid() < 1000 || esInvitado(nombre) || u.get_locked()) continue;
-      let avatar = new UserWidget.Avatar(u, { iconSize: TAMANO_AVATAR });
-      avatar.update();
+      if (u.is_system_account() || esInvitado(nombre) || u.get_locked()) continue;
+      // La foto de la cuenta si la tiene; si no, la silueta dibujada.
+      let foto = u.get_icon_file();
+      let avatar;
+      if (foto && GLib.file_test(foto, GLib.FileTest.EXISTS)) {
+        avatar = new St.Bin({ width: TAMANO_AVATAR, height: TAMANO_AVATAR,
+          style: `background-image: url("${foto}"); background-size: cover; border-radius: ${TAMANO_AVATAR / 2}px;` });
+      } else {
+        avatar = avatarInvitado();
+      }
       let esActual = nombre === this._actual;
       this.menu.addMenuItem(this._fila(esActual, avatar, u.get_real_name() || nombre, !esActual && hayLightDM,
         () => this._bloquearYCambiar(`dm-tool switch-to-user ${nombre}`)));
