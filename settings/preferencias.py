@@ -45,6 +45,7 @@ from gi.repository import Gdk, GdkPixbuf, Gio, GLib, Gtk  # noqa: E402
 import cairo  # noqa: E402
 
 import paneles  # noqa: E402
+import apple_id  # noqa: E402
 
 _T0 = time.time()
 
@@ -366,23 +367,78 @@ class Ventana(Gtk.ApplicationWindow):
         return sw
 
     def _banner(self):
-        """La franja de arriba: la cuenta, como el Apple ID de Catalina."""
-        evento = Gtk.EventBox()
-        caja = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
-        caja.get_style_context().add_class("mp-banner")
-        caja.pack_start(self._avatar(48), False, False, 0)
+        """La franja de arriba: el Apple ID, como en Catalina. Sin sesión, «Sign in
+        to your Apple ID» con su botón; con sesión, el nombre, el Apple ID y los
+        botones de Mail & Calendar y Sign Out."""
+        self.banner = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        self.banner.get_style_context().add_class("mp-banner")
+        self._pintar_banner(None)
+        GLib.idle_add(self._leer_apple_id)
+        return self.banner
+
+    def _leer_apple_id(self):
+        """rclone tarda en contestar: se pregunta aparte y la franja se rehace."""
+        import threading
+
+        def corre():
+            try:
+                actual = apple_id.apple_id_actual()
+            except Exception:  # noqa: BLE001
+                actual = None
+            GLib.idle_add(self._pintar_banner, actual)
+        threading.Thread(target=corre, daemon=True).start()
+        return False
+
+    def _pintar_banner(self, actual):
+        self._apple_id_conocido = actual
+        for c in self.banner.get_children():
+            self.banner.remove(c)
+        self.banner.pack_start(self._avatar(48), False, False, 0)
         textos = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        nombre = Gtk.Label(label=GLib.get_real_name() or GLib.get_user_name(), xalign=0)
+        if actual:
+            t1, t2 = GLib.get_real_name() or GLib.get_user_name(), actual
+        else:
+            t1, t2 = "Sign in to your Apple ID", "Set up iCloud, the App Store, and more."
+        nombre = Gtk.Label(label=t1, xalign=0)
         nombre.get_style_context().add_class("mp-nombre")
-        sub = Gtk.Label(label="Users & Groups, Login Items, Password", xalign=0)
+        sub = Gtk.Label(label=t2, xalign=0)
         sub.get_style_context().add_class("mp-subtitulo")
         textos.pack_start(nombre, False, False, 0)
         textos.pack_start(sub, False, False, 0)
-        caja.pack_start(textos, False, False, 0)
-        evento.add(caja)
-        evento.connect("button-release-event", lambda *_: self.abrir_id("com.apple.preferences.users"))
-        evento.set_tooltip_text("Users & Groups")
-        return evento
+        self.banner.pack_start(textos, True, True, 0)
+        if actual:
+            for etiqueta, accion in (("Mail & Calendar…", lambda *_: self._hoja_apple_id("mail")),
+                                     ("Sign Out", lambda *_: self._cerrar_sesion_apple_id())):
+                b = Gtk.Button(label=etiqueta)
+                b.set_valign(Gtk.Align.CENTER)
+                b.connect("clicked", accion)
+                self.banner.pack_start(b, False, False, 0)
+        else:
+            b = Gtk.Button(label="Sign In")
+            b.set_valign(Gtk.Align.CENTER)
+            b.connect("clicked", lambda *_: self._hoja_apple_id())
+            self.banner.pack_start(b, False, False, 0)
+        self.banner.show_all()
+        return False
+
+    def _hoja_apple_id(self, paso=None):
+        hoja = apple_id.HojaAppleID(self, al_terminar=self._leer_apple_id)
+        if paso == "mail":
+            hoja.apple_id = self._apple_id_conocido or ""
+            hoja._paso_mail()
+        hoja.show_all()
+
+    def _cerrar_sesion_apple_id(self):
+        d = Gtk.MessageDialog(transient_for=self, modal=True, message_type=Gtk.MessageType.QUESTION,
+                              buttons=Gtk.ButtonsType.NONE, text="Sign out of your Apple ID?")
+        d.format_secondary_text("iCloud Drive is unmounted and its session removed. Mail and Calendar settings "
+                                "added to Thunderbird are removed too. Your files in iCloud are not touched.")
+        d.add_button("Cancel", Gtk.ResponseType.CANCEL)
+        d.add_button("Sign Out", Gtk.ResponseType.OK)
+        if d.run() == Gtk.ResponseType.OK:
+            apple_id.cerrar_sesion()
+            self._leer_apple_id()
+        d.destroy()
 
     def _avatar(self, lado):
         area = Gtk.DrawingArea()

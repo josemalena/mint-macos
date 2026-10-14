@@ -36,6 +36,7 @@ python3 -c "import cairo" 2>/dev/null || { echo "✗ Falta python3-gi-cairo (pyc
 mkdir -p "$LIB/estilo" "$(dirname "$BIN")" "$(dirname "$LANZADOR")"
 install -m 755 "$AQUI/preferencias.py" "$LIB/preferencias.py"
 install -m 644 "$AQUI/paneles.py" "$LIB/paneles.py"
+install -m 644 "$AQUI/apple_id.py" "$LIB/apple_id.py"
 install -m 644 "$AQUI/estilo/catalina.css" "$LIB/estilo/catalina.css"
 
 cat > "$BIN" <<EOF

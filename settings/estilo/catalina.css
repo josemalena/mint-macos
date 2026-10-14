@@ -82,3 +82,33 @@ window.mp-ventana {
 .mp-contenido {
   padding: 8px 20px 16px 20px;
 }
+
+/* La hoja de Sign In del Apple ID. */
+.mp-hoja-titulo {
+  font-size: 13pt;
+  font-weight: 600;
+  color: #ffffff;
+}
+.mp-hoja-texto {
+  font-size: 9pt;
+  color: rgba(255, 255, 255, 0.6);
+}
+.mp-hoja-error {
+  font-size: 9pt;
+  color: #ff6961;
+}
+.mp-hoja,
+.mp-hoja .dialog-vbox {
+  background-color: #2f2f2f;
+  color: #ffffff;
+}
+.mp-hoja entry {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 5px;
+  min-height: 24px;
+}
+.mp-hoja button {
+  min-width: 64px;
+}
