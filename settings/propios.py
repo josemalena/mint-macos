@@ -11,6 +11,9 @@ application icon, Animate opening applications, Show indicators for open
 applications, Show recent applications in Dock) no se dibujan: un control que no
 hace nada engaña.
 """
+import os
+import re
+
 import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gio, GLib, Gtk  # noqa: E402
@@ -23,6 +26,69 @@ MAGIC_LAMP = "CinnamonMagicLamp@klangman"
 def _plank():
     """El dock1 de Plank (nuestro fork): dconf, ruta relocatable."""
     return Gio.Settings.new_with_path("net.launchpad.plank.dock.settings", "/net/launchpad/plank/docks/dock1/")
+
+
+# El tema de Plank se edita en su archivo: Plank lo vigila y recarga solo. Lo que
+# había se guarda al apagar un control, para devolverlo igual al encenderlo.
+_TEMA_DEFECTO = {"IndicatorSize": "0.75", "LaunchBounceHeight": "0.625"}
+_RESPALDO = os.path.expanduser("~/.local/share/mint-macos/settings/dock-tema-original.json")
+
+
+def _archivo_tema(plank):
+    nombre = plank.get_string("theme")
+    for base in (os.path.expanduser("~/.local/share/plank/themes"), "/usr/local/share/plank/themes",
+                 "/usr/share/plank/themes"):
+        ruta = os.path.join(base, nombre, "dock.theme")
+        if os.path.exists(ruta):
+            return ruta
+    return None
+
+
+def _leer_tema(ruta, clave):
+    m = re.search(r"^%s=(.*)$" % re.escape(clave), open(ruta, encoding="utf-8").read(), re.M)
+    return m.group(1).strip() if m else None
+
+
+def _poner_tema(ruta, clave, valor):
+    texto = open(ruta, encoding="utf-8").read()
+    if re.search(r"^%s=" % re.escape(clave), texto, re.M):
+        texto = re.sub(r"^%s=.*$" % re.escape(clave), "%s=%s" % (clave, valor), texto, flags=re.M)
+    else:
+        texto += "\n%s=%s\n" % (clave, valor)
+    with open(ruta, "w", encoding="utf-8") as f:
+        f.write(texto)
+
+
+def _encender_tema(plank, clave, encendido):
+    """Encendido: el valor de antes (o el de la casa). Apagado: 0, guardando el de antes."""
+    ruta = _archivo_tema(plank)
+    if ruta is None:
+        return
+    import json
+    try:
+        guardado = json.load(open(_RESPALDO, encoding="utf-8"))
+    except (OSError, ValueError):
+        guardado = {}
+    actual = _leer_tema(ruta, clave)
+    if encendido:
+        _poner_tema(ruta, clave, guardado.get(clave) or _TEMA_DEFECTO[clave])
+    else:
+        if actual not in (None, "0", "0.0"):
+            guardado[clave] = actual
+            os.makedirs(os.path.dirname(_RESPALDO), exist_ok=True)
+            json.dump(guardado, open(_RESPALDO, "w", encoding="utf-8"))
+        _poner_tema(ruta, clave, "0")
+
+
+def _tema_encendido(plank, clave):
+    ruta = _archivo_tema(plank)
+    if ruta is None:
+        return True
+    v = _leer_tema(ruta, clave)
+    try:
+        return v is not None and float(v) > 0
+    except ValueError:
+        return True
 
 
 def _etiqueta(texto):
@@ -128,6 +194,15 @@ class PanelDock:
         cuadro.attach(efecto, 1, fila, 2, 1)
         fila += 1
 
+        # Minimize windows into application icon (el Plank de mint-macos; con un Plank
+        # sin esa clave el control no sale: no hay nada que escribir).
+        if p.props.settings_schema.has_key("minimize-into-icon"):
+            en_icono = Gtk.CheckButton(label="Minimize windows into application icon")
+            en_icono.set_active(p.get_boolean("minimize-into-icon"))
+            en_icono.connect("toggled", lambda b: p.set_boolean("minimize-into-icon", b.get_active()))
+            cuadro.attach(en_icono, 0, fila, 3, 1)
+            fila += 1
+
         # Double-click a window's title bar to
         wm = Gio.Settings.new("org.cinnamon.desktop.wm.preferences")
         dc = Gtk.CheckButton(label="Double-click a window’s title bar to")
@@ -150,11 +225,25 @@ class PanelDock:
         cuadro.attach(caja_dc, 0, fila, 3, 1)
         fila += 1
 
+        # Animate opening applications: el rebote al abrir (LaunchBounceHeight del tema)
+        animar = Gtk.CheckButton(label="Animate opening applications")
+        animar.set_active(_tema_encendido(p, "LaunchBounceHeight"))
+        animar.connect("toggled", lambda b: _encender_tema(p, "LaunchBounceHeight", b.get_active()))
+        cuadro.attach(animar, 0, fila, 3, 1)
+        fila += 1
+
         # Automatically hide and show the Dock
         ocultar = Gtk.CheckButton(label="Automatically hide and show the Dock")
         ocultar.set_active(p.get_string("hide-mode") != "none")
         ocultar.connect("toggled", lambda b: p.set_string("hide-mode", "auto" if b.get_active() else "none"))
         cuadro.attach(ocultar, 0, fila, 3, 1)
+        fila += 1
+
+        # Show indicators for open applications: el punto bajo el ícono (IndicatorSize del tema)
+        indic = Gtk.CheckButton(label="Show indicators for open applications")
+        indic.set_active(_tema_encendido(p, "IndicatorSize"))
+        indic.connect("toggled", lambda b: _encender_tema(p, "IndicatorSize", b.get_active()))
+        cuadro.attach(indic, 0, fila, 3, 1)
 
         cuadro.show_all()
         return cuadro
