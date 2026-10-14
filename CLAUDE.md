@@ -20,3 +20,20 @@ papelera se quitó. La captura de Finder ▸ Settings ▸ Sidebar enseña que en
 los dos son **casillas que el usuario prende o apaga**, con Recents, Desktop,
 Documents, Downloads, Movies, Music, Pictures y Home en Favorites, y Macintosh HD,
 External disks, Network y Trash en Locations.
+
+## Turno de pantalla antes de tocar la sesión de José
+
+Regla de José (13-10-2026). Antes de cualquier `xdotool`, `wmctrl`, clic o ventana
+nueva sobre su pantalla (`:0`):
+
+1. **Toma el turno:** `~/.local/bin/gui-lock tomar <sesión> [segundos]`. Si lo tiene
+   otra sesión, espera; `gui-lock estado` dice quién lo tiene. Vence solo, a los
+   120 s por defecto.
+2. **Verifica el foco antes de cada tecla:** que la ventana activa sea la que vas a
+   probar. El turno coordina a las sesiones, pero no sabe si José está usando la
+   computadora.
+3. **Suéltalo al terminar:** `gui-lock soltar`.
+
+Lo que se pueda probar en una pantalla aislada (Xephyr o Xvfb) va ahí y no necesita
+turno. Caso que la originó: un `xdotool` de prueba mandó dos Ctrl+C a la terminal de
+otra sesión.
