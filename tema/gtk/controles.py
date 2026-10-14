@@ -271,14 +271,14 @@ def hoja_css():
 
 # Los colores de Catalina oscuro, medidos en las capturas de la Mac de José
 # (Desktop/SS, 10-10-2026): la barra de título y la de herramientas son un
-# solo degradado de #383a3c a #2d2e30, con una línea de luz arriba y una
+# solo degradado de #38393c a #2d2e30, con una línea de luz arriba y una
 # negra abajo; el contenido #1b1d1f; el lateral #27282a; el fondo de las
 # ventanas #303031.
 COLORES = """
 /* Colores de Catalina oscuro */
 /* Muffin pinta la barra de las ventanas sin barra propia con el
    metacity-theme, que toma estos colores del tema GTK. */
-@define-color titlebar_gradient_a #383a3c;
+@define-color titlebar_gradient_a #38393c;
 @define-color titlebar_gradient_b #2d2e30;
 @define-color wm_bg #333437;
 @define-color wm_bg_unfocused #29292b;
@@ -294,7 +294,7 @@ COLORES = """
 headerbar, .csd headerbar, headerbar.default-decoration, .titlebar:not(headerbar),
 .maximized headerbar, .tiled headerbar {
   background-color: #333437;
-  background-image: linear-gradient(to bottom, #383a3c, #2d2e30);
+  background-image: linear-gradient(to bottom, #38393c, #2d2e30);
   box-shadow: inset 0 1px rgba(255, 255, 255, 0.18);
   border-bottom: 1px solid #000000; }
 headerbar:backdrop, .csd headerbar:backdrop, headerbar.default-decoration:backdrop,
@@ -306,7 +306,7 @@ headerbar:backdrop, .csd headerbar:backdrop, headerbar.default-decoration:backdr
 /* Fynder y Nemo: la barra de título y la de herramientas, un solo degradado
    como en el Finder; la línea negra va debajo de la de herramientas. */
 .nemo-window headerbar, .nemo-window .titlebar:not(headerbar) {
-  background-image: linear-gradient(to bottom, #383a3c, #333437);
+  background-image: linear-gradient(to bottom, #38393c, #333437);
   border-bottom: none; }
 .nemo-window .primary-toolbar:not(.libreoffice-toolbar) {
   background-color: #303134;
