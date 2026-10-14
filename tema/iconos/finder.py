@@ -219,6 +219,67 @@ def generar_barra(tamanos, carpeta):
     return [], hechos
 
 
+# El diálogo Info del Finder (lo pide Fynder). Colores medidos en la captura
+# de José del Info de Catalina oscuro (12.33.16 PM): personas #c0c0c0 y
+# triángulos #717171. Las personas y los candados vienen de CoreTypes (los
+# candados son dorados y van tal cual); los triángulos y el engranaje, del
+# catálogo de SystemAppearance en su versión oscura. (nombre, origen, color,
+# fracción del cuadro que ocupa)
+INFO_ICNS = [
+    ('info-user-symbolic', 'UserIcon.icns', (192, 192, 192), 0.75),
+    ('info-group-symbolic', 'GroupIcon.icns', (192, 192, 192), 0.75),
+    ('info-everyone-symbolic', 'Everyone.icns', (192, 192, 192), 0.75),
+    ('info-lock-symbolic', 'LockedIcon.icns', None, 0.9),
+    ('info-lock-open-symbolic', 'UnlockedIcon.icns', None, 0.9),
+]
+INFO_GLIFOS = [
+    ('info-disclosure-open-symbolic', 'Disclosed', (113, 113, 113)),
+    ('info-disclosure-closed-symbolic', 'Disclosable', (113, 113, 113)),
+    ('info-gear-symbolic', 'Action', RGB),
+]
+
+
+def generar_info(tamanos, carpeta):
+    import tempfile
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import car
+    hechos = 0
+    car_sistema = os.path.join(RAIZ, 'System/Library/CoreServices/SystemAppearance.bundle/Contents/Resources/Assets.car')
+    with tempfile.TemporaryDirectory() as tmp:
+        if os.path.exists(car_sistema):
+            car.glifos(car_sistema, tmp, {o for _, o, _ in INFO_GLIFOS}, oscuro=True)
+        for t, esc in tamanos:
+            sub = f'{t}x{t}' + ('@2x' if esc == 2 else '') + f'/{carpeta}'
+            lado = t * esc
+            for nombre, icns, color, parte in INFO_ICNS:
+                ruta = os.path.join(RAIZ, CT, icns)
+                if not os.path.exists(ruta):
+                    continue
+                px = max(1, round(lado * parte))
+                im = cargar(ruta, px)
+                if color:
+                    im = pintar(im, color)
+                lienzo = Image.new('RGBA', (lado, lado), (0, 0, 0, 0))
+                lienzo.paste(im, ((lado - px) // 2, (lado - px) // 2), im)
+                lienzo.save(os.path.join(TEMA, sub, nombre + '.png'))
+                hechos += (t, esc) == tamanos[0]
+            k = lado / 16
+            for nombre, origen, color in INFO_GLIFOS:
+                uno = os.path.join(tmp, origen + '@1x.png')
+                if not os.path.exists(uno):
+                    continue
+                w1, h1 = Image.open(uno).size
+                dos = os.path.join(tmp, origen + '@2x.png')
+                im = Image.open(dos if k > 1 and os.path.exists(dos) else uno).convert('RGBA')
+                w, h = max(1, round(w1 * k)), max(1, round(h1 * k))
+                im = im.resize((w, h), Image.LANCZOS) if (w, h) != im.size else im
+                lienzo = Image.new('RGBA', (lado, lado), (0, 0, 0, 0))
+                lienzo.paste(im, ((lado - w) // 2, (lado - h) // 2), im)
+                pintar(lienzo, color).save(os.path.join(TEMA, sub, nombre + '.png'))
+                hechos += (t, esc) == tamanos[0]
+    return hechos
+
+
 d1, h1, f1 = generar(COLOR, TAM_COLOR, 'finder', False)
 APPS_ICNS = []
 for app, nombres in APPS:
@@ -229,7 +290,8 @@ for app, nombres in APPS:
 d4, h4, f4 = generar(APPS_ICNS, TAM_COLOR, 'finder-apps', False)
 d2, h2, f2 = generar(SIMBOLICOS, TAM_SIMB, 'finder-symbolic', True)
 _, h3 = generar_barra(TAM_SIMB, 'finder-symbolic')
+h5 = generar_info(TAM_SIMB, 'finder-symbolic')
 with open(os.path.join(TEMA, 'finder-dirs.txt'), 'w') as f:
     for sub, t, esc in d1 + d4 + d2:
         f.write(f'{sub} {t} {esc}\n')
-print(f'finder: {h1} íconos a color, {h4} apps del Dock, {h2} glifos del lateral y {h3} de la barra', ('· faltan ' + ', '.join(f1 + f4 + f2)) if f1 + f4 + f2 else '')
+print(f'finder: {h1} íconos a color, {h4} apps del Dock, {h2} glifos del lateral, {h3} de la barra y {h5} del Info', ('· faltan ' + ', '.join(f1 + f4 + f2)) if f1 + f4 + f2 else '')
