@@ -132,8 +132,8 @@ Sin ellos la app se ve igual, con los íconos del tema.
 - Si Cinnamon cambia y el motor no carga, se abre `cinnamon-settings` y el usuario
   no se queda sin ajustes.
 
-La lógica y el aspecto van separados a propósito: el tema pasará a Sequoia y la
-ventana de Sequoia (barra lateral con buscador, grupos redondeados) será otro
+La lógica y el aspecto van separados a propósito: el tema pasará a macOS 27 y la
+ventana de macOS 27 (barra lateral con buscador, grupos redondeados) será otro
 estilo sobre el mismo motor.
 
 ## Lo que falta
@@ -141,7 +141,7 @@ estilo sobre el mismo motor.
 - **Paneles sin captura propia todavía:** Siri, Spotlight (Spotlyte), Screen Time y
   Sharing no existen aquí; los demás usan los módulos de Cinnamon con el aspecto de
   Catalina y se irán sustituyendo por paneles propios, uno por uno.
-- **Sequoia:** una segunda pasada sobre este mismo motor (barra lateral con
+- **macOS 27:** una segunda pasada (la referencia es la Mac de José con macOS 27; decidido el 14-10-2026) sobre este mismo motor (barra lateral con
   buscador y contenido con su barra integrada).
 - El arranque en una máquina de prueba tarda 25 s por los portales de escritorio que
   ahí no corren; en la sesión real los módulos cargan en 0,3 s.
