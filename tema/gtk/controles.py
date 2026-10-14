@@ -307,7 +307,7 @@ headerbar:backdrop, .csd headerbar:backdrop, headerbar.default-decoration:backdr
 
 /* Los menús de las apps a 14 px (10.5 pt), como en Catalina; el resto del
    texto queda a 13 px. */
-menu menuitem, .menu menuitem, .context-menu menuitem, popover.menu modelbutton { font-size: 10.5pt; letter-spacing: -0.33px; }
+menu menuitem, .menu menuitem, .context-menu menuitem, popover.menu modelbutton { font-size: 10.5pt; }
 
 /* La barra que pinta Muffin (ventanas sin barra propia) va sin línea abajo:
    en el Finder, la barra de título y la de herramientas son un solo
