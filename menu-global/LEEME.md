@@ -48,6 +48,7 @@ no sabe de nadie. Medido el 10-10-2026.
 | Edge 155 (y Chrome, Electron) | Sí, DBusMenu | Nada: publica solo si el registrador está |
 | Thunderbird 153 (Mint) | Sí, DBusMenu | `widget.gtk.global-menu.enabled` en `user.js` |
 | Firefox 157 (Mint) | Sí, DBusMenu | Lo mismo |
+| OBS Studio 32.2.2 (Flatpak, Qt 6.11) | Sí, DBusMenu | `./flatpak-qt.sh` (permiso para hablar con el registrador, abajo); **verificado por José el 14-10-2026** |
 | VS Code | Solo con `"window.titleBarStyle": "native"` | Pendiente del sí de José: pierde la barra de título propia |
 | kitty, GTK4/libadwaita | No tienen menú | La barra pone el menú genérico |
 
@@ -80,6 +81,6 @@ existe en el sandbox de OBS). `flatpak-qt.sh` da ese permiso con un override **d
 ./flatpak-qt.sh --deshacer [ID…]   # lo quita (de lo que puso el script)
 ```
 
-Solo vale desde la **próxima vez que se abra** la app. Lo que se dio queda en
+Solo vale desde la **próxima vez que se abra** la app. Verificado con OBS Studio 32.2.2 por José el 14-10-2026: con el override, OBS publica su menú en la barra. Lo que se dio queda en
 `~/.local/share/mint-macos/menu-global-flatpak.lista`.
 

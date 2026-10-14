@@ -4,6 +4,9 @@
 #   ./instalar.sh            instala (el lanzador de rofi de este usuario se respalda)
 #   ./instalar.sh --quitar   lo deja como estaba: devuelve el lanzador anterior
 #
+# El atajo es ⌥⌘L. keyd manda ⌘ como Ctrl y la tecla con ⌥ llega a Cinnamon como
+# Ctrl+Alt+L (como ⌘⌥F en VS Code), así que el atajo de Cinnamon es <Control><Alt>l.
+#
 # Solo toca el home del usuario: no escribe en /usr/share ni borra rofi.
 set -euo pipefail
 
@@ -13,6 +16,34 @@ BIN="$HOME/.local/bin/mac-launchpad"
 LANZADOR="$HOME/.local/share/applications/launchpad.desktop"
 RESPALDO="$HOME/.local/share/mint-macos/respaldos/launchpad.desktop.antes"
 MARCA="X-MintMacos-Launchpad=1"
+CLAVES=org.cinnamon.desktop.keybindings
+RUTA=/org/cinnamon/desktop/keybindings/custom-keybindings
+ATAJO="<Control><Alt>l"
+
+# El atajo de Cinnamon: una entrada personalizada que corre mac-launchpad.
+quitar_atajo() {
+  local lista nueva="" k
+  lista=$(gsettings get $CLAVES custom-list | tr -d "[]',")
+  for k in $lista; do
+    if [ "$(gsettings get $CLAVES.custom-keybinding:$RUTA/$k/ command 2>/dev/null)" = "'$BIN'" ]; then
+      gsettings reset-recursively $CLAVES.custom-keybinding:$RUTA/$k/ 2>/dev/null || true
+    else
+      nueva="$nueva'$k', "
+    fi
+  done
+  gsettings set $CLAVES custom-list "[${nueva%, }]"
+}
+poner_atajo() {
+  quitar_atajo
+  local lista n=0 k
+  lista=$(gsettings get $CLAVES custom-list | tr -d "[]',")
+  while echo " $lista " | grep -q " custom$n "; do n=$((n + 1)); done
+  k=custom$n
+  gsettings set $CLAVES.custom-keybinding:$RUTA/$k/ name "Launchpad (⌥⌘L)"
+  gsettings set $CLAVES.custom-keybinding:$RUTA/$k/ command "$BIN"
+  gsettings set $CLAVES.custom-keybinding:$RUTA/$k/ binding "['$ATAJO']"
+  gsettings set $CLAVES custom-list "[$(for x in $lista $k; do printf "'%s', " "$x"; done | sed 's/, $//')]"
+}
 
 if [ "${1:-}" = "--quitar" ]; then
   if [ -f "$RESPALDO" ]; then
@@ -23,6 +54,7 @@ if [ "${1:-}" = "--quitar" ]; then
     rm -f "$LANZADOR"
     echo "Lanzador propio quitado."
   fi
+  quitar_atajo
   rm -f "$BIN"; rm -rf "$LIB"
   echo "Listo. mac-launchpad ya no está instalado."
   exit 0
@@ -51,6 +83,8 @@ StartupNotify=false
 $MARCA
 DESKTOP
 update-desktop-database "$HOME/.local/share/applications" 2>/dev/null || true
+poner_atajo
 echo "Instalado: $BIN"
+echo "Atajo:     ⌥⌘L (Cinnamon: $ATAJO)"
 echo "Lanzador:  $LANZADOR (el Dock lo usa)"
 [ -f "$RESPALDO" ] && echo "El anterior quedó en $RESPALDO; ./instalar.sh --quitar lo devuelve."
