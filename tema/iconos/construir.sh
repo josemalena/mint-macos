@@ -4,7 +4,10 @@
 #  2. Constanza hereda de Os-Catalina y pone encima:
 #     - las carpetas azules de 128 px también en tamaño chico (en Os-Catalina
 #       son monocromas oscuras y en un tema oscuro salen negras);
-#     - los logos de VS Code y Edge que traen esas aplicaciones;
+#     - los logos que traen las apps (VS Code, Edge, Thunderbird, LibreOffice,
+#       Firefox, VLC…) donde Os-Catalina pone otro o redibuja la marca;
+#     - si hay disco de Mac, los íconos de las apps de macOS para sus
+#       equivalentes de Linux y los paneles de Ajustes (macos_apps.py);
 #     - si hay disco de Mac, los íconos del Finder (finder.py): carpetas,
 #       documentos, discos, papelera y los glifos del lateral.
 # Nada de Apple se guarda en el repo: se genera aquí desde el disco.
@@ -65,6 +68,21 @@ for f in /usr/share/icons/hicolor/scalable/apps/libreoffice-*.svg; do
   [ -f "$f" ] && ln -sf "$f" "$TEMA/escalables/apps/$(basename "$f")"
 done
 
+# Los logos que traen las apps, donde Os-Catalina pone el de otra app (K3b con
+# el de Brasero, Plank con el de GNOME Do…) o redibuja una marca. Primero el
+# SVG de hicolor; si no hay, el PNG más grande. Si después el disco de la Mac
+# trae un equivalente (abajo), ese gana. GTK sabe dónde buscar: hicolor del
+# sistema, Flatpak, categories/, stock/…
+python3 "$AQUI/originales.py" "$TEMA/escalables/apps" k3b stock_xfburn winetricks plank cs-color gtk-select-color cs-applets cs-desklets \
+         mintdrivers accessories-character-map ibus-setup \
+         firefox google-chrome vlc com.obsproject.Studio fr.handbrake.ghb kitty com.gexperts.Tilix \
+         transmission lutris timeshift ulauncher solaar org.raspberrypi.rpi-imager gvim fish btop \
+         org.x.Warpinator forticlient com.github.maoschanz.drawing bulky \
+         org.gnome.Terminal org.gnome.Calculator xreader xviewer pix org.gnome.FileRoller \
+         org.gnome.DiskUtility org.gnome.SystemMonitor org.gnome.font-viewer org.gnome.Screenshot \
+         sticky org.gnome.Rhythmbox3 io.github.celluloid_player.Celluloid org.gnome.seahorse.Application \
+         org.gnome.SimpleScan mintbackup mintreport mintupdate
+
 # Íconos del Finder si hay disco de Mac.
 if montar_mac_sistema; then
   # Glifos de la barra (SystemAppearance.bundle/Assets.car): ese catálogo
@@ -74,6 +92,9 @@ if montar_mac_sistema; then
     [ -n "$g" ] && [ -f "$g/GoBack@1x.png" ] && { export GLIFOS_FINDER="$g"; break; }
   done
   python3 "$AQUI/finder.py" "$MAC_SISTEMA" "$TEMA" "#c4c4c4"
+  # Las apps de Linux con equivalente en macOS (Terminal, Preview, Disk
+  # Utility…) y los paneles de Ajustes, con el ícono de la Mac.
+  python3 "$AQUI/macos_apps.py" "$MAC_SISTEMA" "$TEMA/escalables/apps"
   while read -r sub t esc; do DIRS+=("$sub $t $esc Fixed"); done < "$TEMA/finder-dirs.txt"
   rm -f "$TEMA/finder-dirs.txt"
   desmontar_mac
