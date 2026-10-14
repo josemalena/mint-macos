@@ -283,8 +283,10 @@ COLORES = """
 @define-color wm_bg #333437;
 @define-color wm_bg_unfocused #29292b;
 @define-color wm_highlight #4a4b4e;
-@define-color wm_border_focused #000000;
-@define-color wm_border_unfocused #000000;
+/* El borde de 1 px de la ventana: en Catalina es gris claro (#535355), con
+   la sombra negra por fuera. */
+@define-color wm_border_focused #535355;
+@define-color wm_border_unfocused #48484a;
 .background { background-color: #303031; }
 .view, iconview, treeview.view, textview text,
 .nemo-window .view, .nemo-window iconview, .nemo-window treeview.view { background-color: #1b1d1f; }
@@ -305,7 +307,7 @@ headerbar:backdrop, .csd headerbar:backdrop, headerbar.default-decoration:backdr
 
 /* Los menús de las apps a 14 px (10.5 pt), como en Catalina; el resto del
    texto queda a 13 px. */
-menu menuitem, .menu menuitem, .context-menu menuitem, popover.menu modelbutton { font-size: 10.5pt; }
+menu menuitem, .menu menuitem, .context-menu menuitem, popover.menu modelbutton { font-size: 10.5pt; letter-spacing: -0.33px; }
 
 /* La barra que pinta Muffin (ventanas sin barra propia) va sin línea abajo:
    en el Finder, la barra de título y la de herramientas son un solo
@@ -386,6 +388,39 @@ def css(tema, oscuros):
     return hechos
 
 
+def marco(tema):
+    """La geometría del marco de Muffin como la de Catalina, medida en las
+    capturas de José: semáforos de 12 px cada 20 px (16 de imagen + 2 y 2 de
+    borde), el primero a 8 px del borde (4 + 2 + 2 de la imagen) y 2 px más
+    arriba que en Mojave (6 px desde el borde de arriba); esquinas de 5 px."""
+    ruta = os.path.join(tema, "metacity-1", "metacity-theme-3.xml")
+    if not os.path.isfile(ruta):
+        return False
+    texto = open(ruta).read()
+    m = re.search(r'<frame_geometry name="normal" [^>]*>.*?</frame_geometry>', texto, re.S)
+    if not m:
+        return False
+    bloque = m.group(0)
+    nuevo = re.sub(r'<border name="button_border"[^>]*/>',
+                   '<border name="button_border" left="2" right="2" top="2" bottom="6" />', bloque)
+    texto = texto.replace(bloque, nuevo)
+    texto = re.sub(r'rounded_top_(left|right)="4"', r'rounded_top_\1="5"', texto)
+    # Los arcos y las líneas del borde redondeado, de 4 a 5 px de radio.
+    def cinco(m):
+        b = m.group(0)
+        for a, z in (('width="9" height="9"', 'width="11" height="11"'),
+                     ('width="8" height="8"', 'width="10" height="10"'),
+                     ('x="width-10"', 'x="width-12"'), ('x="width-11"', 'x="width-13"'),
+                     ('x1="4" y1="0" x2="width-5"', 'x1="5" y1="0" x2="width-6"'),
+                     ('x1="5" y1="1" x2="width - 5"', 'x1="6" y1="1" x2="width - 6"'),
+                     ('y1="4" x2="0"', 'y1="5" x2="0"'), ('y1="4" x2="width-1"', 'y1="5" x2="width-1"')):
+            b = b.replace(a, z)
+        return b
+    texto = re.sub(r'<draw_ops name="rounded_border_(?:un)?focused">.*?</draw_ops>', cinco, texto, flags=re.S)
+    open(ruta, "w").write(texto)
+    return True
+
+
 def main():
     if len(sys.argv) != 4:
         sys.exit(__doc__)
@@ -395,6 +430,7 @@ def main():
     m = metacity(sys.argv[3], oscuros)
     claras, oscuras = marcas(sys.argv[1]), marcas(sys.argv[2])
     g = gresource(sys.argv[3], claros or oscuros, oscuros, claras or oscuras, oscuras)
+    marco(sys.argv[3])
     c = css(sys.argv[3], sys.argv[2])
     print(f"  controles de Catalina: {m} semáforos en metacity-1, {g} imágenes en gtk.gresource"
           f" y {c} piezas en catalina/")

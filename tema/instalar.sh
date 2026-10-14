@@ -106,15 +106,17 @@ fi
 # tubería y fc-list muere por SIGPIPE. Por eso se lee primero a una variable.
 FAMILIAS="$(fc-list : family)"
 if grep -q '^\.SF NS$\|,\.SF NS$\|^\.SF NS,' <<< "$FAMILIAS"; then
-  FUENTE='.SF NS'; TITULO='.SF NS Semibold'
+  FUENTE='.SF NS'; TITULO='.SF NS'
 else
   dpkg -s fonts-inter >/dev/null 2>&1 || sudo apt install -y fonts-inter
-  FUENTE='Inter'; TITULO='Inter Semi-Bold'
+  FUENTE='Inter'; TITULO='Inter'
 fi
 gsettings set org.cinnamon.desktop.interface font-name "$FUENTE 10"
 gsettings set org.gnome.desktop.interface font-name "$FUENTE 10"
 gsettings set org.gnome.desktop.interface document-font-name "$FUENTE 10"
-gsettings set org.cinnamon.desktop.wm.preferences titlebar-font "$TITULO 10"
+# El título de la ventana, como en Catalina: 13 px (9.75 pt) en peso normal,
+# un punto más chico que los menús (14 px, en catalina.css).
+gsettings set org.cinnamon.desktop.wm.preferences titlebar-font "$TITULO 9.75"
 # Los nombres del escritorio, como en macOS: negrita a 12 px (9 pt a 96 ppp).
 # Sin la SF se queda la fuente de interfaz normal.
 # Y sin hinting, como macOS: con «slight», la SF variable en negrita a 12 px

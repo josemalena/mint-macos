@@ -25,7 +25,10 @@
 .popup-menu,
 .popup-combo-menu {
   font-family: ".SF NS", "Inter", sans-serif;
-  font-size: 10pt;
+  /* 14 px como Catalina; las letras más juntas para el mismo ancho
+     («About Finder»: 83 × 11 px en la Mac, medido por Dev-Dock). */
+  font-size: 10.5pt;
+  letter-spacing: -0.33px;
   color: #ffffff;
 }
 .popup-menu .popup-menu-item,
@@ -66,7 +69,10 @@
    constanza-menu-box en menu.box. */
 .constanza-menu {
   font-family: ".SF NS Menú", ".SF NS", "Inter", sans-serif;
-  font-size: 10pt;
+  /* 14 px como Catalina; las letras más juntas para el mismo ancho
+     («About Finder»: 83 × 11 px en la Mac, medido por Dev-Dock). */
+  font-size: 10.5pt;
+  letter-spacing: -0.33px;
   color: #ffffff;
 }
 .constanza-menu-box {

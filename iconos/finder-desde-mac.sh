@@ -8,7 +8,7 @@
 # Sin argumento busca el contenedor APFS, monta en solo lectura el volumen
 # de sistema (no « - Data», Preboot, Recovery ni VM) con fsapfsmount y lo
 # desmonta al terminar. Si no hay disco de Mac, sale con código 3 y no toca
-# nada (catalina.sh se queda con Os-Catalina).
+# nada (el tema se queda con Os-Catalina).
 set -euo pipefail
 
 TEMA="$HOME/.local/share/icons/Os-Catalina-Finder"

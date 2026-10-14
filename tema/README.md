@@ -2,7 +2,7 @@
 
 Tema oscuro para Linux Mint (Cinnamon) con la apariencia del Finder de macOS
 Catalina/Mojave: ventanas, panel, bordes con semáforos, dock, íconos y
-fuentes. Reemplaza a `catalina.sh`.
+fuentes. Reemplazó al viejo `catalina.sh`, que instalaba Mojave-Dark (se quitó el 13-10-2026).
 
 ```bash
 ./instalar.sh              # construye y activa (respalda lo actual)
