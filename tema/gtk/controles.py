@@ -303,6 +303,10 @@ headerbar:backdrop, .csd headerbar:backdrop, headerbar.default-decoration:backdr
   box-shadow: inset 0 1px rgba(255, 255, 255, 0.10);
   border-bottom-color: #000000; }
 
+/* Los menús de las apps a 14 px (10.5 pt), como en Catalina; el resto del
+   texto queda a 13 px. */
+menu menuitem, .menu menuitem, .context-menu menuitem, popover.menu modelbutton { font-size: 10.5pt; }
+
 /* La barra que pinta Muffin (ventanas sin barra propia) va sin línea abajo:
    en el Finder, la barra de título y la de herramientas son un solo
    degradado, y la línea va debajo de la de herramientas (la pone Fynder). */

@@ -35,8 +35,8 @@ fc-cache -f ~/.local/share/fonts
 gsettings set org.cinnamon.desktop.interface font-name ".SF NS 10"
 gsettings set org.gnome.desktop.interface font-name ".SF NS 10"
 gsettings set org.gnome.desktop.interface document-font-name ".SF NS 10"
-gsettings set org.cinnamon.desktop.wm.preferences titlebar-font ".SF NS Semibold 10"
-gsettings set org.gnome.desktop.wm.preferences titlebar-font ".SF NS Semibold 10"
+gsettings set org.cinnamon.desktop.wm.preferences titlebar-font ".SF NS 9.75"
+gsettings set org.gnome.desktop.wm.preferences titlebar-font ".SF NS 9.75"
 gsettings set org.nemo.desktop font ".SF NS 10"
 
 # 4. Que Nemo no ponga la columna de fechas en letra monoespaciada

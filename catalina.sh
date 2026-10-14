@@ -79,10 +79,10 @@ paso "Fuente: San Francisco si está instalada, si no Inter"
 # (la alternativa libre con las mismas proporciones; «Inter», no «Inter
 # Display», que es para títulos grandes).
 if fc-list : family | grep -q '^\.SF NS$\|,\.SF NS$\|^\.SF NS,'; then
-  FUENTE='.SF NS'; TITULO='.SF NS Semibold'
+  FUENTE='.SF NS'; TITULO='.SF NS'
 else
   dpkg -s fonts-inter >/dev/null 2>&1 || sudo apt install -y fonts-inter
-  FUENTE='Inter'; TITULO='Inter Semi-Bold'
+  FUENTE='Inter'; TITULO='Inter'
 fi
 { gsettings get org.cinnamon.desktop.interface font-name
   gsettings get org.gnome.desktop.interface document-font-name
@@ -90,7 +90,10 @@ fi
 gsettings set org.cinnamon.desktop.interface font-name "$FUENTE 10"
 gsettings set org.gnome.desktop.interface font-name "$FUENTE 10"
 gsettings set org.gnome.desktop.interface document-font-name "$FUENTE 10"
-gsettings set org.cinnamon.desktop.wm.preferences titlebar-font "$TITULO 10"
+# El título de la ventana, como en Catalina: 13 px (9.75 pt) en peso normal,
+# un punto más chico que los menús (14 px). Medido en una captura del Finder
+# de José: mayúsculas de 9 px en el título contra 10 en los menús.
+gsettings set org.cinnamon.desktop.wm.preferences titlebar-font "$TITULO 9.75"
 gsettings set org.nemo.desktop font "$FUENTE 10"
 echo "  fuente: $FUENTE"
 
