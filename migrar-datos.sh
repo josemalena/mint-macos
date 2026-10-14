@@ -14,6 +14,9 @@
 #     se copia allá y el enlace no se rompe.
 #   - --simular hace todo menos copiar: tamaños, archivos y espacio libre.
 #     Conviene correrlo primero.
+#   - Si la Mac tiene usuario Guest, lo crea en Linux con el mismo uid y gid
+#     (201) y deshabilitado, como viene en macOS. Pide sudo; con --simular
+#     solo lo dice.
 #   - Fotos: la fototeca (*.photoslibrary) se copia entera, como carpeta.
 #     En Linux no se navega como en Fotos: las fotos originales están dentro,
 #     en «originals» (o «Masters» en las viejas).
@@ -35,7 +38,7 @@ while [ $# -gt 0 ]; do
     --usuario-linux) USUARIO_LINUX="$2"; shift 2 ;;
     --carpetas) CARPETAS="$2"; shift 2 ;;
     --simular) SIMULAR=true; shift ;;
-    -h|--help) sed -n '2,24p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,25p' "$0"; exit 0 ;;
     *) echo "✗ parámetro desconocido: $1 (mira --help)"; exit 2 ;;
   esac
 done
@@ -80,6 +83,39 @@ ORIGEN="$MAC_DATOS/Users/$USUARIO_MAC"
 [ -d "$ORIGEN" ] || { echo "  ✗ no existe /Users/$USUARIO_MAC en la Mac (hay: $(echo $USUARIOS))"; exit 1; }
 echo "  usuario de la Mac: $USUARIO_MAC → usuario de Linux: $USUARIO_LINUX ($HOME_LINUX)"
 $SIMULAR && echo "  SIMULACIÓN: no se copia nada"
+
+# El usuario Guest de la Mac, con su mismo uid y gid (201 en macOS) y
+# deshabilitado: existe, pero no se puede entrar con él. Su carpeta es
+# /Users/Guest (= /home/Guest) y, como en la Mac, no se crea hasta que se use.
+paso "Usuario Guest"
+GUEST_PLIST="$MAC_DATOS/private/var/db/dslocal/nodes/Default/users/Guest.plist"
+if [ ! -f "$GUEST_PLIST" ]; then
+  echo "  la Mac no tiene usuario Guest: no se crea"
+else
+  IFS=$'\t' read -r G_NOMBRE G_UID G_GID G_REAL < <(python3 - "$GUEST_PLIST" <<'PY'
+import plistlib, sys
+x = plistlib.load(open(sys.argv[1], "rb"))
+v = lambda k, d: (x.get(k) or [d])[0]
+print(v("name", "Guest"), v("uid", "201"), v("gid", "201"), v("realname", "Guest User"), sep="\t")
+PY
+)
+  if getent passwd "$G_NOMBRE" >/dev/null; then
+    echo "  ya existe: $(getent passwd "$G_NOMBRE" | cut -d: -f1,3,4)"
+  elif getent passwd "$G_UID" >/dev/null || { getent group "$G_GID" >/dev/null && [ "$(getent group "$G_GID" | cut -d: -f1)" != guest ]; }; then
+    echo "  ✗ el uid $G_UID o el gid $G_GID ya es de otra cuenta en Linux: no se crea (revísalo a mano)"
+  elif $SIMULAR; then
+    echo "  se crearía $G_NOMBRE (uid $G_UID, gid $G_GID, «$G_REAL»), deshabilitado"
+  else
+    SUDO=""; [ "$(id -u)" = 0 ] || { SUDO=sudo; echo "  crear un usuario pide sudo:"; }
+    # En la Mac el grupo es «_guest» con alias «guest»; en Linux, «guest».
+    getent group "$G_GID" >/dev/null || $SUDO groupadd -g "$G_GID" guest
+    # --badname: Debian no acepta mayúsculas en el nombre y en la Mac es «Guest».
+    $SUDO useradd --badname -u "$G_UID" -g "$G_GID" -c "$G_REAL" -d "/home/$G_NOMBRE" -M \
+      -s /usr/sbin/nologin "$G_NOMBRE"
+    $SUDO usermod -L "$G_NOMBRE"   # sin clave con qué entrar
+    echo "  creado $G_NOMBRE (uid $G_UID, gid $G_GID), deshabilitado"
+  fi
+fi
 
 TOTAL_NUEVO=0; TOTAL_YA=0; COPIAR=()
 declare -A NECESITA   # bytes nuevos por sistema de archivos de destino
