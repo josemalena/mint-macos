@@ -268,7 +268,7 @@ class Ventana(Gtk.ApplicationWindow):
         self.set_default_size(ANCHO, 540)
         self.set_icon_name("preferences-system")
         self.get_style_context().add_class("mp-ventana")
-        self.historial, self.pos = [], -1
+        self.historial, self.pos = [None], 0     # la cuadrícula es el primer paso: de un panel se vuelve a ella
         self.actual = None            # PanelVivo abierto, o None en la cuadrícula
         self.claves_pestana = {}
         self.modulo_actual = None
