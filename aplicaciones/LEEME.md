@@ -76,6 +76,11 @@ quita el `.app` de los nombres.
 - Con el servicio instalado, una app nueva aparece en unos 4 segundos y una
   borrada desaparece sola; `--quitar` deja la carpeta como estaba.
 
+## Quién la lee
+
+Fynder la enseña con el ícono de Catalina, y el [Launchpad](../launchpad/LEEME.md) la
+muestra en pantalla completa (con `Utilities` como la carpeta «Other»).
+
 ## Lo que falta en Fynder
 
 Es de la sesión de Fynder: que `/Applications` salga en la barra lateral

@@ -23,24 +23,86 @@ mac-settings --lista         los paneles que hay
 Una instancia sola: pedirle otro panel a la que ya está abierta la trae al frente.
 Por D-Bus: `app.abrir("sound")` y `app.todo`.
 
+## La ventana
+
+Una barra **unificada**: un `GtkHeaderBar` (CSD) con los semáforos a la izquierda
+(los pinta el tema, `headerbar button.titlebutton`), atrás/adelante y Show All, el
+título al centro (sigue al panel abierto) y el buscador a la derecha. Muffin solo la
+mueve. Las medidas (barra de 37 px, botones de 27×21, buscador de 158) salen de la
+captura `Screen Shot 2026-10-14 at 12.07.52 AM` de Catalina, donde 1 px = 1 pt.
+
 ## Los paneles
 
-Los grupos y el orden son los de Catalina (`NSPrefPaneGroups.xml` de la Mac); lo
-que hay en cada panel es lo que Cinnamon ya sabe hacer (`paneles.py`):
+Tres bloques, como los dibuja Catalina (no los cinco grupos del XML de Apple: esas
+son etiquetas, no bandas; el orden sale de la captura):
 
-| Grupo | Paneles |
+| Bloque | Paneles |
 |---|---|
-| personal | General (Themes, Fonts, Animations, Default Apps, Menu Bar) · Desktop & Screen Saver · Dock · Mission Control (Spaces, Hot Corners, Windows) · Language & Region · Security & Privacy · Notifications |
-| hardware | Displays (Displays, Night Shift, Color) · Energy Saver · Keyboard · Mouse · Trackpad (touchpad y gestos) · Printers & Scanners · Sound |
-| internet | Internet Accounts · Software Update · Network · Bluetooth · Extensions (applets, desklets, extensions, actions) |
-| sistema | Users & Groups (con Login Items) · Date & Time · Time Machine · Accessibility |
-| advanced | un solo botón, «Advanced», que abre el cinnamon-settings de Mint con todo lo que Catalina no tiene (Disks, Firewall, Fingerprints…) |
+| 1 | General (Themes, Fonts, Animations, Default Apps, Menu Bar) · Desktop & Screen Saver · **Dock** · Mission Control (Spaces, Hot Corners, Windows) · Language & Region · Notifications · Internet Accounts · Users & Groups (con Login Items) · Accessibility · Extensions · Security & Privacy |
+| 2 | Software Update · Network · Bluetooth · Sound · Printers & Scanners · Keyboard · Trackpad · Mouse · Displays (Displays, Night Shift, Color) · Energy Saver · Date & Time · Time Machine · **Startup Disk** |
+| 3 | «Advanced»: abre el cinnamon-settings de Mint con todo lo que Catalina no tiene (Disks, Firewall, Fingerprints…) |
 
 Un panel sin ningún módulo disponible no sale. Los que son un programa externo
-(Dock, Software Update, Time Machine, impresoras, Bluetooth…) lo lanzan y la
-ventana se queda donde estaba. Un panel con varios módulos (Desktop & Screen
-Saver) muestra una pestaña por módulo, y si el módulo trae sus propias pestañas
-salen debajo.
+(Software Update, Time Machine, impresoras, Bluetooth…) lo lanzan y la ventana se
+queda donde estaba. Un panel con varios módulos (Desktop & Screen Saver) muestra una
+pestaña por módulo. Faltan en Linux Siri, Spotlight, Screen Time, Sharing, Profiles
+y CDs & DVDs. **Apple ID** no está en la cuadrícula: se abre con el ícono de la
+franja de arriba.
+
+### Paneles propios (`propios.py`)
+
+Escriben directo en la configuración del programa, en vez de traer su interfaz:
+
+- **Dock**: Size, Magnification, Position, Minimize windows using (Genie/Scale: la
+  extensión Magic Lamp), Minimize into application icon, Animate opening applications,
+  Automatically hide and show, Show indicators y Show recent applications. Lo escribe
+  en el dconf de Plank y en su `dock.theme` (el valor de antes se respalda para
+  poder volver).
+- **Apple ID**: el estado de iCloud Drive y de Mail y Calendar (abajo).
+- **Startup Disk**: arranque EFI y entrada por defecto de GRUB (abajo).
+
+## Apple ID: iCloud Drive, Mail y Calendar
+
+La franja de arriba muestra «Sign in to your Apple ID» con un botón Sign In, o el
+nombre y el Apple ID con sesión; el ícono de Apple ID a la derecha abre el panel.
+Sign In (`apple_id.py`) es una hoja en dos pasos:
+
+1. **Apple ID, clave y código de verificación** (2FA): lo crea con `rclone config
+   create/update --non-interactive` para el remoto de iCloud Drive; la clave se ofusca
+   con `rclone obscure` y nunca se guarda en claro.
+2. **Contraseña de app** (la que se genera en appleid.apple.com): se guarda en el
+   **llavero** (libsecret, esquema `org.mintmacos.AppleID`), nunca en un archivo de
+   texto. Con ella se descubren los calendarios (CalDAV) y se configuran en
+   **Thunderbird** las cuentas IMAP (`imap.mail.me.com:993`), SMTP
+   (`smtp.mail.me.com:587`) y los calendarios, en un bloque marcado
+   `mint-macos Apple ID` de `user.js`. Thunderbird tiene que estar cerrado; él no lee
+   libsecret, así que pide esa misma contraseña la primera vez (y se marca «Use
+   Password Manager»).
+
+Sign Out desmonta iCloud Drive y quita ese bloque de Thunderbird; los archivos en
+iCloud no se tocan. `MINT_APPLEID_PRUEBA=1` prueba todo con datos falsos (clave
+«password», código «123456») sin tocar rclone, Thunderbird ni la red.
+
+## Startup Disk
+
+La lista son las entradas de arranque EFI (`efibootmgr`, que se lee sin root: Ubuntu
+con GRUB, Mac OS X…); elegir una pone esa entrada primera en el `BootOrder`. «Restart…»
+arranca con ella solo esa vez (`BootNext`) y reinicia. Aparte, un selector con las
+entradas del propio GRUB para la que arranca por defecto. No hay Target Disk Mode.
+
+Todo cambio lo hace un ayudante de root por `pkexec` (`startup-disk/`): el **candado**
+pide la clave de administrador una vez (la acción de polkit es `auth_admin_keep`).
+Sin instalarlo, el panel solo mira:
+
+```
+sudo settings/startup-disk/instalar-root.sh            # instala el ayudante y la acción de polkit
+sudo settings/startup-disk/instalar-root.sh --quitar
+```
+
+El ayudante vive en `/usr/libexec/mint-macos/startup-disk`, con dueño root, y valida
+cada argumento contra una lista cerrada. Para elegir una entrada de GRUB hace falta
+`GRUB_DEFAULT=saved`: el panel ofrece «Enable…», que lo pone (con respaldo de
+`/etc/default/grub`) y corre `update-grub`.
 
 ## Los íconos y glifos de Apple
 
@@ -50,8 +112,9 @@ en solo lectura, a `~/.local/share/mint-macos/settings/`:
 - `iconos/<identificador>.png`: el de cada panel (36 de 38). Los que Apple guarda
   dentro de un catálogo (`Assets.car`: General, Internet Accounts, Spotlight) salen
   con `tema/iconos/car.py`, que no necesita macOS.
-- `glifos/`: atrás, adelante y Show All (`GoBack`, `GoForward`, `ToolbarTopSites`),
-  en negro; la app los pinta del color que toque.
+- `glifos/`: atrás, adelante y Show All (`GoBack`, `GoForward`, `ToolbarTopSites`), en
+  negro (la app los pinta del color que toque), y el candado cerrado y abierto
+  (`LockLocked`, `LockUnlocked`, de `SecurityInterface.framework`).
 - `orden.json`: los grupos de Catalina tal como los define la Mac.
 
 Sin ellos la app se ve igual, con los íconos del tema.
@@ -75,16 +138,15 @@ estilo sobre el mismo motor.
 
 ## Lo que falta
 
-- **Medir contra la Mac.** Las medidas son provisionales (668 de ancho, íconos de 40,
-  8 por fila). Hace falta una captura de la ventana de System Preferences de la
-  Mac de José, y de un par de paneles, para ajustarla al píxel como el dock.
-- **El menú Apple** (`System Preferences…`) y el Dock siguen abriendo
-  `cinnamon-settings`: cambiarlos es del applet y del Dock, no de esta app.
-- La barra de menús global con el menú View con la lista de paneles (⌘1…).
-- El arranque en esta máquina de prueba tarda 25 s por los portales de escritorio
-  que ahí no corren; en la sesión real los módulos cargan en 0,3 s.
-- Displays y Network muestran un panel vacío si Cinnamon no está detrás (solo pasa
-  en pruebas aisladas).
+- **Paneles sin captura propia todavía:** Siri, Spotlight (Spotlyte), Screen Time y
+  Sharing no existen aquí; los demás usan los módulos de Cinnamon con el aspecto de
+  Catalina y se irán sustituyendo por paneles propios, uno por uno.
+- **Sequoia:** una segunda pasada sobre este mismo motor (barra lateral con
+  buscador y contenido con su barra integrada).
+- El arranque en una máquina de prueba tarda 25 s por los portales de escritorio que
+  ahí no corren; en la sesión real los módulos cargan en 0,3 s.
+- Displays y Network muestran un panel vacío si Cinnamon no está detrás (solo pasa en
+  pruebas aisladas).
 
 ## Decisión de José (14-10-2026)
 

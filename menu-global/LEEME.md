@@ -64,3 +64,22 @@ quitar las que trae el paquete (anjuta, freeciv, glade, gwyddion):
 
 Una app que se ve mal se agrega a `EXCLUIR` en `instalar.sh` y a esta tabla,
 con el porqué.
+
+## Apps Qt en Flatpak (OBS Studio)
+
+El sandbox de Flatpak **oculta** `com.canonical.AppMenu.Registrar` y Qt solo exporta su
+menú si lo ve: dentro de OBS, `NameHasOwner` da `false`; con el permiso de hablarle,
+`true`. No hay que cambiar el platformtheme (el tema «gnome» ya exporta; «kde» ni siquiera
+existe en el sandbox de OBS). `flatpak-qt.sh` da ese permiso con un override **de usuario**
+(sin sudo):
+
+```
+./flatpak-qt.sh                    # OBS Studio y las apps con runtime org.kde.Platform
+./flatpak-qt.sh ID [ID…]           # además, esas apps
+./flatpak-qt.sh --lista            # a quién se lo daría, sin cambiar nada
+./flatpak-qt.sh --deshacer [ID…]   # lo quita (de lo que puso el script)
+```
+
+Solo vale desde la **próxima vez que se abra** la app. Lo que se dio queda en
+`~/.local/share/mint-macos/menu-global-flatpak.lista`.
+

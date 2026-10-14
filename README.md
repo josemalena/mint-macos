@@ -18,13 +18,37 @@ panel lleva el menú Apple y el nombre de la aplicación activa.
 | `vscode/keybindings.json` | Lo que keyd no traduce: ⌘⌥F, ⌘1…3, ⌘⇧[ ] | `~/.config/Code/User/` |
 | `applets/` | `applemenu@macos` (menú Apple, Force Quit), `appmenu@macos` (app activa, Quit) y `globalmenu@macos` (la barra de menú de la ventana enfocada, para apps que la publican por D-Bus con el protocolo de GTK: `gtk_application_set_menubar`; nemo-mac con `global-menu` encendido) | `~/.local/share/cinnamon/applets/` |
 | `menu-global/` | El lado de las apps del menú global: registrador `com.canonical.AppMenu.Registrar` como servicio de usuario y que las apps (GTK, Firefox, Thunderbird, Chromium/Electron, Qt) publiquen su menú; `install.sh` lo corre con `--sesion` y pide cerrar sesión. Detalle en su `LEEME.md` | servicio de usuario, `~/.xsessionrc` |
+| `tema/` | Constanza: el tema (GTK, íconos, cursores, fondo, fuentes SF) con lo de Apple sacado de la Mac, nunca copiado al repo | `~/.themes`, `~/.local/share/icons/`, `~/.local/share/constanza/` (créditos en `tema/CREDITOS.md`) |
+| `extensions/` | `cmdtab@macos` (⌘Tab), `misioncontrol@macos` (⌃↑ ⌃↓ ⌃← ⌃→) y `entrada@macos` (la espera al iniciar sesión); Magic Lamp con su parche. Detalle en su `LEEME.md` | `~/.local/share/cinnamon/extensions/` |
+| `settings/` | System Preferences de Catalina (`mac-settings`): barra unificada, tres bloques de paneles sobre los módulos de Cinnamon, paneles propios (Dock, Apple ID con iCloud/Mail/Calendar, Startup Disk). Detalle en su `LEEME.md` | `~/.local/lib/mint-macos/settings`, `~/.local/bin/mac-settings` |
+| `login/` | La pantalla de inicio de sesión de Catalina (`slick-greeter-mac`, fork de slick-greeter) con vuelta atrás `login-mac-revertir`. Detalle en su `LEEME.md` | `/usr/local/…`, `/etc/lightdm/` (con sudo) |
+| `aplicaciones/` | `/Applications` como en la Mac, armada sola con una copia de cada `.desktop` y la subcarpeta `Utilities` | `/Applications`, servicio de usuario |
+| `launchpad/` | El Launchpad: `/Applications` en pantalla completa sobre el fondo desenfocado, con buscador, páginas y la carpeta Other | `~/.local/bin/mac-launchpad` y el lanzador del Dock |
+| `etiquetas/` | Las etiquetas del Finder sacadas de la Mac a una base local (`etiquetas.json`) | `~/.local/share/mint-macos/etiquetas/` |
+| `icloud/` | iCloud Drive montado con rclone (`icloud.sh`), las apps web de iCloud y `esperar-icloud.sh` | servicio de usuario, `~/iCloud Drive` |
+| `capturas/` | ⇧⌘3, ⇧⌘4, ⇧⌘5 y el selector de emojis ⌃⌘Espacio | atajos de Cinnamon, `~/.local/bin/` |
 
 Atajos del escritorio que ya están:
 
 - ⌘Tab / ⌘⇧Tab cambia de ventana; ⌘\` / ⌘⇧\` entre ventanas de la misma app.
 - ⌘⇧Q cierra la sesión; ⌘⌃Q bloquea la pantalla.
-- ⌘⇧4 captura un área y ⌘⇧5 una ventana, al portapapeles.
+- ⌘⇧3 captura la pantalla y ⌘⇧4 un área, al escritorio (con ⌃, al portapapeles); ⌘⇧5 abre la herramienta de captura.
 - Super+Espacio cambia entre el teclado español y el inglés.
+
+## Cómo se trabaja en este repo
+
+- **Lo de Apple nunca entra al repo.** Íconos, glifos, fondos, fuentes y fotos se sacan
+  del disco de la Mac, en solo lectura, con los `desde-mac.sh` de cada carpeta, a
+  `~/.local/share/…`. Las capturas de referencia tampoco se commitean: se citan por
+  nombre de archivo.
+- **Antes de diseñar o dar algo por terminado, mirar las capturas de Catalina** y
+  comparar el resultado al lado de la de referencia; si no hay captura, se pide, no se
+  reconstruye de memoria (`CLAUDE.md`).
+- **Turno de pantalla (`gui-lock`)**: antes de cualquier `xdotool`, `wmctrl`, clic o
+  ventana nueva en la pantalla del usuario (`:0`), `~/.local/bin/gui-lock tomar <sesión>`
+  y soltarlo al terminar. Lo que se pueda probar en Xephyr o Xvfb va ahí y no lo necesita.
+- Los instaladores respaldan antes de tocar y traen su vuelta atrás (`--quitar`,
+  `--deshacer` o un `volver.sh`).
 
 ## Instalar
 
