@@ -60,6 +60,10 @@ logo /usr/share/code/resources/app/resources/linux/code.png vscode code visual-s
 logo /opt/microsoft/msedge/product_logo_256.png microsoft-edge microsoft-edge-stable com.microsoft.Edge
 # Os-Catalina le pone a Thunderbird el sello del Mail viejo; José quiere el suyo.
 logo /usr/share/icons/hicolor/256x256/apps/thunderbird.png thunderbird mozilla-thunderbird thunderbird-bin net.thunderbird.Thunderbird org.mozilla.Thunderbird
+# LibreOffice con sus logos (Os-Catalina los cambia). Vienen en SVG: se enlazan tal cual.
+for f in /usr/share/icons/hicolor/scalable/apps/libreoffice-*.svg; do
+  [ -f "$f" ] && ln -sf "$f" "$TEMA/escalables/apps/$(basename "$f")"
+done
 
 # Íconos del Finder si hay disco de Mac.
 if montar_mac_sistema; then
