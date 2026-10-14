@@ -35,6 +35,12 @@ EXT = 'System/Library/Extensions'
 
 # (archivo .icns relativo a la raíz, [nombres freedesktop])
 COLOR = [
+    # Pestañas de las Preferencias del Finder (las pide Fynder). La de Tags
+    # (PrefToolbarTagsIcon_32 en el Assets.car del Finder) va en deepmap2 y
+    # no sale; ToolbarLabels.icns es otra (la píldora vieja) y no se usa.
+    (f'{CT}/General.icns',                ['pref-general']),
+    (f'{CT}/SidebarPrefs.icns',           ['pref-sidebar']),
+    (f'{CT}/ToolbarAdvanced.icns',        ['pref-advanced']),
     (f'{CT}/GenericFolderIcon.icns',      ['folder', 'inode-directory', 'folder-templates']),
     (f'{CT}/OpenFolderIcon.icns',         ['folder-open', 'folder-drag-accept']),
     (f'{CT}/HomeFolderIcon.icns',         ['user-home', 'folder-home']),
