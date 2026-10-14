@@ -16,6 +16,7 @@ import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gio, GLib, Gtk  # noqa: E402
 
+import apple_id  # noqa: E402
 import paneles  # noqa: E402
 
 MAGIC_LAMP = "CinnamonMagicLamp@klangman"
@@ -269,4 +270,63 @@ class PanelDock:
         cfg.set_strv("enabled-extensions", lista)
 
 
-PROPIOS = {p.id: p for p in (PanelDock(),)}
+class PanelAppleID:
+    """Apple ID: el estado de iCloud Drive y de Mail y Calendar, con lo que hace
+    falta para completarlos. No sale en la cuadrícula: se abre desde la franja de
+    arriba, como en Catalina."""
+    id = "com.apple.preferences.AppleIDPrefPane"
+    nombre = "Apple ID"
+    claves = []
+    externo = False
+    propio = True
+    celda = None
+    oculto = True          # fuera de la cuadrícula
+    ventana = None         # la pone la ventana al abrirlo
+
+    def __init__(self):
+        self.panel = paneles.Panel(self.id, self.nombre, [], palabras="apple id, icloud, mail, calendar, sign in")
+
+    def coincide(self, texto):
+        t = texto.lower().strip()
+        return bool(t) and any(t in c.lower() for c in (self.nombre, self.panel.palabras, self.id))
+
+    def construir(self):
+        cuadro = Gtk.Grid(column_spacing=14, row_spacing=14)
+        cuadro.get_style_context().add_class("mp-propio")
+        cuadro.set_halign(Gtk.Align.CENTER)
+        cuadro.set_margin_top(22)
+        cuadro.set_margin_bottom(22)
+        cuadro.set_margin_start(30)
+        cuadro.set_margin_end(30)
+        cuenta = self.ventana._apple_id_conocido if self.ventana else None
+        tiene_mail = apple_id.mail_configurado()
+
+        def fila(n, etiqueta, estado, boton=None):
+            cuadro.attach(_etiqueta(etiqueta), 0, n, 1, 1)
+            e = Gtk.Label(label=estado, xalign=0, wrap=True, max_width_chars=34)
+            cuadro.attach(e, 1, n, 1, 1)
+            if boton:
+                cuadro.attach(boton, 2, n, 1, 1)
+
+        def boton(texto, accion):
+            b = Gtk.Button(label=texto)
+            b.set_valign(Gtk.Align.CENTER)
+            b.connect("clicked", lambda *_: accion())
+            return b
+
+        v = self.ventana
+        if cuenta:
+            fila(0, "Apple ID:", cuenta, boton("Sign Out…", v._cerrar_sesion_apple_id))
+            fila(1, "iCloud Drive:", "On — appears in your home folder as iCloud Drive")
+            fila(2, "Mail & Calendar:",
+                 "Set up in Thunderbird" if tiene_mail else "Not set up yet. It needs an app-specific password.",
+                 boton("Update…" if tiene_mail else "Set Up…", lambda: v._hoja_apple_id("mail")))
+        else:
+            fila(0, "Apple ID:", "Not signed in", boton("Sign In…", lambda: v._hoja_apple_id()))
+            fila(1, "iCloud Drive:", "Off. Sign in to use your iCloud files.")
+            fila(2, "Mail & Calendar:", "Sign in first.")
+        cuadro.show_all()
+        return cuadro
+
+
+PROPIOS = {p.id: p for p in (PanelDock(), PanelAppleID())}

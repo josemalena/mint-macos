@@ -296,6 +296,10 @@ class Ventana(Gtk.ApplicationWindow):
         traza("módulos cargados")
         self.grupos = armar_paneles(self.motor)
         self.todos = [p for _, ps in self.grupos for p in ps]
+        # Apple ID no está en la cuadrícula: se abre desde la franja de arriba.
+        self.panel_apple = propios.PROPIOS[propios.PanelAppleID.id]
+        self.panel_apple.ventana = self
+        self.todos.append(self.panel_apple)
         traza("paneles armados")
 
         self.pila.add_named(self._cuadricula(), "cuadricula")
@@ -316,7 +320,11 @@ class Ventana(Gtk.ApplicationWindow):
         barra = Gtk.HeaderBar()
         barra.set_show_close_button(True)
         barra.set_decoration_layout("close,minimize,maximize:")
-        barra.set_custom_title(Gtk.Label(label=TITULO))
+        titulo = Gtk.Label(label=TITULO)
+        titulo.get_style_context().add_class("mp-titulo")
+        barra.set_custom_title(titulo)
+        # El título de la barra sigue al de la ventana (el nombre del panel abierto).
+        self.connect("notify::title", lambda *_: titulo.set_text(self.get_title() or TITULO))
         barra.get_style_context().add_class("mp-barra")
 
         flechas = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
@@ -410,6 +418,8 @@ class Ventana(Gtk.ApplicationWindow):
 
     def _pintar_banner(self, actual):
         self._apple_id_conocido = actual
+        if self.actual is getattr(self, "panel_apple", None):     # la página abierta se rehace
+            GLib.idle_add(lambda: self.abrir(self.panel_apple, registrar=False) and False)
         for c in self.banner.get_children():
             self.banner.remove(c)
         self.banner.pack_start(self._avatar(48), False, False, 0)
@@ -425,23 +435,31 @@ class Ventana(Gtk.ApplicationWindow):
         textos.pack_start(nombre, False, False, 0)
         textos.pack_start(sub, False, False, 0)
         self.banner.pack_start(textos, True, True, 0)
-        if actual:
-            for etiqueta, accion in (("Mail & Calendar…", lambda *_: self._hoja_apple_id("mail")),
-                                     ("Sign Out", lambda *_: self._cerrar_sesion_apple_id())):
-                b = Gtk.Button(label=etiqueta)
-                b.set_valign(Gtk.Align.CENTER)
-                b.connect("clicked", accion)
-                self.banner.pack_start(b, False, False, 0)
-        else:
+        if not actual:
             b = Gtk.Button(label="Sign In")
             b.set_valign(Gtk.Align.CENTER)
             b.connect("clicked", lambda *_: self._hoja_apple_id())
             self.banner.pack_start(b, False, False, 0)
+        # El ícono de Apple ID, a la derecha como en Catalina: abre su panel.
+        celda = Gtk.Button()
+        celda.set_relief(Gtk.ReliefStyle.NONE)
+        celda.get_style_context().add_class("mp-celda")
+        caja = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        caja.pack_start(imagen_icono(self.panel_apple.id, "avatar-default", ICONO), False, False, 0)
+        caja.pack_start(Gtk.Label(label="Apple ID"), False, False, 0)
+        celda.add(caja)
+        celda.set_size_request(80, -1)
+        celda.connect("clicked", lambda *_: self.abrir(self.panel_apple))
+        self.banner.pack_start(celda, False, False, 0)
         self.banner.show_all()
         return False
 
     def _hoja_apple_id(self, paso=None):
-        hoja = apple_id.HojaAppleID(self, al_terminar=self._leer_apple_id)
+        def al_terminar():
+            self._leer_apple_id()
+            if self.actual is self.panel_apple:
+                GLib.timeout_add(600, lambda: self.abrir(self.panel_apple, registrar=False) and False)
+        hoja = apple_id.HojaAppleID(self, al_terminar=al_terminar)
         if paso == "mail":
             hoja.apple_id = self._apple_id_conocido or ""
             hoja._paso_mail()
