@@ -112,3 +112,17 @@ window.mp-ventana {
 .mp-hoja button {
   min-width: 64px;
 }
+
+/* Las filas de los paneles propios (Dock…). */
+.mp-fila-etiqueta {
+  color: rgba(255, 255, 255, 0.85);
+}
+.mp-propio label,
+.mp-propio checkbutton label,
+.mp-propio scale marks label {
+  color: rgba(255, 255, 255, 0.85);
+}
+.mp-propio scale marks label {
+  font-size: 8pt;
+  color: rgba(255, 255, 255, 0.55);
+}

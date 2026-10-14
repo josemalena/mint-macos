@@ -37,6 +37,7 @@ mkdir -p "$LIB/estilo" "$(dirname "$BIN")" "$(dirname "$LANZADOR")"
 install -m 755 "$AQUI/preferencias.py" "$LIB/preferencias.py"
 install -m 644 "$AQUI/paneles.py" "$LIB/paneles.py"
 install -m 644 "$AQUI/apple_id.py" "$LIB/apple_id.py"
+install -m 644 "$AQUI/propios.py" "$LIB/propios.py"
 install -m 644 "$AQUI/estilo/catalina.css" "$LIB/estilo/catalina.css"
 
 cat > "$BIN" <<EOF

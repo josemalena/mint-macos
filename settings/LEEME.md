@@ -90,5 +90,5 @@ estilo sobre el mismo motor.
 
 - La cuadrícula lleva solo los paneles que Catalina tiene, más «Advanced» (el
   cinnamon-settings de Mint). Los íconos del tema se fuerzan al mismo tamaño que los demás.
-- Más adelante, cada panel escribirá en el archivo de configuración del programa
+- El primero ya es así: Dock (propios.py). Cada panel escribirá en el archivo de configuración del programa
   (Plank, por ejemplo) en vez de traer la interfaz de ese programa. Se trabaja panel por panel.

@@ -46,6 +46,7 @@ import cairo  # noqa: E402
 
 import paneles  # noqa: E402
 import apple_id  # noqa: E402
+import propios  # noqa: E402
 
 _T0 = time.time()
 
@@ -131,6 +132,9 @@ def armar_paneles(motor):
     for gid, lista in paneles.GRUPOS:
         vivos = []
         for p in lista:
+            if p.id in propios.PROPIOS:      # escribe directo en la configuración del programa
+                vivos.append(propios.PROPIOS[p.id])
+                continue
             claves = [k for k in p.modulos if k in motor.paginas]
             # Alternativas externas (blueman o blueberry): con la primera basta.
             externas = [k for k in claves if motor.paginas[k].is_standalone]
@@ -586,6 +590,22 @@ class Ventana(Gtk.ApplicationWindow):
     def abrir(self, pv, registrar=True):
         if isinstance(pv, PanelAvanzado):
             pv.lanzar()
+            return
+        if getattr(pv, "propio", False):
+            self._salir_modulo()
+            self.actual = pv
+            self.set_title(pv.nombre)
+            for hijo in self.content_box.get_children():
+                self.content_box.remove(hijo)
+            self.content_box.pack_start(pv.construir(), False, False, 0)
+            self.fila_pestanas.hide()
+            self.sub_pestanas.set_stack(None)
+            self.sub_pestanas.hide()
+            self.pila.set_visible_child_name("pagina")
+            self.content_box.show_all()
+            GLib.idle_add(self._ajustar_alto)
+            if registrar:
+                self._registrar(pv.id)
             return
         if pv.externo:
             # Un programa externo: se lanza y la ventana se queda donde estaba.
