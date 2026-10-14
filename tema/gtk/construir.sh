@@ -3,14 +3,15 @@
 # menús de Cinnamon, bordes con semáforos (metacity-1 para Muffin) y Plank.
 # Parte de Mojave-gtk-theme (vinceliuice, GPL-3.0) en una versión fijada: se
 # clona y se compila con su propio instalador, sin copiar su CSS al repo, y
-# encima se le agrega _constanza.scss.
+# encima se le agrega _constanza.scss. Si hay disco de Mac, los semáforos
+# son los de Catalina (controles.py).
 set -euo pipefail
 AQUI="$(cd "$(dirname "$0")" && pwd)"
 MOJAVE_COMMIT=eff1025
 NOMBRE=Constanza-Oscuro
 DEST="$HOME/.themes"
 TMP="$(mktemp -d)"
-trap 'rm -rf "$TMP"' EXIT
+trap 'desmontar_mac 2>/dev/null; rm -rf "$TMP"' EXIT
 
 for p in sassc glib-compile-resources; do
   command -v "$p" >/dev/null || sudo apt install -y sassc libglib2.0-dev-bin
@@ -54,6 +55,17 @@ sed -i -e "s/^Name=.*/Name=$NOMBRE/" -e "s/^GtkTheme=.*/GtkTheme=$NOMBRE/" \
        -e "s/^Comment=.*/Comment=Constanza oscuro: Mojave-gtk-theme (GPL-3.0) con retoques propios/" \
        "$BASE/index.theme"
 cp "$AQUI/../CREDITOS.md" "$BASE/CREDITOS.md"
+
+# Los semáforos de Catalina, si hay disco de Mac: controles.py los saca de
+# los catálogos de apariencia (car.py, con liblzfse) y los pone en
+# metacity-1 y en gtk.gresource. Nada de Apple entra al repo.
+source "$AQUI/../comun.sh"
+if montar_mac_sistema; then
+  ap="$MAC_SISTEMA/System/Library/CoreServices/SystemAppearance.bundle/Contents/Resources"
+  python3 "$AQUI/controles.py" "$ap/SystemAppearance.car" "$ap/DarkAquaAppearance.car" "$BASE" \
+    || echo "  ⚠ sin semáforos de Catalina (quedan los de Mojave)"
+  desmontar_mac
+fi
 
 rm -rf "$DEST/$NOMBRE"; mkdir -p "$DEST"
 mv "$BASE" "$DEST/$NOMBRE"
