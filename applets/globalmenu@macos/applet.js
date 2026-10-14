@@ -37,12 +37,14 @@ const LINK_SECTION = "section";
 const ESTILO_FUENTE = 'font-family: ".SF NS", sans-serif; font-size: 10pt;';
 // Los desplegables, con la SF del grado de los menús de Catalina (regla de
 // fontconfig de tema/fuentes); si no está, cae a la SF normal. 14 px, como los
-// menús de Catalina (José, 13-10-2026), con las letras más juntas: en la
-// captura de la Mac «About Finder» mide 83 × 11 px, y esta fuente a 14 px da
-// 87 × 11 (a 13,3 px daba 83 × 10, el ancho bien y un píxel de menos de alto).
-// -0.33 px por letra le quita esos 4 px de ancho sin tocar el alto. La barra de
-// arriba se queda en 13,3 px (10pt), que es la de la barra de menús de Catalina.
-const ESTILO_MENU = 'font-family: ".SF NS Menú", ".SF NS", sans-serif; font-size: 10.5pt; letter-spacing: -0.33px;';
+// menús de Catalina (José, 13-10-2026): la altura cuadra con la captura de la Mac
+// («Hide Others» 11 px de alto, igual que allá). El texto sale un 4 % más ancho
+// (la Mac aplica su espaciado de letras de 14 px; «About Finder» mide 83 px allá
+// y 88 aquí). Un letter-spacing no lo arregla: el St de Cinnamon lo ignora por
+// debajo de -1 px (probado: 0, -0.33, -0.5 y -1 px dan el mismo ancho, y -2 px
+// ya lo achica un 12 %). La barra de arriba se queda en 13,3 px (10pt), que es
+// la de la barra de menús de Catalina.
+const ESTILO_MENU = 'font-family: ".SF NS Menú", ".SF NS", sans-serif; font-size: 10.5pt;';
 // Los títulos (File, Edit…): blancos y en peso regular. El cuerpo de más lo
 // pone el grado de la SF (GRAD 620); con 600 encima salían 22 % más gruesos
 // y 4 px más anchos que en la Mac (Dev-Dock, «Window»: 50 px allá). En la Mac
