@@ -10,8 +10,9 @@ Modos:
   - logoff    : lo mismo para cerrar la sesión.
 
 Los tres de confirmación son el de Catalina medido en c42 (ver ConfirmDialog):
-nunca sale encima el diálogo de Cinnamon, porque la acción va con --no-prompt
-y sin plan B que lo abra. «Reopen windows when logging back in» es el guardado
+nunca sale encima el diálogo de Cinnamon: Logout va con --no-prompt y sin plan B
+que lo abra; Restart y Shut Down piden RequestReboot/RequestShutdown al gestor
+de sesión, que no abren diálogo (ver SESION_PETICION). «Reopen windows when logging back in» es el guardado
 de sesión de Cinnamon (org.cinnamon.SessionManager auto-save-session).
 
 Uso:
@@ -43,6 +44,18 @@ FQ_HINT = "You can open this window by pressing Command-Option-Escape."
 
 
 # ──────────────────────────────────────────────────────────────────────────────
+# Apagar y reiniciar se piden al gestor de sesión con RequestShutdown y
+# RequestReboot, que NO abren diálogo. cinnamon-session-quit --reboot --no-prompt
+# no sirve: --no-prompt solo se respeta en Logout; para apagar y reiniciar
+# reenvía Shutdown()/Reboot(), y el gestor de sesión atiende esos con su propio
+# cinnamon-session-quit interactivo, o sea el diálogo de Cinnamon encima de este
+# (José, 13-10-2026). Si el gestor no contesta, systemctl de plan B.
+SESION_PETICION = ["gdbus", "call", "--session", "--dest", "org.gnome.SessionManager",
+                   "--object-path", "/org/gnome/SessionManager",
+                   "--method"]
+SESION_METODO = "org.gnome.SessionManager."
+
+
 # Confirm dialog presets (wording follows your screenshots)
 # ──────────────────────────────────────────────────────────────────────────────
 CONF_PRESETS: Dict[str, Dict[str, object]] = {
@@ -51,7 +64,8 @@ CONF_PRESETS: Dict[str, Dict[str, object]] = {
         "countdown": "If you do nothing, the computer will shut down automatically\nin {n} seconds.",
         "action_label": "Shut Down",
         "default_reopen": True,
-        "primary_cmd": ["cinnamon-session-quit", "--power-off", "--no-prompt"],
+        "primary_cmd": SESION_PETICION + [SESION_METODO + "RequestShutdown"],
+        "wait_primary": True,
         "fallback_cmds": [
             ["systemctl", "poweroff"],
             ["shutdown", "-h", "now"],
@@ -62,7 +76,8 @@ CONF_PRESETS: Dict[str, Dict[str, object]] = {
         "countdown": "If you do nothing, the computer will restart automatically\nin {n} seconds.",
         "action_label": "Restart",
         "default_reopen": True,
-        "primary_cmd": ["cinnamon-session-quit", "--reboot", "--no-prompt"],
+        "primary_cmd": SESION_PETICION + [SESION_METODO + "RequestReboot"],
+        "wait_primary": True,
         "fallback_cmds": [
             ["systemctl", "reboot"],
             ["shutdown", "-r", "now"],
@@ -634,8 +649,12 @@ def _guardar_reabrir_ventanas(valor: bool) -> None:
         pass
 
 
-def _run_command(cmd: List[str]) -> bool:
+def _run_command(cmd: List[str], wait: bool = False) -> bool:
+    """Lanza el comando. Con wait, espera y devuelve si salió bien (0): así un
+    gestor de sesión que no contesta cae al plan B en vez de no hacer nada."""
     try:
+        if wait:
+            return subprocess.run(cmd, capture_output=True, timeout=15).returncode == 0
         subprocess.Popen(cmd)
         return True
     except Exception:
@@ -648,7 +667,7 @@ def execute_action(mode: str, reopen_windows: bool) -> bool:
     """
     preset = CONF_PRESETS[mode]
     primary = list(preset["primary_cmd"])  # type: ignore
-    if _run_command(primary):
+    if _run_command(primary, wait=bool(preset.get("wait_primary"))):
         return True
 
     for fb in preset.get("fallback_cmds", []):  # type: ignore
