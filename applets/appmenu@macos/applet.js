@@ -34,8 +34,18 @@ const Main = imports.ui.main;
 // se busca el ítem About/Acerca de en ese menú y se activa su acción, igual
 // que en macOS; si no hay menú pero la app exporta la acción app.about, se usa
 // esa. Devuelve true si la app se encargó del diálogo.
-const RE_ABOUT = /^(about|acerca de)\b/i;
+const RE_ABOUT = /\b(about|acerca de)\b/i;   // «contiene», no «empieza con»
 const DBUS_TIMEOUT = 400;
+
+// Un patrón puede traer su «preferido»: entre varios ítems que lo cumplen se
+// toma el que cumple el preferido («About Firefox») antes que uno que solo
+// contiene la palabra («Open About Config»).
+const PREFERIDOS = new Map([[RE_ABOUT, /^(about|acerca de)\b/i]]);
+
+function elegirItem(candidatos, patron) {
+  let pref = PREFERIDOS.get(patron);
+  return (pref && candidatos.find(c => pref.test(c.etiqueta))) || candidatos[0] || null;
+}
 
 function llamar(bus, ruta, iface, metodo, args, tipo) {
   return Gio.DBus.session.call_sync(bus, ruta, iface, metodo, args,
@@ -43,9 +53,11 @@ function llamar(bus, ruta, iface, metodo, args, tipo) {
 }
 
 function buscarEnMenu(bus, ruta, patron) {
-  let pendientes = [0], vistos = new Set(), hallado = null;
+  let pendientes = [0], vistos = new Set(), candidatos = [], hallado = null;
+  let pref = PREFERIDOS.get(patron);
+  let bastaCon = () => candidatos.length && (!pref || candidatos.some(c => pref.test(c.etiqueta)));
   try {
-    for (let vuelta = 0; vuelta < 6 && pendientes.length && !hallado; vuelta++) {
+    for (let vuelta = 0; vuelta < 6 && pendientes.length && !bastaCon(); vuelta++) {
       let grupos = pendientes.filter(g => !vistos.has(g));
       pendientes = [];
       if (!grupos.length) break;
@@ -57,8 +69,8 @@ function buscarEnMenu(bus, ruta, patron) {
           for (let enlace of [":submenu", ":section"])
             if (it[enlace]) pendientes.push(it[enlace][0]);
           let etiqueta = (it.label || "").replace(/_/g, "");
-          if (!hallado && it.action && patron.test(etiqueta))
-            hallado = { accion: it.action, objetivo: it.target };
+          if (it.action && patron.test(etiqueta))
+            candidatos.push({ etiqueta, accion: it.action, objetivo: it.target });
         }
       }
     }
@@ -66,7 +78,8 @@ function buscarEnMenu(bus, ruta, patron) {
   try {
     llamar(bus, ruta, "org.gtk.Menus", "End", new GLib.Variant("(au)", [[...vistos]]), null);
   } catch (e) {}
-  return hallado;
+  hallado = elegirItem(candidatos, patron);
+  return hallado ? { accion: hallado.accion, objetivo: hallado.objetivo } : null;
 }
 
 function activarAccion(bus, ruta, nombre, objetivo) {
@@ -96,23 +109,27 @@ async function buscarEnDbusmenu(w, patron) {
   try { par = await reg.menuDe(xid); } finally { reg.destruir(); }
   if (!par) return null;
   let lector = new D.LectorDbusmenu(par[0], par[1], null);
-  let hallado = null;
+  let hallado = null, candidatos = [];
+  let pref = PREFERIDOS.get(patron);
+  let bastaCon = () => candidatos.length && (!pref || candidatos.some(c => pref.test(c.etiqueta)));
   let buscar = (items) => {
     for (let it of items || []) {
-      if (hallado) return;
       if (it.submenu) buscar(it.submenu);
-      else if (!it.separador && it.activo !== false && patron.test(it.etiqueta || "")) hallado = it;
+      else if (!it.separador && it.activo !== false && patron.test(it.etiqueta || ""))
+        candidatos.push({ etiqueta: it.etiqueta || "", it });
     }
   };
   try {
     for (let t of await lector.titulos()) {
       buscar(t.items());
-      if (hallado) break;
+      if (bastaCon()) break;
       // Chromium y Electron llenan cada menú al abrirlo.
       await t.abrir(); t.cerrar();
       buscar(t.items());
-      if (hallado) break;
+      if (bastaCon()) break;
     }
+    let elegido = elegirItem(candidatos, patron);
+    hallado = elegido ? elegido.it : null;
   } catch (e) {
     global.logError("appmenu@macos: dbusmenu: " + e);
   }
