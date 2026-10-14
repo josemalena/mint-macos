@@ -265,7 +265,57 @@ def hoja_css():
               "barra-v", 8, vertical=True, extra=" margin: 0; min-width: 12px; min-height: 24px;")
     c += tres("scrollbar.horizontal slider, scrollbar.overlay-indicator:not(.dragging):not(.hovering).horizontal slider",
               "barra-h", 8, extra=" margin: 0; min-height: 12px; min-width: 24px;")
+    c += COLORES
     return c
+
+
+# Los colores de Catalina oscuro, medidos en las capturas de la Mac de José
+# (Desktop/SS, 10-10-2026): la barra de título y la de herramientas son un
+# solo degradado de #383a3c a #2d2e30, con una línea de luz arriba y una
+# negra abajo; el contenido #1b1d1f; el lateral #27282a; el fondo de las
+# ventanas #303031.
+COLORES = """
+/* Colores de Catalina oscuro */
+/* Muffin pinta la barra de las ventanas sin barra propia con el
+   metacity-theme, que toma estos colores del tema GTK. */
+@define-color titlebar_gradient_a #383a3c;
+@define-color titlebar_gradient_b #2d2e30;
+@define-color wm_bg #333437;
+@define-color wm_bg_unfocused #29292b;
+@define-color wm_highlight #4a4b4e;
+@define-color wm_border_focused #000000;
+@define-color wm_border_unfocused #000000;
+.background { background-color: #303031; }
+.view, iconview, treeview.view, textview text,
+.nemo-window .view, .nemo-window iconview, .nemo-window treeview.view { background-color: #1b1d1f; }
+.sidebar, .nemo-window .sidebar, placessidebar, placessidebar list,
+.nemo-window .places-treeview, .nemo-window treeview.places-treeview { background-color: #27282a; }
+
+headerbar, .csd headerbar, headerbar.default-decoration, .titlebar:not(headerbar),
+.maximized headerbar, .tiled headerbar {
+  background-color: #333437;
+  background-image: linear-gradient(to bottom, #383a3c, #2d2e30);
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.18);
+  border-bottom: 1px solid #000000; }
+headerbar:backdrop, .csd headerbar:backdrop, headerbar.default-decoration:backdrop,
+.titlebar:not(headerbar):backdrop, .maximized headerbar:backdrop {
+  background-color: #29292b; background-image: none;
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.10);
+  border-bottom-color: #000000; }
+
+/* Fynder y Nemo: la barra de título y la de herramientas, un solo degradado
+   como en el Finder; la línea negra va debajo de la de herramientas. */
+.nemo-window headerbar, .nemo-window .titlebar:not(headerbar) {
+  background-image: linear-gradient(to bottom, #383a3c, #333437);
+  border-bottom: none; }
+.nemo-window .primary-toolbar:not(.libreoffice-toolbar) {
+  background-color: #303134;
+  background-image: linear-gradient(to bottom, #333437, #2d2e30);
+  border-image: none; border-style: solid; border-width: 0 0 1px 0; border-color: #000000; }
+.nemo-window:backdrop headerbar, .nemo-window:backdrop .titlebar:not(headerbar),
+.nemo-window:backdrop .primary-toolbar:not(.libreoffice-toolbar) {
+  background-color: #29292b; background-image: none; }
+"""
 
 
 def css(tema, oscuros):
