@@ -24,6 +24,11 @@ GRIS_BARRA = sys.argv[4] if len(sys.argv) > 4 else GRIS
 def rgb(hexa):
     return tuple(int(hexa.lstrip('#')[i:i + 2], 16) for i in (0, 2, 4))
 RGB, RGB_BARRA = rgb(GRIS), rgb(GRIS_BARRA)
+# El segmento elegido del selector de vista lleva el glifo oscuro sobre fondo
+# claro (#b0b2b5): Fynder pide <nombre>-selected-symbolic mientras está activo.
+RGB_ELEGIDO = rgb(sys.argv[5] if len(sys.argv) > 5 else '#2e3033')
+ELEGIDOS = {'IconView': 'view-grid-selected-symbolic', 'ListView': 'view-list-selected-symbolic',
+            'ColumnView': 'view-column-selected-symbolic', 'GalleryView': 'view-coverflow-selected-symbolic'}
 
 CT = 'System/Library/CoreServices/CoreTypes.bundle/Contents/Resources'
 EXT = 'System/Library/Extensions'
@@ -208,6 +213,8 @@ def generar_barra(tamanos, carpeta):
             im = pintar(lienzo, RGB_BARRA)
             for n in nombres:
                 im.save(os.path.join(TEMA, sub, n + '.png'))
+            if origen in ELEGIDOS:
+                pintar(lienzo, RGB_ELEGIDO).save(os.path.join(TEMA, sub, ELEGIDOS[origen] + '.png'))
             hechos += (t, esc) == tamanos[0]
     return [], hechos
 
