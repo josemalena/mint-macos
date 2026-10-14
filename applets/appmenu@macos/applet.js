@@ -346,6 +346,14 @@ function isDesktopWindow(w) {
   catch (e) { return false; }
 }
 
+// El escritorio de Fynder es una ventana más de Fynder para el menú (publica su
+// barra y su menú de aplicación), pero como el Finder no se «sale» de él:
+// Quit Finder va apagado, y con él no se puede tumbar el escritorio.
+function esEscritorioDeFynder(w) {
+  try { return !!w && (getWmClass(w) || "").toLowerCase() === "nemo-desktop"; }
+  catch (e) { return false; }
+}
+
 function getFocusedPid() {
   let w = getFocusedWindow();
   if (!w || isDesktopWindow(w)) return 0;
@@ -486,7 +494,9 @@ class AppMenuApplet extends Applet.TextApplet {
     if (!cls) return fallback;
 
     let norm = cls.toLowerCase();
-    if (norm === "nemo-desktop") return fallback;
+    // El escritorio de Fynder se llama Fynder, no «Finder» (decisión de José,
+    // 13-10-2026): es el nombre de la app, y así lo dicen About/Hide/Quit.
+    if (norm === "nemo-desktop") return "Fynder";
 
     // El nombre de la app como lo conoce Cinnamon (su .desktop): «Microsoft
     // Edge», no la clase de la ventana, que en Chromium con otro perfil trae
@@ -576,7 +586,7 @@ class AppMenuApplet extends Applet.TextApplet {
     }
     this.hideItem.setSensitive(hayApp);
     this.hideOthersItem.setSensitive(hayApp);
-    this.quitItem.setSensitive(hayApp);
+    this.quitItem.setSensitive(hayApp && !esEscritorioDeFynder(w));
     this.showAllItem.setSensitive(ventanasNormales().some(v => v.minimized));
   }
 
@@ -586,7 +596,7 @@ class AppMenuApplet extends Applet.TextApplet {
   // antes de 5 s la mata (TERM y luego KILL), como último recurso.
   async _salirDeApp() {
     let w = getFocusedWindow();
-    if (!w || isDesktopWindow(w)) return;
+    if (!w || isDesktopWindow(w) || esEscritorioDeFynder(w)) return;
     let app = appDe(w), pid = w.get_pid();
     let ahora = GLib.get_monotonic_time();
     let p = this._quitPendiente;
