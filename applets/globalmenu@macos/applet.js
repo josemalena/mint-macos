@@ -116,6 +116,26 @@ function atajoBonito(accel, teclaBonita) {
   return out + (teclaBonita ? teclaBonita(s) : (s.length === 1 ? s.toUpperCase() : s));
 }
 
+// Spotlyte (el lanzador) no cambia la barra: mientras tiene el foco es la de Fynder (la de su
+// escritorio), como Spotlight en macOS.
+function esLanzador(w) {
+  try {
+    let c = ((w.get_wm_class_instance && w.get_wm_class_instance()) || (w.get_wm_class && w.get_wm_class()) || "").toLowerCase();
+    return c === "ulauncher" || c === "spotlyte";
+  } catch (e) { return false; }
+}
+
+function ventanaDelEscritorioDeFynder() {
+  try {
+    for (let a of global.get_window_actors()) {
+      let m = a.meta_window;
+      let c = m && ((m.get_wm_class_instance && m.get_wm_class_instance()) || "");
+      if (c && c.toLowerCase() === "nemo-desktop") return m;
+    }
+  } catch (e) {}
+  return null;
+}
+
 // La ✓ de macOS va en el margen izquierdo, sin correr el texto: donde
 // Cinnamon pone el punto de radio (PopupBaseMenuItem._allocate lo coloca en
 // el relleno). setOrnament(CHECK) pinta una casilla, que la Mac no tiene.
@@ -226,6 +246,7 @@ class GlobalMenuApplet extends Applet.Applet {
 
   _alCambiarFoco() {
     let w = global.display.focus_window;
+    if (w && esLanzador(w)) w = ventanaDelEscritorioDeFynder() || this._ventana;
     // Al abrir uno de nuestros menús el foco no cambia a otra app; si la nueva
     // ventana es nula (el escritorio, el propio panel) se conserva el menú.
     if (!w) return;

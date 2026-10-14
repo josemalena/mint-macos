@@ -389,7 +389,11 @@ function procNameFromPid(pid) {
 }
 
 function getFocusedWindow() {
-  try { return global.display.get_focus_window ? global.display.get_focus_window() : null; }
+  try {
+    let w = global.display.get_focus_window ? global.display.get_focus_window() : null;
+    if (w && esLanzador(w)) return ventanaDelEscritorioDeFynder();
+    return w;
+  }
   catch (e) { return null; }
 }
 
@@ -404,6 +408,26 @@ function isDesktopWindow(w) {
 function esEscritorioDeFynder(w) {
   try { return !!w && (getWmClass(w) || "").toLowerCase() === "nemo-desktop"; }
   catch (e) { return false; }
+}
+
+// Spotlyte (el lanzador) no es «otro programa» para la barra: como Spotlight en macOS, no cambia el
+// menú. Mientras tiene el foco, y siempre que no haya programa, la barra es la de Fynder: se usa
+// la ventana del escritorio de Fynder en su lugar.
+function esLanzador(w) {
+  try {
+    let c = (getWmClass(w) || "").toLowerCase();
+    return c === "ulauncher" || c === "spotlyte";
+  } catch (e) { return false; }
+}
+
+function ventanaDelEscritorioDeFynder() {
+  try {
+    for (let a of global.get_window_actors()) {
+      let m = a.meta_window;
+      if (m && esEscritorioDeFynder(m)) return m;
+    }
+  } catch (e) {}
+  return null;
 }
 
 function getFocusedPid() {
