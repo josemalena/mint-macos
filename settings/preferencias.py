@@ -62,6 +62,7 @@ TITULO = "System Preferences"
 ICONO = 40            # el ícono de cada panel en la cuadrícula
 COLUMNAS = 8          # paneles por fila, como en Catalina
 ANCHO = 668           # el ancho de la ventana de Catalina
+BUSCADOR_ANCHO = 158  # medido en la captura de Catalina (1 px = 1 pt)
 MIN_ALTO = 380
 MIN_PAGINA = 520      # una página de módulo no baja de esto: sus listas se estiran
 
@@ -279,7 +280,7 @@ class Ventana(Gtk.ApplicationWindow):
 
         raiz = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         self.add(raiz)
-        raiz.pack_start(self._barra(), False, False, 0)
+        self.set_titlebar(self._barra())
 
         self.pila = Gtk.Stack()
         self.pila.set_transition_type(Gtk.StackTransitionType.CROSSFADE)
@@ -309,7 +310,13 @@ class Ventana(Gtk.ApplicationWindow):
 
     # ── barra de herramientas ────────────────────────────────────────────
     def _barra(self):
-        barra = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        """Barra unificada: los semáforos, los botones y el buscador en la misma
+        franja, como en Catalina. Es un GtkHeaderBar (CSD); Muffin solo mueve la
+        ventana. Los semáforos los pinta el tema (headerbar button.titlebutton)."""
+        barra = Gtk.HeaderBar()
+        barra.set_show_close_button(True)
+        barra.set_decoration_layout("close,minimize,maximize:")
+        barra.set_custom_title(Gtk.Label(label=TITULO))
         barra.get_style_context().add_class("mp-barra")
 
         flechas = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
@@ -325,21 +332,19 @@ class Ventana(Gtk.ApplicationWindow):
         self.b_adelante.connect("clicked", lambda *_: self.ir(1))
         flechas.pack_start(self.b_atras, False, False, 0)
         flechas.pack_start(self.b_adelante, False, False, 0)
-        barra.pack_start(flechas, False, False, 0)
+        barra.pack_start(flechas)
 
         self.b_todo.add(glifo("ToolbarTopSites", "view-grid-symbolic"))
         self.b_todo.set_tooltip_text("Show All")
         self.b_todo.connect("clicked", lambda *_: self.mostrar_todo())
-        barra.pack_start(self.b_todo, False, False, 0)
-
-        barra.pack_start(Gtk.Box(), True, True, 0)   # el título va en el marco de la ventana
+        barra.pack_start(self.b_todo)
 
         self.buscar = Gtk.SearchEntry()
         self.buscar.set_placeholder_text("Search")
-        self.buscar.set_width_chars(22)
+        self.buscar.set_size_request(BUSCADOR_ANCHO, -1)
         self.buscar.connect("search-changed", self._buscando)
         self.buscar.connect("activate", self._buscar_enter)
-        barra.pack_end(self.buscar, False, False, 0)
+        barra.pack_end(self.buscar)
 
         self.resultados = Gtk.Popover.new(self.buscar)
         self.resultados.set_modal(False)

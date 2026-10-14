@@ -6,16 +6,24 @@ window.mp-ventana {
   background-color: #2b2b2b;
 }
 
-/* La barra de herramientas: atrás y adelante, Show All, el título y la búsqueda. */
-.mp-barra {
-  padding: 8px 12px;
-  background-color: #323232;
-  border-bottom: 1px solid #1d1d1d;
+/* La barra unificada, medida sobre la captura de Catalina (1 px = 1 pt):
+   37 de alto más 1 de línea negra; botones atrás/adelante de 27×21 juntos,
+   Show All de 38×21; buscador de 158 de ancho; 8 de aire arriba y abajo. */
+headerbar.mp-barra {
+  min-height: 36px;
+  padding: 0 6px 0 8px;
+  background-image: linear-gradient(to bottom, #3c3d3e, #313133);
+  border-bottom: 1px solid #000000;
+  box-shadow: none;
 }
-.mp-barra button {
-  min-height: 0;
-  min-width: 0;
-  padding: 3px 9px;
+headerbar.mp-barra button:not(.titlebutton) {
+  min-height: 21px;
+  min-width: 27px;
+  padding: 0;
+  border-radius: 4px;
+}
+headerbar.mp-barra entry {
+  min-height: 22px;
 }
 .mp-titulo {
   font-weight: 600;
