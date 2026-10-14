@@ -648,6 +648,11 @@ class Ventana(Gtk.Window):
                 self.carpeta = None
                 self.queue_draw()
             return True
+        # un clic en el buscador no cierra: ya escribe ahí
+        bx, by, bw, bh = BUSCADOR
+        if abs(ev.x - self.W / 2) <= self.px(bw) / 2 and self.px(by) - 4 <= ev.y <= self.px(by + bh) + 4:
+            if not (self.consulta and ev.x > self.W / 2 + self.px(bw) / 2 - self.px(26)):   # salvo el botón de borrar
+                return True
         # los puntos de página
         if not self.consulta and self.paginas > 1 and abs(ev.y - self.px(PUNTOS_Y)) < self.px(14):
             n = self.paginas
