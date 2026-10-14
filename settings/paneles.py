@@ -32,8 +32,7 @@ EXTERNOS = {
     "timeshift-gtk": ("Time Machine", "timeshift", "backup, snapshot, restore, timeshift"),
 }
 
-# Grupos en el orden de Catalina: personal, hardware, internet y sistema.
-GRUPOS = [
+_GRUPOS_POR_TEMA = [
     ("personal", [
         Panel("com.apple.preference.general", "General",
               ["themes", "fonts", "effects", "default", "panel"],
@@ -104,6 +103,19 @@ GRUPOS = [
               palabras="accessibility, zoom, voiceover, keyboard, mouse, contrast"),
     ]),
 ]
+
+# Catalina dibuja solo tres bloques (con «Advanced» al final): los paneles
+# personales con las cuentas, los usuarios y la accesibilidad; luego el equipo y
+# la red; el último es lo de terceros, aquí «Advanced». El orden es el de la
+# captura de System Preferences (12.07.52).
+_ORDEN = [
+    ["general", "desktopscreeneffect", "dock", "expose", "Localization", "notifications",
+     "internetaccounts", "users", "universalaccess", "extensions", "security"],
+    ["softwareupdate", "network", "Bluetooth", "sound", "printfax", "keyboard", "trackpad", "mouse",
+     "displays", "energysaver", "datetime", "backup"],
+]
+_TODOS = {p.id.rsplit(".", 1)[1]: p for _, ps in _GRUPOS_POR_TEMA for p in ps}
+GRUPOS = [("bloque%d" % (i + 1), [_TODOS[k] for k in orden if k in _TODOS]) for i, orden in enumerate(_ORDEN)]
 
 # Lo que Catalina no tiene (Disks, Firewall, Fingerprints…) ya no sale en la
 # cuadrícula: queda detrás de un solo botón, «Advanced», que abre el
