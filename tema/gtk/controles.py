@@ -279,7 +279,7 @@ COLORES = """
 /* Muffin pinta la barra de las ventanas sin barra propia con el
    metacity-theme, que toma estos colores del tema GTK. */
 @define-color titlebar_gradient_a #38393c;
-@define-color titlebar_gradient_b #2d2e30;
+@define-color titlebar_gradient_b #333437;
 @define-color wm_bg #333437;
 @define-color wm_bg_unfocused #29292b;
 @define-color wm_highlight #4a4b4e;
