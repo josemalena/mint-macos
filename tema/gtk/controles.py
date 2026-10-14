@@ -303,6 +303,12 @@ headerbar:backdrop, .csd headerbar:backdrop, headerbar.default-decoration:backdr
   box-shadow: inset 0 1px rgba(255, 255, 255, 0.10);
   border-bottom-color: #000000; }
 
+/* La barra que pinta Muffin (ventanas sin barra propia) va sin línea abajo:
+   en el Finder, la barra de título y la de herramientas son un solo
+   degradado, y la línea va debajo de la de herramientas (la pone Fynder). */
+headerbar.default-decoration, .titlebar:not(headerbar), headerbar.default-decoration:backdrop,
+.titlebar:not(headerbar):backdrop { border-bottom: none; }
+
 /* Fynder y Nemo: la barra de título y la de herramientas, un solo degradado
    como en el Finder; la línea negra va debajo de la de herramientas. */
 .nemo-window headerbar, .nemo-window .titlebar:not(headerbar) {
