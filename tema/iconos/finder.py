@@ -66,6 +66,8 @@ SIMBOLICOS = [
     (f'{CT}/SidebarMusicFolder.icns',     ['folder-music-symbolic']),
     (f'{CT}/SidebarPicturesFolder.icns',  ['folder-pictures-symbolic']),
     (f'{CT}/SidebarMoviesFolder.icns',    ['folder-videos-symbolic']),
+    (f'{CT}/SidebarApplicationsFolder.icns', ['folder-applications-symbolic']),
+    (f'{CT}/SidebarUtilitiesFolder.icns',    ['folder-utilities-symbolic']),
     (f'{CT}/SidebariCloud.icns',          ['weather-overcast-symbolic']),
     (f'{CT}/SidebarInternalDisk.icns',    ['drive-harddisk-symbolic']),
     (f'{CT}/SidebarExternalDisk.icns',    ['drive-harddisk-usb-symbolic']),
