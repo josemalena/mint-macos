@@ -87,8 +87,14 @@ function activarAccion(bus, ruta, nombre, objetivo) {
   if (objetivo !== undefined && objetivo !== null) {
     try { params = [GLib.Variant.new_string(String(objetivo))]; } catch (e) {}
   }
-  llamar(bus, ruta, "org.gtk.Actions", "Activate",
-    new GLib.Variant("(sava{sv})", [nombre, params, {}]), null);
+  // Activate no responde hasta que la acción termina, y el About de muchas apps
+  // (Drawing, xed…) es un diálogo modal: la llamada tarda lo que el diálogo siga
+  // abierto. Con una llamada síncrona vencía el timeout, se daba el About por
+  // fallido y salía además el diálogo de respaldo. Se manda sin esperar.
+  Gio.DBus.session.call(bus, ruta, "org.gtk.Actions", "Activate",
+    new GLib.Variant("(sava{sv})", [nombre, params, {}]), null,
+    Gio.DBusCallFlags.NONE, -1, null,
+    (con, res) => { try { con.call_finish(res); } catch (e) {} });
 }
 
 const RE_PREFS = /^(preferences|preferencias|settings|ajustes)\b/i;
