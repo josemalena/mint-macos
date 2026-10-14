@@ -43,9 +43,15 @@ install -m 755 "$AQUI/aplicaciones.py" "$LIB/aplicaciones.py"
 cat > "$UNIDADES/aplicaciones.service" <<EOF
 [Unit]
 Description=Arma $DESTINO con las apps instaladas (mint-macos)
+# Un instalador que escribe muchos lanzadores seguidos dispara el .path una vez
+# por archivo; con el límite de systemd (5 en 10 s) la unidad quedaba «failed»
+# y /Applications a medias (14-10-2026, trece lanzadores de golpe).
+StartLimitIntervalSec=0
 
 [Service]
 Type=oneshot
+# Deja que termine la ráfaga: lo que llegue mientras tanto entra en esta corrida.
+ExecStartPre=/bin/sleep 2
 ExecStart=/usr/bin/python3 %h/.local/lib/mint-macos/aplicaciones.py --destino $DESTINO
 
 [Install]
