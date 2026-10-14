@@ -127,8 +127,8 @@ class Imagen:
         self.compresor = None
         self.envoltura = tag(self.datos[:4]) if len(self.datos) >= 4 else ""
         if self.envoltura in ("CELM", "KCBC"):
-            # CELM: versión, compresor, largo. KCBC (en trozos) igual, y
-            # adentro uno o más CELM o el flujo directo.
+            # MLEC: versión, compresor, largo; adentro el flujo directo o
+            # trozos KCBC de N filas, cada uno con su flujo.
             self.compresor = struct.unpack("<I", self.datos[8:12])[0]
 
     @property
@@ -163,18 +163,32 @@ def pixeles_de(im):
     canales = 4 if im.pixeles == "ARGB" else 2
     esperado = im.ancho * im.alto * canales
     d = im.datos
-    if im.envoltura == "CELM":
-        cuerpo = d[16:16 + struct.unpack("<I", d[12:16])[0]]
-    elif im.envoltura == "KCBC":
-        cuerpo = d[20:]
-    else:
+    if im.envoltura != "CELM":
         return None
-    if im.compresor == 0:
-        crudo = cuerpo
-    elif im.compresor == 4 or cuerpo[:4] in (b"bvx2", b"bvxn", b"bvx1", b"bvx-"):
-        crudo = lzfse(cuerpo, esperado)
+    cuerpo = d[16:]
+    if cuerpo[:4] == b"KCBC":
+        # En trozos: cada KCBC trae (0, 0, filas, largo) y su propio flujo.
+        partes, p = [], 0
+        while cuerpo[p:p + 4] == b"KCBC":
+            filas, largo = struct.unpack("<II", cuerpo[p + 12:p + 20])
+            trozo = cuerpo[p + 20:p + 20 + largo]
+            n = filas * im.ancho * canales
+            if im.compresor == 0:
+                partes.append(trozo)
+            elif im.compresor == 4:
+                partes.append(lzfse(trozo, n))
+            else:
+                return None
+            p += 20 + largo
+        crudo = b"".join(partes)
     else:
-        return None
+        cuerpo = cuerpo[:struct.unpack("<I", d[12:16])[0]]
+        if im.compresor == 0:
+            crudo = cuerpo
+        elif im.compresor == 4:
+            crudo = lzfse(cuerpo, esperado)
+        else:
+            return None
     if len(crudo) < esperado:
         return None
     modo = "RGBa" if canales == 4 else "La"
@@ -223,7 +237,8 @@ def sacar(ruta, carpeta, solo):
         if img is None:
             saltados += 1
             continue
-        sufijo = ("-oscuro" if atr.get("apariencia") else "") + (f"@{im.escala:g}x" if im.escala != 1 else "")
+        sufijo = f"-{im.ancho}x{im.alto}" + ("-oscuro" if atr.get("apariencia") else "") + \
+            (f"@{im.escala:g}x" if im.escala != 1 else "")
         img.save(os.path.join(carpeta, f"{nombre}{sufijo}.png"))
         hechos += 1
     print(f"  {hechos} imágenes; {saltados} sin poder abrir (deepmap2, vectores u otro formato)")
