@@ -36,8 +36,13 @@ const LINK_SECTION = "section";
 // después de recargar el tema el stylesheet no siempre vuelve a ganar.
 const ESTILO_FUENTE = 'font-family: ".SF NS", sans-serif; font-size: 10pt;';
 // Los desplegables, con la SF del grado de los menús de Catalina (regla de
-// fontconfig de tema/fuentes); si no está, cae a la SF normal.
-const ESTILO_MENU = 'font-family: ".SF NS Menú", ".SF NS", sans-serif; font-size: 10pt;';
+// fontconfig de tema/fuentes); si no está, cae a la SF normal. 14 px, como los
+// menús de Catalina (José, 13-10-2026), con las letras más juntas: en la
+// captura de la Mac «About Finder» mide 83 × 11 px, y esta fuente a 14 px da
+// 87 × 11 (a 13,3 px daba 83 × 10, el ancho bien y un píxel de menos de alto).
+// -0.33 px por letra le quita esos 4 px de ancho sin tocar el alto. La barra de
+// arriba se queda en 13,3 px (10pt), que es la de la barra de menús de Catalina.
+const ESTILO_MENU = 'font-family: ".SF NS Menú", ".SF NS", sans-serif; font-size: 10.5pt; letter-spacing: -0.33px;';
 // Los títulos (File, Edit…): blancos y en peso regular. El cuerpo de más lo
 // pone el grado de la SF (GRAD 620); con 600 encima salían 22 % más gruesos
 // y 4 px más anchos que en la Mac (Dev-Dock, «Window»: 50 px allá). En la Mac
