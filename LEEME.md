@@ -43,6 +43,11 @@ dueño. Son enlaces a propósito:
   rutas guardadas.
 - Si ya existe algo con ese nombre, no se toca.
 
+`/Applications` es distinta: es una carpeta real del usuario, no un enlace,
+porque Fynder tiene que verla como `/Applications` y `aplicaciones/` la llena
+sin sudo (ver `aplicaciones/LEEME.md`). `--quitar-rutas-mac` solo la borra si
+la creó `requisitos.sh` y ya está vacía.
+
 ### 2. Ubicar el disco y el usuario de la Mac
 
     lsblk -f                       # el contenedor sale como «apfs», p. ej. /dev/sdb2
@@ -147,8 +152,8 @@ Lo que hay que saber:
 Devuelve el tema, la barra, los atajos, el menú global, el administrador de
 archivos y el Dock a como estaban antes de la última instalación. Fynder y
 mint-macos-dock quedan en `~/.local`, sin usarse. Lo de `requisitos.sh` (keyd,
-libfsapfs, los paquetes) no se quita. Los enlaces `/Users` y `/Volumes` se
-quitan aparte con `sudo ./requisitos.sh --quitar-rutas-mac`, que solo borra
+libfsapfs, los paquetes) no se quita. Los enlaces `/Users` y `/Volumes` y la carpeta
+`/Applications` (vacía) se quitan aparte con `sudo ./requisitos.sh --quitar-rutas-mac`, que solo borra
 los que creó él.
 
 ## Glifos de la barra del Finder (en la Mac, una vez, opcional)

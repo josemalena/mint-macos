@@ -96,6 +96,15 @@ done
 paso "Menú global: que las apps publiquen su menú"
 "$REPO/menu-global/instalar.sh" --sesion
 
+# /Applications la crea requisitos.sh (sudo) como carpeta del usuario; si no
+# está, se sigue sin ella. La marca le dice a instalar.sh --deshacer que la quite.
+paso "/Applications como en la Mac"
+if [ -d /Applications ] && [ -w /Applications ] && [ ! -L /Applications ]; then
+  "$REPO/aplicaciones/instalar.sh" && touch "$RESPALDO/aplicaciones"
+else
+  echo "  sin /Applications del usuario: corre antes sudo ./requisitos.sh"
+fi
+
 paso "Listo"
 echo "  Los applets van al panel con cinnamon/barra.sh (lo corre instalar.sh)."
 echo "  El menú global de las apps se activa al cerrar sesión y volver a entrar."

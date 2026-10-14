@@ -41,6 +41,7 @@ if $DESHACER; then
   if [ -f "$R/barra.ruta" ] && [ -f "$(cat "$R/barra.ruta")/org-cinnamon.dconf" ]; then
     echo "  barra"; dconf load /org/cinnamon/ < "$(cat "$R/barra.ruta")/org-cinnamon.dconf"
   fi
+  [ -f "$R/aplicaciones" ] && { echo "  /Applications"; "$REPO/aplicaciones/instalar.sh" --quitar || true; }
   echo "  tema Constanza"; "$REPO/tema/instalar.sh" --deshacer || true
   for f in "$R"/*.dconf; do
     [ -f "$f" ] || continue
@@ -69,7 +70,8 @@ if $DESHACER; then
   elif [ -f "$R/sin-autostart-plank" ]; then rm -f "$HOME/.config/autostart/plank.desktop"; fi
   echo; echo "Listo. Cierra sesión y vuelve a entrar. Fynder y el Plank del fork quedan"
   echo "instalados en ~/.local, pero ya no son los de por defecto. keyd y lo de"
-  echo "requisitos.sh (sudo) no se quitan."
+  echo "requisitos.sh (sudo) no se quitan; /Users, /Volumes y /Applications vacía,"
+  echo "con sudo ./requisitos.sh --quitar-rutas-mac."
   exit 0
 fi
 

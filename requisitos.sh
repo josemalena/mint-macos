@@ -5,7 +5,8 @@
 #
 #   sudo ./requisitos.sh                     instala
 #   ./requisitos.sh --simular                dice qué haría, sin tocar nada (apt-get -s)
-#   sudo ./requisitos.sh --quitar-rutas-mac  quita /Users y /Volumes (solo si son nuestros)
+#   sudo ./requisitos.sh --quitar-rutas-mac  quita /Users, /Volumes y /Applications
+#                                            (solo lo que creó él; /Applications, vacía)
 #
 # Qué pone:
 #   - los paquetes de apt para compilar Fynder (fork de Nemo) y mint-macos-dock,
@@ -16,7 +17,8 @@
 #   - /etc/keyd/default.conf, el grupo keyd para el usuario y
 #     user_allow_other en /etc/fuse.conf (montar el disco de la Mac desde Nemo);
 #   - las rutas de macOS como enlaces: /Users → /home y /Volumes → la carpeta
-#     donde udisks monta los discos del usuario (/media/USUARIO).
+#     donde udisks monta los discos del usuario (/media/USUARIO); y
+#     /Applications como carpeta real del usuario (la llena aplicaciones/).
 set -euo pipefail
 
 REPO="$(cd "$(dirname "$0")" && pwd)"
@@ -39,13 +41,17 @@ paso() { printf '\n▸ %s\n' "$*"; }
 # las rutas guardadas. Con el mismo usuario y uid que en la Mac (jmalena, 501),
 # /Users/jmalena/... y /Volumes/<disco>/... valen igual en las dos.
 # Nunca se pisa algo que ya exista con ese nombre.
+# /Applications no es enlace: es una carpeta real del usuario, porque Fynder
+# tiene que verla como /Applications y aplicaciones/ escribe en ella sin sudo.
+# La marca dice que la creó mint-macos; sin ella, --quitar-rutas-mac no la toca.
+MARCA_APPS="$RAIZ/var/lib/mint-macos/applications-creada"
 rutas_mac() { # → «enlace destino» por línea
   local medios="$RAIZ/media/$USUARIO"
   [ -d "$RAIZ/run/media" ] && [ ! -d "$RAIZ/media/$USUARIO" ] && medios="$RAIZ/run/media/$USUARIO"
   printf '%s %s\n' "$RAIZ/Users" "$RAIZ/home" "$RAIZ/Volumes" "$medios"
 }
 if $QUITAR_RUTAS; then
-  paso "Quitando /Users y /Volumes"
+  paso "Quitando /Users, /Volumes y /Applications"
   [ -n "$RAIZ" ] || [ "$(id -u)" = 0 ] || { echo "  ✗ corre esto con sudo"; exit 1; }
   while read -r enlace destino; do
     if [ -L "$enlace" ] && [ "$(readlink "$enlace")" = "$destino" ]; then
@@ -54,6 +60,12 @@ if $QUITAR_RUTAS; then
       echo "  $enlace no es el enlace de mint-macos; no se toca"
     fi
   done < <(rutas_mac)
+  if [ -f "$MARCA_APPS" ] && [ -d "$RAIZ/Applications" ] && [ ! -L "$RAIZ/Applications" ]; then
+    if rmdir -- "$RAIZ/Applications" 2>/dev/null; then rm -f -- "$MARCA_APPS"; echo "  quitada: $RAIZ/Applications"
+    else echo "  $RAIZ/Applications no está vacía: corre antes aplicaciones/instalar.sh --quitar"; fi
+  else
+    echo "  $RAIZ/Applications no la creó mint-macos; no se toca"
+  fi
   exit 0
 fi
 
@@ -140,7 +152,7 @@ else
   id -nG "$USUARIO" | grep -qw disk || { usermod -aG disk "$USUARIO"; echo "  $USUARIO entra al grupo disk (leer /dev/sdX sin sudo)"; }
 fi
 
-paso "Rutas de macOS: /Users y /Volumes"
+paso "Rutas de macOS: /Users, /Volumes y /Applications"
 while read -r enlace destino; do
   if [ -L "$enlace" ] && [ "$(readlink "$enlace")" = "$destino" ]; then
     echo "  ya está: $enlace → $destino"
@@ -152,6 +164,18 @@ while read -r enlace destino; do
     ln -s "$destino" "$enlace"; echo "  $enlace → $destino"
   fi
 done < <(rutas_mac)
+GRUPO="$(id -gn "$USUARIO")"
+if [ -L "$RAIZ/Applications" ] || { [ -e "$RAIZ/Applications" ] && [ ! -d "$RAIZ/Applications" ]; }; then
+  echo "  ⚠ $RAIZ/Applications existe y no es una carpeta: no se toca"
+elif [ -d "$RAIZ/Applications" ]; then
+  echo "  ya está: $RAIZ/Applications ($(stat -c %U:%G "$RAIZ/Applications"))"
+elif $SIMULAR; then
+  echo "  se crearía $RAIZ/Applications, carpeta de $USUARIO:$GRUPO"
+else
+  install -d -o "$USUARIO" -g "$GRUPO" -m 755 "$RAIZ/Applications"
+  install -D -m 644 /dev/null "$MARCA_APPS"
+  echo "  $RAIZ/Applications, carpeta de $USUARIO:$GRUPO"
+fi
 
 paso "Listo"
 $SIMULAR && echo "  nada cambió (simulado)" || echo "  ahora, sin sudo: ./instalar.sh --disco /dev/sdX2 --usuario-mac NOMBRE"
