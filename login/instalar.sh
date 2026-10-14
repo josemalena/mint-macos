@@ -25,7 +25,7 @@ set -euo pipefail
 AQUI="$(cd "$(dirname "$0")" && pwd)"
 MINT_MACOS="$(dirname "$AQUI")"
 GREETER_REPO=https://github.com/josemalena/mint-macos-greeter.git
-GREETER_HASH=9d5c85334313a8e3328f8a789f3c19d94172471d
+GREETER_HASH=5254f6093010aab16c20611fb6c5fd892a8355b5
 FUENTE=""
 ACCION=instalar
 while [ $# -gt 0 ]; do
@@ -117,13 +117,24 @@ fi
 
 paso "El fondo y la foto de la Mac"
 LOCAL="$HOGAR/.local/share/constanza/login"
-FONDO_CONF=""
-if [ -f "$LOCAL/fondo.jpg" ]; then
-  install -m644 "$LOCAL/fondo.jpg" "$DATOS/fondo.jpg"
-  FONDO_CONF="$DATOS/fondo.jpg"
-  echo "  fondo: $DATOS/fondo.jpg"
+# El fondo es el del sistema: la pantalla de inicio sale con el escritorio de
+# José y, al elegir usuario, pasa a su variante oscura. Si el escritorio es el de
+# Catalina (el par claro/oscuro que saca desde-mac.sh --login) se usan los dos;
+# si es otra imagen, esa misma sirve para los dos estados (no tiene variante
+# oscura: no se inventa una).
+FONDO_CLARO=""; FONDO_OSCURO=""
+SISTEMA="$(sudo -u "$USUARIO" env DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$(id -u "$USUARIO")/bus" \
+           gsettings get org.cinnamon.desktop.background picture-uri 2>/dev/null | sed "s/^'file:\/\///; s/'\$//" || true)"
+if [ -n "$SISTEMA" ] && [ -f "$SISTEMA" ] && ! echo "$SISTEMA" | grep -qi catalina; then
+  convert "$SISTEMA" -resize 1920x1200^ -gravity center -extent 1920x1200 -quality 92 "$DATOS/fondo-sistema.jpg"
+  FONDO_CLARO="$DATOS/fondo-sistema.jpg"; FONDO_OSCURO="$FONDO_CLARO"
+  echo "  fondo del sistema ($SISTEMA): $FONDO_CLARO, sin variante oscura"
+elif [ -f "$LOCAL/fondo-claro.jpg" ] && [ -f "$LOCAL/fondo-oscuro.jpg" ]; then
+  install -m644 "$LOCAL/fondo-claro.jpg" "$LOCAL/fondo-oscuro.jpg" "$DATOS/"
+  FONDO_CLARO="$DATOS/fondo-claro.jpg"; FONDO_OSCURO="$DATOS/fondo-oscuro.jpg"
+  echo "  fondos de Catalina: claro para la lista, oscuro al elegir"
 else
-  echo "  ✗ sin fondo ($LOCAL/fondo.jpg): saldrá negro. Corre antes ./desde-mac.sh --login"
+  echo "  ✗ sin fondos ($LOCAL/fondo-claro.jpg y fondo-oscuro.jpg): saldrá negro. Corre antes ./desde-mac.sh --login"
 fi
 if [ -d "$LOCAL/iconos" ]; then
   install -d "$DATOS/mac"
@@ -144,12 +155,24 @@ else
   echo "  sin foto ($LOCAL/avatar.png): sale la silueta"
 fi
 
+# El estilo de la cuenta: oscuro si su tema de Cinnamon es oscuro o su
+# color-scheme es prefer-dark. Al elegirla en el login, el fondo pasa al oscuro
+# solo si está aquí (como la Mac: depende de la apariencia del usuario).
+GS="sudo -u $USUARIO env DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$(id -u "$USUARIO")/bus gsettings get"
+ESTILO="$($GS org.cinnamon.desktop.interface gtk-theme 2>/dev/null) $($GS org.gnome.desktop.interface color-scheme 2>/dev/null)"
+OSCUROS=""
+if echo "$ESTILO" | grep -qiE 'dark|oscuro'; then OSCUROS="$USUARIO;"; fi
+echo "  estilo de $USUARIO:${OSCUROS:+ oscuro}${OSCUROS:- claro} ($ESTILO)"
+
 paso "Configuración: $CONF"
 cat > "$CONF" <<CONF
 # slick-greeter-mac (mint-macos, login/instalar.sh). La del slick-greeter de
 # Mint es /etc/lightdm/slick-greeter.conf y no se toca.
 [Greeter]
-background=$FONDO_CONF
+background=$FONDO_CLARO
+background-claro=$FONDO_CLARO
+background-oscuro=$FONDO_OSCURO
+usuarios-oscuros=$OSCUROS
 background-color=#000000
 draw-user-backgrounds=false
 draw-grid=false

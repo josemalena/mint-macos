@@ -8,9 +8,9 @@
 # prueba /media/$USER/* buscando uno que tenga Users/ y Library/Caches.
 #
 # Deja en ~/.local/share/constanza/login/:
-#   fondo.jpg   el fondo del login de la Mac (Library/Caches/Desktop Pictures/
-#               <uuid>/lockscreen.png), a 1920×1200 y desenfocado como lo
-#               pinta Catalina
+#   fondo-claro.jpg, fondo-oscuro.jpg
+#               los dos fondos del login: la lista de usuarios sobre el claro
+#               y, al elegir a alguien, el oscuro (Catalina.heic, cuadros 0 y 1)
 #   avatar.png  la foto de la cuenta (jpegphoto del usuario en dslocal; viene
 #               en TIFF aunque se llame así)
 #   iconos/     los botones de abajo, de loginwindow.app del volumen de
@@ -31,14 +31,19 @@ fi
 [ -n "${MAC_DATOS:-}" ] || { echo "  ✗ no encontré el volumen de datos de la Mac (define MAC_DATOS)"; exit 1; }
 echo "  volumen de datos: $MAC_DATOS"
 
-# El fondo: el lockscreen.png más nuevo que haya.
-FONDO="$(ls -t "$MAC_DATOS"/Library/Caches/Desktop\ Pictures/*/lockscreen.png 2>/dev/null | head -1 || true)"
-if [ -n "$FONDO" ]; then
-  # Catalina difumina mucho el fondo del login (José, 10-10-2026: «desenfocado»).
-  convert "$FONDO" -resize 1920x1200^ -gravity center -extent 1920x1200 -blur 0x28 -quality 92 "$DESTINO/fondo.jpg"
-  echo "  fondo: $DESTINO/fondo.jpg"
+# Los fondos: el escritorio dinámico de Catalina (System/Library/Desktop
+# Pictures/Catalina.heic, en el volumen de SISTEMA). Trae ocho cuadros; el 0 es
+# la Catalina «clara» (el atardecer de la lista de usuarios) y el 1 la de noche
+# (la que sale al elegir a alguien). Sin desenfocar: así los muestra el login
+# de la Mac (fotos de José, 14-10-2026). A 1920×1200, recortada al centro.
+if [ -n "${MAC_SISTEMA:-}" ] && [ -f "$MAC_SISTEMA/System/Library/Desktop Pictures/Catalina.heic" ]; then
+  HEIC="$MAC_SISTEMA/System/Library/Desktop Pictures/Catalina.heic"
+  for par in "0:claro" "1:oscuro"; do
+    convert "$HEIC[${par%%:*}]" -resize 1920x1200^ -gravity center -extent 1920x1200 -quality 92 "$DESTINO/fondo-${par##*:}.jpg"
+    echo "  fondo ${par##*:}: $DESTINO/fondo-${par##*:}.jpg"
+  done
 else
-  echo "  ✗ no hay lockscreen.png en Library/Caches/Desktop Pictures (¿la Mac nunca bloqueó la pantalla?)"
+  echo "  sin MAC_SISTEMA o sin Catalina.heic: no hay fondos (corre ../desde-mac.sh --login)"
 fi
 
 # Los botones de abajo (Sleep, Restart, Shut Down), del sistema.
