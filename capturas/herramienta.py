@@ -24,7 +24,8 @@ import gi
 
 gi.require_version("Gtk", "3.0")
 gi.require_version("Gdk", "3.0")
-from gi.repository import Gdk, GLib, Gtk  # noqa: E402
+gi.require_version("GdkX11", "3.0")
+from gi.repository import Gdk, GdkX11, GLib, Gtk  # noqa: E402,F401
 import cairo  # noqa: E402
 import math  # noqa: E402
 
@@ -263,6 +264,119 @@ class Seleccion(Gtk.Window):
         self.alResolver(r)
 
 
+# ── pantalla / ventana: cursor de cámara y resaltado al pasar ───────────────
+def cursor_camara(display):
+    """Cámara fotográfica de 32 × 32 dibujada con cairo (punto activo en el centro)."""
+    s = cairo.ImageSurface(cairo.FORMAT_ARGB32, 32, 32)
+    cr = cairo.Context(s)
+
+    def forma():
+        _rect_redondo(cr, 3, 9, 26, 17, 3)
+        cr.new_sub_path()
+        cr.move_to(11, 9); cr.line_to(13, 5); cr.line_to(19, 5); cr.line_to(21, 9); cr.close_path()
+
+    forma()
+    cr.set_source_rgba(1, 1, 1, 1)
+    cr.set_line_width(4)
+    cr.stroke_preserve()
+    cr.set_source_rgba(0.1, 0.1, 0.1, 1)
+    cr.fill()
+    cr.arc(16, 17.5, 5.5, 0, 2 * math.pi)
+    cr.set_source_rgba(1, 1, 1, 1)
+    cr.fill()
+    cr.arc(16, 17.5, 3.2, 0, 2 * math.pi)
+    cr.set_source_rgba(0.1, 0.1, 0.1, 1)
+    cr.fill()
+    return Gdk.Cursor.new_from_surface(display, s, 16, 17)
+
+
+class Elegir(Gtk.Window):
+    """Cursor de cámara: al pasar sobre una ventana (o la pantalla) se resalta; un clic la elige.
+    Devuelve el id de la ventana ('root' para la pantalla) o None si se cancela con Esc."""
+
+    def __init__(self, modo, alResolver):
+        super().__init__(type=Gtk.WindowType.POPUP)
+        self.modo = modo
+        self.alResolver = alResolver
+        scr = self.get_screen()
+        if scr.get_rgba_visual():
+            self.set_visual(scr.get_rgba_visual())
+        self.set_app_paintable(True)
+        self.set_decorated(False)
+        self.set_keep_above(True)
+        self.sel = None
+        self.add_events(Gdk.EventMask.BUTTON_PRESS_MASK | Gdk.EventMask.POINTER_MOTION_MASK |
+                        Gdk.EventMask.KEY_PRESS_MASK)
+        self.connect("draw", self._dibujar)
+        self.connect("motion-notify-event", self._mover)
+        self.connect("button-press-event", self._clic)
+        self.connect("key-press-event", self._tecla)
+        self.ventanas = self._listar() if modo == "ventana" else []
+        self.move(0, 0)
+        self.resize(scr.get_width(), scr.get_height())
+        self.show_all()
+        gw = self.get_window()
+        gw.set_cursor(cursor_camara(self.get_display()))
+        gw.focus(Gdk.CURRENT_TIME)
+        self.get_display().get_default_seat().grab(gw, Gdk.SeatCapabilities.ALL, True, None, None, None)
+        if modo == "pantalla":
+            self.sel = ("root", (0, 0, scr.get_width(), scr.get_height()))
+
+    def _listar(self):
+        """Ventanas visibles de arriba hacia abajo: (id, (x, y, w, h)) con marco."""
+        out = []
+        for w in reversed(self.get_screen().get_window_stack() or []):
+            try:
+                if not w.is_visible() or w.get_state() & Gdk.WindowState.ICONIFIED:
+                    continue
+                if w.get_type_hint() in (Gdk.WindowTypeHint.DESKTOP, Gdk.WindowTypeHint.DOCK):
+                    continue
+                r = w.get_frame_extents()
+                out.append((str(w.get_xid()) if hasattr(w, "get_xid") else None, (r.x, r.y, r.width, r.height)))
+            except Exception:
+                continue
+        return [o for o in out if o[0]]
+
+    def _mover(self, _w, e):
+        if self.modo == "ventana":
+            x, y = e.x_root, e.y_root
+            nuevo = None
+            for wid, (rx, ry, rw, rh) in self.ventanas:
+                if rx <= x < rx + rw and ry <= y < ry + rh:
+                    nuevo = (wid, (rx, ry, rw, rh))
+                    break
+            if nuevo != self.sel:
+                self.sel = nuevo
+                self.queue_draw()
+
+    def _dibujar(self, _w, cr):
+        cr.set_operator(cairo.OPERATOR_SOURCE)
+        cr.set_source_rgba(0, 0, 0, 0.01)
+        cr.paint()
+        if self.sel:
+            x, y, w, h = self.sel[1]
+            cr.set_operator(cairo.OPERATOR_OVER)
+            cr.set_source_rgba(0.25, 0.5, 0.95, 0.35)
+            cr.rectangle(x, y, w, h)
+            cr.fill()
+        return True
+
+    def _clic(self, _w, e):
+        if e.button == 1 and self.sel:
+            self._cerrar(self.sel[0])
+        elif e.button != 1:
+            self._cerrar(None)
+
+    def _tecla(self, _w, e):
+        if e.keyval == Gdk.KEY_Escape:
+            self._cerrar(None)
+
+    def _cerrar(self, r):
+        self.get_display().get_default_seat().ungrab()
+        self.destroy()
+        self.alResolver(r)
+
+
 # ── la barra ────────────────────────────────────────────────────────────────
 class Barra(Gtk.Window):
     def __init__(self):
@@ -422,26 +536,22 @@ class Barra(Gtk.Window):
         self.hide()
         if modo in ("porcion", "grabar-porcion"):
             GLib.timeout_add(150, lambda: Seleccion(lambda r: self._tras_seleccion(modo, r)) and False)
-        elif modo == "ventana":
-            GLib.timeout_add(150, lambda: self._elegir_ventana() or False)
+        elif modo in ("ventana", "pantalla"):
+            GLib.timeout_add(150, lambda: Elegir(modo, lambda w: self._tras_elegir(modo, w)) and False)
         else:
             self._con_temporizador(lambda: self._hacer(modo, None))
+
+    def _tras_elegir(self, modo, wid):
+        if wid is None:
+            self.show()
+            return
+        self._con_temporizador(lambda: self._hacer(modo, wid))
 
     def _tras_seleccion(self, modo, r):
         if r is None:
             self.show()
             return
         self._con_temporizador(lambda: self._hacer(modo, r))
-
-    def _elegir_ventana(self):
-        try:
-            wid = subprocess.run(["xdotool", "selectwindow"], capture_output=True, text=True, timeout=60).stdout.strip()
-        except Exception:
-            wid = ""
-        if not wid:
-            self.show()
-            return
-        self._con_temporizador(lambda: self._hacer("ventana", wid))
 
     def _con_temporizador(self, fn):
         seg = int(self.cfg["temporizador"])
