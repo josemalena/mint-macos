@@ -315,6 +315,20 @@ menu menuitem, .menu menuitem, .context-menu menuitem, popover.menu modelbutton 
 headerbar.default-decoration, .titlebar:not(headerbar), headerbar.default-decoration:backdrop,
 .titlebar:not(headerbar):backdrop { border-bottom: none; }
 
+/* El marco de Muffin lo pinta GTK (headerbar.default-decoration), no el
+   metacity-theme: la geometría va aquí. Como en las capturas del Finder:
+   barra de 22 px, semáforos de 12 px cada 20 px (16 de botón y 4 de
+   separación: GTK pone 6, se le quita 1 por lado) con el primero a 8 px del
+   borde, y esquinas de 4 px (Mojave usa 8). */
+headerbar.default-decoration, .csd headerbar.default-decoration { min-height: 22px; padding: 0 6px; }
+headerbar.default-decoration button.titlebutton { margin: 0 -1px; }
+.ssd decoration { border-radius: 4px 4px 0 0; }
+separator:first-child + headerbar, headerbar:first-child,
+separator:first-child + headerbar:backdrop, headerbar:first-child:backdrop { border-top-left-radius: 4px; }
+headerbar:last-child, headerbar:last-child:backdrop { border-top-right-radius: 4px; }
+.maximized headerbar:first-child, .tiled headerbar:first-child,
+.maximized headerbar:last-child, .tiled headerbar:last-child { border-radius: 0; }
+
 /* Fynder y Nemo: la barra de título y la de herramientas, un solo degradado
    como en el Finder; la línea negra va debajo de la de herramientas. */
 .nemo-window headerbar, .nemo-window .titlebar:not(headerbar) {
