@@ -114,7 +114,24 @@ class Catalogo:
         for clave, valor in self.bom.arbol("RENDITIONS"):
             vals = struct.unpack(f"<{len(clave) // 2}H", clave)
             atr = {ATRIBUTOS.get(a, str(a)): v for a, v in zip(self.formato, vals)}
-            yield atr, Imagen(valor, self.nombres.get(atr.get("identificador")))
+            im = Imagen(valor, self.nombres.get(atr.get("identificador")))
+            im.catalogo = self
+            im.clave = frozenset((a, v) for a, v in zip(self.formato, vals) if v)
+            yield atr, im
+
+    def hoja(self, clave):
+        """La hoja empaquetada con esa clave, ya abierta (con caché). Las hay
+        en color (ARGB) y en gris (GA8): un recorte en color puede salir de
+        una hoja gris (los semáforos inactivos)."""
+        if not hasattr(self, "_hojas"):
+            self._hojas, self._abiertas = {}, {}
+            for _, im in self.imagenes():
+                if im.nombre.startswith("ZZZZPackedAsset"):
+                    self._hojas[im.clave] = im
+        if clave not in self._abiertas:
+            im = self._hojas.get(clave)
+            self._abiertas[clave] = pixeles_de(im) if im else None
+        return self._abiertas[clave]
 
 
 class Imagen:
@@ -130,6 +147,21 @@ class Imagen:
         self.faceta = nombre_faceta
         tlv, _, _, largo = struct.unpack("<4I", b[168:184])
         self.datos = b[184 + tlv:184 + tlv + largo]
+        self.tlv, p = {}, 184
+        while p < 184 + tlv:
+            tipo, n = struct.unpack("<II", b[p:p + 8])
+            self.tlv[tipo] = b[p + 8:p + 8 + n]
+            p += 8 + n
+        # Enlace a un recorte de una hoja empaquetada (TLV 1010, «INLK»):
+        # x, y, ancho, alto y la clave de la hoja como pares atributo-valor.
+        self.enlace = None
+        e = self.tlv.get(1010)
+        if e and e[:4] == b"KLNI":
+            x, y, w, h = struct.unpack("<4I", e[8:24])
+            largo_clave = struct.unpack("<H", e[26:28])[0]
+            clave = e[28:28 + largo_clave]
+            pares = [struct.unpack("<HH", clave[i:i + 4]) for i in range(2, len(clave) - 3, 4)]
+            self.enlace = ((x, y, w, h), frozenset((a, v) for a, v in pares if a))
         self.compresor = None
         self.envoltura = tag(self.datos[:4]) if len(self.datos) >= 4 else ""
         if self.envoltura in ("CELM", "KCBC"):
@@ -166,6 +198,10 @@ def pixeles_de(im):
     from PIL import Image as PImage
     if im.pixeles not in ("ARGB", "GA8"):
         return None
+    if not im.datos and im.enlace and getattr(im, "catalogo", None):
+        (x, y, w, h), clave = im.enlace
+        hoja = im.catalogo.hoja(clave)
+        return hoja.crop((x, y, x + w, y + h)) if hoja else None
     canales = 4 if im.pixeles == "ARGB" else 2
     esperado = im.ancho * im.alto * canales
     d = im.datos
@@ -178,7 +214,8 @@ def pixeles_de(im):
         while cuerpo[p:p + 4] == b"KCBC":
             filas, largo = struct.unpack("<II", cuerpo[p + 12:p + 20])
             trozo = cuerpo[p + 20:p + 20 + largo]
-            n = filas * im.ancho * canales
+            # Cada fila va rellenada hasta un múltiplo de 64 bytes.
+            n = filas * (-(-im.ancho * canales // 64) * 64)
             if im.compresor == 0:
                 partes.append(trozo)
             elif im.compresor == 4:
@@ -192,15 +229,24 @@ def pixeles_de(im):
         if im.compresor == 0:
             crudo = cuerpo
         elif im.compresor == 4:
-            crudo = lzfse(cuerpo, esperado)
+            crudo = lzfse(cuerpo, im.alto * (-(-im.ancho * canales // 64) * 64))
         else:
             return None
     if len(crudo) < esperado:
         return None
-    modo = "RGBa" if canales == 4 else "La"
-    img = PImage.frombuffer(modo, (im.ancho, im.alto), crudo[:esperado], "raw",
-                            "BGRa" if canales == 4 else "La", 0, 1)
-    return img.convert("RGBA")
+    # El largo real de fila: con relleno (múltiplo de 64) o sin él.
+    fila = len(crudo) // im.alto if len(crudo) % im.alto == 0 else im.ancho * canales
+    if canales == 4:
+        img = PImage.frombuffer("RGBa", (im.ancho, im.alto), crudo, "raw", "BGRa", fila, 1)
+        return img.convert("RGBA")
+    # GA8: gris y alfa, premultiplicado; PIL no convierte «La», se hace a mano.
+    import numpy as np
+    ga = np.frombuffer(crudo[:fila * im.alto], np.uint8).reshape(im.alto, fila)[:, :im.ancho * 2]
+    ga = ga.reshape(im.alto, im.ancho, 2).astype(np.float32)
+    gris, alfa = ga[..., 0], ga[..., 1]
+    gris = np.where(alfa > 0, np.clip(gris * 255 / np.maximum(alfa, 1), 0, 255), 0)
+    rgba = np.dstack([gris, gris, gris, alfa]).astype(np.uint8)
+    return PImage.fromarray(rgba, "RGBA")
 
 
 def mayor(ruta, nombre):
@@ -281,7 +327,11 @@ def sacar(ruta, carpeta, solo):
         if img is None:
             saltados += 1
             continue
-        sufijo = f"-{im.ancho}x{im.alto}" + ("-oscuro" if atr.get("apariencia") else "") + \
+        # Los controles repiten nombre y tamaño en cada estado (normal,
+        # apretado, inactivo…): los atributos van en el nombre del archivo.
+        extra = "".join(f"-{k}{v}" for k, v in sorted(atr.items())
+                        if v and k not in ("identificador", "escala", "apariencia"))
+        sufijo = f"-{im.ancho}x{im.alto}{extra}" + ("-oscuro" if atr.get("apariencia") else "") + \
             (f"@{im.escala:g}x" if im.escala != 1 else "")
         img.save(os.path.join(carpeta, f"{nombre}{sufijo}.png"))
         hechos += 1
