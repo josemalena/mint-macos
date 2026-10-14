@@ -633,6 +633,167 @@ class ConfirmDialog(Gtk.Window):
             self._timer_id = 0
 
 
+# El aviso del invitado al cerrar sesión (captura de José, 1.32.11 PM, a 1x):
+# la hoja mide 442 × 158 con la franja de 24 px; el triángulo de aviso, de
+# 58 px, a 22 px del borde y 19 bajo la franja; el texto desde x 92; los
+# botones de 21 px de alto a 20 px del borde derecho y del de abajo, 12 px
+# entre ellos: Cancel (71 px, el de ⏎, con el aro azul) y «Delete Files & Log Out».
+ANCHO_INV, ALTO_INV, FRANJA_INV = 442, 158, 24
+
+CSS_INVITADO = b"""
+#mac-inv-titulo { font-family: ".SF NS"; font-weight: bold; font-size: 13px; color: #dedfdf; }
+#mac-inv-texto { font-family: ".SF NS"; font-size: 11px; color: #dedfdf; }
+button.mac-boton-inv {
+  font-family: ".SF NS"; font-size: 13px; color: #e7e7e7;
+  min-height: 21px; min-width: 50px; padding: 0 10px; margin: 0; outline: none;
+  border-radius: 5px; border: 1px solid transparent; box-shadow: none; text-shadow: none;
+  background-image: none; background-color: #5f6061;
+}
+button.mac-boton-inv label { padding: 0; margin: 0; min-width: 0; }
+button.mac-boton-inv:hover { background-color: #6a6b6c; }
+button.mac-boton-inv.mac-boton-pordefecto { border: 2px solid rgba(34, 110, 232, 0.85); }
+"""
+
+
+def _dibujar_aviso(cr):
+    """El triángulo amarillo de aviso, a 58 × 58: va dibujado, no es un archivo de Apple."""
+    import math
+    r = 7.0
+    pts = [(29, 3), (55, 51), (3, 51)]
+    cr.set_line_join(1)
+    cr.set_line_width(5)
+    cr.set_source_rgb(0.93, 0.70, 0.05)
+    cr.move_to(*pts[0]); cr.line_to(*pts[1]); cr.line_to(*pts[2]); cr.close_path()
+    cr.stroke_preserve()
+    cr.fill()
+    cr.set_source_rgb(0.10, 0.09, 0.05)
+    cr.set_line_width(5)
+    cr.set_line_cap(1)
+    cr.move_to(29, 20); cr.line_to(29, 35)
+    cr.stroke()
+    cr.arc(29, 43, 3.0, 0, 2 * math.pi)
+    cr.fill()
+
+
+class GuestLogoutDialog(Gtk.Window):
+    """«If you log out, your files will be deleted»: el invitado de Catalina al cerrar sesión."""
+
+    TITULO = "If you log out, your files will be deleted."
+    TEXTO = ("You are logged in as a guest user. Logging out deletes all files and information "
+             "in the guest user home folder. These files cannot be recovered.")
+
+    def __init__(self):
+        super().__init__(title="")
+        self.respuesta = Gtk.ResponseType.CANCEL
+
+        self.set_name("mac-dialogo")
+        self.set_decorated(False)
+        self.set_resizable(False)
+        self.set_keep_above(True)
+        self.set_skip_taskbar_hint(True)
+        self.set_type_hint(Gdk.WindowTypeHint.DIALOG)
+        self.set_position(Gtk.WindowPosition.CENTER)
+        pantalla = self.get_screen()
+        visual = pantalla.get_rgba_visual()
+        if visual is not None and pantalla.is_composited():
+            self.set_visual(visual)
+            self.set_app_paintable(True)
+            margen = SOMBRA
+        else:
+            margen = 0
+        self.set_default_size(ANCHO_INV + 2 * margen, ALTO_INV + 2 * margen)
+
+        for css in (CSS_DIALOGO, CSS_INVITADO):
+            prov = Gtk.CssProvider()
+            prov.load_from_data(css)
+            Gtk.StyleContext.add_provider_for_screen(pantalla, prov, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION + 1)
+
+        fondo = Gtk.Box()
+        fondo.set_name("mac-caja")
+        fondo.set_size_request(ANCHO_INV, ALTO_INV)
+        fondo.set_margin_top(margen); fondo.set_margin_bottom(margen)
+        fondo.set_margin_start(margen); fondo.set_margin_end(margen)
+        caja = Gtk.Fixed()
+        caja.set_size_request(ANCHO_INV, ALTO_INV)
+        fondo.pack_start(caja, True, True, 0)
+        self.add(fondo)
+
+        franja = Gtk.Box()
+        franja.set_name("mac-franja")
+        franja.set_size_request(ANCHO_INV - 2, FRANJA_INV)
+        caja.put(franja, 1, 1)
+
+        icono = Gtk.DrawingArea()
+        icono.set_size_request(58, 58)
+        icono.connect("draw", lambda _w, cr: _dibujar_aviso(cr))
+        caja.put(icono, 22, FRANJA_INV + 19)
+
+        ancho_texto = ANCHO_INV - 92 - 20
+        titulo = Gtk.Label(label=self.TITULO)
+        titulo.set_name("mac-inv-titulo")
+        titulo.set_xalign(0.0)
+        titulo.set_size_request(ancho_texto, -1)
+        caja.put(titulo, 92, FRANJA_INV + 21)
+
+        texto = Gtk.Label(label=self.TEXTO)
+        texto.set_name("mac-inv-texto")
+        texto.set_xalign(0.0)
+        texto.set_yalign(0.0)
+        texto.set_line_wrap(True)
+        texto.set_size_request(ancho_texto, -1)
+        caja.put(texto, 92, FRANJA_INV + 44)
+
+        cancelar = Gtk.Button(label="Cancel")
+        cancelar.get_style_context().add_class("mac-boton-inv")
+        cancelar.get_style_context().add_class("mac-boton-pordefecto")
+        cancelar.set_size_request(71, 21)
+        cancelar.connect("clicked", lambda *_: self._terminar(Gtk.ResponseType.CANCEL))
+        borrar = Gtk.Button(label="Delete Files & Log Out")
+        borrar.get_style_context().add_class("mac-boton-inv")
+        borrar.connect("clicked", lambda *_: self._terminar(Gtk.ResponseType.OK))
+        fila = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        fila.set_size_request(ANCHO_INV - 16, 21)
+        fila.pack_end(borrar, False, False, 0)
+        fila.pack_end(cancelar, False, False, 0)
+        caja.put(fila, 0, ALTO_INV - 21 - 20)
+
+        # ⏎ es Cancel (lo destructivo no es el de por defecto) y ⎋ también.
+        self.connect("key-press-event", self._on_tecla)
+        self.connect("delete-event", lambda *_: (self._terminar(Gtk.ResponseType.CANCEL), True)[1])
+        self.show_all()
+        cancelar.grab_focus()
+        GLib.idle_add(self._al_frente)
+
+    def _al_frente(self):
+        try:
+            self.present_with_time(Gdk.CURRENT_TIME)
+            ventana = self.get_window()
+            if ventana is not None:
+                ventana.focus(Gdk.CURRENT_TIME)
+        except Exception:
+            pass
+        return False
+
+    def _on_tecla(self, _w, event):
+        if event.keyval in (Gdk.KEY_Return, Gdk.KEY_KP_Enter, Gdk.KEY_Escape):
+            self._terminar(Gtk.ResponseType.CANCEL)
+            return True
+        return False
+
+    def _terminar(self, respuesta):
+        self.respuesta = respuesta
+        Gtk.main_quit()
+
+    def run(self):
+        Gtk.main()
+        return self.respuesta
+
+
+def _sesion_de_invitado() -> bool:
+    """La cuenta temporal de LightDM se llama guest-XXXXXX."""
+    return (os.environ.get("USER") or GLib.get_user_name() or "").startswith("guest-")
+
+
 def _reabrir_ventanas_actual() -> bool:
     """«Reopen windows» es el guardado de sesión de Cinnamon."""
     try:
@@ -682,7 +843,7 @@ def execute_action(mode: str, reopen_windows: bool) -> bool:
 # ──────────────────────────────────────────────────────────────────────────────
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--mode", required=True, choices=["forcequit", "shutdown", "restart", "logoff"])
+    ap.add_argument("--mode", required=True, choices=["forcequit", "shutdown", "restart", "logoff", "guestlogout"])
     ap.add_argument("--seconds", type=int, default=DEFAULT_COUNTDOWN_SECONDS, help="Countdown seconds (confirm dialogs).")
     ap.add_argument("--print-json", action="store_true", help="Print result JSON to stdout (for applet).")
     ap.add_argument("--prueba", action="store_true",
@@ -693,6 +854,17 @@ def main() -> int:
         win = ForceQuitWindow()
         win.show_all()
         Gtk.main()
+        return 0
+
+    # En una sesión de invitado, Log Out borra la cuenta: antes va el aviso de Catalina.
+    if args.mode == "guestlogout" or (args.mode == "logoff" and _sesion_de_invitado()):
+        resp = GuestLogoutDialog().run()
+        did_execute = False
+        if resp == Gtk.ResponseType.OK and not args.prueba:
+            did_execute = execute_action("logoff", False)
+        if args.print_json:
+            print(json.dumps({"mode": "guestlogout", "confirmed": resp == Gtk.ResponseType.OK,
+                              "executed": did_execute, "prueba": bool(args.prueba)}, ensure_ascii=False))
         return 0
 
     # Restart / Shut Down / Log Out: la casilla arranca como esté guardada

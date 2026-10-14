@@ -1,0 +1,7 @@
+{
+  "uuid": "usuario@macos",
+  "name": "Fast User Switching (macOS)",
+  "description": "El menú de cambio rápido de usuario de Catalina: Guest User, las cuentas, Login Window… y Users & Groups Preferences….",
+  "max-instances": 1,
+  "cinnamon-version": ["6.0", "6.2", "6.4", "6.6"]
+}
