@@ -306,6 +306,35 @@ function abrirAboutDeLaApp(w) {
   return false;
 }
 
+// Los navegadores de Chromium no publican «About» en su menú (Edge solo trae
+// «Help center»): su About es una página propia. Se abre en una pestaña con el
+// mismo ejecutable (si el navegador ya corre, la abre en la instancia viva).
+const ABOUT_CHROMIUM = new Map([
+  ["msedge", "edge://settings/help"],
+  ["chrome", "chrome://settings/help"],
+  ["chromium", "chrome://settings/help"],
+  ["brave", "brave://settings/help"],
+  ["vivaldi-bin", "vivaldi://about"],
+  ["opera", "opera://about"],
+]);
+
+function abrirAboutChromium(w) {
+  let pid = 0;
+  try { pid = w.get_pid(); } catch (e) {}
+  if (pid <= 0) return false;
+  let exe = "";
+  try { exe = GLib.file_read_link(`/proc/${pid}/exe`); } catch (e) { return false; }
+  let url = ABOUT_CHROMIUM.get(GLib.path_get_basename(exe));
+  if (!url) return false;
+  try {
+    GLib.spawn_async(null, [exe, url], null, GLib.SpawnFlags.SEARCH_PATH | GLib.SpawnFlags.STDOUT_TO_DEV_NULL | GLib.SpawnFlags.STDERR_TO_DEV_NULL, null);
+    return true;
+  } catch (e) {
+    global.logError("appmenu@macos: About de Chromium: " + e);
+    return false;
+  }
+}
+
 function spawn(cmd) {
   Util.spawnCommandLine(cmd);
 }
@@ -666,6 +695,7 @@ class AppMenuApplet extends Applet.TextApplet {
     }
 
     if (abrirAboutDeLaApp(w)) return;
+    if (abrirAboutChromium(w)) return;
     // Si la app publica por dbusmenu (Edge lo tiene en Help).
     buscarEnDbusmenu(w, RE_ABOUT).then(activar => {
       if (activar) activar(); else this._aboutDeRespaldo(w, name);
