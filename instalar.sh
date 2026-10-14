@@ -10,7 +10,10 @@
 #   6. Fynder         como administrador de archivos, y el dock del fork
 #
 #   ./instalar.sh [--disco /dev/sdX2] [--volumen-sistema N] [--usuario-mac N]
-#                 [--cuadro N] [--sin-mac] [--login]
+#                 [--cuadro N] [--sin-mac] [--sin-compilar] [--login]
+#
+#   --sin-compilar  Fynder y el Dock ya vienen instalados en ~/.local (el
+#                   paquete de paquete.sh): no se clonan ni se compilan.
 #   ./instalar.sh --deshacer        vuelve a como estaba antes de la última
 #
 # Los datos del usuario (Documentos, Fotos…) NO se copian aquí: eso es
@@ -21,14 +24,15 @@ set -euo pipefail
 REPO="$(cd "$(dirname "$0")" && pwd)"
 RESP_BASE="$HOME/.mint-macos-respaldo"
 ULTIMO="$RESP_BASE/ultimo-instalar"
-ARGS_MAC=(); SIN_MAC=false; LOGIN=false; DESHACER=false
+ARGS_MAC=(); SIN_MAC=false; SIN_COMPILAR=false; LOGIN=false; DESHACER=false
 while [ $# -gt 0 ]; do
   case "$1" in
     --disco|--volumen-sistema|--volumen-datos|--usuario-mac|--cuadro) ARGS_MAC+=("$1" "$2"); shift 2 ;;
     --sin-mac) SIN_MAC=true; shift ;;
+    --sin-compilar) SIN_COMPILAR=true; shift ;;
     --login) LOGIN=true; ARGS_MAC+=("--login"); shift ;;
     --deshacer) DESHACER=true; shift ;;
-    -h|--help) sed -n '2,20p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,21p' "$0"; exit 0 ;;
     *) echo "✗ parámetro desconocido: $1 (mira --help)"; exit 2 ;;
   esac
 done
@@ -82,10 +86,15 @@ export MINT_MACOS_RESPALDO="$R"
 
 paso "0. Requisitos"
 FALTA=""
-for c in fsapfsmount keyd meson ninja valac sassc convert rsync git; do command -v "$c" >/dev/null || FALTA="$FALTA $c"; done
+for c in fsapfsmount keyd sassc convert rsync git $($SIN_COMPILAR || echo meson ninja valac); do command -v "$c" >/dev/null || FALTA="$FALTA $c"; done
 [ -z "$FALTA" ] && echo "  están" || { echo "  ✗ faltan:$FALTA — corre antes: sudo ./requisitos.sh"; exit 1; }
 
-paso "1. Compilar Fynder y mint-macos-dock";  "$REPO/construir.sh"
+if $SIN_COMPILAR; then
+  paso "1. Fynder y mint-macos-dock: ya instalados (--sin-compilar)"
+  for b in fynder plank; do [ -x "$HOME/.local/bin/$b" ] || { echo "  ✗ falta ~/.local/bin/$b"; exit 1; }; done
+else
+  paso "1. Compilar Fynder y mint-macos-dock";  "$REPO/construir.sh"
+fi
 
 if $SIN_MAC; then
   paso "2. Disco de la Mac: se salta (--sin-mac); el tema usa sus sustitutos (Inter, Os-Catalina)"
