@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Tema «Constanza» de ULauncher, con el aspecto de Spotlight en Catalina oscuro.
 
-    construir.py <carpeta de glifos> [destino]
+    construir.py <Assets.car de SystemAppearance> [destino]
 
-<carpeta de glifos> es la que deja «car.py glifos --oscuro» (trae
-SearchMagGlass@1x.png y @2x.png, la lupa de la barra de Catalina).
+De ese catálogo saca el vector de la lupa (SearchMagGlass, versión oscura) y
+lo dibuja a 20 y 40 px: la de Spotlight es más grande que la de la barra.
 [destino] por omisión: ~/.config/ulauncher/user-themes/constanza.
 La lupa se genera aquí desde el disco de la Mac; no va al repo.
 """
@@ -14,9 +14,10 @@ import sys
 
 from PIL import Image
 
-# Spotlight de Catalina, modo oscuro: barra ancha con esquinas de 10 px y
-# fondo oscuro translúcido; el campo a 24 px; la lupa en gris claro; el
-# resultado elegido con el azul de selección de macOS.
+# Spotlight de Catalina, medido en una captura con la barra de menús de
+# referencia (22 pt = 15 px, escala 0.70): barra de 680 × 54 pt, lupa de 20
+# a 16 pt del borde, texto desde los 50 pt, letra de unos 26 px. Colores del
+# modo oscuro: fondo translúcido, lupa gris y el azul de selección de macOS.
 GRIS_LUPA = (152, 153, 155)        # #98999b, los glifos grises del Finder
 
 CSS = """/* Constanza: ULauncher como Spotlight de Catalina (modo oscuro). */
@@ -50,14 +51,14 @@ CSS = """/* Constanza: ULauncher como Spotlight de Catalina (modo oscuro). */
 .input {
     color: @input_color;
     font-family: ".SF NS", "Inter", sans-serif;
-    font-size: 18pt;
+    font-size: 19.5pt;
     font-weight: 300;
-    min-height: 40px;
-    padding: 6px 8px 6px 46px;
+    min-height: 42px;
+    padding: 6px 12px 6px 50px;
     background-color: transparent;
     background-image: -gtk-scaled(url("lupa.png"), url("lupa@2.png"));
     background-repeat: no-repeat;
-    background-position: 12px center;
+    background-position: 16px center;
     border: none;
     box-shadow: none;
 }
@@ -93,21 +94,40 @@ CSS = """/* Constanza: ULauncher como Spotlight de Catalina (modo oscuro). */
 """
 
 
-def lupa(origen, destino):
-    img = Image.open(origen).convert("RGBA")
-    pintada = Image.new("RGBA", img.size, GRIS_LUPA + (0,))
-    pintada.putalpha(img.getchannel("A"))
-    pintada.save(destino)
+def lupa(car_sistema, destino):
+    """La lupa de Catalina dibujada de su vector a 20 y 40 px, en gris."""
+    import struct
+    import subprocess
+    import tempfile
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "iconos"))
+    import car
+    pdf = None
+    for atr, im in car.Catalogo(car_sistema).imagenes():
+        if (im.faceta or im.nombre) == "SearchMagGlass" and im.pixeles == "PDF" and im.envoltura == "RAWD":
+            if pdf is None or atr.get("apariencia"):
+                pdf = im.datos[12:12 + struct.unpack("<I", im.datos[8:12])[0]]
+    if pdf is None:
+        raise SystemExit("  ✗ no está SearchMagGlass en el catálogo")
+    with tempfile.TemporaryDirectory() as tmp:
+        ent = os.path.join(tmp, "lupa.pdf")
+        open(ent, "wb").write(pdf)
+        for alto, nombre in ((20, "lupa.png"), (40, "lupa@2.png")):
+            base = os.path.join(tmp, str(alto))
+            subprocess.run(["pdftocairo", "-png", "-singlefile", "-transp", "-scale-to-y", str(alto),
+                            "-scale-to-x", "-1", ent, base], check=True)
+            img = Image.open(base + ".png").convert("RGBA")
+            pintada = Image.new("RGBA", img.size, GRIS_LUPA + (0,))
+            pintada.putalpha(img.getchannel("A"))
+            pintada.save(os.path.join(destino, nombre))
 
 
 def main():
     if len(sys.argv) not in (2, 3):
         sys.exit(__doc__)
-    glifos = sys.argv[1]
+    car_sistema = sys.argv[1]
     destino = sys.argv[2] if len(sys.argv) == 3 else os.path.expanduser("~/.config/ulauncher/user-themes/constanza")
     os.makedirs(destino, exist_ok=True)
-    for esc, nombre in (("1x", "lupa.png"), ("2x", "lupa@2.png")):
-        lupa(os.path.join(glifos, f"SearchMagGlass@{esc}.png"), os.path.join(destino, nombre))
+    lupa(car_sistema, destino)
     with open(os.path.join(destino, "theme.css"), "w") as f:
         f.write(CSS)
     with open(os.path.join(destino, "theme-gtk-3.20.css"), "w") as f:
