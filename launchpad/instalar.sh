@@ -6,6 +6,8 @@
 #
 # El atajo es ⌥⌘L. keyd manda ⌘ como Ctrl y la tecla con ⌥ llega a Cinnamon como
 # Ctrl+Alt+L (como ⌘⌥F en VS Code), así que el atajo de Cinnamon es <Control><Alt>l.
+# kitty recibe ⌘ y ⌥ sin traducir (keyd/app.conf): ahí llega como Super+Alt+L, y por
+# eso el atajo lleva también <Super><Alt>l (comprobado con xinput el 14-10-2026).
 #
 # Solo toca el home del usuario: no escribe en /usr/share ni borra rofi.
 set -euo pipefail
@@ -19,6 +21,7 @@ MARCA="X-MintMacos-Launchpad=1"
 CLAVES=org.cinnamon.desktop.keybindings
 RUTA=/org/cinnamon/desktop/keybindings/custom-keybindings
 ATAJO="<Control><Alt>l"
+ATAJO_KITTY="<Super><Alt>l"
 
 # El atajo de Cinnamon: una entrada personalizada que corre mac-launchpad.
 quitar_atajo() {
@@ -41,7 +44,7 @@ poner_atajo() {
   k=custom$n
   gsettings set $CLAVES.custom-keybinding:$RUTA/$k/ name "Launchpad (⌥⌘L)"
   gsettings set $CLAVES.custom-keybinding:$RUTA/$k/ command "$BIN"
-  gsettings set $CLAVES.custom-keybinding:$RUTA/$k/ binding "['$ATAJO']"
+  gsettings set $CLAVES.custom-keybinding:$RUTA/$k/ binding "['$ATAJO', '$ATAJO_KITTY']"
   gsettings set $CLAVES custom-list "[$(for x in $lista $k; do printf "'%s', " "$x"; done | sed 's/, $//')]"
 }
 

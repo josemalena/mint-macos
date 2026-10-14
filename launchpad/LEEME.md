@@ -15,7 +15,8 @@ mac-launchpad --lista    qué mostraría, sin abrir nada
 
 **Atajo ⌥⌘L**: lo pone `instalar.sh` (y `--quitar` lo quita) como una entrada personalizada de
 Cinnamon. keyd manda ⌘ como Ctrl, así que ⌥⌘L llega a Cinnamon como `<Control><Alt>l` (igual que ⌘⌥F
-en VS Code); ese es el atajo registrado. Ojo: en Fynder ⌥⌘L es Downloads y el atajo del sistema lo
+en VS Code); ese es el atajo registrado. En kitty (que recibe ⌘ y ⌥ sin traducir) llega como
+`<Super><Alt>l`, que también está registrado. Ojo: en Fynder ⌥⌘L es Downloads y el atajo del sistema lo
 quita; si se prefiere dejarlo para Fynder, hay que cambiarlo en System Settings ▸ Keyboard ▸ Shortcuts.
 
 El Dock (Plank) apunta a `~/.local/share/applications/launchpad.desktop`, que el
