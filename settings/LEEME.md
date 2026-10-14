@@ -34,7 +34,7 @@ que hay en cada panel es lo que Cinnamon ya sabe hacer (`paneles.py`):
 | hardware | Displays (Displays, Night Shift, Color) · Energy Saver · Keyboard · Mouse · Trackpad (touchpad y gestos) · Printers & Scanners · Sound |
 | internet | Internet Accounts · Software Update · Network · Bluetooth · Extensions (applets, desklets, extensions, actions) |
 | sistema | Users & Groups (con Login Items) · Date & Time · Time Machine · Accessibility |
-| resto | lo que ningún panel de Catalina recoge, como los paneles de terceros de la Mac |
+| advanced | un solo botón, «Advanced», que abre el cinnamon-settings de Mint con todo lo que Catalina no tiene (Disks, Firewall, Fingerprints…) |
 
 Un panel sin ningún módulo disponible no sale. Los que son un programa externo
 (Dock, Software Update, Time Machine, impresoras, Bluetooth…) lo lanzan y la
@@ -85,3 +85,10 @@ estilo sobre el mismo motor.
   que ahí no corren; en la sesión real los módulos cargan en 0,3 s.
 - Displays y Network muestran un panel vacío si Cinnamon no está detrás (solo pasa
   en pruebas aisladas).
+
+## Decisión de José (14-10-2026)
+
+- La cuadrícula lleva solo los paneles que Catalina tiene, más «Advanced» (el
+  cinnamon-settings de Mint). Los íconos del tema se fuerzan al mismo tamaño que los demás.
+- Más adelante, cada panel escribirá en el archivo de configuración del programa
+  (Plank, por ejemplo) en vez de traer la interfaz de ese programa. Se trabaja panel por panel.

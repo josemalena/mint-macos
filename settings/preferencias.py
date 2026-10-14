@@ -145,22 +145,31 @@ def armar_paneles(motor):
             vivos.append(PanelVivo(p, claves, motor))
         if vivos:
             grupos.append((gid, vivos))
-    resto = []
-    for clave, sp in sorted(motor.paginas.items(), key=lambda kv: kv[1].name.lower()):
-        if clave in usados:
-            continue
-        nombre = paneles.NOMBRES_RESTO.get(clave, sp.name)
-        p = paneles.Panel(clave, nombre, [clave], palabras=sp.keywords or "", icono_tema=sp.icon)
-        resto.append(PanelVivo(p, [clave], motor))
-    # Dos lanzadores del mismo nombre (los tres «Login Window») se dejan en uno.
-    vistos, unico = set(), []
-    for v in resto:
-        if v.nombre.lower() not in vistos:
-            vistos.add(v.nombre.lower())
-            unico.append(v)
-    if unico:
-        grupos.append((paneles.GRUPO_RESTO, unico))
+    # Solo los paneles de Catalina. Lo demás de Mint (Disks, Firewall, Fingerprints…)
+    # queda detrás de un solo botón, «Advanced», que abre el cinnamon-settings de
+    # siempre.
+    grupos.append(("advanced", [PanelAvanzado()]))
     return grupos
+
+
+class PanelAvanzado:
+    """«Advanced»: el cinnamon-settings de Mint entero, para lo que Catalina no tiene."""
+    id = "mint.advanced"
+    nombre = "Advanced"
+    claves = []
+    externo = True
+    celda = None
+
+    def __init__(self):
+        self.panel = paneles.Panel(self.id, self.nombre, [], palabras="advanced, mint, cinnamon, all settings",
+                                   icono_tema="cs-general")
+
+    def lanzar(self):
+        subprocess.Popen(["cinnamon-settings"], start_new_session=True)
+
+    def coincide(self, texto):
+        t = texto.lower().strip()
+        return bool(t) and any(t in c.lower() for c in (self.nombre, self.panel.palabras, self.id))
 
 
 class PanelVivo:
@@ -207,7 +216,8 @@ def pixbuf_icono(ident, icono_tema, lado):
     tema = Gtk.IconTheme.get_default()
     for nombre in (icono_tema, "preferences-system"):
         try:
-            return tema.load_icon(nombre, lado, 0)
+            # FORCE_SIZE: que todos midan lo mismo, aunque el tema no tenga ese tamaño.
+            return tema.load_icon(nombre, lado, Gtk.IconLookupFlags.FORCE_SIZE)
         except GLib.Error:
             continue
     return None
@@ -574,6 +584,9 @@ class Ventana(Gtk.ApplicationWindow):
 
     # ── navegación ───────────────────────────────────────────────────────
     def abrir(self, pv, registrar=True):
+        if isinstance(pv, PanelAvanzado):
+            pv.lanzar()
+            return
         if pv.externo:
             # Un programa externo: se lanza y la ventana se queda donde estaba.
             self.motor.paginas[pv.claves[0]].build()

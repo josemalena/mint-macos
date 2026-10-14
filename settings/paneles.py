@@ -105,13 +105,9 @@ GRUPOS = [
     ]),
 ]
 
-# Lo que no cae en ningún panel de Catalina va al final, como los paneles de
-# terceros de la Mac (el grupo «addons»): cada módulo es su propio ícono.
-GRUPO_RESTO = "addons"
-
-# Nombres con que salen en el grupo final los módulos que chocarían con uno de
-# Catalina: el «General» de Cinnamon son opciones del compositor y de la sesión.
-NOMBRES_RESTO = {"general": "Advanced"}
+# Lo que Catalina no tiene (Disks, Firewall, Fingerprints…) ya no sale en la
+# cuadrícula: queda detrás de un solo botón, «Advanced», que abre el
+# cinnamon-settings de Mint (PanelAvanzado, en preferencias.py).
 
 # Cuando un panel se pide por el nombre de cinnamon-settings (cinnamon-settings
 # sound, cinnamon-settings display…) se abre el panel que lo contiene.
