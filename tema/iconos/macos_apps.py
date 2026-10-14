@@ -4,6 +4,9 @@ de la Mac (los .icns de cada .app y de cada panel de System Preferences).
 
     macos_apps.py <raíz del volumen de sistema de la Mac> <carpeta destino>
 
+Los que vienen dentro de un Assets.car (Internet Accounts, Appearance) se
+leen con car.py, que necesita liblzfse.
+
 Escribe <nombre-de-ícono-de-Linux>.png (256 px) en la carpeta destino, que es
 escalables/apps de Constanza. Nada de esto va al repo: se genera aquí.
 Lo que no esté en el disco se salta con un aviso.
@@ -76,6 +79,11 @@ def icns_de(bundle):
         for n in (nombre, nombre + ".icns"):
             if n.endswith(".icns") and os.path.isfile(os.path.join(recursos, n)):
                 return os.path.join(recursos, n)
+    # Desde Catalina algunos paneles lo traen dentro de Assets.car.
+    car = os.path.join(recursos, "Assets.car")
+    nombre = (info.get("CFBundleIconFile") or "").removesuffix(".icns")
+    if nombre and os.path.isfile(car):
+        return (car, nombre)
     if os.path.isfile(os.path.join(recursos, "AppIcon.icns")):
         return os.path.join(recursos, "AppIcon.icns")
     # Algunos no lo declaran: el único .icns que traigan.
@@ -84,6 +92,13 @@ def icns_de(bundle):
 
 
 def png_256(icns, destino):
+    if isinstance(icns, tuple):  # (Assets.car, nombre del ícono)
+        import car
+        img = car.mayor(*icns)
+        if img is None:
+            raise RuntimeError(f"no se pudo abrir {icns[1]} en {icns[0]}")
+        img.resize((256, 256), Image.LANCZOS).save(destino)
+        return
     img = Image.open(icns)
     # El tamaño más grande que traiga el .icns, y de ahí a 256 px.
     mayor = max(img.info.get("sizes", [img.size]))
@@ -106,6 +121,13 @@ def main():
             print(f"  ⚠ sin ícono en la Mac: {origen}")
             continue
         primero = os.path.join(carpeta, nombres[0] + ".png")
+        if isinstance(icns, tuple):
+            try:  # antes de borrar nada: sin liblzfse se queda el de antes
+                import car
+                car.mayor(*icns)
+            except Exception as e:
+                print(f"  ⚠ {origen}: {e}")
+                continue
         for n in nombres:
             for viejo in (n + ".svg", n + ".png"):
                 p = os.path.join(carpeta, viejo)

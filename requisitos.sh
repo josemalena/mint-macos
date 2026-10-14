@@ -98,6 +98,8 @@ EJECUCION=(
   gnome-screenshot xdg-user-dirs
   # icloud/icloud.sh: la clave de rclone.conf cifrado en el llavero; unzip
   libsecret-tools unzip
+  # tema/iconos/car.py: los íconos que vienen en Assets.car (LZFSE)
+  liblzfse1
 )
 
 paso "Paquetes de apt (${#COMPILAR[@]} para compilar, ${#EJECUCION[@]} en ejecución)"
