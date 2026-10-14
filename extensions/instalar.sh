@@ -11,6 +11,9 @@
 #   misioncontrol@macos  ⌃↑ todas las ventanas, ⌃↓ las de la app del frente,
 #                        ⌃← ⌃→ entre escritorios (necesita la capa [control]
 #                        de keyd/default.conf).
+#   entrada@macos        la espera de Catalina al iniciar sesión: solo el
+#                        fondo, y la barra de menú con un fundido cuando iCloud
+#                        y el escritorio de Fynder están listos.
 #
 # Respalda enabled-extensions y deja volver.sh en
 # ~/.local/share/respaldos/extensiones-<fecha>/.
@@ -18,7 +21,7 @@ set -euo pipefail
 
 AQUI="$(cd "$(dirname "$0")" && pwd)"
 DESTINO="$HOME/.local/share/cinnamon/extensions"
-EXTENSIONES=(cmdtab@macos misioncontrol@macos)
+EXTENSIONES=(cmdtab@macos misioncontrol@macos entrada@macos)
 ENCENDER=false
 [ "${1:-}" = "--encender" ] && ENCENDER=true
 
