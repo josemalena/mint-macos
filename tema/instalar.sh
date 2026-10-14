@@ -72,7 +72,20 @@ gsettings set org.cinnamon.desktop.interface gtk-theme 'Constanza-Oscuro'
 gsettings set org.cinnamon.desktop.wm.preferences theme 'Constanza-Oscuro'
 gsettings set org.cinnamon.theme name 'Constanza-Oscuro'
 gsettings set org.cinnamon.desktop.interface icon-theme 'Constanza'
-gsettings set org.cinnamon.desktop.interface cursor-theme 'McMojave-cursors' 2>/dev/null || true
+# Los cursores de Catalina van dentro de Constanza si construir.sh tuvo disco
+# de Mac; si no, McMojave.
+# libXcursor de Mint 22 busca solo en ~/.icons, /usr/share/icons y
+# /usr/share/pixmaps, no en ~/.local/share/icons: va un enlace en ~/.icons.
+if [ -d "$HOME/.local/share/icons/Constanza/cursors" ]; then
+  CURSORES=Constanza
+  mkdir -p "$HOME/.icons"
+  if [ ! -e "$HOME/.icons/Constanza" ] || [ -L "$HOME/.icons/Constanza" ]; then
+    ln -sfn ../.local/share/icons/Constanza "$HOME/.icons/Constanza"
+  fi
+else
+  CURSORES=McMojave-cursors
+fi
+gsettings set org.cinnamon.desktop.interface cursor-theme "$CURSORES" 2>/dev/null || true
 gsettings set org.cinnamon.desktop.wm.preferences button-layout 'close,minimize,maximize:'
 dconf write /net/launchpad/plank/docks/dock1/theme "'Constanza-Oscuro'"
 # El resto del dock (tamaño, zoom, posición, monitor, lanzadores) lo pone

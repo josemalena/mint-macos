@@ -51,7 +51,7 @@ sed -i -e "0,/font-family: Futura[^;]*;/s//font-family: $SHELL_FUENTE, sans-seri
 # Nombre propio y metatema.
 sed -i -e "s/^Name=.*/Name=$NOMBRE/" -e "s/^GtkTheme=.*/GtkTheme=$NOMBRE/" \
        -e "s/^MetacityTheme=.*/MetacityTheme=$NOMBRE/" -e "s/^IconTheme=.*/IconTheme=Constanza/" \
-       -e "s/^CursorTheme=.*/CursorTheme=McMojave-cursors/" \
+       -e "s/^CursorTheme=.*/CursorTheme=$([ -d "$HOME/.local/share/icons/Constanza/cursors" ] && echo Constanza || echo McMojave-cursors)/" \
        -e "s/^Comment=.*/Comment=Constanza oscuro: Mojave-gtk-theme (GPL-3.0) con retoques propios/" \
        "$BASE/index.theme"
 cp "$AQUI/../CREDITOS.md" "$BASE/CREDITOS.md"

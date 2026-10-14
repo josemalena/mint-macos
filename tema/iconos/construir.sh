@@ -7,7 +7,8 @@
 #     - los logos que traen las apps (VS Code, Edge, Thunderbird, LibreOffice,
 #       Firefox, VLC…) donde Os-Catalina pone otro o redibuja la marca;
 #     - si hay disco de Mac, los íconos de las apps de macOS para sus
-#       equivalentes de Linux y los paneles de Ajustes (macos_apps.py);
+#       equivalentes de Linux y los paneles de Ajustes (macos_apps.py), y
+#       los cursores de Catalina en cursors/ (cursores.py);
 #     - si hay disco de Mac, los íconos del Finder (finder.py): carpetas,
 #       documentos, discos, papelera y los glifos del lateral.
 # Nada de Apple se guarda en el repo: se genera aquí desde el disco.
@@ -100,6 +101,11 @@ if montar_mac_sistema; then
   # Las apps de Linux con equivalente en macOS (Terminal, Preview, Disk
   # Utility…) y los paneles de Ajustes, con el ícono de la Mac.
   python3 "$AQUI/macos_apps.py" "$MAC_SISTEMA" "$TEMA/escalables/apps"
+  # Los cursores de Catalina (los vectores de HIServices) en $TEMA/cursors,
+  # sobre McMojave-cursors, que pone los nombres que faltan.
+  python3 "$AQUI/cursores.py" \
+    "$MAC_SISTEMA/System/Library/Frameworks/ApplicationServices.framework/Versions/A/Frameworks/HIServices.framework/Versions/A/Resources/cursors" \
+    "$TEMA" || echo "  ⚠ sin cursores de Catalina"
   while read -r sub t esc; do DIRS+=("$sub $t $esc Fixed"); done < "$TEMA/finder-dirs.txt"
   rm -f "$TEMA/finder-dirs.txt"
   desmontar_mac
