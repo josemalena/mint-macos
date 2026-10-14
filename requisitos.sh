@@ -3,8 +3,9 @@
 # (construir.sh, desde-mac.sh, migrar-datos.sh, instalar.sh) corre como el
 # usuario y escribe en su $HOME.
 #
-#   sudo ./requisitos.sh             instala
-#   ./requisitos.sh --simular        dice qué haría, sin tocar nada (apt-get -s)
+#   sudo ./requisitos.sh                     instala
+#   ./requisitos.sh --simular                dice qué haría, sin tocar nada (apt-get -s)
+#   sudo ./requisitos.sh --quitar-rutas-mac  quita /Users y /Volumes (solo si son nuestros)
 #
 # Qué pone:
 #   - los paquetes de apt para compilar Fynder (fork de Nemo) y mint-macos-dock,
@@ -13,16 +14,48 @@
 #   - fsapfsinfo y fsapfsmount (leer el disco de la Mac), compilados: la
 #     versión de apt (libfsapfs-utils 2020) no lee los APFS de hoy;
 #   - /etc/keyd/default.conf, el grupo keyd para el usuario y
-#     user_allow_other en /etc/fuse.conf (montar el disco de la Mac desde Nemo).
+#     user_allow_other en /etc/fuse.conf (montar el disco de la Mac desde Nemo);
+#   - las rutas de macOS como enlaces: /Users → /home y /Volumes → la carpeta
+#     donde udisks monta los discos del usuario (/media/USUARIO).
 set -euo pipefail
 
 REPO="$(cd "$(dirname "$0")" && pwd)"
 SIMULAR=false
-[ "${1:-}" = "--simular" ] && SIMULAR=true
+QUITAR_RUTAS=false
+case "${1:-}" in
+  --simular) SIMULAR=true ;;
+  --quitar-rutas-mac) QUITAR_RUTAS=true ;;
+esac
+# Para probar los enlaces sin tocar «/»: MINT_MACOS_RAIZ=/tmp/raiz ./requisitos.sh …
+RAIZ="${MINT_MACOS_RAIZ:-}"
 USUARIO="${SUDO_USER:-${USER:-$(id -un)}}"
 KEYD_VERSION=v2.6.0
 
 paso() { printf '\n▸ %s\n' "$*"; }
+
+# Las rutas de macOS. Son enlaces y nada más: los discos se siguen montando
+# donde los monta udisks (la ruta viene compilada, no se configura) y $HOME
+# sigue en /home; mover cualquiera de las dos rompe fstab, Docker, snaps y
+# las rutas guardadas. Con el mismo usuario y uid que en la Mac (jmalena, 501),
+# /Users/jmalena/... y /Volumes/<disco>/... valen igual en las dos.
+# Nunca se pisa algo que ya exista con ese nombre.
+rutas_mac() { # → «enlace destino» por línea
+  local medios="$RAIZ/media/$USUARIO"
+  [ -d "$RAIZ/run/media" ] && [ ! -d "$RAIZ/media/$USUARIO" ] && medios="$RAIZ/run/media/$USUARIO"
+  printf '%s %s\n' "$RAIZ/Users" "$RAIZ/home" "$RAIZ/Volumes" "$medios"
+}
+if $QUITAR_RUTAS; then
+  paso "Quitando /Users y /Volumes"
+  [ -n "$RAIZ" ] || [ "$(id -u)" = 0 ] || { echo "  ✗ corre esto con sudo"; exit 1; }
+  while read -r enlace destino; do
+    if [ -L "$enlace" ] && [ "$(readlink "$enlace")" = "$destino" ]; then
+      rm -- "$enlace"; echo "  quitado: $enlace"
+    else
+      echo "  $enlace no es el enlace de mint-macos; no se toca"
+    fi
+  done < <(rutas_mac)
+  exit 0
+fi
 
 # Fynder: lista explícita de nemo-mac-e1 (build-dep nemo pide deb-src y trae
 # de más). mint-macos-dock (fork de plank-reloaded): lista de la sesión de Plank.
@@ -106,6 +139,19 @@ else
   grep -q '^user_allow_other' /etc/fuse.conf || echo 'user_allow_other' >> /etc/fuse.conf
   id -nG "$USUARIO" | grep -qw disk || { usermod -aG disk "$USUARIO"; echo "  $USUARIO entra al grupo disk (leer /dev/sdX sin sudo)"; }
 fi
+
+paso "Rutas de macOS: /Users y /Volumes"
+while read -r enlace destino; do
+  if [ -L "$enlace" ] && [ "$(readlink "$enlace")" = "$destino" ]; then
+    echo "  ya está: $enlace → $destino"
+  elif [ -e "$enlace" ] || [ -L "$enlace" ]; then
+    echo "  ⚠ $enlace ya existe y no es nuestro: no se toca"
+  elif $SIMULAR; then
+    echo "  se crearía $enlace → $destino"
+  else
+    ln -s "$destino" "$enlace"; echo "  $enlace → $destino"
+  fi
+done < <(rutas_mac)
 
 paso "Listo"
 $SIMULAR && echo "  nada cambió (simulado)" || echo "  ahora, sin sudo: ./instalar.sh --disco /dev/sdX2 --usuario-mac NOMBRE"

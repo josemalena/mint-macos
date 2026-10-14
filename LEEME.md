@@ -31,6 +31,18 @@ en todo el sistema) y **libfsapfs** (leer el disco de la Mac), pone
 mete al usuario en los grupos `keyd` y `disk`. **Cierra sesión y vuelve a
 entrar** para que valgan los grupos.
 
+También crea las rutas de macOS como enlaces: `/Users` → `/home` y
+`/Volumes` → `/media/<usuario>`, donde Linux monta los discos. Con el mismo
+nombre de usuario y uid que en la Mac (en la de José, `jmalena` y 501),
+`/Users/jmalena/…` y `/Volumes/<disco>/…` sirven igual en las dos, y los
+archivos que vienen del disco de la Mac o de un NAS por NFS conservan su
+dueño. Son enlaces a propósito:
+- Los discos se siguen montando en `/media`, porque la ruta de udisks viene
+  compilada y no se configura.
+- `$HOME` sigue en `/home`. Moverlo rompe `fstab`, Docker, los snaps y las
+  rutas guardadas.
+- Si ya existe algo con ese nombre, no se toca.
+
 ### 2. Ubicar el disco y el usuario de la Mac
 
     lsblk -f                       # el contenedor sale como «apfs», p. ej. /dev/sdb2
@@ -42,11 +54,11 @@ Mac es la carpeta de `/Users` en el volumen de datos.
 
 Si hay un solo disco de Mac, todo se detecta solo; si no, se pasa con
 parámetros: `--disco /dev/sdb2 --volumen-sistema 5 --volumen-datos 1
---usuario-mac jose`.
+--usuario-mac jmalena`.
 
 ### 3. Instalar (sin sudo)
 
-    ./instalar.sh --disco /dev/sdb2 --usuario-mac jose
+    ./instalar.sh --disco /dev/sdb2 --usuario-mac jmalena
 
 En orden:
 
@@ -86,8 +98,8 @@ los íconos de Os-Catalina y el fondo que haya).
 
 ### 5. Los datos del usuario (aparte)
 
-    ./migrar-datos.sh --usuario-mac jose --simular     # primero, siempre
-    ./migrar-datos.sh --usuario-mac jose
+    ./migrar-datos.sh --usuario-mac jmalena --simular     # primero, siempre
+    ./migrar-datos.sh --usuario-mac jmalena
 
 Copia Desktop, Documents, Downloads, Pictures, Movies y Music de la Mac a las
 carpetas del usuario de Linux (las de xdg-user-dirs). **Nunca sobrescribe**:
@@ -135,7 +147,9 @@ Lo que hay que saber:
 Devuelve el tema, la barra, los atajos, el menú global, el administrador de
 archivos y el Dock a como estaban antes de la última instalación. Fynder y
 mint-macos-dock quedan en `~/.local`, sin usarse. Lo de `requisitos.sh` (keyd,
-libfsapfs, los paquetes) no se quita.
+libfsapfs, los paquetes) no se quita. Los enlaces `/Users` y `/Volumes` se
+quitan aparte con `sudo ./requisitos.sh --quitar-rutas-mac`, que solo borra
+los que creó él.
 
 ## Glifos de la barra del Finder (en la Mac, una vez, opcional)
 
