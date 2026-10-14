@@ -6,7 +6,7 @@
     car.py sacar <Assets.car> <carpeta> [nombre…]
                                             escribe en PNG lo que se pueda
                                             descomprimir (sin comprimir y LZFSE)
-    car.py glifos <Assets.car> <carpeta> [nombre…]
+    car.py glifos <Assets.car> <carpeta> [--oscuro] [nombre…]
                                             los glifos que traen vector (PDF),
                                             dibujados con pdftocairo a su tamaño
                                             natural: <nombre>@1x.png y @2x.png
@@ -267,20 +267,27 @@ def mayor(ruta, nombre):
     return mejor[1] if mejor else None
 
 
-def glifos(ruta, carpeta, solo):
-    """Cada glifo con PDF (apariencia clara), dibujado a 1x y 2x del tamaño
-    de su mapa de bits de 1x; si no hay mapa de bits, al tamaño de la página."""
+def glifos(ruta, carpeta, solo, oscuro=False):
+    """Cada glifo con PDF, dibujado a 1x y 2x del tamaño de su mapa de bits de
+    1x; si no hay mapa de bits, al tamaño de la página. Con oscuro, el dibujo
+    de modo oscuro cuando lo hay: en Catalina varios cambian de forma, no
+    solo de color (la vista de íconos y Arrange son rellenos en oscuro)."""
     import subprocess
     import tempfile
     pdfs, tam = {}, {}
     for atr, im in Catalogo(ruta).imagenes():
         nombre = im.faceta or im.nombre
-        if (solo and nombre not in solo) or atr.get("apariencia"):
+        es_oscuro = bool(atr.get("apariencia"))
+        if solo and nombre not in solo:
             continue
         if im.pixeles == "PDF" and im.envoltura == "RAWD":
+            if es_oscuro and not oscuro:
+                continue
+            if not es_oscuro and oscuro and nombre in pdfs:
+                continue  # ya está el oscuro
             largo = struct.unpack("<I", im.datos[8:12])[0]
             pdfs[nombre] = im.datos[12:12 + largo]
-        elif im.escala == 1 and im.ancho:
+        elif im.escala == 1 and im.ancho and not es_oscuro:
             tam[nombre] = (im.ancho, im.alto)
     os.makedirs(carpeta, exist_ok=True)
     with tempfile.TemporaryDirectory() as tmp:
@@ -346,7 +353,8 @@ if __name__ == "__main__":
     if len(sys.argv) >= 3 and sys.argv[1] == "listar":
         listar(sys.argv[2])
     elif len(sys.argv) >= 4 and sys.argv[1] == "glifos":
-        glifos(sys.argv[2], sys.argv[3], set(sys.argv[4:]))
+        resto = [a for a in sys.argv[4:] if a != "--oscuro"]
+        glifos(sys.argv[2], sys.argv[3], set(resto), oscuro="--oscuro" in sys.argv[4:])
     elif len(sys.argv) >= 4 and sys.argv[1] == "sacar":
         sacar(sys.argv[2], sys.argv[3], set(sys.argv[4:]))
     else:

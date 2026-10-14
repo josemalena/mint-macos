@@ -17,8 +17,13 @@ from PIL import Image
 from PIL.IcnsImagePlugin import IcnsFile
 
 RAIZ, TEMA = sys.argv[1], sys.argv[2]
-GRIS = sys.argv[3] if len(sys.argv) > 3 else '#c4c4c4'
-RGB = tuple(int(GRIS.lstrip('#')[i:i + 2], 16) for i in (0, 2, 4))
+# Colores medidos en el Finder de Catalina oscuro (capturas de José,
+# 10-10-2026): los glifos del lateral #98999b y los de la barra #eaebed.
+GRIS = sys.argv[3] if len(sys.argv) > 3 else '#98999b'
+GRIS_BARRA = sys.argv[4] if len(sys.argv) > 4 else GRIS
+def rgb(hexa):
+    return tuple(int(hexa.lstrip('#')[i:i + 2], 16) for i in (0, 2, 4))
+RGB, RGB_BARRA = rgb(GRIS), rgb(GRIS_BARRA)
 
 CT = 'System/Library/CoreServices/CoreTypes.bundle/Contents/Resources'
 EXT = 'System/Library/Extensions'
@@ -97,7 +102,7 @@ BARRA = [
     ('IconView',         ['view-grid-symbolic', 'view-app-grid-symbolic']),
     ('ListView',         ['view-list-symbolic']),
     ('ColumnView',       ['view-column-symbolic', 'view-dual-symbolic']),
-    ('GalleryView',      ['view-paged-symbolic']),
+    ('GalleryView',      ['view-paged-symbolic', 'view-coverflow-symbolic']),
     ('Action',           ['emblem-system-symbolic']),
     ('Share',            ['emblem-shared-symbolic', 'send-to-symbolic']),
     ('SearchMagGlass',   ['edit-find-symbolic', 'system-search-symbolic']),
@@ -147,8 +152,8 @@ def cargar(icns, px):
     return im if im.size[0] == px else im.resize((px, px), Image.LANCZOS)
 
 
-def pintar(im):
-    gris = Image.new('RGBA', im.size, RGB + (0,))
+def pintar(im, color=None):
+    gris = Image.new('RGBA', im.size, (color or RGB) + (0,))
     gris.putalpha(im.getchannel('A'))
     return gris
 
@@ -200,7 +205,7 @@ def generar_barra(tamanos, carpeta):
                 f = lado / max(w, h); im = im.resize((max(1, int(w * f)), max(1, int(h * f))), Image.LANCZOS)
             lienzo = Image.new('RGBA', (lado, lado), (0, 0, 0, 0))
             lienzo.paste(im, ((lado - im.size[0]) // 2, (lado - im.size[1]) // 2), im)
-            im = pintar(lienzo)
+            im = pintar(lienzo, RGB_BARRA)
             for n in nombres:
                 im.save(os.path.join(TEMA, sub, n + '.png'))
             hechos += (t, esc) == tamanos[0]

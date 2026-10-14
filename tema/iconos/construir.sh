@@ -87,17 +87,21 @@ python3 "$AQUI/originales.py" "$TEMA/escalables/apps" k3b stock_xfburn winetrick
 # Íconos del Finder si hay disco de Mac.
 if montar_mac_sistema; then
   # Glifos de la barra (SystemAppearance.bundle/Assets.car). Sus mapas de
-  # bits van en deepmap2, que solo abre CoreUI, pero cada glifo trae también
-  # su vector en PDF: car.py lo dibuja aquí a 1x y 2x (pdftocairo). Si ya
-  # hay una carpeta sacada en una Mac (GLIFOS_FINDER o la de siempre), gana.
-  for g in "${GLIFOS_FINDER:-}" "$HOME/.local/share/constanza/glifos-finder"; do
-    [ -n "$g" ] && [ -f "$g/GoBack@1x.png" ] && { export GLIFOS_FINDER="$g"; break; }
-  done
+  # bits van en deepmap2, que solo abre CoreUI, pero cada glifo trae su
+  # vector en PDF: car.py lo dibuja aquí a 1x y 2x (pdftocairo), y en su
+  # versión de modo oscuro, que en Catalina cambia de forma (la vista de
+  # íconos, la Galería y Arrange son rellenos). La carpeta sacada en una Mac
+  # (GLIFOS_FINDER o la de siempre) queda de respaldo: es de modo claro.
   CAR_SISTEMA="$MAC_SISTEMA/System/Library/CoreServices/SystemAppearance.bundle/Contents/Resources/Assets.car"
-  if [ -z "${GLIFOS_FINDER:-}" ] && [ -f "$CAR_SISTEMA" ] && command -v pdftocairo >/dev/null; then
-    python3 "$AQUI/car.py" glifos "$CAR_SISTEMA" "$TMP/glifos" && export GLIFOS_FINDER="$TMP/glifos"
+  if [ -f "$CAR_SISTEMA" ] && command -v pdftocairo >/dev/null \
+     && python3 "$AQUI/car.py" glifos "$CAR_SISTEMA" "$TMP/glifos" --oscuro; then
+    export GLIFOS_FINDER="$TMP/glifos"
+  else
+    for g in "${GLIFOS_FINDER:-}" "$HOME/.local/share/constanza/glifos-finder"; do
+      [ -n "$g" ] && [ -f "$g/GoBack@1x.png" ] && { export GLIFOS_FINDER="$g"; break; }
+    done
   fi
-  python3 "$AQUI/finder.py" "$MAC_SISTEMA" "$TEMA" "#c4c4c4"
+  python3 "$AQUI/finder.py" "$MAC_SISTEMA" "$TEMA" "#98999b" "#eaebed"   # lateral y barra
   # Las apps de Linux con equivalente en macOS (Terminal, Preview, Disk
   # Utility…) y los paneles de Ajustes, con el ícono de la Mac.
   python3 "$AQUI/macos_apps.py" "$MAC_SISTEMA" "$TEMA/escalables/apps"
