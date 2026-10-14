@@ -156,6 +156,14 @@ Persistent=true
 [Install]
 WantedBy=timers.target
 EOF
+  # El escritorio de Fynder espera a que iCloud monte (ruedita de espera y
+  # aviso mientras tanto): si arranca antes, ve ~/Desktop vacío y no se
+  # refresca solo. Solo se toca si el autostart apunta al binario a secas.
+  install -D -m 755 "$(dirname "$YO")/esperar-icloud.sh" "$HOME/.local/libexec/mint-macos/esperar-icloud"
+  local auto="$HOME/.local/share/applications/nemo-autostart.desktop"
+  if [ -f "$auto" ] && grep -q '^Exec=[^ ]*fynder-desktop$' "$auto"; then
+    sed -i "s|^Exec=\(.*fynder-desktop\)$|Exec=$HOME/.local/libexec/mint-macos/esperar-icloud \1|" "$auto"
+  fi
   # Si Desktop o Documents viven dentro de iCloud Drive y el montaje no ha
   # subido al iniciar sesión, xdg-user-dirs-update los da por perdidos y los
   # cambia a «$HOME/»: el escritorio enseña el $HOME. Se le apaga la
