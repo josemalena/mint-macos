@@ -36,7 +36,11 @@ case "$modo" in
   pantalla) args=() ;;
   area)     args=(-a) ;;
   ventana)  args=(-w) ;;
-  herramienta) exec gnome-screenshot -i ;;
+  herramienta)
+    # La barra de Catalina (herramienta.py); sin ella, la de gnome-screenshot.
+    aqui="$(dirname "$(readlink -f "$0")")"
+    if [ -x "$aqui/mac-captura-herramienta" ]; then exec "$aqui/mac-captura-herramienta"; fi
+    exec gnome-screenshot -i ;;
   *) echo "uso: $0 pantalla|area|ventana|herramienta [--clip]" >&2; exit 2 ;;
 esac
 
