@@ -201,7 +201,11 @@ def pixeles_de(im):
     if not im.datos and im.enlace and getattr(im, "catalogo", None):
         (x, y, w, h), clave = im.enlace
         hoja = im.catalogo.hoja(clave)
-        return hoja.crop((x, y, x + w, y + h)) if hoja else None
+        if not hoja:
+            return None
+        # Coordenadas de CoreGraphics: el origen va abajo a la izquierda.
+        y = hoja.height - y - h
+        return hoja.crop((x, y, x + w, y + h))
     canales = 4 if im.pixeles == "ARGB" else 2
     esperado = im.ancho * im.alto * canales
     d = im.datos
