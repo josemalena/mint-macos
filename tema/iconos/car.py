@@ -6,6 +6,10 @@
     car.py sacar <Assets.car> <carpeta> [nombre…]
                                             escribe en PNG lo que se pueda
                                             descomprimir (sin comprimir y LZFSE)
+    car.py glifos <Assets.car> <carpeta> [nombre…]
+                                            los glifos que traen vector (PDF),
+                                            dibujados con pdftocairo a su tamaño
+                                            natural: <nombre>@1x.png y @2x.png
 
 Un .car es un archivo BOM («BOMStore», big-endian) con árboles B: FACETKEYS
 (nombre → atributos) y RENDITIONS (atributos → imagen). Cada imagen es un
@@ -14,7 +18,9 @@ datos. El formato no es público; esto sigue lo que se ha documentado
 desmontándolo (Timac, «Reverse engineering the .car file format»).
 
 Lo que no se puede abrir fuera de macOS: deepmap2 (compresión 11), con
-pérdida y sin documentar. Esas imágenes se listan pero no se sacan.
+pérdida y sin documentar. Esas imágenes se listan pero no se sacan. Muchos
+glifos que solo tienen mapa de bits en deepmap2 traen además su vector en
+PDF (bloque RAWD): «glifos» los saca de ahí.
 Nada de lo que sale de aquí va al repo.
 """
 import ctypes
@@ -134,7 +140,7 @@ class Imagen:
     @property
     def compresion(self):
         if self.compresor is None:
-            return {"DWAR": "crudo", "": "-"}.get(self.envoltura, self.envoltura)
+            return {"RAWD": "crudo", "": "-"}.get(self.envoltura, self.envoltura)
         return COMPRESORES.get(self.compresor, str(self.compresor))
 
 
@@ -211,6 +217,44 @@ def mayor(ruta, nombre):
     return mejor[1] if mejor else None
 
 
+def glifos(ruta, carpeta, solo):
+    """Cada glifo con PDF (apariencia clara), dibujado a 1x y 2x del tamaño
+    de su mapa de bits de 1x; si no hay mapa de bits, al tamaño de la página."""
+    import subprocess
+    import tempfile
+    pdfs, tam = {}, {}
+    for atr, im in Catalogo(ruta).imagenes():
+        nombre = im.faceta or im.nombre
+        if (solo and nombre not in solo) or atr.get("apariencia"):
+            continue
+        if im.pixeles == "PDF" and im.envoltura == "RAWD":
+            largo = struct.unpack("<I", im.datos[8:12])[0]
+            pdfs[nombre] = im.datos[12:12 + largo]
+        elif im.escala == 1 and im.ancho:
+            tam[nombre] = (im.ancho, im.alto)
+    os.makedirs(carpeta, exist_ok=True)
+    with tempfile.TemporaryDirectory() as tmp:
+        for nombre, pdf in pdfs.items():
+            ent = os.path.join(tmp, "g.pdf")
+            with open(ent, "wb") as f:
+                f.write(pdf)
+            for esc in (1, 2):
+                base = os.path.join(carpeta, f"{nombre}@{esc}x")
+                orden = ["pdftocairo", "-png", "-singlefile", "-transp"]
+                if nombre in tam:
+                    w, h = tam[nombre]
+                    orden += ["-scale-to-x", str(w * esc), "-scale-to-y", str(h * esc)]
+                else:
+                    orden += ["-r", str(72 * esc)]
+                subprocess.run(orden + [ent, base], check=True)
+                if nombre in tam:  # pdftocairo a veces redondea un píxel de más
+                    from PIL import Image as PImage
+                    img = PImage.open(base + ".png")
+                    if img.size != (w * esc, h * esc):
+                        img.resize((w * esc, h * esc), PImage.LANCZOS).save(base + ".png")
+    print(f"  {len(pdfs)} glifos con vector")
+
+
 def listar(ruta):
     cat = Catalogo(ruta)
     filas = []
@@ -247,6 +291,8 @@ def sacar(ruta, carpeta, solo):
 if __name__ == "__main__":
     if len(sys.argv) >= 3 and sys.argv[1] == "listar":
         listar(sys.argv[2])
+    elif len(sys.argv) >= 4 and sys.argv[1] == "glifos":
+        glifos(sys.argv[2], sys.argv[3], set(sys.argv[4:]))
     elif len(sys.argv) >= 4 and sys.argv[1] == "sacar":
         sacar(sys.argv[2], sys.argv[3], set(sys.argv[4:]))
     else:

@@ -86,9 +86,11 @@ SIMBOLICOS = [
 
 # Glifos de la barra del Finder de Catalina. Están en
 # SystemAppearance.bundle/Contents/Resources/Assets.car, con nombres sin NS ni
-# Template (GoBack, IconView, Action…). Ese catálogo solo se desempaca con
-# CoreUI en una Mac: GLIFOS_FINDER apunta a la carpeta con los PNG extraídos
-# (<Nombre>@1x.png y @2x.png). Si no está, la barra sigue con Os-Catalina.
+# Template (GoBack, IconView, Action…). Sus mapas de bits van en deepmap2,
+# que solo abre CoreUI, pero cada glifo trae su PDF: construir.sh los dibuja
+# con car.py. GLIFOS_FINDER apunta a la carpeta con los PNG (<Nombre>@1x.png
+# y @2x.png), dibujados aquí o sacados en una Mac. Si no está, la barra sigue
+# con Os-Catalina.
 BARRA = [
     ('GoBack',           ['go-previous-symbolic']),
     ('GoForward',        ['go-next-symbolic']),
