@@ -58,6 +58,12 @@ const ATAJO_LOGOUT = "⇧⌘Q";
 // Cuántos documentos enseña «Recent Items», como la Mac por defecto.
 const RECIENTES = 10;
 
+// System Preferences de mint-macos (settings/) si está instalada; si no, el
+// panel de Cinnamon de siempre.
+function comandoPreferencias() {
+  return GLib.find_program_in_path("mac-settings") ? "mac-settings" : "cinnamon-settings";
+}
+
 function spawn(cmd) {
   Util.spawnCommandLine(cmd);
 }
@@ -209,7 +215,7 @@ class AppleMenuApplet extends Applet.IconApplet {
 
     this._item("About This Mac", null, () => spawn("mintreport"));
     this._separador();
-    this._item("System Preferences…", null, () => spawn("cinnamon-settings"));
+    this._item("System Preferences…", null, () => spawn(comandoPreferencias()));
     this._item("App Store…", null, () => spawn("mintinstall"));
     this._separador();
 

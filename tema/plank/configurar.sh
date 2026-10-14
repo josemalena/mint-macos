@@ -37,7 +37,7 @@ DOCKLETS="$HOME/.local/lib/x86_64-linux-gnu/plank/docklets"
 # donde va su par por función: Thunderbird donde Spark (el correo), kitty donde
 # Terminal y Firefox donde Safari. Los que no existan aquí se saltan.
 ANTES=(finder launchpad applications thunderbird org.gnome.Calendar mintinstall
-       cinnamon-settings kitty microsoft-edge firefox code)
+       system-preferences cinnamon-settings kitty microsoft-edge firefox code)
 DESPUES=(separator downloads-stack trash)
 
 mkdir -p "$LANZADORES"
@@ -61,6 +61,14 @@ escribir_lanzador finder "file://$FINDER_DESKTOP"
 # El lanzador viejo apuntaba a nemo.desktop: sus ventanas (nemo-mac) salían
 # como otro ícono.
 rm -f "$LANZADORES/nemo.dockitem"
+
+# System Preferences de mint-macos (settings/), si está instalada: ocupa el lugar
+# de «System Preferences» y el engranaje de cinnamon-settings se quita, para no
+# tener los dos. Sin ella el dock sigue con el de Cinnamon.
+if [ -f "$APPS/mint-macos-settings.desktop" ]; then
+  escribir_lanzador system-preferences "file://$APPS/mint-macos-settings.desktop"
+  rm -f "$LANZADORES/cinnamon-settings.dockitem"
+fi
 
 if [ -f "$DOCKLETS/libdocklet-separator.so" ] && [ -f "$DOCKLETS/libdocklet-stacks.so" ]; then
   escribir_lanzador separator docklet://separator
