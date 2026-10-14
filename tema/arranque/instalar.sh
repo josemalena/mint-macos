@@ -56,8 +56,9 @@ ALTO="$(for c in /sys/class/drm/card*-*; do
           if [ "$(cat "$c/status" 2>/dev/null)" = connected ]; then head -1 "$c/modes"; fi
         done 2>/dev/null | awk -Fx '{print $2+0}' | sort -n | head -1 || true)"
 [ -n "$ALTO" ] || ALTO=1080
-# En la Mac la manzana mide ~1/12 del alto de la pantalla y la barra el doble
-# de ancho que la manzana, con 6 px de grueso (a 1x).
+# Medido en la Mac mini a 1920×1200 (foto del 14-10-2026): la manzana mide
+# 96 px de alto (0.08 del alto de la pantalla), la barra 231 × 7 px (2.4 veces
+# el alto de la manzana; 7 px a 1200 de alto).
 python3 - "$HOME_USUARIO/.local/share/fonts/san-francisco/SFNS.ttf" "$LOCAL" "$ALTO" <<'PY'
 import os, sys
 from PIL import Image, ImageDraw, ImageFont
@@ -65,7 +66,7 @@ fuente, salida, alto = sys.argv[1], sys.argv[2], int(sys.argv[3])
 os.makedirs(salida, exist_ok=True)
 if not os.path.exists(fuente):
     sys.exit("  ✗ falta SFNS.ttf: corre antes ./desde-mac.sh (la manzana sale de esa fuente)")
-h = max(48, round(alto / 12))
+h = max(48, round(alto * 0.08))
 grande = Image.new('L', (h * 6, h * 6), 0)
 ImageDraw.Draw(grande).text((h, h), '', font=ImageFont.truetype(fuente, h * 4), fill=255)
 mascara = grande.crop(grande.getbbox())
@@ -73,7 +74,7 @@ w = round(mascara.width * h / mascara.height)
 manzana = Image.new('RGBA', (w, h), (255, 255, 255, 0))
 manzana.putalpha(mascara.resize((w, h), Image.LANCZOS))
 manzana.save(os.path.join(salida, 'manzana.png'))
-bw, bh = round(h * 2.0), max(4, round(h / 16))
+bw, bh = round(h * 2.4), max(4, round(alto / 170))
 for nombre, color in (('barra-fondo.png', (90, 90, 90, 255)), ('barra-lleno.png', (255, 255, 255, 255))):
     barra = Image.new('RGBA', (bw * 4, bh * 4), (0, 0, 0, 0))
     ImageDraw.Draw(barra).rounded_rectangle((0, 0, bw * 4 - 1, bh * 4 - 1), radius=bh * 2, fill=color)
@@ -88,9 +89,9 @@ from PIL import Image
 d, alto = sys.argv[1], int(sys.argv[2]); ancho = round(alto * 16 / 10)
 v = Image.new('RGB', (ancho, alto), (0, 0, 0))
 m = Image.open(os.path.join(d, 'manzana.png')); f = Image.open(os.path.join(d, 'barra-fondo.png')); l = Image.open(os.path.join(d, 'barra-lleno.png'))
-mx, my = ancho // 2 - m.width // 2, round(alto / 2 - m.height * 0.62)
+mx, my = ancho // 2 - m.width // 2, round(alto / 2 - m.height / 2)
 v.paste(m, (mx, my), m)
-px, py = ancho // 2 - f.width // 2, round(my + m.height + m.height * 0.72)
+px, py = ancho // 2 - f.width // 2, round(alto / 2 + alto / 6 - f.height / 2)
 v.paste(f, (px, py), f)
 mitad = l.crop((0, 0, l.width // 2, l.height)); v.paste(mitad, (px, py), mitad)
 v.save(os.path.join(d, 'vista.png'))
