@@ -58,6 +58,11 @@ Escriben directo en la configuración del programa, en vez de traer su interfaz:
   Automatically hide and show, Show indicators y Show recent applications. Lo escribe
   en el dconf de Plank y en su `dock.theme` (el valor de antes se respalda para
   poder volver).
+- **Spotlyte** (con el ícono de Spotlight de Catalina): los ajustes de Spotlyte, nuestro fork de
+  Ulauncher, en su `~/.config/ulauncher/settings.json`: atajo (⌘Space, ⌃Space, ⌥Space, ⌥⌘Space),
+  en qué pantalla sale, apps recientes, el ícono en la barra de menús y borrar la búsqueda al perder
+  el foco. Spotlyte lee su configuración al arrancar, así que cada cambio lo reinicia con los mismos
+  argumentos. Las categorías de resultados y Privacy de Catalina no están: Spotlyte no las tiene.
 - **Apple ID**: el estado de iCloud Drive y de Mail y Calendar (abajo).
 - **Startup Disk**: arranque EFI y entrada por defecto de GRUB (abajo).
 

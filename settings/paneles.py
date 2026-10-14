@@ -50,6 +50,8 @@ _GRUPOS_POR_TEMA = [
               ["workspaces", "hotcorner", "windows"],
               pestanas={"workspaces": "Spaces", "hotcorner": "Hot Corners", "windows": "Windows"},
               palabras="spaces, desktops, workspaces, hot corners, windows, tiling"),
+        Panel("com.apple.preference.spotlight", "Spotlyte", [],
+              palabras="spotlyte, spotlight, search, ulauncher, shortcut, menu bar, recent apps"),
         Panel("com.apple.Localization", "Language & Region", ["mintlocale"],
               palabras="language, region, locale, input method, formats"),
         Panel("com.apple.preference.security", "Security & Privacy", ["privacy"],
@@ -113,7 +115,7 @@ _GRUPOS_POR_TEMA = [
 # la red; el último es lo de terceros, aquí «Advanced». El orden es el de la
 # captura de System Preferences (12.07.52).
 _ORDEN = [
-    ["general", "desktopscreeneffect", "dock", "expose", "Localization", "notifications",
+    ["general", "desktopscreeneffect", "dock", "expose", "spotlight", "Localization", "notifications",
      "internetaccounts", "users", "universalaccess", "extensions", "security"],
     ["softwareupdate", "network", "Bluetooth", "sound", "printfax", "keyboard", "trackpad", "mouse",
      "displays", "energysaver", "datetime", "backup", "startupdisk"],

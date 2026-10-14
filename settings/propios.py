@@ -94,6 +94,17 @@ def _tema_encendido(plank, clave):
         return True
 
 
+def imagen_icono_panel(ident, lado):
+    """El ícono de Apple del panel (settings/desde-mac.sh), o el genérico del tema."""
+    ruta = os.path.expanduser(f"~/.local/share/mint-macos/settings/iconos/{ident}.png")
+    img = Gtk.Image()
+    try:
+        img.set_from_pixbuf(GdkPixbuf.Pixbuf.new_from_file_at_size(ruta, lado, lado))
+    except GLib.Error:
+        img.set_from_icon_name("preferences-system", Gtk.IconSize.DIALOG)
+    return img
+
+
 def _etiqueta(texto):
     l = Gtk.Label(label=texto, xalign=1.0)
     l.get_style_context().add_class("mp-fila-etiqueta")
@@ -331,6 +342,160 @@ class PanelAppleID:
             fila(2, "Mail & Calendar:", "Sign in first.")
         cuadro.show_all()
         return cuadro
+
+
+class PanelSpotlight:
+    """Spotlyte (el «Spotlight» de este Linux, con el ícono de Spotlight de Catalina): los ajustes de Spotlyte (el fork de Ulauncher), en su settings.json.
+    Solo lleva los controles que Spotlyte tiene de verdad; las categorías de resultados
+    y Privacy de Catalina no existen allí. Spotlyte lee su configuración al arrancar, así
+    que cada cambio lo reinicia (con los mismos argumentos con que estaba corriendo)."""
+    id = "com.apple.preference.spotlight"
+    nombre = "Spotlyte"
+    claves = []
+    externo = False
+    propio = True
+    celda = None
+    ARCHIVO = os.environ.get("MINT_SPOTLIGHT_ARCHIVO") or os.path.expanduser("~/.config/ulauncher/settings.json")
+    SIN_REINICIO = bool(os.environ.get("MINT_SPOTLIGHT_SIN_REINICIO"))
+    ATAJOS = [("<Super>space", "⌘Space"), ("<Control>space", "⌃Space"), ("<Alt>space", "⌥Space"),
+              ("<Alt><Super>space", "⌥⌘Space")]
+    PANTALLAS = [("mouse-pointer-monitor", "Display with the mouse pointer"), ("default-monitor", "Main display")]
+    RECIENTES = [("0", "None"), ("3", "3"), ("5", "5"), ("8", "8")]
+
+    def __init__(self):
+        self.panel = paneles.Panel(self.id, self.nombre, [],
+                                   palabras="spotlyte, spotlight, search, ulauncher, shortcut, menu bar, recent apps")
+        self.ventana = None
+        self._cargando = False
+
+    def coincide(self, texto):
+        t = texto.lower().strip()
+        return bool(t) and any(t in c.lower() for c in (self.nombre, self.panel.palabras, self.id))
+
+    def _leer(self):
+        try:
+            with open(self.ARCHIVO, encoding="utf-8") as f:
+                datos = json.load(f)
+            return datos if isinstance(datos, dict) else {}
+        except (OSError, ValueError):
+            return {}
+
+    def _escribir(self, clave, valor):
+        """Cambia una clave sin tocar las demás y reinicia Spotlyte para que la lea."""
+        if self._cargando:
+            return
+        datos = self._leer()
+        datos[clave] = valor
+        os.makedirs(os.path.dirname(self.ARCHIVO), exist_ok=True)
+        with open(self.ARCHIVO + ".tmp", "w", encoding="utf-8") as f:
+            json.dump(datos, f, indent=4, sort_keys=True)
+        os.replace(self.ARCHIVO + ".tmp", self.ARCHIVO)
+        GLib.idle_add(self._reiniciar)
+
+    @staticmethod
+    def _procesos():
+        """[(pid, argv)] de Spotlyte en marcha (su programa lleva «spotlyte» y «ulauncher» en la ruta)."""
+        out = []
+        for d in os.listdir("/proc"):
+            if not d.isdigit() or int(d) == os.getpid():
+                continue
+            try:
+                with open(f"/proc/{d}/cmdline", "rb") as f:
+                    argv = f.read().decode("utf-8", "replace").split("\0")[:-1]
+            except OSError:
+                continue
+            if len(argv) >= 2 and "python" in os.path.basename(argv[0]) and "spotlyte" in argv[1] \
+                    and argv[1].endswith("/ulauncher"):
+                out.append((int(d), argv))
+        return out
+
+    def _reiniciar(self):
+        if self.SIN_REINICIO:
+            print("[prueba] reiniciaría Spotlyte", file=sys.stderr)
+            return False
+        import signal
+        import time
+        procesos = self._procesos()
+        if not procesos:
+            return False
+        argv = procesos[0][1]
+        for pid, _a in procesos:
+            try:
+                os.kill(pid, signal.SIGTERM)
+            except OSError:
+                pass
+        for _ in range(20):
+            if not self._procesos():
+                break
+            time.sleep(0.1)
+        subprocess.Popen(argv, start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        return False
+
+    # ── la página ────────────────────────────────────────────────────────
+    def construir(self):
+        datos = self._leer()
+        self._cargando = True
+        caja = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=14)
+        caja.get_style_context().add_class("mp-propio")
+
+        cab = Gtk.Box(spacing=14)
+        cab.pack_start(imagen_icono_panel(self.id, 48), False, False, 0)
+        t = Gtk.Label(label="Spotlyte helps you quickly find apps and files on your computer.", xalign=0)
+        t.set_line_wrap(True)
+        t.set_max_width_chars(70)
+        cab.pack_start(t, True, True, 0)
+        caja.pack_start(cab, False, False, 0)
+
+        marco = Gtk.Frame()
+        marco.get_style_context().add_class("mp-sd-lista")
+        cuadro = Gtk.Grid(column_spacing=14, row_spacing=14)
+        cuadro.set_margin_top(20)
+        cuadro.set_margin_bottom(20)
+        cuadro.set_margin_start(24)
+        cuadro.set_margin_end(24)
+        cuadro.set_halign(Gtk.Align.START)
+        marco.add(cuadro)
+        fila = 0
+
+        def combo(opciones, clave, defecto):
+            c = Gtk.ComboBoxText()
+            for k, n in opciones:
+                c.append(k, n)
+            actual = str(datos.get(clave, defecto))
+            if not c.set_active_id(actual):
+                c.append(actual, actual)
+                c.set_active_id(actual)
+            c.connect("changed", lambda w: self._escribir(clave, w.get_active_id()))
+            return c
+
+        # Spotlight shortcut
+        cuadro.attach(_etiqueta("Spotlyte shortcut:"), 0, fila, 1, 1)
+        cuadro.attach(combo(self.ATAJOS, "hotkey-show-app", "<Super>space"), 1, fila, 1, 1)
+        fila += 1
+        # Show on
+        cuadro.attach(_etiqueta("Show Spotlyte on:"), 0, fila, 1, 1)
+        cuadro.attach(combo(self.PANTALLAS, "render-on-screen", "mouse-pointer-monitor"), 1, fila, 1, 1)
+        fila += 1
+        # Recent apps
+        cuadro.attach(_etiqueta("Recent apps:"), 0, fila, 1, 1)
+        cuadro.attach(combo(self.RECIENTES, "show-recent-apps", "0"), 1, fila, 1, 1)
+        fila += 1
+
+        for clave, texto, defecto in (("show-menu-icon", "Show Spotlyte in the menu bar", False),
+                                      ("clear-previous-query", "Clear the search when Spotlyte loses focus", True)):
+            c = Gtk.CheckButton(label=texto)
+            c.set_active(bool(datos.get(clave, defecto)))
+            c.connect("toggled", lambda w, k=clave: self._escribir(k, w.get_active()))
+            cuadro.attach(c, 0, fila, 2, 1)
+            fila += 1
+        caja.pack_start(marco, False, False, 0)
+
+        nota = Gtk.Label(label="Spotlyte restarts when you change a setting.", xalign=0)
+        nota.get_style_context().add_class("mp-sd-detalle")
+        caja.pack_start(nota, False, False, 0)
+        caja.show_all()
+        self._cargando = False
+        return caja
 
 
 class PanelStartupDisk:
@@ -690,4 +855,4 @@ class PanelStartupDisk:
         self._ayudante(["grub-default", ident], listo)
 
 
-PROPIOS = {p.id: p for p in (PanelDock(), PanelAppleID(), PanelStartupDisk())}
+PROPIOS = {p.id: p for p in (PanelDock(), PanelAppleID(), PanelSpotlight(), PanelStartupDisk())}
