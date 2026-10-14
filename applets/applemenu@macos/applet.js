@@ -343,6 +343,16 @@ class AppleMenuApplet extends Applet.IconApplet {
     // renglón, cambia de menú y cierra el principal. addChildMenu también lo
     // registra en el gestor.
     this.menu.addChildMenu(this._recientes);
+    // Si el submenú se cierra por su cuenta (un clic en otra ventana lo cierra
+    // a él solo) y no fuimos nosotros, el menú Apple se cierra con él.
+    this._recientes.connect("open-state-changed", (m, abierto) => {
+      if (!abierto && !this._cerrandoRecientes && this.menu.isOpen) {
+        let [x, y] = global.get_pointer();
+        let [ax, ay] = this.menu.actor.get_transformed_position();
+        let dentro = x >= ax && x <= ax + this.menu.actor.width && y >= ay && y <= ay + this.menu.actor.height;
+        if (!dentro) this.menu.close(true);
+      }
+    });
   }
 
   _llenarRecientes() {
@@ -410,7 +420,10 @@ class AppleMenuApplet extends Applet.IconApplet {
 
   _cerrarRecientes() {
     this._cancelarRecientes();
-    if (this._recientes && this._recientes.isOpen) this._recientes.close(true);
+    if (this._recientes && this._recientes.isOpen) {
+      this._cerrandoRecientes = true;
+      try { this._recientes.close(true); } finally { this._cerrandoRecientes = false; }
+    }
   }
 
   // ── El diálogo de la Mac en lugar del de Cinnamon (opcional) ─────────────
