@@ -18,7 +18,8 @@ import sys
 import gi
 gi.require_version("Gtk", "3.0")
 gi.require_version("GdkPixbuf", "2.0")
-from gi.repository import Gio, GLib, GdkPixbuf, Gtk  # noqa: E402
+gi.require_version("Gdk", "3.0")
+from gi.repository import Gdk, Gio, GLib, GdkPixbuf, Gtk  # noqa: E402
 
 import apple_id  # noqa: E402
 import paneles  # noqa: E402
@@ -855,4 +856,219 @@ class PanelStartupDisk:
         self._ayudante(["grub-default", ident], listo)
 
 
-PROPIOS = {p.id: p for p in (PanelDock(), PanelAppleID(), PanelSpotlight(), PanelStartupDisk())}
+class PanelMissionControl:
+    """Mission Control: la mitad que Cinnamon sabe hacer (Displays have separate Spaces,
+    los atajos de la extensión misioncontrol@macos) y la hoja de Hot Corners, que
+    escribe `hotcorner-layout` de org.cinnamon. Una esquina de Cinnamon corre
+    `expo`, `scale`, `desktop` o un comando; las acciones de Catalina que no son
+    de esas tres van como comando (las que viven dentro de Cinnamon, por Eval)."""
+    id = "com.apple.preference.expose"
+    nombre = "Mission Control"
+    claves = []
+    externo = False
+    propio = True
+    celda = None
+    EVAL = "gdbus call --session --dest org.Cinnamon --object-path /org/Cinnamon --method org.Cinnamon.Eval "
+    # (comando de la esquina, nombre en Catalina); el primero es «-», apagada.
+    ACCIONES = [
+        ("", "\u2013"),
+        ("scale", "Mission Control"),
+        (EVAL + "global.mintMacosAppWindows()", "Application Windows"),
+        ("desktop", "Desktop"),
+        ("~/.local/bin/mac-launchpad", "Launchpad"),
+        (EVAL + "global.mintMacosNotificationCenter()", "Notification Center"),
+        ("cinnamon-screensaver-command -a", "Start Screen Saver"),
+        ("xset dpms force off", "Put Display to Sleep"),
+        ("cinnamon-screensaver-command -l", "Lock Screen"),
+    ]
+    # 0 arriba izquierda, 1 arriba derecha, 2 abajo izquierda, 3 abajo derecha (el orden de Cinnamon).
+    ESQUINAS = ("tl", "tr", "bl", "br")
+    VACIA = "expo:false:0"
+
+    def __init__(self):
+        self.panel = paneles.Panel(self.id, self.nombre, [],
+                                   palabras="spaces, desktops, workspaces, hot corners, windows, mission control, expose")
+        self.ventana = None
+        self._cargando = False
+
+    def coincide(self, texto):
+        t = texto.lower().strip()
+        return bool(t) and any(t in c.lower() for c in (self.nombre, self.panel.palabras, self.id))
+
+    @staticmethod
+    def _cinnamon():
+        return Gio.Settings.new("org.cinnamon")
+
+    @classmethod
+    def _expandir(cls, cmd):
+        return os.path.expanduser(cmd) if cmd.startswith("~") else cmd
+
+    @classmethod
+    def leer_esquinas(cls, ajustes=None):
+        """[comando|""] por esquina: lo que hoy hace cada una ("" si está apagada)."""
+        capas = list((ajustes or cls._cinnamon()).get_strv("hotcorner-layout"))
+        capas += [cls.VACIA] * (4 - len(capas))
+        salida = []
+        for item in capas[:4]:
+            partes = item.rsplit(":", 2)             # el comando puede llevar «:» (la última es el retraso)
+            salida.append(partes[0] if len(partes) == 3 and partes[1] == "true" else "")
+        return salida
+
+    @classmethod
+    def escribir_esquina(cls, indice, comando, ajustes=None):
+        """Cambia una esquina y deja las otras (con su retraso) como estaban."""
+        aj = ajustes or cls._cinnamon()
+        capas = list(aj.get_strv("hotcorner-layout"))
+        capas += [cls.VACIA] * (4 - len(capas))
+        retraso = "0"
+        partes = capas[indice].rsplit(":", 2)
+        if len(partes) == 3:
+            retraso = partes[2]
+        capas[indice] = f"{cls._expandir(comando)}:true:{retraso}" if comando else cls.VACIA
+        aj.set_strv("hotcorner-layout", capas)
+
+    # ── la página ────────────────────────────────────────────────────────
+    def construir(self):
+        aj = self._cinnamon()
+        mut = Gio.Settings.new("org.cinnamon.muffin")
+        self._cargando = True
+        caja = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=14)
+        caja.get_style_context().add_class("mp-propio")
+
+        cab = Gtk.Box(spacing=14)
+        cab.pack_start(imagen_icono_panel(self.id, 48), False, False, 0)
+        t = Gtk.Label(label="Mission Control gives you an overview of all your open windows, "
+                            "all arranged in a unified view.", xalign=0)
+        t.set_line_wrap(True)
+        t.set_max_width_chars(70)
+        cab.pack_start(t, True, True, 0)
+        caja.pack_start(cab, False, False, 0)
+
+        marco = Gtk.Frame()
+        marco.get_style_context().add_class("mp-sd-lista")
+        cuadro = Gtk.Grid(column_spacing=14, row_spacing=10)
+        for lado in ("top", "bottom", "start", "end"):
+            getattr(cuadro, "set_margin_" + lado)(16 if lado in ("top", "bottom") else 20)
+        cuadro.set_halign(Gtk.Align.START)
+        marco.add(cuadro)
+        # Displays have separate Spaces = los escritorios no se reparten entre pantallas.
+        c = Gtk.CheckButton(label="Displays have separate Spaces")
+        c.set_active(not mut.get_boolean("workspaces-only-on-primary"))
+        c.connect("toggled", lambda w: mut.set_boolean("workspaces-only-on-primary", not w.get_active()))
+        cuadro.attach(c, 0, 0, 2, 1)
+        caja.pack_start(marco, False, False, 0)
+
+        tit = Gtk.Label(label="Keyboard and Mouse Shortcuts", xalign=0)
+        tit.get_style_context().add_class("mp-sd-detalle")
+        caja.pack_start(tit, False, False, 0)
+        atajos = Gtk.Frame()
+        atajos.get_style_context().add_class("mp-sd-lista")
+        g = Gtk.Grid(column_spacing=14, row_spacing=10)
+        for lado in ("top", "bottom", "start", "end"):
+            getattr(g, "set_margin_" + lado)(16 if lado in ("top", "bottom") else 20)
+        g.set_halign(Gtk.Align.START)
+        for i, (n, a) in enumerate((("Mission Control:", "\u2303\u2191"), ("Application windows:", "\u2303\u2193"),
+                                    ("Spaces left and right:", "\u2303\u2190  \u2303\u2192"))):
+            g.attach(_etiqueta(n), 0, i, 1, 1)
+            v = Gtk.Label(label=a, xalign=0)
+            g.attach(v, 1, i, 1, 1)
+        atajos.add(g)
+        caja.pack_start(atajos, False, False, 0)
+
+        pie = Gtk.Box()
+        b = Gtk.Button(label="Hot Corners\u2026")
+        b.connect("clicked", lambda _b: self._hoja())
+        pie.pack_start(b, False, False, 0)
+        caja.pack_start(pie, False, False, 0)
+        caja.show_all()
+        self._cargando = False
+        return caja
+
+    # ── la hoja de las cuatro esquinas ───────────────────────────────────
+    def _fondo(self, w, h):
+        """El escritorio actual en miniatura (o un gris si no se puede leer)."""
+        try:
+            uri = Gio.Settings.new("org.cinnamon.desktop.background").get_string("picture-uri")
+            ruta = Gio.File.new_for_uri(uri).get_path()
+            pb = GdkPixbuf.Pixbuf.new_from_file(ruta)
+            esc = max(w / pb.get_width(), h / pb.get_height())
+            pb = pb.scale_simple(int(pb.get_width() * esc) + 1, int(pb.get_height() * esc) + 1,
+                                 GdkPixbuf.InterpType.BILINEAR)
+            return pb.new_subpixbuf((pb.get_width() - w) // 2, (pb.get_height() - h) // 2, w, h)
+        except (GLib.Error, TypeError, AttributeError):
+            return None
+
+    def _hoja(self):
+        d = Gtk.Dialog(transient_for=self.ventana, modal=True)
+        d.set_decorated(False)
+        d.get_style_context().add_class("mp-hoja")
+        caja = d.get_content_area()
+        caja.set_spacing(10)
+        for lado in ("top", "bottom", "start", "end"):
+            getattr(caja, "set_margin_" + lado)(20 if lado in ("start", "end") else 16)
+        t = Gtk.Label(label="Active Screen Corners", xalign=0)
+        t.get_style_context().add_class("mp-sd-detalle")
+        caja.pack_start(t, False, False, 0)
+        marco = Gtk.Frame()
+        marco.get_style_context().add_class("mp-sd-lista")
+        g = Gtk.Grid(column_spacing=30, row_spacing=22)
+        for lado in ("top", "bottom", "start", "end"):
+            getattr(g, "set_margin_" + lado)(16 if lado in ("top", "bottom") else 36)
+        marco.add(g)
+
+        actuales = self.leer_esquinas()
+        combos = []
+        for i in range(4):
+            c = Gtk.ComboBoxText()
+            for n, (cmd, nombre) in enumerate(self.ACCIONES):
+                c.append(str(n), nombre)
+            ids = [self._expandir(a[0]) for a in self.ACCIONES]
+            if actuales[i] in ids:
+                c.set_active(ids.index(actuales[i]))
+            else:                                  # un comando ajeno: se muestra tal cual
+                c.append("x", actuales[i])
+                c.set_active_id("x")
+            c.set_size_request(212, -1)
+            c.connect("changed", lambda w, k=i: self._elegida(k, w))
+            combos.append(c)
+        miniatura = Gtk.DrawingArea()
+        miniatura.set_size_request(100, 70)
+        fondo = self._fondo(100, 70)
+
+        def pintar(_w, cr):
+            if fondo is not None:
+                Gdk.cairo_set_source_pixbuf(cr, fondo, 0, 0)
+            else:
+                cr.set_source_rgb(0.15, 0.2, 0.3)
+            cr.paint()
+            cr.set_source_rgb(1, 1, 1)
+            for x, y, dx, dy in ((0, 0, 1, 1), (100, 0, -1, 1), (0, 70, 1, -1), (100, 70, -1, -1)):
+                cr.move_to(x, y)
+                cr.line_to(x + 9 * dx, y)
+                cr.line_to(x, y + 9 * dy)
+                cr.close_path()
+                cr.fill()
+            return False
+        miniatura.connect("draw", pintar)
+        g.attach(combos[0], 0, 0, 1, 1)
+        g.attach(combos[1], 2, 0, 1, 1)
+        g.attach(combos[2], 0, 1, 1, 1)
+        g.attach(combos[3], 2, 1, 1, 1)
+        g.attach(miniatura, 1, 0, 1, 2)
+        caja.pack_start(marco, False, False, 0)
+        ok = d.add_button("OK", Gtk.ResponseType.OK)
+        ok.get_style_context().add_class("suggested-action")
+        d.set_default_response(Gtk.ResponseType.OK)
+        d.show_all()
+        d.run()
+        d.destroy()
+
+    def _elegida(self, indice, combo):
+        n = combo.get_active_id()
+        if n is None or n == "x":
+            return
+        self.escribir_esquina(indice, self.ACCIONES[int(n)][0])
+
+
+PROPIOS = {p.id: p for p in (PanelDock(), PanelAppleID(), PanelSpotlight(), PanelStartupDisk(),
+                                     PanelMissionControl())}

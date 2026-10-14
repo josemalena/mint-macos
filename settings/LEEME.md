@@ -64,6 +64,15 @@ Escriben directo en la configuración del programa, en vez de traer su interfaz:
   el foco. Spotlyte lee su configuración al arrancar, así que cada cambio lo reinicia con los mismos
   argumentos. Las categorías de resultados y Privacy de Catalina no están: Spotlyte no las tiene.
 - **Apple ID**: el estado de iCloud Drive y de Mail y Calendar (abajo).
+- **Mission Control**: «Displays have separate Spaces» (`workspaces-only-on-primary` de Muffin), los
+  atajos de la extensión `misioncontrol@macos` (solo de lectura) y el botón **Hot Corners…**, que abre la
+  hoja de las cuatro esquinas y escribe `hotcorner-layout` de `org.cinnamon`. Acciones: Mission Control
+  (`scale`), Desktop (`desktop`), Launchpad, Start Screen Saver, Put Display to Sleep, Lock Screen, y
+  Application Windows y Notification Center, que Cinnamon corre por `Eval` sobre ganchos que publican la
+  extensión y el applet `notificaciones@macos` (`global.mintMacosAppWindows()`,
+  `global.mintMacosNotificationCenter()`); esos dos pedirán reiniciar Cinnamon (o ReloadXlet) tras
+  actualizar. Las otras opciones de Catalina (Automatically rearrange Spaces, Group windows by
+  application…) no están: Cinnamon no las tiene.
 - **Startup Disk**: arranque EFI y entrada por defecto de GRUB (abajo).
 
 ## Apple ID: iCloud Drive, Mail y Calendar

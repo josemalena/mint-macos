@@ -79,9 +79,12 @@ class NotificationCenter extends Applet.Applet {
   on_applet_added_to_panel() {
     if (!this._contado) { MessageTray.extensionsHandlingNotifications++; this._contado = true; }
     this._armarMenu();
+    // Para la esquina activa «Notification Center» (System Preferences ▸ Mission Control).
+    global.mintMacosNotificationCenter = () => this.on_applet_clicked();
   }
 
   on_applet_removed_from_panel() {
+    delete global.mintMacosNotificationCenter;
     if (this._vidrio) this._vidrio.desaplicar();
     if (this._catalina) this._catalina.quitar();
     if (this._senal) Main.messageTray.disconnect(this._senal);

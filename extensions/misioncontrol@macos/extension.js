@@ -62,9 +62,15 @@ function enable() {
 
   for (let [nombre, [atajo, fn]] of Object.entries(ATAJOS))
     Main.keybindingManager.addHotKey(nombre, atajo, fn);
+  // Para las esquinas activas (System Preferences ▸ Mission Control ▸ Hot
+  // Corners…): una esquina solo corre comandos, y este es el que llega aquí.
+  global.mintMacosMissionControl = mostrarTodas;
+  global.mintMacosAppWindows = mostrarApp;
 }
 
 function disable() {
+  delete global.mintMacosMissionControl;
+  delete global.mintMacosAppWindows;
   for (let nombre of Object.keys(ATAJOS))
     Main.keybindingManager.removeHotKey(nombre);
   if (idOculta) { Main.overview.disconnect(idOculta); idOculta = 0; }
