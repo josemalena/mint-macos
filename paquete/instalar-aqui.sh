@@ -6,6 +6,8 @@
 # (requisitos, el arranque y la pantalla de inicio) entra en la misma corrida.
 #
 #   ./instalar-aqui.sh
+#   MINT_MACOS_TECLADO="us,es" ./instalar-aqui.sh   escoge las distribuciones de
+#                                    teclado (sin esto se queda la de la instalación de Mint)
 #
 # Necesita internet para los paquetes de apt, para compilar keyd y fsapfs
 # (requisitos.sh). Todo lo demás viene en el paquete, también el fork de la

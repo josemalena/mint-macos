@@ -30,8 +30,22 @@ done
 # Los atajos propios (Force Quit) llevan la ruta del applet en el $HOME: el
 # archivo trae la de la máquina donde se armó y aquí se pone la de este usuario.
 sed "s#/home/jmalena#$HOME#g" "$REPO/cinnamon/keybindings.dconf" | dconf load /org/cinnamon/desktop/keybindings/
-dconf load /org/cinnamon/desktop/input-sources/ < "$REPO/cinnamon/input-sources.dconf"
-dconf load /org/gnome/libgnomekbd/keyboard/     < "$REPO/cinnamon/libgnomekbd-keyboard.dconf"
+# Las fuentes de entrada NO se copian de la Mac mini (allí son es y us, con
+# español primero): en la iMac, de teclado US, le cambiaban los símbolos
+# (15-10-2026). Se queda la que dejó la instalación de Mint, que es la del
+# teclado físico. Para escogerlas: MINT_MACOS_TECLADO="us" o "us,es" (la
+# primera es la que queda puesta; el orden no se toca si no se pide).
+if [ -n "${MINT_MACOS_TECLADO:-}" ]; then
+  fuentes=""
+  for t in $(echo "$MINT_MACOS_TECLADO" | tr ',' ' '); do
+    [[ "$t" =~ ^[a-z]{2,3}(\+[a-z0-9_-]+)?$ ]] || { echo "  ✗ distribución no válida: $t (ej.: us, es, us+intl)"; exit 1; }
+    fuentes="${fuentes:+$fuentes, }('xkb', '$t')"
+  done
+  dconf write /org/cinnamon/desktop/input-sources/sources "[$fuentes]"
+  echo "  teclado: $MINT_MACOS_TECLADO (MINT_MACOS_TECLADO)"
+else
+  echo "  teclado: el de la instalación de Mint, sin cambiar ($(dconf read /org/cinnamon/desktop/input-sources/sources || true) $(sed -n 's/^XKBLAYOUT=//p' /etc/default/keyboard 2>/dev/null | tr -d '"'))"
+fi
 echo "  respaldo de dconf en $RESPALDO"
 
 paso "keyd: ⌘ y ⌥ como en macOS en todo el sistema"
