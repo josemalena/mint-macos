@@ -17,6 +17,7 @@ import json
 import os
 import re
 import subprocess
+import time
 import urllib.request
 import xml.etree.ElementTree as ET
 
@@ -115,10 +116,51 @@ def seguir_icloud(estado, codigo):
     return _leer_estado(r)
 
 
+LOG = os.path.expanduser("~/.local/share/mint-macos/settings/apple-id.log")
+
+
+def _guardar_log(r):
+    """La salida completa de rclone (stdout y stderr, nunca los argumentos: ahí va la clave) para
+    diagnosticar un Sign In que falla."""
+    try:
+        os.makedirs(os.path.dirname(LOG), exist_ok=True)
+        with open(os.open(LOG, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600), "a", encoding="utf-8") as f:
+            f.write("--- %s rc=%s\n[stderr]\n%s\n[stdout]\n%s\n" % (
+                time.strftime("%Y-%m-%d %H:%M:%S"), r.returncode, (r.stderr or "")[-6000:], (r.stdout or "")[-6000:]))
+    except OSError:
+        pass
+
+
+def mensaje_de_error(r):
+    """Lo que se le enseña al usuario cuando rclone falla. Nunca «la última línea a ciegas»: rclone puede
+    devolver un bloque JSON de varias líneas cuya última línea es «}». Orden: el campo Error/error de un JSON;
+    si no, la última línea que diga «error» o «failed» (sin el prefijo de nivel «NOTICE:»); si no, un texto fijo."""
+    generico = "Apple did not accept the account."
+    for texto in ((r.stdout or "").strip(), (r.stderr or "").strip()):
+        if not texto:
+            continue
+        # ¿Hay un JSON, solo o rodeado de texto?
+        ini, fin = texto.find("{"), texto.rfind("}")
+        if ini != -1 and fin > ini:
+            try:
+                d = json.loads(texto[ini:fin + 1])
+                err = d.get("Error") or d.get("error") if isinstance(d, dict) else None
+                if err:
+                    return str(err).strip().splitlines()[0]
+            except ValueError:
+                pass
+    for texto in ((r.stderr or "").strip(), (r.stdout or "").strip()):
+        lineas = [l.strip() for l in texto.splitlines() if l.strip()]
+        for l in reversed(lineas):
+            if re.search(r"error|failed|incorrect|invalid", l, re.I) and l not in ("{", "}"):
+                return re.sub(r"^(NOTICE|ERROR|CRITICAL|WARNING)\s*:\s*", "", l).strip()
+    return generico
+
+
 def _leer_estado(r):
     if r.returncode != 0:
-        msg = (r.stderr or r.stdout).strip().splitlines()
-        raise ErrorAppleID(msg[-1] if msg else "Apple did not accept the account.")
+        _guardar_log(r)
+        raise ErrorAppleID(mensaje_de_error(r))
     try:
         d = json.loads(r.stdout) if r.stdout.strip() else {}
     except ValueError:
