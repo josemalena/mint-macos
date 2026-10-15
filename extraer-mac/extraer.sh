@@ -635,7 +635,11 @@ fi
 # (la memoria) y verificados allá. Si pasa de 3.9 GB se parte (FAT32: 4 GB).
 if quiere entregar; then
   aviso "Comprimiendo la salida"
-  PAQ="$(dirname "$SAL")/macos$VERSION-$NOMBRE-$(date +%Y%m%d).tar.gz"
+  # El nombre sale de la carpeta de salida, con la Mac después de la versión:
+  # macos10.15.8-20261015 → macos10.15.8-Macmini-20261015.tar.gz. Una corrida
+  # parcial con SALIDA=…/macos10.15.8-parcial-20261015 no pisa el paquete de la
+  # completa del mismo día (antes los dos se llamaban igual).
+  PAQ="$(dirname "$SAL")/$(basename "$SAL" | sed "s/^macos$VERSION-/macos$VERSION-$NOMBRE-/").tar.gz"
   rm -f "$PAQ" "$PAQ.sha256" "$PAQ".parte-*
   if ( cd "$(dirname "$SAL")" && tar -cf - "$(basename "$SAL")" | gzip -1 > "$PAQ" ) && gzip -t "$PAQ" 2>>"$LOG"; then
     ( cd "$(dirname "$PAQ")" && shasum -a 256 "$(basename "$PAQ")" > "$PAQ.sha256" )
