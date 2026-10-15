@@ -231,4 +231,7 @@ fi
 # Los fondos de escritorio de Apple (Desktop Pictures y Colors), a un tamaño razonable.
 python3 "$REPO/settings/fondos.py" "$MAC_SISTEMA" "$(dirname "$DESTINO")/fondos"
 
+# Las miniaturas Light/Dark/Auto de General, armadas con el fondo de Catalina (claro y oscuro).
+python3 "$REPO/settings/apariencia.py" "$(dirname "$DESTINO")/fondos" "$DESTINO/apariencia"
+
 echo "✓ Listo."

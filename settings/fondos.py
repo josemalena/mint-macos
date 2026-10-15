@@ -9,9 +9,11 @@ sólidos (Solid Colors/*.png) en <destino>/colores/. El orden de Catalina sale d
 y queda en <destino>/orden.json. Por defecto el destino es ~/.local/share/mint-macos/fondos.
 Todo es de Apple: nunca va al repo. Los que ImageMagick no pueda abrir se saltan con un aviso.
 """
+import base64
 import json
 import os
 import plistlib
+import re
 import shutil
 import subprocess
 import sys
@@ -26,6 +28,20 @@ def convertir(origen, destino, *args, espera=240):
     except subprocess.TimeoutExpired:
         return False
     return r.returncode == 0 and os.path.exists(destino)
+
+
+def cuadros_claro_oscuro(ruta):
+    """(cuadro claro, cuadro oscuro) de un .heic dinámico, de su XMP apple_desktop:solar; None si no está."""
+    with open(ruta, "rb") as f:
+        datos = f.read(60_000_000)
+    m = re.search(rb'apple_desktop:solar="([^"]+)"', datos)
+    if not m:
+        return None
+    try:
+        ap = plistlib.loads(base64.b64decode(m.group(1)))["ap"]
+        return int(ap["l"]), int(ap["d"])
+    except (ValueError, KeyError, plistlib.InvalidFileException):
+        return None
 
 
 def main():
@@ -59,6 +75,29 @@ def main():
             convertir(foto, mini, "-resize", "192x120^", "-gravity", "center", "-extent", "192x120", "-quality", "85")
         hechos.append(stem)
         print(f"  ✓ {stem}", flush=True)
+    # Los fondos dinámicos (Catalina, Mojave) traen varios cuadros del día, y su metadato XMP
+    # (apple_desktop:solar) dice cuál es el «Light (Still)» y cuál el «Dark (Still)» (ap.l y ap.d).
+    # Se sacan como «<nombre> Light» y «<nombre> Dark».
+    for stem in ("Catalina", "Mojave"):
+        ruta = os.path.join(origen, stem + ".heic")
+        if not os.path.isfile(ruta):
+            continue
+        indices = cuadros_claro_oscuro(ruta)
+        if indices is None:
+            print(f"  ⚠ no encuentro los cuadros claro y oscuro de {stem}")
+            continue
+        for etiqueta, i in zip(("Light", "Dark"), indices):
+            nombre = f"{stem} {etiqueta}"
+            foto = os.path.join(base, "fotos", nombre + ".jpg")
+            mini = os.path.join(base, "miniaturas", nombre + ".jpg")
+            if not os.path.exists(foto):
+                convertir(f"{ruta}[{i}]", foto, "-resize", "2880x1800>", "-quality", "88")
+            if os.path.exists(foto) and not os.path.exists(mini):
+                convertir(foto, mini, "-resize", "192x120^", "-gravity", "center", "-extent", "192x120",
+                          "-quality", "85")
+            if os.path.exists(foto):
+                hechos.append(nombre)
+                print(f"  ✓ {nombre} (cuadro {i})", flush=True)
     colores = os.path.join(origen, "Solid Colors")
     nombres = []
     if os.path.isdir(colores):

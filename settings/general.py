@@ -16,7 +16,8 @@ import subprocess
 import gi
 gi.require_version("Gtk", "3.0")
 gi.require_version("GdkPixbuf", "2.0")
-from gi.repository import Gio, GdkPixbuf, GLib, Gtk  # noqa: E402
+gi.require_version("Gdk", "3.0")
+from gi.repository import Gdk, Gio, GdkPixbuf, GLib, Gtk  # noqa: E402
 
 import paneles  # noqa: E402
 
@@ -78,19 +79,28 @@ class PanelGeneral:
         # Appearance: Light / Dark / Auto
         g.attach(_etiqueta("Appearance:"), 0, fila, 1, 1)
         opciones = Gtk.Box(spacing=14)
+        self._areas, self._radios = {}, {}
         grupo = None
         for clave, texto in (("light", "Light"), ("dark", "Dark"), ("auto", "Auto")):
             c = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
             ruta = os.path.join(MINIATURAS, clave + ".png")
+            miniatura = None
             if os.path.exists(ruta):
                 try:
-                    img = Gtk.Image.new_from_pixbuf(GdkPixbuf.Pixbuf.new_from_file(ruta))
-                    c.pack_start(img, False, False, 0)
+                    miniatura = GdkPixbuf.Pixbuf.new_from_file_at_scale(ruta, 68, 45, True)
                 except GLib.Error:
-                    pass
+                    miniatura = None
+            area = Gtk.DrawingArea()
+            area.set_size_request(72, 49)
+            area.set_halign(Gtk.Align.CENTER)
+            self._areas[clave] = (area, miniatura)
+            area.connect("draw", self._pintar_miniatura, clave)
+            c.pack_start(area, False, False, 0)
             r = Gtk.RadioButton.new_with_label_from_widget(grupo, texto)
             grupo = grupo or r
             r.set_active(clave == "dark")
+            self._radios[clave] = r
+            r.connect("toggled", lambda _r: [a.queue_draw() for a, _p in self._areas.values()])
             if clave != "dark":
                 _gris(r, "Only the dark theme is installed on this computer.")
             c.pack_start(r, False, False, 0)
@@ -204,6 +214,31 @@ class PanelGeneral:
         caja.show_all()
         self._cargando = False
         return caja
+
+    def _pintar_miniatura(self, area, cr, clave):
+        """La miniatura de Appearance con las esquinas redondeadas y, si es la escogida, el aro azul."""
+        _a, pb = self._areas[clave]
+        ancho, alto = area.get_allocated_width(), area.get_allocated_height()
+        radio = 6
+        cr.new_sub_path()
+        cr.arc(ancho - radio - 2, radio + 2, radio, -1.5708, 0)
+        cr.arc(ancho - radio - 2, alto - radio - 2, radio, 0, 1.5708)
+        cr.arc(radio + 2, alto - radio - 2, radio, 1.5708, 3.1416)
+        cr.arc(radio + 2, radio + 2, radio, 3.1416, 4.7124)
+        cr.close_path()
+        if pb is not None:
+            cr.save()
+            cr.clip_preserve()
+            Gdk.cairo_set_source_pixbuf(cr, pb, (ancho - pb.get_width()) / 2, (alto - pb.get_height()) / 2)
+            cr.paint()
+            cr.restore()
+        if self._radios.get(clave) is not None and self._radios[clave].get_active():
+            cr.set_source_rgb(0.0, 0.48, 1.0)
+            cr.set_line_width(2)
+            cr.stroke()
+        else:
+            cr.new_path()
+        return False
 
     # ── scroll bars ──────────────────────────────────────────────────────
     def _poner_overlay(self, si):

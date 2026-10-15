@@ -83,7 +83,8 @@ Escriben directo en la configuración del programa, en vez de traer su interfaz:
   (`org.cinnamon.desktop.peripherals.mouse`); Scrolling speed en gris. Sin touchpad, Trackpad es la pantalla
   «No trackpad found» de Catalina; con uno lo sirve el módulo de Cinnamon.
 - **General** (`general.py`): Default web browser (`xdg-settings`) y Show scroll bars; Appearance solo con el
-  tema oscuro, y lo demás en gris.
+  tema oscuro, y lo demás en gris. Las miniaturas Light/Dark/Auto las arma `apariencia.py` con los cuadros claro y
+  oscuro de Catalina.heic (los que marca su metadato XMP).
 - **Sound** (`sonido.py`): Output e Input por `pactl` (dispositivo, Balance, volumen, Mute) y los efectos de
   interfaz por `org.cinnamon.desktop.sound`. Las alertas (Basso, Blow…) salen del disco de la Mac con `desde-mac.sh`.
 - **Displays** (`pantallas.py`): Rotation y Refresh Rate por el DisplayConfig de Cinnamon con vuelta atrás a los
