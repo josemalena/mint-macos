@@ -242,12 +242,15 @@ MODO_ORIG="$(osa -e 'tell application "System Events" to tell appearance prefere
 MAG_ORIG="$(leer_def com.apple.dock magnification)"; LARGE_ORIG="$(leer_def com.apple.dock largesize)"
 ORI_ORIG="$(leer_def com.apple.dock orientation)"; DESK_ORIG="$(leer_def com.apple.finder CreateDesktop)"
 STATUS_ORIG="$(leer_def com.apple.finder ShowStatusBar)"; AUTOHIDE_ORIG="$(leer_def com.apple.dock autohide)"
+SS_ORIG="$(defaults -currentHost read com.apple.screensaver idleTime 2>/dev/null || echo __sin__)"
 MUESTRA_CREADA=false
 devolver() {
   poner_def com.apple.dock magnification "$MAG_ORIG" bool; poner_def com.apple.dock largesize "$LARGE_ORIG" int
   poner_def com.apple.dock orientation "$ORI_ORIG" string; poner_def com.apple.finder CreateDesktop "$DESK_ORIG" bool
   poner_def com.apple.finder ShowStatusBar "$STATUS_ORIG" bool
   poner_def com.apple.dock autohide "$AUTOHIDE_ORIG" bool
+  if [ "$SS_ORIG" = "__sin__" ]; then defaults -currentHost delete com.apple.screensaver idleTime 2>/dev/null
+  else defaults -currentHost write com.apple.screensaver idleTime -int "$SS_ORIG"; fi
   killall Dock Finder 2>/dev/null
   [ -n "$MODO_ORIG" ] && osa -e "tell application \"System Events\" to tell appearance preferences to set dark mode to $MODO_ORIG"
   if $MUESTRA_CREADA && [ -d "$HOME/Muestra" ]; then rm -rf "${HOME:?}/Muestra"; fi
@@ -268,6 +271,11 @@ comprobar_permisos() {
 if quiere capturas || quiere videos; then
   comprobar_permisos || { log "=== abortado por permisos ==="; exit 2; }
   trap devolver EXIT
+  # Que no arranque el protector de pantalla ni se apague la pantalla a mitad
+  # de las capturas (en Catalina salió Flurry en el menú del escritorio,
+  # 15-10-2026). caffeinate muere con este guion; el idleTime se devuelve.
+  caffeinate -d -i -u -w $$ >/dev/null 2>&1 &
+  defaults -currentHost write com.apple.screensaver idleTime -int 0
   read -r W HH ESC BARRA DOCK <<< "$(pantalla)"
   W=${W%.*}; HH=${HH%.*}; BARRA=${BARRA%.*}; DOCK=${DOCK%.*}
   log "pantalla ${W}x${HH} pt, escala $ESC, barra $BARRA, dock $DOCK"
