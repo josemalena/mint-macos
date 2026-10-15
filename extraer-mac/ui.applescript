@@ -10,6 +10,7 @@
 --   osascript ui.applescript popups <proceso>             cuántos menús desplegables tiene la ventana
 --   osascript ui.applescript popup <proceso> <n>          abre el desplegable n (y lo deja abierto)
 --   osascript ui.applescript popup-item <proceso> <n> <ítem>  abre el desplegable n y escoge <ítem>
+--   osascript ui.applescript marcado <proceso> <texto>     «si» o «no»: si el botón de radio o la casilla <texto> está marcado
 --   osascript ui.applescript candado <proceso>            «abierto», «cerrado» o «sin candado»
 --   osascript ui.applescript arbol <proceso>              rol y nombre de cada elemento (para la bitácora)
 --
@@ -139,6 +140,20 @@ on run argv
 				return "no"
 			end try
 		end tell
+	end if
+
+	if cmd is "marcado" then
+		set t to item 3 of argv
+		repeat with e in todo
+			try
+				tell application "System Events" to set r to role of e
+				if (r is "AXRadioButton" or r is "AXCheckBox") and (my empieza(my texto_de(e, "name"), t) or my empieza(my texto_de(e, "title"), t)) then
+					if my texto_de(e, "value") is "1" then return "si"
+					return "no"
+				end if
+			end try
+		end repeat
+		return "?"
 	end if
 
 	if cmd is "candado" then

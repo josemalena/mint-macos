@@ -297,6 +297,16 @@ if quiere capturas || quiere videos; then
 fi
 
 esc() { osa -e 'tell application "System Events" to key code 53'; sleep 0.4; }
+# Toda tecla con ⌘ o texto va a la app que está AL FRENTE, no a la que nombra el
+# «tell process». Si al frente quedara Terminal, ⌘W cerraría la ventana que corre
+# este guion y el texto caería en el shell. tecla comprueba antes la app del
+# frente y, si no es la esperada, no manda nada y lo anota.
+al_frente() { osascript -e 'tell application "System Events" to get name of first process whose frontmost is true' 2>/dev/null; }
+tecla() { # app-esperada|no-terminal  orden-de-System-Events
+  local f; f="$(al_frente)"
+  case "$1" in no-terminal) [ -n "$f" ] && [ "$f" != Terminal ] ;; *) [ "$f" = "$1" ] ;; esac \
+    || { log "tecla «$2» NO enviada: al frente estaba «${f:-?}» y se esperaba $1"; return 1; }
+  osa -e "tell application \"System Events\" to $2"; }
 modo() { osa -e "tell application \"System Events\" to tell appearance preferences to set dark mode to $1"; sleep 2; }
 ocultar() { osa -e 'tell application "System Events" to set visible of (every process whose visible is true and name is not "Finder") to false'; }
 ocultar_excepto() { osa -e "tell application \"System Events\" to set visible of (every process whose visible is true and name is not \"Finder\" and name is not \"$1\") to false"; }
@@ -423,8 +433,8 @@ tanda() { # claro | oscuro
       -e 'tell application "Finder" to set current view of Finder window 1 to flow view' \
       -e 'tell application "Finder" to select file "Lago.jpg" of folder "Imágenes" of folder "Muestra" of home'; sleep 2
   cap_win 06-finder-galeria-activa-$M "$(id_finder)"
-  osa -e 'tell application "System Events" to tell process "Finder" to keystroke " "'; sleep 2; raton_fuera
-  cap_full 06-finder-quick-look-$M; osa -e 'tell application "System Events" to tell process "Finder" to keystroke " "'; sleep 1
+  tecla Finder 'keystroke " "'; sleep 2; raton_fuera
+  cap_full 06-finder-quick-look-$M; tecla no-terminal 'keystroke " "'; sleep 1
   # rectángulo de selección dentro de la ventana (vista de íconos)
   osa -e 'tell application "Finder" to set target of Finder window 1 to (folder "Muestra" of home)' -e 'tell application "Finder" to set current view of Finder window 1 to icon view'; sleep 1.2
   # El arrastre empieza en un hueco vacío del área de archivos (abajo a la
@@ -470,12 +480,12 @@ tanda() { # claro | oscuro
   cap_win 06-finder-get-info-$M "$(ventana_de Finder Info)"
   osa -e 'tell application "Finder" to close every information window'; sleep 0.5
   # Preferences, sus cuatro pestañas
-  finder_activar; osa -e 'tell application "System Events" to tell process "Finder" to keystroke "," using command down'; sleep 1.5; raton_fuera
+  finder_activar; tecla Finder 'keystroke "," using command down'; sleep 1.5; raton_fuera
   for tab in General Tags Sidebar Advanced; do
     osa -e "tell application \"System Events\" to tell process \"Finder\" to click button \"$tab\" of toolbar 1 of window 1"; sleep 1
     cap_win 06-finder-preferences-$(echo $tab | tr A-Z a-z)-$M "$(ventana_de Finder 'Preferences|Settings')"
   done
-  osa -e 'tell application "System Events" to tell process "Finder" to keystroke "w" using command down'; sleep 0.5
+  tecla Finder 'keystroke "w" using command down'; sleep 0.5
   # Window ▸ (sin Move & Resize en Monterey: se captura el menú entero)
   cerrar_finder; poner_def com.apple.finder ShowStatusBar "$STATUS_ORIG" bool
   # escritorio con íconos, su menú contextual y el rectángulo sobre los íconos
@@ -505,8 +515,8 @@ tanda() { # claro | oscuro
   fi
   # 07 Spotlight y Launchpad
   if bloque 07; then
-  osa -e 'tell application "System Events" to keystroke space using command down'; sleep 1.5; cap_full 07-spotlight-vacio-$M
-  osa -e 'tell application "System Events" to keystroke "Lago"'; sleep 2.5; cap_full 07-spotlight-resultados-$M; esc; sleep 0.4; esc; sleep 0.5
+  tecla no-terminal 'keystroke space using command down'; sleep 1.5; cap_full 07-spotlight-vacio-$M
+  tecla no-terminal 'keystroke "Lago"'; sleep 2.5; cap_full 07-spotlight-resultados-$M; esc; sleep 0.4; esc; sleep 0.5
   open -a Launchpad; sleep 2; cap_full 07-launchpad-$M; esc; sleep 1
 
   fi
@@ -515,7 +525,7 @@ tanda() { # claro | oscuro
   osa -e 'tell application "System Preferences" to quit'; sleep 2; pkill -x "System Preferences" 2>/dev/null; sleep 1
   osa -e 'tell application "System Preferences" to activate' -e 'tell application "System Preferences" to set show all of it to true' ; sleep 2.5; raton_fuera
   # En Monterey «show all» no bastó (la captura salió con un panel): ⌘L es View ▸ Show All Preferences.
-  osa -e 'tell application "System Events" to tell process "System Preferences" to keystroke "l" using command down'; sleep 2
+  tecla "System Preferences" 'keystroke "l" using command down'; sleep 2
   osa -e 'tell application "System Preferences" to activate'; sleep 1
   ocultar_excepto "System Preferences"
   cap_win 08-preferencias-todas-$M "$(ventana_pref)"
@@ -585,18 +595,18 @@ tanda() { # claro | oscuro
   sleep 2.5; raton_fuera; cap_win 09-alerta-3-botones-$M "$(ventana_de osascript)"; kill $P2 2>/dev/null; sleep 1
   osa -e 'tell application "TextEdit"' -e 'activate' -e 'make new document with properties {text:"Notas de la reunión" & linefeed & linefeed & "- Revisar presupuesto"}' \
       -e "set bounds of window 1 to {$((X1-40)), $((Y1-40)), $((X2-40)), $((Y2+80))}" -e 'end tell'; sleep 2; raton_fuera; ocultar_excepto TextEdit
-  osa -e 'tell application "System Events" to tell process "TextEdit" to keystroke "s" using command down'; sleep 2.5; raton_fuera
+  tecla TextEdit 'keystroke "s" using command down'; sleep 2.5; raton_fuera
   cap_win 09-dialogo-save-$M "$(ventana_de TextEdit)"
   osa -e 'tell application "System Events" to tell process "TextEdit" to get {description, name} of every button of sheet 1 of window 1' >> "$LOG"
   if osa -e 'tell application "System Events" to tell process "TextEdit" to click (first button of sheet 1 of window 1 whose description contains "isclos" or description contains "xpand")'; then
     sleep 1.5; raton_fuera; cap_win 09-dialogo-save-expandido-$M "$(ventana_de TextEdit)"
   fi
   esc; sleep 1.2
-  osa -e 'tell application "System Events" to tell process "TextEdit" to keystroke "w" using command down'; sleep 1.8; raton_fuera
+  tecla TextEdit 'keystroke "w" using command down'; sleep 1.8; raton_fuera
   cap_win 09-hoja-guardar-cambios-$M "$(ventana_de TextEdit)"
   osa -e 'tell application "System Events" to tell process "TextEdit" to click button "Delete" of sheet 1 of window 1' || \
     osa -e 'tell application "System Events" to tell process "TextEdit" to click button 3 of sheet 1 of window 1'; sleep 1.2
-  osa -e 'tell application "System Events" to tell process "TextEdit" to keystroke "o" using command down'; sleep 2.5; raton_fuera
+  tecla TextEdit 'keystroke "o" using command down'; sleep 2.5; raton_fuera
   cap_win 09-dialogo-open-$M "$(ventana_de TextEdit)"; esc; sleep 1; osa -e 'tell application "TextEdit" to quit saving no'; sleep 1.5
   osascript -e 'do shell script "true" with administrator privileges' >/dev/null 2>&1 & P3=$!
   sleep 3; raton_fuera; cap_win 09-dialogo-contrasena-admin-$M "$(ventana_de SecurityAgent)"
@@ -619,18 +629,17 @@ tanda() { # claro | oscuro
   fi
   # 15 Force Quit (⌥⌘Esc) y la barra de ⇧⌘5
   if bloque 15; then
-  finder_activar; osa -e 'tell application "System Events" to key code 53 using {command down, option down}'; sleep 2; raton_fuera
+  finder_activar; tecla Finder 'key code 53 using {command down, option down}'; sleep 2; raton_fuera
   cap_win 15-force-quit-$M "$(ventana_de loginwindow)"; [ -f "$CAP/15-force-quit-$M.png" ] || cap_full 15-force-quit-$M
-  osa -e 'tell application "System Events" to key code 53'; sleep 0.5
-  osa -e 'tell application "System Events" to keystroke "w" using command down'; sleep 0.5
-  osa -e 'tell application "System Events" to keystroke "5" using {shift down, command down}'; sleep 2; raton_fuera
+  osa -e 'tell application "System Events" to key code 53'; sleep 0.5   # Esc cierra Force Quit (antes iba además un ⌘W a ciegas)
+  finder_activar; tecla Finder 'keystroke "5" using {shift down, command down}'; sleep 2; raton_fuera
   cap_full 15-captura-pantalla-barra-$M; esc; sleep 1
 
   fi
   # 13 ⌘Tab y Mission Control
   if bloque 13; then
-  osa -e 'tell application "System Events"' -e 'key down command' -e 'keystroke tab' -e 'delay 1.2' \
-      -e "do shell script \"screencapture -x '$CAP/13-cmd-tab-$M.png'\"" -e 'key code 53' -e 'key up command' -e 'end tell'; log "cap 13-cmd-tab-$M"; sleep 0.5
+  osa -e 'tell application "System Events"' -e 'key down command' -e 'try' -e 'keystroke tab' -e 'delay 1.2' \
+      -e "do shell script \"screencapture -x '$CAP/13-cmd-tab-$M.png'\"" -e 'key code 53' -e 'end try' -e 'key up command' -e 'end tell'; log "cap 13-cmd-tab-$M"; sleep 0.5
   open -a "Mission Control"; sleep 3.5   # con 2 s salió a mitad de la animación (Monterey)
   screencapture -x "$CAP/13-mission-control-$M.png"; log "cap 13-mission-control-$M"; esc; sleep 1
 
@@ -697,13 +706,13 @@ tanda() { # claro | oscuro
   # --- Finder: Go to Folder, búsqueda, dos pestañas y el menú del fondo de la ventana
   ocultar; finder_activar; cerrar_finder
   ventana_finder . icon $X1 $Y1 $X2 $Y2; raton_fuera
-  osa -e 'tell application "System Events" to tell process "Finder" to keystroke "g" using {shift down, command down}'; sleep 1.5
+  finder_activar; tecla Finder 'keystroke "g" using {shift down, command down}'; sleep 1.5
   cap_win "16-finder-go-to-folder-$M" "$(id_finder)"; esc; sleep 0.6
-  osa -e 'tell application "System Events" to tell process "Finder" to keystroke "t" using command down'; sleep 1.5
+  finder_activar; tecla Finder 'keystroke "t" using command down'; sleep 1.5
   cap_win "16-finder-dos-pestanas-$M" "$(id_finder)"
-  osa -e 'tell application "System Events" to tell process "Finder" to keystroke "w" using command down'; sleep 1
-  osa -e 'tell application "System Events" to tell process "Finder" to keystroke "f" using command down'; sleep 1.2
-  osa -e 'tell application "System Events" to tell process "Finder" to keystroke "Notas"'; sleep 2.5
+  tecla Finder 'keystroke "w" using command down'; sleep 1
+  finder_activar; tecla Finder 'keystroke "f" using command down'; sleep 1.2
+  tecla Finder 'keystroke "Notas"'; sleep 2.5
   cap_win "16-finder-busqueda-$M" "$(id_finder)"; esc; sleep 0.6
   osa -e 'tell application "Finder" to set target of Finder window 1 to (folder "Muestra" of home)'; sleep 1
   B=$(osa -e 'tell application "Finder" to get bounds of Finder window 1' | tr -d ' ')
@@ -766,7 +775,13 @@ tanda() { # claro | oscuro
   fi
   # Displays ▸ Scaled (y de vuelta a Default for display)
   pref_ancla com.apple.preference.displays displaysDisplayTab
-  if ui_log clic "System Preferences" "Scaled"; then sleep 1.5; cap_pref displays-scaled; ui_log clic "System Preferences" "Default for display"; sleep 1.5; fi
+  # Si José ya está en Scaled, solo se captura (un clic en Default le cambiaría la
+  # resolución). Si está en Default: Scaled, captura y de vuelta a Default.
+  ESTADO_PANT="$($U marcado "System Preferences" "Default for display" 2>>"$LOG")"; log "16: Displays, Default for display marcado: ${ESTADO_PANT:-?}"
+  if [ "$ESTADO_PANT" = no ]; then cap_pref displays-scaled
+  elif [ "$ESTADO_PANT" = si ] && ui_log clic "System Preferences" "Scaled"; then
+    sleep 1.5; cap_pref displays-scaled; ui_log clic "System Preferences" "Default for display"; sleep 1.5
+  else log "16: Displays sin saber qué estaba marcado: no se toca"; fi
   # Desktop & Screen Saver ▸ Desktop: las categorías Colors y Folders
   pref_ancla com.apple.preference.desktopscreeneffect DesktopPref
   for c in Colors Folders; do ui_log fila "System Preferences" "$c" && { sleep 1.5; cap_pref "desktop-$(echo $c | tr A-Z a-z)"; }; done
@@ -811,8 +826,9 @@ tanda() { # claro | oscuro
 
   # --- Launchpad en modo de edición (con ⌥ apretado, sin tocar ningún ícono)
   open -a Launchpad; sleep 2
-  osa -e 'tell application "System Events"' -e 'key down option' -e 'delay 1.5' \
-      -e "do shell script \"screencapture -x '$CAP/16-launchpad-edicion-$M.png'\"" -e 'key up option' -e 'end tell' && log "cap 16-launchpad-edicion-$M"
+  # La ⌥ se suelta pase lo que pase: el screencapture va dentro de un try.
+  osa -e 'tell application "System Events"' -e 'key down option' -e 'try' -e 'delay 1.5' \
+      -e "do shell script \"screencapture -x '$CAP/16-launchpad-edicion-$M.png'\"" -e 'end try' -e 'key up option' -e 'end tell' && log "cap 16-launchpad-edicion-$M"
   esc; sleep 1; raton_fuera
   fi
   log "=== fin tanda $M ==="
@@ -834,10 +850,10 @@ if quiere videos; then
   grabar 01-dock-lupa 8; x=$((W/5)); while [ $x -lt $((W*4/5)) ]; do $H raton mover $x $((HH-DOCK/2)); sleep 0.12; x=$((x+40)); done; raton_fuera; wait $GP; log "video 01"
   poner_def com.apple.dock magnification "$MAG_ORIG" bool; poner_def com.apple.dock largesize "$LARGE_ORIG" int; killall Dock; sleep 3
   grabar 02-control-center 7; item_barra "Control Center" || true; sleep 3.5; esc; raton_fuera; wait $GP; log "video 02"
-  grabar 03-spotlight 8; osa -e 'tell application "System Events" to keystroke space using command down'; sleep 2; osa -e 'tell application "System Events" to keystroke "Lago"'; sleep 2.5; esc; sleep 0.3; esc; wait $GP; log "video 03"
+  grabar 03-spotlight 8; tecla no-terminal 'keystroke space using command down'; sleep 2; tecla no-terminal 'keystroke "Lago"'; sleep 2.5; esc; sleep 0.3; esc; wait $GP; log "video 03"
   grabar 04-mission-control 7; open -a "Mission Control"; sleep 3; esc; sleep 1; wait $GP; log "video 04"
   ventana_finder . list $X1 $Y1 $X2 $Y2; raton_fuera
-  grabar 05-minimizar-ventana 7; osa -e 'tell application "System Events" to tell process "Finder" to keystroke "m" using command down'; sleep 3; osa -e 'tell application "Finder" to set collapsed of Finder window 1 to false'; sleep 1.5; wait $GP; log "video 05"; cerrar_finder
+  grabar 05-minimizar-ventana 7; tecla Finder 'keystroke "m" using command down'; sleep 3; osa -e 'tell application "Finder" to set collapsed of Finder window 1 to false'; sleep 1.5; wait $GP; log "video 05"; cerrar_finder
   grabar 06-notification-center 7; item_barra "Clock"; sleep 3.5; item_barra "Clock"; raton_fuera; wait $GP; log "video 06"
   grabar 07-launchpad 6; open -a Launchpad; sleep 3; esc; wait $GP; log "video 07"
   aviso "Videos listos"
