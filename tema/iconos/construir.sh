@@ -10,7 +10,7 @@
 #     - si hay disco de Mac: los íconos de las apps de macOS para sus equivalentes de Linux
 #       y los paneles de Ajustes (macos_apps.py), los cursores de Catalina (cursores.py) y
 #       los íconos del Finder (finder.py): carpetas, documentos, discos, papelera y los
-#       glifos del lateral.
+#       glifos del lateral; y los glifos de la barra de menú (barra.py: Bluetooth).
 # Nada de Apple se guarda en el repo: se genera aquí desde el disco.
 set -euo pipefail
 AQUI="$(cd "$(dirname "$0")" && pwd)"
@@ -71,6 +71,10 @@ if montar_mac_sistema; then
   # Las apps de Linux con equivalente en macOS (Terminal, Preview, Disk
   # Utility…) y los paneles de Ajustes, con el ícono de la Mac.
   python3 "$AQUI/macos_apps.py" "$MAC_SISTEMA" "$TEMA/escalables/apps"
+  # Los glifos de la barra de menú (Bluetooth) de los Menu Extras de la Mac.
+  mkdir -p "$TEMA/escalables/status"
+  python3 "$AQUI/barra.py" "$MAC_SISTEMA" "$TEMA/escalables/status" || echo "  ⚠ sin glifos de la barra de la Mac"
+  DIRS+=("escalables/status 16 1 Scalable")
   # Los cursores de Catalina (los vectores de HIServices) en $TEMA/cursors,
   # sobre McMojave-cursors, que pone los nombres que faltan.
   python3 "$AQUI/cursores.py" \
