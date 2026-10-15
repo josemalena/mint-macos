@@ -72,6 +72,8 @@ if $DESHACER; then
   [ -f "$R/sin-mimeapps" ] && rm -f "$HOME/.config/mimeapps.list"
   if [ -f "$R/autostart-plank.desktop" ]; then cp -a "$R/autostart-plank.desktop" "$HOME/.config/autostart/plank.desktop"
   elif [ -f "$R/sin-autostart-plank" ]; then rm -f "$HOME/.config/autostart/plank.desktop"; fi
+  if [ -f "$R/nemo-autostart.desktop" ]; then cp -a "$R/nemo-autostart.desktop" "$HOME/.local/share/applications/"
+  elif [ -f "$R/sin-nemo-autostart" ]; then rm -f "$HOME/.local/share/applications/nemo-autostart.desktop"; fi
   echo; echo "Listo. Cierra sesión y vuelve a entrar. Fynder y el Plank del fork quedan"
   echo "instalados en ~/.local, pero ya no son los de por defecto. keyd y lo de"
   echo "requisitos.sh (sudo) no se quitan; /Users, /Volumes y /Applications vacía,"
@@ -125,6 +127,27 @@ if [ -f "$HOME/.config/mimeapps.list" ]; then cp -a "$HOME/.config/mimeapps.list
 xdg-mime default fynder.desktop inode/directory application/x-gnome-saved-search
 update-desktop-database "$HOME/.local/share/applications" 2>/dev/null || true
 echo "  carpetas: $(xdg-mime query default inode/directory)"
+# El escritorio de Fynder en lugar del de Nemo: Cinnamon arranca el escritorio
+# por el nombre «nemo-autostart» (de sus componentes de sesión), y el de
+# ~/.local/share/applications le gana al del sistema. Aquí se había hecho a
+# mano; en la iMac salía el de Mint, con su menú y sin las etiquetas (15-10-2026).
+# Si ya apunta a fynder-desktop (también con esperar-icloud delante), no se toca.
+AUTO_ESC="$HOME/.local/share/applications/nemo-autostart.desktop"
+if [ -x "$HOME/.local/bin/fynder-desktop" ] && ! grep -q '^Exec=.*fynder-desktop$' "$AUTO_ESC" 2>/dev/null; then
+  if [ -f "$AUTO_ESC" ]; then cp -a "$AUTO_ESC" "$R/"; else touch "$R/sin-nemo-autostart"; fi
+  cat > "$AUTO_ESC" <<EOF
+[Desktop Entry]
+Type=Application
+Name=Fynder Desktop
+Comment=El escritorio de Fynder (mint-macos) en lugar del de Nemo
+Exec=$HOME/.local/bin/fynder-desktop
+OnlyShowIn=X-Cinnamon;
+AutostartCondition=GSettings io.github.josemalena.fynder.desktop show-desktop-icons
+X-GNOME-AutoRestart=true
+NoDisplay=true
+EOF
+fi
+echo "  escritorio: $(sed -n 's/^Exec=//p' "$AUTO_ESC" | awk '{print $NF}' | xargs basename) al entrar"
 # Los ajustes de una instalación anterior con el nombre viejo (nemo-mac).
 [ -x "$HOME/.cache/mint-macos/src/fynder/utils/migrar-ajustes-a-fynder.sh" ] && \
   "$HOME/.cache/mint-macos/src/fynder/utils/migrar-ajustes-a-fynder.sh" || true

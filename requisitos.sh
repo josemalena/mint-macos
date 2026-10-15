@@ -171,6 +171,27 @@ else
   id -nG "$USUARIO" | grep -qw disk || { usermod -aG disk "$USUARIO"; echo "  $USUARIO entra al grupo disk (leer /dev/sdX sin sudo)"; }
 fi
 
+# Firefox publica su menú en la barra solo con widget.gtk.global-menu.enabled.
+# menu-global/instalar.sh lo pone en el user.js del perfil, pero en una
+# computadora nueva Firefox todavía no tiene perfil (iMac, 15-10-2026): va
+# también como política del sistema, con «default» para que se pueda cambiar.
+paso "Firefox: el menú en la barra (política del sistema)"
+POL=/etc/firefox/policies/policies.json
+if $SIMULAR; then
+  echo "  se pondría widget.gtk.global-menu.enabled en $POL"
+else
+  mkdir -p "$(dirname "$POL")"
+  python3 - "$POL" <<'PY'
+import json, os, sys
+f = sys.argv[1]
+d = json.load(open(f)) if os.path.exists(f) else {}
+pref = d.setdefault("policies", {}).setdefault("Preferences", {})
+pref["widget.gtk.global-menu.enabled"] = {"Value": True, "Status": "default"}
+json.dump(d, open(f, "w"), indent=2)
+PY
+  echo "  $POL (Firefox lo toma al abrirlo otra vez)"
+fi
+
 paso "Rutas de macOS: /Users, /Volumes y /Applications"
 while read -r enlace destino; do
   if [ -L "$enlace" ] && [ "$(readlink "$enlace")" = "$destino" ]; then
