@@ -99,6 +99,11 @@ Escriben directo en la configuración del programa, en vez de traer su interfaz:
 - **Bluetooth** (`bt.py`): BlueZ por D-Bus (encender, apagar, conectar los dispositivos emparejados).
 - **Sharing** (`compartir.py`): Remote Login (ssh), File Sharing (smbd) y Printer Sharing (cupsctl) por un
   ayudante de root con polkit (abajo).
+- **Network ▸ Advanced…** (`red_avanzado.py`): la hoja de Catalina con TCP/IP, DNS, WINS, 802.1X, Proxies y
+  Hardware. TCP/IP, DNS, Hardware y «Enable automatic connection» son reales por `nmcli connection modify`,
+  con vuelta atrás: OK guarda los valores de antes, aplica (`modify` y `up`) y pregunta «Do you want to keep
+  these network settings?» con 15 s; sin «Keep» devuelve lo anterior. WINS, 802.1X y Proxies van en gris
+  (Proxies espera la captura del panel de servidor y puerto). `MINT_RED_SIMULAR=1` no ejecuta nada.
 - **Printers & Scanners** (`impresoras.py`): CUPS (lista, predeterminada, compartir).
 - **Startup Disk**: arranque EFI y entrada por defecto de GRUB (abajo).
 

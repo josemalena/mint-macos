@@ -2,7 +2,7 @@
 
 Los servicios de la izquierda son los dispositivos de NetworkManager (Ethernet, Wi-Fi, Bluetooth PAN, VLAN)
 con su punto verde o rojo; a la derecha, el estado, la IP, la máscara, el router, el DNS, los dominios de
-búsqueda y la IPv6, leídos con nmcli. Advanced… abre nm-connection-editor (TCP/IP, DNS, 802.1X, proxy…).
+búsqueda y la IPv6, leídos con nmcli. Advanced… abre la hoja de Catalina (red_avanzado.py); sin conexión de NetworkManager, nm-connection-editor.
 En Wi-Fi, Turn Wi-Fi On/Off enciende y apaga la radio (nmcli radio wifi).
 Sin equivalente (en gris): Location, Configure IPv4 (se muestra el método actual: cambiarlo se hace en
 Advanced…), +, −, el engranaje, Revert y Apply.
@@ -180,6 +180,7 @@ class PanelNetwork:
             return
         d = fila.d
         info = detalle(d["dev"])
+        self._seleccion = (d, info)
         conectado = d["estado"].startswith("connected")
         g = Gtk.Grid(column_spacing=12, row_spacing=10, margin=18)
         fila_g = 0
@@ -257,6 +258,12 @@ class PanelNetwork:
 
     def _avanzado(self):
         if self.PRUEBA:
+            return
+        sel = getattr(self, "_seleccion", None)
+        if sel and sel[0]["tipo"] in ("ethernet", "vlan") and sel[0]["conexion"] not in ("", "--"):
+            # La hoja de Catalina (TCP/IP, DNS, WINS, 802.1X, Proxies, Hardware) con vuelta atrás.
+            import red_avanzado
+            red_avanzado.abrir(self.ventana, sel[0], sel[1], alterminar=self._rellenar)
             return
         try:
             subprocess.Popen(["nm-connection-editor"], start_new_session=True,
