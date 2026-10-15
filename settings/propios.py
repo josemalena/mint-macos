@@ -963,11 +963,23 @@ class PanelMissionControl:
             getattr(cuadro, "set_margin_" + lado)(16 if lado in ("top", "bottom") else 20)
         cuadro.set_halign(Gtk.Align.START)
         marco.add(cuadro)
+        # Las tres casillas que Cinnamon no tiene van en gris, como en la captura 12.12.58 AM.
+        fila_c = 0
+        for texto, activa in (("Automatically rearrange Spaces based on most recent use", True),
+                              ("When switching to an application, switch to a Space with open windows "
+                               "for the application", True),
+                              ("Group windows by application", False)):
+            g_ = Gtk.CheckButton(label=texto)
+            g_.set_active(activa)
+            g_.set_sensitive(False)
+            g_.set_tooltip_text("Cinnamon has no equivalent for this option.")
+            cuadro.attach(g_, 0, fila_c, 2, 1)
+            fila_c += 1
         # Displays have separate Spaces = los escritorios no se reparten entre pantallas.
         c = Gtk.CheckButton(label="Displays have separate Spaces")
         c.set_active(not mut.get_boolean("workspaces-only-on-primary"))
         c.connect("toggled", lambda w: mut.set_boolean("workspaces-only-on-primary", not w.get_active()))
-        cuadro.attach(c, 0, 0, 2, 1)
+        cuadro.attach(c, 0, fila_c, 2, 1)
         caja.pack_start(marco, False, False, 0)
 
         tit = Gtk.Label(label="Keyboard and Mouse Shortcuts", xalign=0)
@@ -980,6 +992,7 @@ class PanelMissionControl:
             getattr(g, "set_margin_" + lado)(16 if lado in ("top", "bottom") else 20)
         g.set_halign(Gtk.Align.START)
         for i, (n, a) in enumerate((("Mission Control:", "\u2303\u2191"), ("Application windows:", "\u2303\u2193"),
+                                    ("Show Desktop:", "\u2013"),
                                     ("Spaces left and right:", "\u2303\u2190  \u2303\u2192"))):
             g.attach(_etiqueta(n), 0, i, 1, 1)
             v = Gtk.Label(label=a, xalign=0)
