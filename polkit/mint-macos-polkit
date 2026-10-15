@@ -1,0 +1,32 @@
+#!/bin/sh
+# Supervisor del agente de polkit de mint-macos: lo arranca y lo mantiene vivo.
+#
+# - Si el agente sale con 3 es que ya hay otro agente en la sesión (el de Cinnamon): no insiste y se retira.
+# - Si se cae por otra causa, lo relanza al instante.
+# - Si se cae 3 veces en menos de 60 s, devuelve el agente de Cinnamon en caliente y se retira: así
+#   nadie se queda sin poder autenticar. MINT_POLKIT_RESPALDO cambia ese comando (para las pruebas).
+AQUI="$(dirname "$(readlink -f "$0")")"
+AGENTE="${MINT_POLKIT_AGENTE:-$AQUI/agente.py}"
+RESPALDO="${MINT_POLKIT_RESPALDO:-gdbus call --session --dest org.Cinnamon --object-path /org/Cinnamon --method org.Cinnamon.Eval imports.ui.polkitAuthenticationAgent.init()}"
+hijo=""
+trap '[ -n "$hijo" ] && kill "$hijo" 2>/dev/null; exit 0' TERM INT
+
+fallos=0
+desde=$(date +%s)
+while true; do
+  python3 "$AGENTE" &
+  hijo=$!
+  wait "$hijo"
+  rc=$?
+  hijo=""
+  [ "$rc" -eq 3 ] && exit 0
+  ahora=$(date +%s)
+  if [ $((ahora - desde)) -gt 60 ]; then fallos=0; desde=$ahora; fi
+  fallos=$((fallos + 1))
+  if [ "$fallos" -ge 3 ]; then
+    echo "mint-macos-polkit: el agente se cayó $fallos veces seguidas; devuelvo el de Cinnamon." >&2
+    sh -c "$RESPALDO" >/dev/null 2>&1
+    exit 1
+  fi
+  sleep 1
+done

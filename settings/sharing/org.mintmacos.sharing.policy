@@ -11,6 +11,8 @@
       <allow_inactive>auth_admin</allow_inactive>
       <allow_active>auth_admin_keep</allow_active>
     </defaults>
+    <annotate key="org.mintmacos.boton">OK</annotate>
+    <annotate key="org.mintmacos.icono">com.apple.preferences.sharing</annotate>
     <annotate key="org.freedesktop.policykit.exec.path">/usr/libexec/mint-macos/sharing</annotate>
   </action>
 </policyconfig>
