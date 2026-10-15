@@ -32,8 +32,8 @@ function run(argv) {
   if (cmd === 'pantalla') return pantalla();
   if (cmd === 'ventanas') return ventanas(argv[1] || '');
   if (cmd === 'raton') return raton(argv.slice(1));
-  if (cmd === 'medidas') return medidas();
-  if (cmd === 'permisos') return permisos(argv[1] === 'pedir');
+  if (cmd === 'medidas') return medidas(argv[1] || '');
+  if (cmd === 'permisos') return permisos(argv[1] === 'pedir', argv[2] || '');
   return 'uso: pantalla | ventanas [dueño] | raton … | medidas | permisos [pedir]';
 }
 
@@ -101,7 +101,15 @@ function raton(a) {
 }
 
 // ---- permisos ---------------------------------------------------------------
-function permisos(pedir) {
+// La versión llega de extraer.sh (sw_vers): en Catalina el puente de JXA no lee
+// los structs (operatingSystemVersion, NSRect) y se cae o los da vacíos.
+function versionDe(texto) {
+  const p = String(texto || '').split('.').map(Number);
+  return { mayor: p[0] || 0, menor: p[1] || 0 };
+}
+function esCatalinaOAnterior(texto) { const v = versionDe(texto); return v.mayor === 10; }
+
+function permisos(pedir, version) {
   let acc = false, grab = false;
   try {
     if (pedir) {
@@ -111,8 +119,8 @@ function permisos(pedir) {
     } else acc = !!$.AXIsProcessTrusted();
   } catch (e) { acc = 'error: ' + e; }
   try {
-    const v = $.NSProcessInfo.processInfo.operatingSystemVersion;
-    if (v.majorVersion > 10 || (v.majorVersion === 10 && v.minorVersion >= 15)) {
+    const v = versionDe(version);
+    if (v.mayor > 10 || (v.mayor === 10 && v.menor >= 15)) {
       grab = !!$.CGPreflightScreenCaptureAccess();
       if (!grab && pedir) grab = !!$.CGRequestScreenCaptureAccess();
     } else grab = 'no medible en esta versión (anterior a 10.15: no hace falta)';
@@ -166,23 +174,28 @@ function pref(dominio, clave) {
   const v = d && !d.isNil() ? ObjC.deepUnwrap(d.objectForKey(clave)) : undefined;
   return v === undefined || v === null ? 'por defecto' : v;
 }
-function medidas() {
+function medidas(version) {
   $.NSApplication.sharedApplication;
-  const s = $.NSScreen.mainScreen, f = s.frame, v = s.visibleFrame;
+  const viejo = esCatalinaOAnterior(version);
   const res = {
     generado: new Date().toISOString(),
     sistema: $.NSProcessInfo.processInfo.operatingSystemVersionString.js,
     unidad: 'puntos (pt); 1 pt = backingScaleFactor px',
-    pantalla: {
+  };
+  if (viejo) {
+    res.pantalla = 'no medida aquí: en esta versión JXA no lee NSRect; ver pantalla.txt';
+  } else {
+    const s = $.NSScreen.mainScreen, f = s.frame, v = s.visibleFrame;
+    res.pantalla = {
       frame_pt: [f.size.width, f.size.height],
       visibleFrame_pt: [v.origin.x, v.origin.y, v.size.width, v.size.height],
       backingScaleFactor: s.backingScaleFactor,
       alto_barra_menu_pt: (f.origin.y + f.size.height) - (v.origin.y + v.size.height),
       alto_reservado_dock_pt: v.origin.y - f.origin.y,
       nota_dock: 'si el Dock se oculta solo, alto_reservado_dock_pt es 0',
-    },
-    NSStatusBar_thickness_pt: $.NSStatusBar.systemStatusBar.thickness,
-  };
+    };
+  }
+  res.NSStatusBar_thickness_pt = $.NSStatusBar.systemStatusBar.thickness;
   const F = $.NSFont;
   res.fuentes = {
     systemFont: fuente(F.systemFontOfSize(0)), systemFont_bold: fuente(F.boldSystemFontOfSize(0)),
@@ -203,7 +216,8 @@ function medidas() {
 
   // Ventana de prueba (no se muestra): barra de título y semáforos.
   const ventana = {};
-  try {
+  if (viejo) ventana.nota = 'no medida en esta versión (JXA no lee NSRect): ver capturas';
+  else try {
     const w = $.NSWindow.alloc.initWithContentRectStyleMaskBackingDefer($.NSMakeRect(0, 0, 600, 400), 15, 2, true);
     ventana.alto_barra_titulo_pt = w.frame.size.height - w.contentLayoutRect.size.height;
     ventana.semaforos = {};

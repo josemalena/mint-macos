@@ -47,6 +47,25 @@ log() { echo "$(date +%H:%M:%S) $*" >> "$LOG"; }
 aviso() { log "$*"; osascript -e "display notification \"$*\" with title \"Extraer Mac\"" 2>/dev/null; }
 osa() { osascript "$@" 2>>"$LOG"; }
 
+# Ancho, alto, escala, barra y Dock en puntos. En Catalina el puente de JXA se
+# cae al leer un NSRect (NSGetSizeAndAlignment, 15-10-2026) y todo salía vacío:
+# las capturas por región y las ventanas de Finder quedaron mal. Respaldo: lo
+# mismo medido con AppleScript.
+pantalla() {
+  local r; r="$($H pantalla 2>>"$LOG")"
+  set -- $r
+  if [ -n "${1:-}" ] && [ -n "${4:-}" ]; then echo "$r"; return; fi
+  local b w h esc barra dock
+  b="$(osascript -e 'tell application "Finder" to get bounds of window of desktop' 2>>"$LOG" | tr -d ' ')"
+  w="$(echo "$b" | cut -d, -f3)"; h="$(echo "$b" | cut -d, -f4)"
+  barra="$(osascript -e 'tell application "System Events" to get item 2 of (get size of menu bar 1 of process "Finder")' 2>>"$LOG")"
+  if [ "$(defaults read com.apple.dock autohide 2>/dev/null)" = 1 ]; then dock=0
+  else dock="$(osascript -e 'tell application "System Events" to get item 2 of (get size of list 1 of process "Dock")' 2>>"$LOG")"; fi
+  system_profiler SPDisplaysDataType 2>/dev/null | grep -q Retina && esc=2 || esc=1
+  log "pantalla medida con AppleScript (JXA no la dio): $w x $h, escala $esc, barra $barra, dock $dock"
+  echo "$w $h $esc ${barra:-22} ${dock:-0}"
+}
+
 PASOS="$*"; [ -z "$PASOS" ] && PASOS="permisos recursos medidas capturas videos entregar"
 quiere() { case " $PASOS " in *" $1 "*) return 0 ;; esac; return 1; }
 
@@ -56,7 +75,7 @@ log "=== extraer.sh ($PASOS) en $NOMBRE, macOS $VERSION, usuario $USER, TERM_PRO
 # ---------------------------------------------------------------- permisos
 # Todo de una vez, al principio. Los permisos son de la app que corre esto
 # (Terminal, o la que el usuario use); los diálogos los muestra el sistema.
-permisos_estado() { $H permisos 2>>"$LOG"; }
+permisos_estado() { $H permisos consultar "$VERSION" 2>>"$LOG"; }
 permisos_ok() { case "$1" in *'"accesibilidad":true'*) case "$1" in *'"grabacion":true'*|*'"grabacion":"no medible'*) return 0;; esac;; esac; return 1; }
 pedir_permisos() {
   local antes r i
@@ -76,7 +95,7 @@ pedir_permisos() {
   osascript -e 'tell application "System Preferences" to quit' >/dev/null 2>&1
   osascript -e 'tell application "TextEdit" to quit saving no' >/dev/null 2>&1
   # 2. Accessibility y Screen Recording: un solo disparo de los dos diálogos.
-  permisos_estado >/dev/null; r="$($H permisos pedir 2>>"$LOG")"; log "permisos pedidos: $r"
+  permisos_estado >/dev/null; r="$($H permisos pedir "$VERSION" 2>>"$LOG")"; log "permisos pedidos: $r"
   i=0
   until permisos_ok "$r"; do
     i=$((i+1)); [ $i -ge 120 ] && break
@@ -183,8 +202,8 @@ fi
 if quiere medidas; then
   aviso "Medidas"
   mkdir -p "$MED"
-  $H medidas > "$MED/medidas.json" 2>>"$LOG"
-  read -r W HH ESC BARRA DOCK <<< "$($H pantalla)"
+  $H medidas "$VERSION" > "$MED/medidas.json" 2>>"$LOG"
+  read -r W HH ESC BARRA DOCK <<< "$(pantalla)"
   {
     echo "Equipo: $(sysctl -n hw.model) · macOS $VERSION ($(sw_vers -buildVersion))"
     system_profiler SPDisplaysDataType 2>/dev/null | grep -E 'Resolution|UI Looks like|Retina|Display Type|Main Display' | sed 's/^ *//'
@@ -222,12 +241,13 @@ poner_def() { # dominio clave valor-anotado tipo
 MODO_ORIG="$(osa -e 'tell application "System Events" to tell appearance preferences to get dark mode')"
 MAG_ORIG="$(leer_def com.apple.dock magnification)"; LARGE_ORIG="$(leer_def com.apple.dock largesize)"
 ORI_ORIG="$(leer_def com.apple.dock orientation)"; DESK_ORIG="$(leer_def com.apple.finder CreateDesktop)"
-STATUS_ORIG="$(leer_def com.apple.finder ShowStatusBar)"
+STATUS_ORIG="$(leer_def com.apple.finder ShowStatusBar)"; AUTOHIDE_ORIG="$(leer_def com.apple.dock autohide)"
 MUESTRA_CREADA=false
 devolver() {
   poner_def com.apple.dock magnification "$MAG_ORIG" bool; poner_def com.apple.dock largesize "$LARGE_ORIG" int
   poner_def com.apple.dock orientation "$ORI_ORIG" string; poner_def com.apple.finder CreateDesktop "$DESK_ORIG" bool
   poner_def com.apple.finder ShowStatusBar "$STATUS_ORIG" bool
+  poner_def com.apple.dock autohide "$AUTOHIDE_ORIG" bool
   killall Dock Finder 2>/dev/null
   [ -n "$MODO_ORIG" ] && osa -e "tell application \"System Events\" to tell appearance preferences to set dark mode to $MODO_ORIG"
   if $MUESTRA_CREADA && [ -d "$HOME/Muestra" ]; then rm -rf "${HOME:?}/Muestra"; fi
@@ -248,7 +268,7 @@ comprobar_permisos() {
 if quiere capturas || quiere videos; then
   comprobar_permisos || { log "=== abortado por permisos ==="; exit 2; }
   trap devolver EXIT
-  read -r W HH ESC BARRA DOCK <<< "$($H pantalla)"
+  read -r W HH ESC BARRA DOCK <<< "$(pantalla)"
   W=${W%.*}; HH=${HH%.*}; BARRA=${BARRA%.*}; DOCK=${DOCK%.*}
   log "pantalla ${W}x${HH} pt, escala $ESC, barra $BARRA, dock $DOCK"
   # Ventanas de Finder en proporción a la pantalla (en macOS 27, 2240×1260:
@@ -273,7 +293,7 @@ ocultar_excepto() { osa -e "tell application \"System Events\" to set visible of
 raton_fuera() { $H raton mover $((W-10)) $((HH/2)); sleep 0.3; }
 cap_full() { sleep 0.7; screencapture -x "$CAP/$1.png" && log "cap $1"; }
 cap_reg()  { sleep 0.7; screencapture -x -R "$2" "$CAP/$1.png" && log "cap $1 ($2)"; }
-cap_win()  { [ -n "$2" ] || { log "sin ventana para $1"; return; }; sleep 0.7; screencapture -x -o -l "$2" "$CAP/$1.png" && log "cap $1 (ventana $2)"; }
+cap_win()  { [ -n "$2" ] || { log "sin ventana para $1: va la pantalla entera"; cap_full "$1"; return; }; sleep 0.7; screencapture -x -o -l "$2" "$CAP/$1.png" && log "cap $1 (ventana $2)"; }
 ventana_pref() { # la ventana principal de System Preferences: la que tiene título (el panel actual); si no, la más grande
   local id; id=$($H ventanas "System Preferences" | awk -F'\t' '$2==0 && $4!="" {print $1; exit}')
   [ -n "$id" ] && echo "$id" || ventana_de "System Preferences"; }
@@ -337,6 +357,12 @@ tanda() { # claro | oscuro
   fi
   # 05 Dock
   if bloque 05; then
+  # Si el Dock se oculta solo (la Mac de José en Catalina), se muestra para el
+  # bloque y se vuelve a ocultar al final (y en devolver).
+  if [ "$AUTOHIDE_ORIG" = 1 ]; then
+    defaults write com.apple.dock autohide -bool false; killall Dock; sleep 2.5
+    read -r _ _ _ _ DOCK <<< "$(pantalla)"; DOCK=${DOCK%.*}; log "Dock visible para el bloque 05: $DOCK pt"
+  fi
   cap_reg 05-dock-normal-$M 0,$((HH-DOCK-10)),$W,$((DOCK+10))
   osa -e 'tell application "System Events" to tell process "Dock" to perform action "AXShowMenu" of UI element "Finder" of list 1'; sleep 0.9
   cap_full 05-dock-menu-contextual-$M; esc
@@ -370,7 +396,8 @@ tanda() { # claro | oscuro
   raton_fuera
   poner_def com.apple.dock magnification "$MAG_ORIG" bool; poner_def com.apple.dock largesize "$LARGE_ORIG" int
   defaults write com.apple.dock orientation left; killall Dock; sleep 2.5; cap_full 05-dock-izquierda-$M
-  poner_def com.apple.dock orientation "$ORI_ORIG" string; killall Dock; sleep 2.5
+  poner_def com.apple.dock orientation "$ORI_ORIG" string
+  poner_def com.apple.dock autohide "$AUTOHIDE_ORIG" bool; killall Dock; sleep 2.5
 
   fi
   # 06 Finder
