@@ -15,6 +15,9 @@
 # Plank del sistema esos dos lanzadores no existen y no se ponen.
 #
 # Variables:
+#   PLANK_ORDEN_MAC=1  vuelve a crear los lanzadores que falten y a poner el
+#                   orden de la Mac aunque ya se hubiera puesto (instalar-aqui.sh,
+#                   después de instalar Launchpad y System Preferences)
 #   PLANK_FINDER    el Finder del dock: fynder (por defecto, si está su
 #                   .desktop; es el gestor de archivos de la casa) o nemo-mac. El
 #                   lanzador fijado tiene que ser el .desktop de la app que
@@ -83,6 +86,25 @@ else
   DESPUES=(trash)
 fi
 
+# La primera vez (sin la marca de abajo) se crean los lanzadores de la Mac que
+# falten, si la app está instalada: en una computadora nueva no hay ninguno y
+# el dock quedaba con el Finder y la pila nada más (iMac, 15-10-2026). Después
+# no se crean: si José quitó uno del dock, no vuelve.
+MARCA="$LANZADORES/../.orden-mac-aplicado"
+[ "${PLANK_ORDEN_MAC:-}" = 1 ] && rm -f "$MARCA"
+if [ ! -f "$MARCA" ]; then
+  for n in "${ANTES[@]}"; do
+    [ -f "$LANZADORES/$n.dockitem" ] && continue
+    case "$n" in finder|system-preferences) continue ;; esac
+    # El engranaje de Cinnamon solo sin la System Preferences de mint-macos.
+    [ "$n" = cinnamon-settings ] && [ -f "$APPS/mint-macos-settings.desktop" ] && continue
+    for d in "$APPS/$n.desktop" "/usr/share/applications/$n.desktop" "/var/lib/flatpak/exports/share/applications/$n.desktop"; do
+      [ -f "$d" ] && { escribir_lanzador "$n" "file://$d"; break; }
+    done
+  done
+  escribir_lanzador trash docklet://trash
+fi
+
 # El orden: los de la Mac, después cualquier otro que haya, el separador, la
 # pila y la Papelera.
 lista=()
@@ -110,8 +132,8 @@ fi
 
 # El orden de la Mac se pone una sola vez: después José reorganiza el dock a
 # mano (arrastrar, «Keep in Dock», «Remove from Dock») y una reinstalación no
-# se lo deshace. Para volver al orden de la Mac: borrar la marca y correr esto.
-MARCA="$LANZADORES/../.orden-mac-aplicado"
+# se lo deshace. Para volver al orden de la Mac: PLANK_ORDEN_MAC=1 (borra la
+# marca) y correr esto.
 if [ ! -f "$MARCA" ]; then
   dconf write "$CLAVES/dock-items" "$items"
   touch "$MARCA"

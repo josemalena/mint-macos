@@ -85,6 +85,9 @@ export MAC_SISTEMA="$MAC"
 "$REPO/launchpad/instalar.sh"
 "$REPO/ayudante/instalar.sh"
 "$REPO/icloud/apps-web.sh"
+# El dock otra vez, ahora que existen Launchpad y System Preferences: en el
+# paso del tema todavía no estaban y el dock se quedaba sin ellos.
+PLANK_ORDEN_MAC=1 "$REPO/tema/plank/configurar.sh"
 }
 
 p_bloqueo() {
