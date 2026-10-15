@@ -9,7 +9,7 @@ set -euo pipefail
 AQUI="$(cd "$(dirname "$0")" && pwd)"
 MOJAVE_COMMIT=eff1025
 NOMBRE=Constanza-Oscuro
-DEST="$HOME/.themes"
+DEST="${CONSTANZA_TEMAS:-$HOME/.themes}"        # CONSTANZA_TEMAS y CONSTANZA_PLANK: para probar sin tocar los activos
 TMP="$(mktemp -d)"
 trap 'desmontar_mac 2>/dev/null; rm -rf "${TMP:?}"' EXIT
 
@@ -76,7 +76,7 @@ mv "$DEST/$NOMBRE.nuevo-$$" "$DEST/$NOMBRE"
 rm -rf "${DEST:?}/${NOMBRE:?}.viejo-$$"
 
 # Dock: el tema de Plank oscuro de Mojave con el nombre de Constanza.
-PLANK_FINAL="$HOME/.local/share/plank/themes/${NOMBRE:?}"
+PLANK_FINAL="${CONSTANZA_PLANK:-$HOME/.local/share/plank/themes}/${NOMBRE:?}"
 PLANK="$PLANK_FINAL.nuevo-$$"          # se arma al lado y se cambia al final
 rm -rf "${PLANK:?}"; mkdir -p "$PLANK"
 cp "$TMP/mojave/src/other/plank/Theme-Dark/"* "$PLANK/"
