@@ -174,7 +174,7 @@ sudo settings/sharing/instalar-root.sh --quitar
 Son de Apple: **nunca van al repo**. `desde-mac.sh` los saca del disco de la Mac,
 en solo lectura, a `~/.local/share/mint-macos/settings/`:
 
-- `iconos/<identificador>.png`: el de cada panel (36 de 38). Los que Apple guarda
+- `iconos/<identificador>.png`: el de cada panel (38 de 38). Los que Apple guarda
   dentro de un catálogo (`Assets.car`: General, Internet Accounts, Spotlight) salen
   con `tema/iconos/car.py`, que no necesita macOS.
 - `glifos/`: atrás, adelante y Show All (`GoBack`, `GoForward`, `ToolbarTopSites`), en

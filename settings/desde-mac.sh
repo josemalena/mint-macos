@@ -129,14 +129,14 @@ for p in sorted(glob.glob(paneles + "/*.prefPane")):
     except Exception:
         continue
     ident = info.get("CFBundleIdentifier")
-    icono = info.get("NSPrefPaneIconFile") or info.get("CFBundleIconFile")
-    if not ident or not icono:
+    # El ícono del panel (NSPrefPaneIconFile) y, si ese archivo no se lee, el del paquete
+    # (CFBundleIconFile): el TIFF de Screen Time tumba a ImageMagick, pero su .icns se abre bien.
+    iconos = [i for i in (info.get("NSPrefPaneIconFile"), info.get("CFBundleIconFile")) if i]
+    if not ident or not iconos:
         continue
     destino_png = os.path.join(salida, ident + ".png")
-    for ruta in candidatos(p, icono):
-        if convertir(ruta, destino_png):
-            hechos += 1
-            break
+    if any(convertir(ruta, destino_png) for icono in iconos for ruta in candidatos(p, icono)):
+        hechos += 1
     else:
         faltan.append(ident)
 
