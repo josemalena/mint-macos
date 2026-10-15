@@ -79,6 +79,23 @@ Escriben directo en la configuración del programa, en vez de traer su interfaz:
   trae contenido Spotlight (el atajo de Spotlyte). Input Sources: las distribuciones de teclado
   (`org.gnome.libgnomekbd.keyboard`). Lo que Linux no tiene (Text, Dictation, el visor de emojis, Show Finder
   search window) se dibuja como en la captura pero en gris, como en una Mac sin esa función.
+- **Mouse y Trackpad** (`raton.py`): Natural scroll, Tracking speed, Double-Click speed y el botón principal
+  (`org.cinnamon.desktop.peripherals.mouse`); Scrolling speed en gris. Sin touchpad, Trackpad es la pantalla
+  «No trackpad found» de Catalina; con uno lo sirve el módulo de Cinnamon.
+- **General** (`general.py`): Default web browser (`xdg-settings`) y Show scroll bars; Appearance solo con el
+  tema oscuro, y lo demás en gris.
+- **Sound** (`sonido.py`): Output e Input por `pactl` (dispositivo, Balance, volumen, Mute) y los efectos de
+  interfaz por `org.cinnamon.desktop.sound`. Las alertas (Basso, Blow…) salen del disco de la Mac con `desde-mac.sh`.
+- **Displays** (`pantallas.py`): Rotation y Refresh Rate por el DisplayConfig de Cinnamon con vuelta atrás a los
+  15 s; Color (colord) y Night Shift (`org.cinnamon.settings-daemon.plugins.color`).
+- **Notifications** (`avisos.py`): todo en gris, como una Mac sin esa función (Cinnamon no filtra por app).
+- **Date & Time** (`fecha.py`): timedatectl con el candado por polkit y el formato del reloj de la barra.
+- **Energy Saver** (`energia.py`): Computer sleep y Display sleep (`...plugins.power`); lo demás en gris.
+- **Software Update** (`actualizaciones.py`): estado de `apt` y de Update Manager, con Advanced….
+- **Bluetooth** (`bt.py`): BlueZ por D-Bus (encender, apagar, conectar los dispositivos emparejados).
+- **Sharing** (`compartir.py`): Remote Login (ssh), File Sharing (smbd) y Printer Sharing (cupsctl) por un
+  ayudante de root con polkit (abajo).
+- **Printers & Scanners** (`impresoras.py`): CUPS (lista, predeterminada, compartir).
 - **Startup Disk**: arranque EFI y entrada por defecto de GRUB (abajo).
 
 ## Apple ID: iCloud Drive, Mail y Calendar
@@ -135,6 +152,17 @@ anterior. El primer respaldo queda en `/etc/keyd/default.conf.mint-macos.bak`.
 ```
 sudo settings/modifier-keys/instalar-root.sh            # instala el ayudante y la acción de polkit
 sudo settings/modifier-keys/instalar-root.sh --quitar   # los quita y deja las teclas por defecto
+```
+
+## Sharing: Remote Login, File Sharing y Printer Sharing
+
+Se encienden y apagan por un ayudante de root (`sharing/`), como Startup Disk: el panel pide la clave por
+`pkexec` y el ayudante valida el servicio contra una lista cerrada (ssh.socket/ssh.service, smbd y
+`cupsctl --share-printers`). Su estado se lee sin root.
+
+```
+sudo settings/sharing/instalar-root.sh            # instala el ayudante y la acción de polkit
+sudo settings/sharing/instalar-root.sh --quitar
 ```
 
 ## Los íconos y glifos de Apple
