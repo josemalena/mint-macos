@@ -209,13 +209,25 @@ class PanelDock:
         cuadro.attach(efecto, 1, fila, 2, 1)
         fila += 1
 
+        # Prefer tabs when opening documents: lo decide cada app, no el sistema; como en una Mac
+        # que no tuviera la función, se dibuja en gris (captura 12.12.52 AM).
+        cuadro.attach(_etiqueta("Prefer tabs when opening documents:"), 0, fila, 1, 1)
+        pestanas = Gtk.ComboBoxText()
+        pestanas.append("full", "In Full Screen Only")
+        pestanas.set_active(0)
+        pestanas.set_sensitive(False)
+        pestanas.set_tooltip_text("Each app decides this on its own on this computer.")
+        pestanas.set_halign(Gtk.Align.START)
+        cuadro.attach(pestanas, 1, fila, 2, 1)
+        fila += 1
+
         # Minimize windows into application icon (el Plank de mint-macos; con un Plank
         # sin esa clave el control no sale: no hay nada que escribir).
         if p.props.settings_schema.has_key("minimize-into-icon"):
             en_icono = Gtk.CheckButton(label="Minimize windows into application icon")
             en_icono.set_active(p.get_boolean("minimize-into-icon"))
             en_icono.connect("toggled", lambda b: p.set_boolean("minimize-into-icon", b.get_active()))
-            cuadro.attach(en_icono, 0, fila, 3, 1)
+            cuadro.attach(en_icono, 1, fila, 2, 1)
             fila += 1
 
         # Double-click a window's title bar to
@@ -237,28 +249,28 @@ class PanelDock:
         caja_dc = Gtk.Box(spacing=8)
         caja_dc.pack_start(dc, False, False, 0)
         caja_dc.pack_start(combo, False, False, 0)
-        cuadro.attach(caja_dc, 0, fila, 3, 1)
+        cuadro.attach(caja_dc, 1, fila, 2, 1)
         fila += 1
 
         # Animate opening applications: el rebote al abrir (LaunchBounceHeight del tema)
         animar = Gtk.CheckButton(label="Animate opening applications")
         animar.set_active(_tema_encendido(p, "LaunchBounceHeight"))
         animar.connect("toggled", lambda b: _encender_tema(p, "LaunchBounceHeight", b.get_active()))
-        cuadro.attach(animar, 0, fila, 3, 1)
+        cuadro.attach(animar, 1, fila, 2, 1)
         fila += 1
 
         # Automatically hide and show the Dock
         ocultar = Gtk.CheckButton(label="Automatically hide and show the Dock")
         ocultar.set_active(p.get_string("hide-mode") != "none")
         ocultar.connect("toggled", lambda b: p.set_string("hide-mode", "auto" if b.get_active() else "none"))
-        cuadro.attach(ocultar, 0, fila, 3, 1)
+        cuadro.attach(ocultar, 1, fila, 2, 1)
         fila += 1
 
         # Show indicators for open applications: el punto bajo el ícono (IndicatorSize del tema)
         indic = Gtk.CheckButton(label="Show indicators for open applications")
         indic.set_active(_tema_encendido(p, "IndicatorSize"))
         indic.connect("toggled", lambda b: _encender_tema(p, "IndicatorSize", b.get_active()))
-        cuadro.attach(indic, 0, fila, 3, 1)
+        cuadro.attach(indic, 1, fila, 2, 1)
         fila += 1
 
         # Show recent applications in Dock: las últimas tres apps cerradas se quedan
@@ -267,7 +279,7 @@ class PanelDock:
             recientes = Gtk.CheckButton(label="Show recent applications in Dock")
             recientes.set_active(p.get_boolean("show-recent-apps"))
             recientes.connect("toggled", lambda b: p.set_boolean("show-recent-apps", b.get_active()))
-            cuadro.attach(recientes, 0, fila, 3, 1)
+            cuadro.attach(recientes, 1, fila, 2, 1)
 
         cuadro.show_all()
         return cuadro
