@@ -80,8 +80,13 @@ for a in "$REPO"/applets/*@macos; do
   n="$(basename "$a")"
   [ -e "$APPLETS/$n" ] && respaldar "$APPLETS/$n"
   rm -rf "${APPLETS:?}/$n"
-  # Solo lo que está en git: nada de __pycache__ ni restos locales.
-  (cd "$REPO" && git ls-files -z "applets/$n") | while IFS= read -r -d '' f; do
+  # Solo lo que está en git: nada de __pycache__ ni restos locales. En el
+  # paquete el repo sale de git archive, sin .git: ahí ya viene limpio.
+  if [ -d "$REPO/.git" ]; then
+    (cd "$REPO" && git ls-files -z "applets/$n")
+  else
+    (cd "$REPO" && find "applets/$n" -type f ! -path '*/__pycache__/*' ! -name '*.pyc' -print0)
+  fi | while IFS= read -r -d '' f; do
     install -D -m "$( [ -x "$REPO/$f" ] && echo 755 || echo 644 )" "$REPO/$f" "$APPLETS/${f#applets/}"
   done
   echo "  $n"

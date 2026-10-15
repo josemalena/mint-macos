@@ -96,8 +96,8 @@ EJECUCION=(
   wmctrl xdotool cinnamon-screensaver
   # migrar-datos.sh
   rsync
-  # capturas/ (⇧⌘3, ⇧⌘4…) y la carpeta del escritorio
-  gnome-screenshot xdg-user-dirs
+  # capturas/ (⇧⌘3, ⇧⌘4…, la grabación de ⇧⌘5) y la carpeta del escritorio
+  gnome-screenshot xdg-user-dirs ffmpeg
   # icloud/icloud.sh: la clave de rclone.conf cifrado en el llavero; unzip
   libsecret-tools unzip
   # tema/iconos/car.py: los íconos que vienen en Assets.car (LZFSE) y los
