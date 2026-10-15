@@ -19,7 +19,8 @@
 #   5. instalar.sh --sin-compilar, Settings.app, Launchpad, el ayudante
 #      (Force Quit y ⇧⌘5) y las apps web de Apple
 #   6. con la misma clave: el arranque (Plymouth) y la pantalla de inicio de
-#      Catalina, y bloquear con ella
+#      Catalina, y bloquear con ella; y si hay discos APFS en fstab, el
+#      vigilante que rehace su montaje cuando el FUSE muere (apfs/vigilar.sh)
 #   7. dice lo que queda: iCloud Drive y cerrar sesión
 set -euo pipefail
 
@@ -85,6 +86,13 @@ paso "6. El arranque y la pantalla de inicio (sudo, con la misma clave)"
 sudo "$REPO/tema/arranque/instalar.sh"
 sudo "$REPO/login/instalar.sh" --activar
 "$REPO/login/bloqueo.sh"
+# El vigilante de los montajes APFS, solo si esta máquina los tiene en fstab
+# (el paquete no monta ninguno: lo de la Mac viene en mac-sistema.tar).
+if awk '$3 == "fsapfs" && $1 !~ /^#/ {f=1} END {exit !f}' "${FSTAB:-/etc/fstab}"; then
+  sudo "$REPO/apfs/vigilar.sh" --instalar
+else
+  echo "  sin discos APFS en fstab: el vigilante de montajes no hace falta"
+fi
 
 paso "Lo que queda"
 echo "  - Si la pantalla de inicio no saliera: Ctrl+Alt+F2, entra y  sudo login-mac-revertir"
