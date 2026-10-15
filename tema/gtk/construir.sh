@@ -101,7 +101,7 @@ VALORES = {
         'ItemPadding': '0.75', 'IconShadowSize': '0',
         'IndicatorStyle': '4', 'IndicatorColor': '131;;140;;152;;255',
         'IndicatorSize': '0.75', 'IndicatorOffset': '-0.6',
-        'BlurRadius': '30', 'SeparatorPadding': '-2.2',
+        'BlurRadius': '30', 'SeparatorPadding': '-3.4',
     },
 }
 lineas, seccion, vistos = open(ruta).read().splitlines(), None, set()
