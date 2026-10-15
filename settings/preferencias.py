@@ -775,7 +775,9 @@ class Ventana(Gtk.ApplicationWindow):
             self.lista.show_all()
             self.lista.select_row(self.lista.get_row_at_index(0))
             self.resultados.popup()
-            self.buscar.grab_focus()
+            # El foco vuelve al campo SIN seleccionar el texto: grab_focus() lo selecciona todo y la
+            # siguiente letra lo borraba («dock» quedaba en «ck»).
+            self.buscar.grab_focus_without_selecting()
         else:
             fila = Gtk.ListBoxRow()
             fila.pv = None
