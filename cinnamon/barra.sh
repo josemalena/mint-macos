@@ -12,6 +12,10 @@ dconf dump /org/cinnamon/ > "$RESPALDO/org-cinnamon.dconf"
 cp -a "$HOME/.config/cinnamon/spices/calendar@cinnamon.org" "$RESPALDO/" 2>/dev/null || true
 echo "  respaldo del panel en $RESPALDO"
 
+# Arriba, como la barra de menús de la Mac. Mint la trae abajo; aquí ya estaba
+# arriba a mano y por eso no se notó hasta la iMac (15-10-2026).
+gsettings set org.cinnamon panels-enabled "['1:0:top']"
+
 # 22 px: el alto de la barra de la Mac a 1x (Cinnamon venía en 20).
 gsettings set org.cinnamon panels-height "['1:22']"
 
