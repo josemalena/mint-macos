@@ -176,3 +176,69 @@ headerbar.mp-barra entry {
 .mp-titulo-negrita {
   font-weight: 700;
 }
+
+/* Los puntos de Accent color (General): los colores de la captura de Catalina. */
+#mp-acento-0 radio {
+  background-image: none;
+  background-color: #006fff;
+  border-color: rgba(0, 0, 0, 0.3);
+  border-radius: 50%;
+  min-width: 14px;
+  min-height: 14px;
+}
+#mp-acento-1 radio {
+  background-image: none;
+  background-color: #9b469d;
+  border-color: rgba(0, 0, 0, 0.3);
+  border-radius: 50%;
+  min-width: 14px;
+  min-height: 14px;
+}
+#mp-acento-2 radio {
+  background-image: none;
+  background-color: #f64694;
+  border-color: rgba(0, 0, 0, 0.3);
+  border-radius: 50%;
+  min-width: 14px;
+  min-height: 14px;
+}
+#mp-acento-3 radio {
+  background-image: none;
+  background-color: #ff484d;
+  border-color: rgba(0, 0, 0, 0.3);
+  border-radius: 50%;
+  min-width: 14px;
+  min-height: 14px;
+}
+#mp-acento-4 radio {
+  background-image: none;
+  background-color: #f6771a;
+  border-color: rgba(0, 0, 0, 0.3);
+  border-radius: 50%;
+  min-width: 14px;
+  min-height: 14px;
+}
+#mp-acento-5 radio {
+  background-image: none;
+  background-color: #fcaf23;
+  border-color: rgba(0, 0, 0, 0.3);
+  border-radius: 50%;
+  min-width: 14px;
+  min-height: 14px;
+}
+#mp-acento-6 radio {
+  background-image: none;
+  background-color: #57b13d;
+  border-color: rgba(0, 0, 0, 0.3);
+  border-radius: 50%;
+  min-width: 14px;
+  min-height: 14px;
+}
+#mp-acento-7 radio {
+  background-image: none;
+  background-color: #818181;
+  border-color: rgba(0, 0, 0, 0.3);
+  border-radius: 50%;
+  min-width: 14px;
+  min-height: 14px;
+}
