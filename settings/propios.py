@@ -1107,6 +1107,7 @@ import impresoras  # noqa: E402
 import general  # noqa: E402  (teclado, raton y general usan cosas de este módulo, por eso van al final)
 import pantallas  # noqa: E402
 import raton  # noqa: E402
+import respaldo  # noqa: E402
 import seguridad  # noqa: E402
 import red  # noqa: E402
 import usuarios  # noqa: E402
@@ -1116,7 +1117,7 @@ import teclado  # noqa: E402
 PROPIOS = {p.id: p for p in (PanelDock(), PanelAppleID(), PanelSpotlight(), PanelStartupDisk(),
                                      PanelMissionControl(), teclado.PanelKeyboard(), raton.PanelMouse(),
                                      general.PanelGeneral(), sonido.PanelSound(), pantallas.PanelDisplays(), avisos.PanelNotifications(), fecha.PanelDateTime(), energia.PanelEnergySaver(), actualizaciones.PanelSoftwareUpdate(), bt.PanelBluetooth(), compartir.PanelSharing(), impresoras.PanelPrinters(),
-                                     escritorio.PanelDesktopScreenSaver(), usuarios.PanelUsers(), red.PanelNetwork(), seguridad.PanelSecurity(), idioma.PanelLanguage())}
+                                     escritorio.PanelDesktopScreenSaver(), usuarios.PanelUsers(), red.PanelNetwork(), seguridad.PanelSecurity(), idioma.PanelLanguage(), respaldo.PanelTimeMachine())}
 # Sin touchpad, Trackpad es la pantalla «No trackpad found» de Catalina; con uno, lo sirve el módulo de Cinnamon.
 if not raton.hay_touchpad():
     PROPIOS[raton.PanelTrackpad.id] = raton.PanelTrackpad()
