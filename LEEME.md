@@ -89,7 +89,7 @@ initramfs y pide sudo; instalar.sh deja la vista previa y dice el comando:
 `sudo tema/arranque/instalar.sh` (vuelta atrás: `--deshacer`).
 
 Sin el disco de la Mac: `./instalar.sh --sin-mac` (Inter en vez de la SF,
-los íconos de Os-Catalina y el fondo que haya).
+los íconos de Adwaita y el fondo que haya).
 
 **Al terminar, cierra sesión y vuelve a entrar.**
 
@@ -161,7 +161,7 @@ los que creó él.
 Los íconos chicos de la barra de herramientas del Finder (atrás, vistas,
 acción, compartir…) están en el catálogo de recursos del aspecto del sistema
 de macOS, que **solo macOS sabe abrir** (lo desempaca CoreUI); desde Linux no
-se pueden sacar. Sin ellos, Fynder usa los de Os-Catalina.
+se pueden sacar. Sin ellos, Fynder usa los de Adwaita.
 
 Lo que Constanza espera, en `~/.local/share/constanza/glifos-finder/`: un
 `<Nombre>@1x.png` y un `<Nombre>@2x.png` por glifo, en negro con

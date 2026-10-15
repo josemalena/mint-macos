@@ -97,7 +97,7 @@ else
 fi
 
 if $SIN_MAC; then
-  paso "2. Disco de la Mac: se salta (--sin-mac); el tema usa sus sustitutos (Inter, Os-Catalina)"
+  paso "2. Disco de la Mac: se salta (--sin-mac); el tema usa sus sustitutos (Inter, Adwaita)"
 else
   paso "2. Lo de la Mac";                    "$REPO/desde-mac.sh" "${ARGS_MAC[@]}"
 fi

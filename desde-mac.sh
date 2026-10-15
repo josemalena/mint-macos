@@ -73,7 +73,7 @@ if [ -f "$HOME/.local/share/constanza/glifos-finder/GoBack@1x.png" ]; then
   echo "  están en ~/.local/share/constanza/glifos-finder ($(ls "$HOME/.local/share/constanza/glifos-finder" | wc -l) archivos)"
 else
   echo "  no están: hay que sacarlos una vez en la Mac (LEEME.md, «Glifos de la barra»)."
-  echo "  Sin ellos la barra de Fynder usa los de Os-Catalina."
+  echo "  Sin ellos la barra de Fynder usa los de Adwaita."
 fi
 
 if $LOGIN; then

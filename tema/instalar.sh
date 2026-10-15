@@ -45,7 +45,7 @@ fi
 trap desmontar_mac EXIT
 paso "Disco de la Mac (íconos del Finder, San Francisco y fondo)"
 if montar_mac_sistema; then echo "  $MAC_SISTEMA"; export MAC_SISTEMA; HAY_MAC=1
-else echo "  no está: Os-Catalina e Inter"; HAY_MAC=0; fi
+else echo "  no está: Adwaita e Inter"; HAY_MAC=0; fi
 
 paso "Tema GTK Constanza-Oscuro";  "$AQUI/gtk/construir.sh"
 paso "Íconos Constanza";           "$AQUI/iconos/construir.sh"

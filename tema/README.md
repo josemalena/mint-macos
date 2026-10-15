@@ -13,7 +13,7 @@ fuentes. Reemplazó al viejo `catalina.sh`, que instalaba Mojave-Dark (se quitó
 | Carpeta | Qué hace | Dónde instala |
 |---|---|---|
 | `gtk/` | Compila Mojave-gtk-theme fijado y le agrega `_constanza.scss` | `~/.themes/Constanza-Oscuro`, Plank |
-| `iconos/` | Os-Catalina con arreglos, y encima los íconos del Finder si hay disco de Mac | `~/.local/share/icons/Constanza` |
+| `iconos/` | Los íconos de la Mac (disco) y los logos de cada app, sobre Adwaita, gnome y hicolor; `CONSTANZA_DESTINO` lo arma aparte para comparar | `~/.local/share/icons/Constanza` |
 | `fuentes/` | Copia San Francisco (sistema, Compact y SF Mono) del disco de la Mac | `~/.local/share/fonts/san-francisco` |
 | `fondo/` | Saca el fondo de Catalina del disco de la Mac: el cuadro 7 (atardecer) de `Catalina.heic`; `CUADRO=1` da la noche, el «oscuro» de Apple. Sin disco de Mac, el fondo no se toca | `~/.local/share/backgrounds/constanza/catalina.jpg` |
 | `manzana/` | La manzana del menú Apple: el carácter U+F8FF de SFNS.ttf, en SVG blanco y PNG a 1x/2x (13×16 px), para `applemenu@macos`. Necesita antes las fuentes de `fuentes/` | `~/.local/share/constanza/manzana/apple-menu.svg` |
@@ -30,7 +30,7 @@ Si el disco de una Mac está conectado (APFS, se lee con `fsapfsmount`, ver
 - **San Francisco:** la de interfaz, títulos y documentos, y **SF Mono** para
   kitty (los glifos de Nerd Font del prompt siguen saliendo de MesloLGS NF).
 
-Sin disco: Os-Catalina e Inter. Nada de Apple se guarda en el repo
+Sin disco: los logos de las apps, Adwaita e Inter. Nada de Apple se guarda en el repo
 (ver `CREDITOS.md` y el `.gitignore`).
 
 ## Requisitos

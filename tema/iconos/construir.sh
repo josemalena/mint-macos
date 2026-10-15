@@ -1,79 +1,45 @@
 #!/usr/bin/env bash
-# Tema de íconos «Constanza» en ~/.local/share/icons/Constanza.
-#  1. Instala Os-Catalina (zayronxio, GPL-3.0) en ~/.icons, versión fijada.
-#  2. Constanza hereda de Os-Catalina y pone encima:
-#     - las carpetas azules de 128 px también en tamaño chico (en Os-Catalina
-#       son monocromas oscuras y en un tema oscuro salen negras);
-#     - los logos que traen las apps (VS Code, Edge, Thunderbird, LibreOffice,
-#       Firefox, VLC…) donde Os-Catalina pone otro o redibuja la marca;
-#     - si hay disco de Mac, los íconos de las apps de macOS para sus
-#       equivalentes de Linux y los paneles de Ajustes (macos_apps.py), y
-#       los cursores de Catalina en cursors/ (cursores.py);
-#     - si hay disco de Mac, los íconos del Finder (finder.py): carpetas,
-#       documentos, discos, papelera y los glifos del lateral.
+# Tema de íconos «Constanza» en ~/.local/share/icons/Constanza (CONSTANZA_DESTINO lo cambia,
+# para armarlo aparte y comparar antes de cambiarlo por el activo).
+#
+# Todo sale del disco de la Mac o es el logo que trae cada app; lo que Apple no tiene cae a
+# Adwaita, gnome y hicolor (los de Linux). Ya no hereda de Os-Catalina, McMojave ni WhiteSur
+# (decisión de José, 14-10-2026):
+#     - los logos que traen las apps (VS Code, Edge, Thunderbird, LibreOffice, Firefox,
+#       VLC…), del paquete, Flatpak o snap;
+#     - si hay disco de Mac: los íconos de las apps de macOS para sus equivalentes de Linux
+#       y los paneles de Ajustes (macos_apps.py), los cursores de Catalina (cursores.py) y
+#       los íconos del Finder (finder.py): carpetas, documentos, discos, papelera y los
+#       glifos del lateral.
 # Nada de Apple se guarda en el repo: se genera aquí desde el disco.
 set -euo pipefail
 AQUI="$(cd "$(dirname "$0")" && pwd)"
 source "$AQUI/../comun.sh"
-OS_CATALINA_COMMIT=aeb32ce
-TEMA="$HOME/.local/share/icons/Constanza"
+TEMA="${CONSTANZA_DESTINO:-$HOME/.local/share/icons/Constanza}"
 TMP="$(mktemp -d)"
 trap 'desmontar_mac; rm -rf "$TMP"' EXIT
-
-OSC="$HOME/.icons/Os-Catalina"
-# Solo se reinstala si cambia la versión: reinstalarlo borra los arreglos de
-# abajo, y si es el tema activo las carpetas salen negras mientras tanto.
-if [ "$(cat "$OSC/.version-constanza" 2>/dev/null)" != "$OS_CATALINA_COMMIT" ]; then
-  echo "  Os-Catalina $OS_CATALINA_COMMIT"
-  git clone -q https://github.com/zayronxio/Os-Catalina-icons.git "$TMP/osc"
-  git -C "$TMP/osc" checkout -q "$OS_CATALINA_COMMIT"
-  rm -rf "$TMP/osc/.git"
-  mkdir -p "$HOME/.icons"
-  rm -rf "$OSC.nuevo"; cp -r "$TMP/osc" "$OSC.nuevo"
-  sed -i 's/^Inherits=.*/Inherits=McMojave-circle-dark,WhiteSur-dark,gnome,hicolor/' "$OSC.nuevo/index.theme"
-  echo "$OS_CATALINA_COMMIT" > "$OSC.nuevo/.version-constanza"
-  rm -rf "$OSC"; mv "$OSC.nuevo" "$OSC"
-fi
-# Arreglos sobre Os-Catalina (sirven también sin disco de Mac):
-# carpetas chicas azules (eran monocromas oscuras) y logos oficiales.
-for d in 16x16/places 16x16@2x/places symbolic/places; do
-  for f in "$OSC/$d"/*.svg; do
-    b="$(basename "$f")"; case "$b" in *-symbolic.svg) continue ;; esac
-    [ -e "$OSC/128x128/places/$b" ] || continue
-    [ "$(readlink "$f")" = "../../128x128/places/$b" ] && continue
-    rm -f "$f"; ln -s "../../128x128/places/$b" "$f"
-  done
-done
 
 rm -rf "$TEMA"; mkdir -p "$TEMA/escalables/places" "$TEMA/escalables/apps"
 DIRS=()
 
-# Carpetas azules a cualquier tamaño (los *-symbolic del lateral no se tocan).
-for f in "$OSC"/128x128/places/*.svg; do
-  b="$(basename "$f")"; case "$b" in *-symbolic.svg) continue ;; esac
-  ln -s "$f" "$TEMA/escalables/places/$b"
-done
-
 # Logos oficiales que traen las aplicaciones instaladas.
 logo() { [ -f "$1" ] || return 0; local origen="$1" n="$2" a dir; shift 2
-  for dir in "$TEMA/escalables/apps" "$OSC/128x128/apps"; do
+  for dir in "$TEMA/escalables/apps"; do
     rm -f "$dir/$n.svg"; convert "$origen" -resize 256x256 "$dir/$n.png"
     for a in "$@"; do rm -f "$dir/$a.svg"; ln -sf "$n.png" "$dir/$a.png"; done
   done; }
 logo /usr/share/code/resources/app/resources/linux/code.png vscode code visual-studio-code com.visualstudio.code visualstudiocode
 logo /opt/microsoft/msedge/product_logo_256.png microsoft-edge microsoft-edge-stable com.microsoft.Edge
-# Os-Catalina le pone a Thunderbird el sello del Mail viejo; José quiere el suyo.
+# Thunderbird con su propio logo (José no quiere el del Mail).
 logo /usr/share/icons/hicolor/256x256/apps/thunderbird.png thunderbird mozilla-thunderbird thunderbird-bin net.thunderbird.Thunderbird org.mozilla.Thunderbird
-# LibreOffice con sus logos (Os-Catalina los cambia). Vienen en SVG: se enlazan tal cual.
+# LibreOffice con sus logos. Vienen en SVG: se enlazan tal cual.
 for f in /usr/share/icons/hicolor/scalable/apps/libreoffice-*.svg; do
   [ -f "$f" ] && ln -sf "$f" "$TEMA/escalables/apps/$(basename "$f")"
 done
 
-# Los logos que traen las apps, donde Os-Catalina pone el de otra app (K3b con
-# el de Brasero, Plank con el de GNOME Do…) o redibuja una marca. Primero el
-# SVG de hicolor; si no hay, el PNG más grande. Si después el disco de la Mac
-# trae un equivalente (abajo), ese gana. GTK sabe dónde buscar: hicolor del
-# sistema, Flatpak, categories/, stock/…
+# Los logos que traen las apps (K3b, Plank…). Primero el SVG de hicolor; si no hay, el PNG
+# más grande. Si después el disco de la Mac trae un equivalente (abajo), ese gana. GTK sabe
+# dónde buscar: hicolor del sistema, Flatpak, categories/, stock/…
 python3 "$AQUI/originales.py" "$TEMA/escalables/apps" k3b stock_xfburn winetricks plank cs-color gtk-select-color cs-applets cs-desklets \
          mintdrivers accessories-character-map ibus-setup \
          firefox google-chrome vlc com.obsproject.Studio fr.handbrake.ghb kitty com.gexperts.Tilix \
@@ -114,7 +80,7 @@ if montar_mac_sistema; then
   rm -f "$TEMA/finder-dirs.txt"
   desmontar_mac
 else
-  echo "  sin disco de Mac: Constanza queda como Os-Catalina con sus arreglos"
+  echo "  sin disco de Mac: Constanza solo trae los logos de las apps; el resto cae a Adwaita y hicolor"
 fi
 
 # Los del Finder van primero en la lista: si un nombre existe también en los
@@ -124,8 +90,8 @@ DIRS+=("escalables/places 128 1 Scalable" "escalables/apps 128 1 Scalable")
 {
   echo "[Icon Theme]"
   echo "Name=Constanza"
-  echo "Comment=Os-Catalina con los íconos del Finder (generados en local)"
-  echo "Inherits=Os-Catalina"
+  echo "Comment=Íconos de la Mac (generados en local) sobre Adwaita"
+  echo "Inherits=Adwaita,gnome,hicolor"
   printf 'Directories=%s\n\n' "$(printf '%s\n' "${DIRS[@]}" | awk '{print $1}' | paste -sd,)"
   for d in "${DIRS[@]}"; do
     set -- $d
