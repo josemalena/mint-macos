@@ -301,7 +301,8 @@ class Ventana(Gtk.ApplicationWindow):
         self.todos = [p for _, ps in self.grupos for p in ps]
         # Apple ID no está en la cuadrícula: se abre desde la franja de arriba.
         self.panel_apple = propios.PROPIOS[propios.PanelAppleID.id]
-        self.panel_apple.ventana = self
+        for propio in propios.PROPIOS.values():      # las hojas y los avisos de cada panel cuelgan de esta ventana
+            propio.ventana = self
         self.todos.append(self.panel_apple)
         traza("paneles armados")
 
