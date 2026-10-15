@@ -820,26 +820,65 @@ def _guardar_reabrir_ventanas(valor: bool) -> None:
         pass
 
 
+def sesiones_graficas_ajenas(sesiones: List[dict], propia: str, mi_usuario: str) -> List[str]:
+    """De las sesiones de logind (dicts con Id, Name, Type, Class, State), los usuarios con OTRA sesión gráfica
+    abierta: Type x11 o wayland, Class user, que no se esté cerrando, y que sea de otra persona o una sesión
+    gráfica distinta de la mía. Las de ssh (Type tty) NO cuentan: aquí casi siempre hay alguna abierta y no
+    hay fuente de Apple que diga que cuenten como «otros usuarios conectados»."""
+    usuarios = []
+    for d in sesiones:
+        if d.get("Id") == propia:
+            continue
+        if d.get("Type") in ("x11", "wayland", "mir") and d.get("Class") == "user" \
+                and d.get("State") in ("active", "online"):
+            usuarios.append(d.get("Name", ""))
+    return usuarios
+
+
 def otras_sesiones() -> List[str]:
-    """Los usuarios con otra sesión abierta (de persona, no la de entrada de LightDM) además de esta."""
+    """Los usuarios con otra sesión gráfica abierta además de esta (ver sesiones_graficas_ajenas).
+    MINT_APPLEMENU_OTRAS=1 la da por cierta (solo para las pruebas)."""
+    if os.environ.get("MINT_APPLEMENU_OTRAS") == "1":
+        return ["prueba"]
     try:
         propia = os.environ.get("XDG_SESSION_ID", "")
         salida = subprocess.run(["loginctl", "list-sessions", "--no-legend"], capture_output=True, text=True,
                                 timeout=5).stdout
-        otras = []
+        sesiones = []
         for linea in salida.splitlines():
             partes = linea.split()
-            if len(partes) < 3 or partes[0] == propia:
+            if len(partes) < 3:
                 continue
-            info = subprocess.run(["loginctl", "show-session", partes[0], "-p", "Class", "-p", "State",
-                                   "-p", "Remote"], capture_output=True, text=True, timeout=5).stdout
-            datos = dict(l.split("=", 1) for l in info.splitlines() if "=" in l)
-            # Una sesión de persona que no se está cerrando; las remotas (ssh) también cuentan, como en la Mac.
-            if datos.get("Class") == "user" and datos.get("State") in ("active", "online"):
-                otras.append(partes[2])
-        return otras
+            info = subprocess.run(["loginctl", "show-session", partes[0], "-p", "Type", "-p", "Class",
+                                   "-p", "State", "-p", "Name"], capture_output=True, text=True,
+                                  timeout=5).stdout
+            d = dict(l.split("=", 1) for l in info.splitlines() if "=" in l)
+            d["Id"] = partes[0]
+            sesiones.append(d)
+        return sesiones_graficas_ajenas(sesiones, propia, os.environ.get("USER", ""))
     except (OSError, subprocess.SubprocessError):
         return []
+
+
+# Reiniciar con otras sesiones gráficas: se pide a logind (systemctl reboot, interactivo), que exige la clave
+# de administrador por polkit y la pide al agente (el diálogo de «Restarting may cause other users…»). Si no
+# hay agente («Interactive authentication required») se cae al plan B: la confirmación de siempre.
+# MINT_APPLEMENU_REBOOT cambia el comando (las pruebas usan pkcheck, que consulta sin reiniciar nada).
+def reiniciar_con_otras_sesiones() -> str:
+    """'ok' si logind aceptó, 'cancelado' si se negó la clave, 'sin-agente' si nadie pudo pedirla."""
+    orden = os.environ.get("MINT_APPLEMENU_REBOOT")
+    cmd = orden.split() if orden else ["systemctl", "reboot"]
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+    except (OSError, subprocess.SubprocessError):
+        return "sin-agente"
+    if r.returncode == 0:
+        return "ok"
+    texto = (r.stderr + r.stdout).lower()
+    if "interactive authentication required" in texto or "no authentication agent" in texto \
+            or "challenge" in texto and "authentication" in texto:
+        return "sin-agente"
+    return "cancelado"
 
 
 def _run_command(cmd: List[str], wait: bool = False) -> bool:
@@ -904,11 +943,13 @@ def main() -> int:
     # Password. Ese diálogo es el del agente de polkit de mint-macos (polkit/agente.py), que sale cuando
     # logind pide la clave de administrador para reiniciar con varias sesiones abiertas.
     if args.mode == "restart" and otras_sesiones() and not args.prueba:
-        did_execute = execute_action("restart", False)
+        resultado = reiniciar_con_otras_sesiones()
         if args.print_json:
-            print(json.dumps({"mode": "restart", "confirmed": True, "executed": did_execute,
-                              "otras_sesiones": True}, ensure_ascii=False))
-        return 0
+            print(json.dumps({"mode": "restart", "otras_sesiones": True, "resultado": resultado},
+                             ensure_ascii=False))
+        if resultado != "sin-agente":
+            return 0          # se reinició o se canceló la clave: no hay nada más que preguntar
+        # Plan B: sin agente que pida la clave, la confirmación de siempre.
 
     # Restart / Shut Down / Log Out: la casilla arranca como esté guardada
     # la sesión (en c42, desmarcada).
