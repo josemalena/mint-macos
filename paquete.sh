@@ -14,6 +14,7 @@
 #                       de Catalina. Sin binarios ni idiomas que no son inglés.
 #   apple-extra.tar.gz  lo de Apple que se sacó en la Mac misma (glifos-finder)
 #                       y lo de la pantalla de inicio (constanza/login)
+#   greeter.tar.gz      el fork de la pantalla de inicio, en el hash de login/instalar.sh
 #   instalar-aqui.sh    el que se corre en la otra computadora
 #   asistente-root.sh   la parte de root del asistente gráfico (pkexec, una clave)
 #
@@ -40,6 +41,24 @@ paso "mint-macos (HEAD $(git -C "$REPO" rev-parse --short HEAD))"
   || echo "  ojo: hay cambios sin commitear en el repo; el paquete lleva solo lo commiteado"
 git -C "$REPO" archive --prefix=mint-macos/ HEAD | gzip > "$DEST/mint-macos.tar.gz"
 echo "  $(du -h "$DEST/mint-macos.tar.gz" | cut -f1)"
+
+# La pantalla de inicio se compila en la otra computadora, del fork en el hash
+# que fija login/instalar.sh. Va en el paquete porque ese hash puede no estar
+# en GitHub todavía (en la iMac, 15-10-2026, «not our ref»), y así no hace
+# falta internet para eso.
+paso "La pantalla de inicio (mint-macos-greeter)"
+GH="$(sed -n 's/^GREETER_HASH=//p' "$REPO/login/instalar.sh")"
+GF=""
+for g in "${GREETER_FUENTE:-}" "$(dirname "$REPO")/slick-greeter" "$HOME/.cache/mint-macos/src/mint-macos-greeter"; do
+  [ -n "$g" ] && git -C "$g" cat-file -e "$GH^{commit}" 2>/dev/null && { GF="$g"; break; }
+done
+[ -n "$GF" ] || { echo "  ✗ ningún repo local tiene $GH (GREETER_FUENTE=<repo del fork>)"; exit 1; }
+GT="$(mktemp -d)"
+git clone -q "$GF" "$GT/mint-macos-greeter"
+git -C "$GT/mint-macos-greeter" checkout -q --detach "$GH"
+tar -czf "$DEST/greeter.tar.gz" -C "$GT" mint-macos-greeter
+rm -rf "$GT"
+echo "  ${GH:0:7} de $GF, $(du -h "$DEST/greeter.tar.gz" | cut -f1)"
 
 paso "Fynder y el Dock instalados"
 LISTA="$(mktemp)"

@@ -8,8 +8,8 @@
 #   ./instalar-aqui.sh
 #
 # Necesita internet para los paquetes de apt, para compilar keyd y fsapfs
-# (requisitos.sh) y para bajar el greeter de la pantalla de inicio. Todo lo
-# demás viene en el paquete.
+# (requisitos.sh). Todo lo demás viene en el paquete, también el fork de la
+# pantalla de inicio (greeter.tar.gz).
 #
 # Pasos:
 #   1. revisa que el usuario y la versión de Mint sean los del paquete
@@ -90,6 +90,14 @@ export MAC_SISTEMA="$MAC"
 PLANK_ORDEN_MAC=1 "$REPO/tema/plank/configurar.sh"
 }
 
+# La pantalla de inicio se compila del fork que trae el paquete, no de GitHub.
+GREETER_DIR="$HOME/.cache/mint-macos/src/mint-macos-greeter-paquete"
+p_greeter() {
+[ -f "$AQUI/greeter.tar.gz" ] || return 0
+mkdir -p "$(dirname "$GREETER_DIR")"
+tar -xzf "$AQUI/greeter.tar.gz" -C "$(dirname "$GREETER_DIR")" --transform "s#^mint-macos-greeter#$(basename "$GREETER_DIR")#"
+}
+
 p_bloqueo() {
 paso "Bloquear con la pantalla de inicio"
 "$REPO/login/bloqueo.sh"
@@ -106,13 +114,13 @@ echo "  - $MAC se puede borrar al terminar; solo hace falta para volver a genera
 
 # Los pasos en orden. Los de root los corre asistente-root.sh en el asistente,
 # y sudo aquí.
-PASOS="verificar repo root:requisitos binarios apple mint-macos root:arranque root:login bloqueo root:vigilante lo-que-queda"
+PASOS="verificar repo root:requisitos binarios apple mint-macos root:arranque greeter root:login bloqueo root:vigilante lo-que-queda"
 
 case "${1:-}" in
   --lista) for p in $PASOS; do echo "$p" | sed 's/^root:/root /'; done; exit 0 ;;
   --paso)
     case "${2:-}" in
-      verificar|repo|binarios|apple|mint-macos|bloqueo|lo-que-queda) "p_$(echo "$2" | tr - _)"; exit 0 ;;
+      verificar|repo|binarios|apple|mint-macos|greeter|bloqueo|lo-que-queda) "p_$(echo "$2" | tr - _)"; exit 0 ;;
       *) echo "  ✗ paso desconocido o de root: ${2:-}" >&2; exit 2 ;;
     esac ;;
   "") ;;
@@ -136,7 +144,9 @@ p_apple
 p_mint_macos
 paso "6. El arranque y la pantalla de inicio (sudo, con la misma clave)"
 sudo "$REPO/tema/arranque/instalar.sh"
-sudo "$REPO/login/instalar.sh" --activar
+p_greeter
+if [ -d "$GREETER_DIR" ]; then sudo "$REPO/login/instalar.sh" --activar --fuente "$GREETER_DIR"
+else sudo "$REPO/login/instalar.sh" --activar; fi
 p_bloqueo
 # El vigilante de los montajes APFS, solo si esta máquina los tiene en fstab
 # (el paquete no monta ninguno: lo de la Mac viene en mac-sistema.tar).

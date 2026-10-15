@@ -57,7 +57,14 @@ while IFS= read -r -t 3600 PASO; do
   case "$PASO" in
     requisitos) correr requisitos "$REPO/requisitos.sh" ;;
     arranque)   correr arranque "$REPO/tema/arranque/instalar.sh" ;;
-    login)      correr login "$REPO/login/instalar.sh" --activar ;;
+    login)
+      # El fork que desempacó instalar-aqui.sh (p_greeter), si es del usuario.
+      G="$HOGAR/.cache/mint-macos/src/mint-macos-greeter-paquete"
+      if [ -d "$G" ] && [ ! -L "$G" ] && [ "$(stat -c %u "$G")" = "$UID_USUARIO" ]; then
+        correr login "$REPO/login/instalar.sh" --activar --fuente "$G"
+      else
+        correr login "$REPO/login/instalar.sh" --activar
+      fi ;;
     vigilante)
       if awk '$3 == "fsapfs" && $1 !~ /^#/ {f=1} END {exit !f}' /etc/fstab; then
         correr vigilante "$REPO/apfs/vigilar.sh" --instalar
