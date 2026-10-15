@@ -85,6 +85,9 @@ export MAC_SISTEMA="$MAC"
 "$REPO/launchpad/instalar.sh"
 "$REPO/ayudante/instalar.sh"
 "$REPO/icloud/apps-web.sh"
+# rclone en ~/.local/bin (versión fija, con checksum): lo usan el panel Apple ID
+# de System Preferences y iCloud Drive. El alta de la cuenta la hace José.
+"$REPO/icloud/icloud.sh" instalar
 # El dock otra vez, ahora que existen Launchpad y System Preferences: en el
 # paso del tema todavía no estaban y el dock se quedaba sin ellos.
 PLANK_ORDEN_MAC=1 "$REPO/tema/plank/configurar.sh"
