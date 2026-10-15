@@ -153,7 +153,7 @@ def mensaje_de_error(r):
         lineas = [l.strip() for l in texto.splitlines() if l.strip()]
         for l in reversed(lineas):
             if re.search(r"error|failed|incorrect|invalid", l, re.I) and l not in ("{", "}"):
-                return re.sub(r"^(NOTICE|ERROR|CRITICAL|WARNING)\s*:\s*", "", l).strip()
+                return re.sub(r"^(\d{4}/\d\d/\d\d \d\d:\d\d:\d\d\s+)?(NOTICE|ERROR|CRITICAL|WARNING)\s*:\s*", "", l).strip()
     return generico
 
 
