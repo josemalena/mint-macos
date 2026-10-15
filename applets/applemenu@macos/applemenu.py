@@ -465,11 +465,21 @@ def _dibujar_icono(modo, cr):
         cr.line_to(32, 31)
         cr.stroke()
     else:
-        # La persona: Log Out cierra la sesión de alguien.
-        cr.arc(32, 24, 7.5, 0, 2 * math.pi)
-        cr.stroke()
-        cr.arc(32, 50, 15, math.pi + 0.15, 2 * math.pi - 0.15)
-        cr.stroke()
+        # La persona: Log Out cierra la sesión de alguien. En la captura 1.32.56 PM es una silueta llena
+        # (cabeza y hombros en blanco) dentro del círculo gris, no un contorno.
+        cr.save()
+        cr.arc(32, 32, 32, 0, 2 * math.pi)
+        cr.clip()
+        cr.new_path()
+        cr.arc(32, 25, 10.3, 0, 2 * math.pi)
+        cr.fill()
+        cr.save()
+        cr.translate(32, 56)
+        cr.scale(19, 13)
+        cr.arc(0, 0, 1, 0, 2 * math.pi)
+        cr.restore()
+        cr.fill()
+        cr.restore()
 
 
 class ConfirmDialog(Gtk.Window):
@@ -810,6 +820,28 @@ def _guardar_reabrir_ventanas(valor: bool) -> None:
         pass
 
 
+def otras_sesiones() -> List[str]:
+    """Los usuarios con otra sesión abierta (de persona, no la de entrada de LightDM) además de esta."""
+    try:
+        propia = os.environ.get("XDG_SESSION_ID", "")
+        salida = subprocess.run(["loginctl", "list-sessions", "--no-legend"], capture_output=True, text=True,
+                                timeout=5).stdout
+        otras = []
+        for linea in salida.splitlines():
+            partes = linea.split()
+            if len(partes) < 3 or partes[0] == propia:
+                continue
+            info = subprocess.run(["loginctl", "show-session", partes[0], "-p", "Class", "-p", "State",
+                                   "-p", "Remote"], capture_output=True, text=True, timeout=5).stdout
+            datos = dict(l.split("=", 1) for l in info.splitlines() if "=" in l)
+            # Una sesión de persona que no se está cerrando; las remotas (ssh) también cuentan, como en la Mac.
+            if datos.get("Class") == "user" and datos.get("State") in ("active", "online"):
+                otras.append(partes[2])
+        return otras
+    except (OSError, subprocess.SubprocessError):
+        return []
+
+
 def _run_command(cmd: List[str], wait: bool = False) -> bool:
     """Lanza el comando. Con wait, espera y devuelve si salió bien (0): así un
     gestor de sesión que no contesta cae al plan B en vez de no hacer nada."""
@@ -865,6 +897,17 @@ def main() -> int:
         if args.print_json:
             print(json.dumps({"mode": "guestlogout", "confirmed": resp == Gtk.ResponseType.OK,
                               "executed": did_execute, "prueba": bool(args.prueba)}, ensure_ascii=False))
+        return 0
+
+    # Reiniciar con otros usuarios conectados: Catalina no enseña la confirmación de siempre sino «Restarting may
+    # cause other users logged into this computer to lose unsaved changes» (captura 1.33.32 PM), con Name y
+    # Password. Ese diálogo es el del agente de polkit de mint-macos (polkit/agente.py), que sale cuando
+    # logind pide la clave de administrador para reiniciar con varias sesiones abiertas.
+    if args.mode == "restart" and otras_sesiones() and not args.prueba:
+        did_execute = execute_action("restart", False)
+        if args.print_json:
+            print(json.dumps({"mode": "restart", "confirmed": True, "executed": did_execute,
+                              "otras_sesiones": True}, ensure_ascii=False))
         return 0
 
     # Restart / Shut Down / Log Out: la casilla arranca como esté guardada

@@ -59,6 +59,23 @@ def log(*a):
         print("[mint-macos-polkit]", *a, file=sys.stderr, flush=True)
 
 
+# Las acciones que Catalina enseña con su propio texto, en vez del genérico (captura 1.33.32 PM: reiniciar con
+# otros usuarios conectados). «nombre» dice qué se escribe de entrada en Name: el usuario (login) o el nombre
+# completo; «icono» es el círculo gris de la Mac con su signo.
+VARIANTES = {
+    "org.freedesktop.login1.reboot-multiple-sessions": {
+        "titulo": "Restarting may cause other users logged into this computer to lose unsaved changes.",
+        "texto": ("To avoid losing unsaved changes, log out all users before restarting. To continue without "
+                  "saving changes, enter an administrator name and password and then click Restart."),
+        "boton": "Restart",
+        "rotulo_nombre": "Name:",
+        "nombre": "login",
+        "icono": "reiniciar",
+        "extra": "Switch User\u2026",
+    },
+}
+
+
 # ── los usuarios que polkit autoriza ─────────────────────────────────────────
 def usuarios_autorizados(identidades):
     """{login: (uid, nombre completo)} de las identidades que polkit propone (usuarios y miembros de grupos)."""
@@ -103,14 +120,15 @@ def resolver_usuario(texto, autorizados):
     return None
 
 
-def nombre_por_defecto(autorizados):
-    """Lo que se escribe de entrada: el nombre completo de quien está en la sesión, si polkit lo autoriza."""
+def nombre_por_defecto(autorizados, como_login=False):
+    """Lo que se escribe de entrada: el nombre completo de quien está en la sesión (o su usuario, si lo pide la
+    variante), si polkit lo autoriza."""
     try:
         yo = pwd.getpwuid(os.getuid()).pw_name
     except KeyError:
         yo = None
     if yo in autorizados:
-        return autorizados[yo][1]
+        return yo if como_login else autorizados[yo][1]
     return sorted(autorizados.values(), key=lambda v: v[1])[0][1] if autorizados else ""
 
 
@@ -132,8 +150,11 @@ def anotaciones(action_id):
 
 # ── el diálogo ───────────────────────────────────────────────────────────────
 class Dialogo(Gtk.Window):
-    def __init__(self, mensaje, boton, icono_panel, autorizados, al_aceptar, al_cancelar):
+    def __init__(self, mensaje, boton, icono_panel, autorizados, al_aceptar, al_cancelar, variante=None):
         super().__init__(type=Gtk.WindowType.TOPLEVEL)
+        v = variante or {}
+        mensaje = v.get("titulo", mensaje)
+        boton = v.get("boton", boton)
         self.autorizados = autorizados
         self.al_aceptar, self.al_cancelar = al_aceptar, al_cancelar
         self.set_decorated(False)
@@ -151,20 +172,23 @@ class Dialogo(Gtk.Window):
         franja.get_style_context().add_class("mp-polkit-franja")
         raiz.pack_start(franja, False, False, 0)
         cuerpo = Gtk.Box(spacing=18, margin=22)
-        cuerpo.pack_start(self._icono(icono_panel), False, False, 0)
+        cuerpo.pack_start(self._icono_reiniciar() if v.get("icono") == "reiniciar" else self._icono(icono_panel),
+                          False, False, 0)
         der = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         t = Gtk.Label(label=mensaje, xalign=0)
         t.get_style_context().add_class("mp-titulo")
         t.set_line_wrap(True)
         t.set_max_width_chars(48)
         der.pack_start(t, False, False, 0)
-        s = Gtk.Label(label="Enter your password to allow this.", xalign=0)
+        s = Gtk.Label(label=v.get("texto", "Enter your password to allow this."), xalign=0)
         s.get_style_context().add_class("mp-texto")
+        s.set_line_wrap(True)
+        s.set_max_width_chars(48)
         der.pack_start(s, False, False, 0)
         g = Gtk.Grid(column_spacing=8, row_spacing=10, margin_top=14)
-        for i, rotulo in enumerate(("User Name:", "Password:")):
+        for i, rotulo in enumerate((v.get("rotulo_nombre", "User Name:"), "Password:")):
             g.attach(Gtk.Label(label=rotulo, xalign=1.0), 0, i, 1, 1)
-        self.usuario = Gtk.Entry(text=nombre_por_defecto(autorizados), width_chars=34)
+        self.usuario = Gtk.Entry(text=nombre_por_defecto(autorizados, v.get("nombre") == "login"), width_chars=34)
         self.usuario.set_hexpand(True)
         self.clave = Gtk.Entry(width_chars=34)
         self.clave.set_visibility(False)
@@ -182,6 +206,11 @@ class Dialogo(Gtk.Window):
         self.aceptar.connect("clicked", lambda _b: self._aceptar())
         botones.pack_end(self.aceptar, False, False, 0)
         botones.pack_end(self.cancelar, False, False, 0)
+        if v.get("extra"):
+            # Switch User…: lleva a la ventana de entrada (LightDM) y cierra este diálogo.
+            extra = Gtk.Button(label=v["extra"])
+            extra.connect("clicked", lambda _b: self._cambiar_usuario())
+            botones.pack_start(extra, False, False, 0)
         der.pack_start(botones, False, False, 0)
         cuerpo.pack_start(der, True, True, 0)
         raiz.pack_start(cuerpo, True, True, 0)
@@ -223,6 +252,36 @@ class Dialogo(Gtk.Window):
             return False
         area.connect("draw", pintar)
         return area
+
+    def _icono_reiniciar(self):
+        """El círculo gris de la Mac con el triángulo de Restart (64 px)."""
+        area = Gtk.DrawingArea()
+        area.set_size_request(72, 72)
+
+        def pintar(_w, cr):
+            cr.set_source_rgb(139 / 255, 141 / 255, 142 / 255)
+            cr.arc(34, 34, 32, 0, 2 * math.pi)
+            cr.fill()
+            cr.set_source_rgb(1, 1, 1)
+            cr.set_line_width(2.6)
+            cr.set_line_join(1)
+            cr.move_to(22, 34)
+            cr.line_to(43, 21.5)
+            cr.line_to(43, 46.5)
+            cr.close_path()
+            cr.stroke()
+            return False
+        area.connect("draw", pintar)
+        return area
+
+    def _cambiar_usuario(self):
+        try:
+            import subprocess
+            subprocess.Popen(["dm-tool", "switch-to-greeter"], start_new_session=True,
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except OSError:
+            pass
+        self._cancelar()
 
     # ── acciones ─────────────────────────────────────────────────────────
     def _tecla(self, _w, ev):
@@ -363,7 +422,8 @@ class Agente:
         self.peticiones[cookie] = peticion
         peticion["dialogo"] = Dialogo(mensaje, boton, icono, autorizados,
                                       lambda login, clave: self._autenticar(cookie, login, clave),
-                                      lambda: self._terminar(cookie, cancelada=True))
+                                      lambda: self._terminar(cookie, cancelada=True),
+                                      VARIANTES.get(action_id))
 
     def _autenticar(self, cookie, login, clave):
         peticion = self.peticiones.get(cookie)

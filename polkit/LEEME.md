@@ -14,6 +14,16 @@ Capturas de Catalina: 1.11.51 PM, 1.16.09 PM, 1.33.32 PM y 12.21.58 AM.
 - **La clave** solo la toca `PolkitAgent.Session` (`.response()`) y su ayudante setuid. Este código la deja en
   el campo mientras se teclea, la borra al terminar y no la guarda, escribe ni imprime.
 
+## Variantes por acción
+
+Hay acciones que Catalina enseña con su propio texto. El agente las reconoce por su `action_id` (tabla
+`VARIANTES` de `agente.py`). Hoy una: `org.freedesktop.login1.reboot-multiple-sessions`, el «Restarting
+may cause other users logged into this computer to lose unsaved changes» de la captura 1.33.32 PM, con Name
+(escrito con el usuario, no con el nombre completo), Password, Switch User…, Cancel y Restart. Apple ▸ Restart
+lo dispara solo: si hay otra sesión abierta (`loginctl`), `applemenu.py` salta la confirmación de siempre y pide
+el reinicio, y logind pide la clave de administrador por polkit. Mientras el agente de Cinnamon siga siendo el de
+la sesión, ese diálogo sale con el aspecto de Cinnamon.
+
 ## Cómo funciona
 
 `agente.py` implementa por D-Bus la interfaz `org.freedesktop.PolicyKit1.AuthenticationAgent` y se
