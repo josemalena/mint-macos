@@ -830,6 +830,9 @@ class Ventana(Gtk.ApplicationWindow):
         # Un glifo pintado no se atenúa solo cuando el botón se desactiva.
         self.i_atras.set_opacity(1.0 if hay_atras else 0.35)
         self.i_adelante.set_opacity(1.0 if hay_adelante else 0.35)
+        app = self.get_application()
+        if app is not None and hasattr(app, "actualizar_menu"):
+            app.actualizar_menu(hay_atras, hay_adelante)
 
     # ── búsqueda ─────────────────────────────────────────────────────────
     # Las frases que Catalina ofrece como subítems de un panel («Dock settings» lleva a Dock). Solo están las
@@ -982,6 +985,67 @@ class Aplicacion(Gtk.Application):
         todo = Gio.SimpleAction.new("todo", None)
         todo.connect("activate", lambda *_: self.ventana and self.ventana.mostrar_todo())
         self.add_action(todo)
+        # El menú View (capturas 1.15.16 y 1.15.23 PM): Back, Forward, Show All Preferences, Customize…,
+        # Organize by Categories / Alphabetically, Search y la lista de paneles. Organize Alphabetically y
+        # Customize… no tienen captura de lo que hacen: van desactivados.
+        for nombre, hacer in (("atras", lambda: self.ventana.ir(-1)), ("adelante", lambda: self.ventana.ir(1)),
+                              ("buscar", lambda: self.ventana.buscar.grab_focus())):
+            a = Gio.SimpleAction.new(nombre, None)
+            a.connect("activate", lambda _a, _p, h=hacer: self.ventana and h())
+            self.add_action(a)
+        categorias = Gio.SimpleAction.new_stateful("categorias", None, GLib.Variant("b", True))
+        self.add_action(categorias)
+        for nombre in ("alfabetico", "personalizar"):
+            a = Gio.SimpleAction.new(nombre, None)
+            a.set_enabled(False)
+            self.add_action(a)
+        self.set_accels_for_action("app.atras", ["<Primary>bracketleft"])
+        self.set_accels_for_action("app.adelante", ["<Primary>bracketright"])
+        self.set_accels_for_action("app.todo", ["<Primary>l"])
+        self.set_accels_for_action("app.buscar", ["<Primary>f"])
+
+    def armar_menu(self):
+        """El menubar con View, que las apps GTK publican al menú global (appmenu-gtk-module). Se arma cuando ya
+        está la lista de paneles."""
+        vista = Gio.Menu()
+        def item(rotulo, accion, atajo=None):
+            it = Gio.MenuItem.new(rotulo, accion)
+            if atajo:                      # la barra global pinta el atajo (⌘ es Ctrl con keyd)
+                it.set_attribute_value("accel", GLib.Variant("s", atajo))
+            return it
+        s1 = Gio.Menu()
+        s1.append_item(item("Back", "app.atras", "<Primary>bracketleft"))
+        s1.append_item(item("Forward", "app.adelante", "<Primary>bracketright"))
+        s1.append_item(item("Show All Preferences", "app.todo", "<Primary>l"))
+        s1.append_item(item("Customize\u2026", "app.personalizar"))
+        vista.append_section(None, s1)
+        s2 = Gio.Menu()
+        s2.append_item(item("Organize by Categories", "app.categorias"))
+        s2.append_item(item("Organize Alphabetically", "app.alfabetico"))
+        vista.append_section(None, s2)
+        s3 = Gio.Menu()
+        s3.append_item(item("Search", "app.buscar", "<Primary>f"))
+        vista.append_section(None, s3)
+        s4 = Gio.Menu()
+        paneles_ = [pv for pv in self.ventana.todos if not isinstance(pv, PanelAvanzado)]
+        for pv in sorted(paneles_, key=lambda p: p.nombre.lower()):
+            item = Gio.MenuItem.new(pv.nombre, None)
+            item.set_action_and_target_value("app.abrir", GLib.Variant("s", pv.id))
+            ruta = os.path.join(APPS, "iconos", pv.id + ".png")
+            if os.path.exists(ruta):
+                item.set_icon(Gio.FileIcon.new(Gio.File.new_for_path(ruta)))
+            s4.append_item(item)
+        vista.append_section(None, s4)
+        barra = Gio.Menu()
+        barra.append_submenu("View", vista)
+        self.set_menubar(barra)
+        self.ventana.set_show_menubar(False)     # arriba lo pinta la barra global; la ventana no lo repite
+
+    def actualizar_menu(self, hay_atras, hay_adelante):
+        for nombre, si in (("atras", hay_atras), ("adelante", hay_adelante)):
+            a = self.lookup_action(nombre)
+            if a is not None:
+                a.set_enabled(bool(si))
 
     def _abrir_accion(self, nombre):
         """El ítem del menú y los atajos entran por aquí (gdbus, sin arrancar Python)."""
@@ -1002,6 +1066,7 @@ class Aplicacion(Gtk.Application):
                 # cs_themes y cs_gestures lo buscan en la aplicación para esconder
                 # o mostrar las pestañas.
                 self.stack_switcher = self.ventana.sub_pestanas
+                self.armar_menu()
             except Exception:
                 traceback.print_exc()
                 # Si algo cambió en Cinnamon y el motor no carga, que el usuario
