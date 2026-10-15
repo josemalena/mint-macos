@@ -78,6 +78,8 @@ _GRUPOS_POR_TEMA = [
               palabras="sound, volume, output, input, microphone, speakers, alert"),
     ]),
     ("equipo", [
+        Panel("com.apple.preferences.sharing", "Sharing", [],
+              palabras="sharing, remote login, ssh, file sharing, printer sharing, computer name"),
         Panel("com.apple.preference.startupdisk", "Startup Disk", [],
               palabras="startup disk, boot, grub, efi, restart, default os, macos"),
     ]),
@@ -118,7 +120,7 @@ _ORDEN = [
     ["general", "desktopscreeneffect", "dock", "expose", "spotlight", "Localization", "notifications",
      "internetaccounts", "users", "universalaccess", "extensions", "security"],
     ["softwareupdate", "network", "Bluetooth", "sound", "printfax", "keyboard", "trackpad", "mouse",
-     "displays", "energysaver", "datetime", "backup", "startupdisk"],
+     "displays", "energysaver", "datetime", "sharing", "backup", "startupdisk"],
 ]
 _TODOS = {p.id.rsplit(".", 1)[1]: p for _, ps in _GRUPOS_POR_TEMA for p in ps}
 GRUPOS = [("bloque%d" % (i + 1), [_TODOS[k] for k in orden if k in _TODOS]) for i, orden in enumerate(_ORDEN)]

@@ -1,0 +1,60 @@
+#!/usr/bin/python3
+"""Ayudante de root de Sharing (System Preferences).
+
+Lo corre pkexec (acción org.mintmacos.sharing.run, con clave de administrador). Enciende o apaga los
+servicios de la lista cerrada de abajo; nada más. Vive en /usr/libexec/mint-macos/ con dueño root: no se
+debe correr una copia editable por el usuario.
+
+    remote-login on|off      ssh.socket y ssh.service
+    file-sharing  on|off     smbd (y nmbd si existe)
+    printer-sharing on|off   «cupsctl --share-printers» / «--no-share-printers»
+
+Cada argumento se valida contra esa lista antes de tocar nada.
+"""
+import subprocess
+import sys
+
+SERVICIOS = {
+    "remote-login": ["ssh.socket", "ssh.service"],
+    "file-sharing": ["smbd.service", "nmbd.service"],
+}
+
+
+def salir(msg, codigo=1):
+    print(msg, file=sys.stderr)
+    sys.exit(codigo)
+
+
+def correr(*cmd, tolerar=False):
+    r = subprocess.run(cmd, capture_output=True, text=True)
+    if r.returncode != 0 and not tolerar:
+        salir((r.stderr or r.stdout).strip() or f"{cmd[0]} falló", r.returncode)
+    return r
+
+
+def existe(unidad):
+    return correr("systemctl", "cat", unidad, tolerar=True).returncode == 0
+
+
+def main():
+    if len(sys.argv) != 3 or sys.argv[2] not in ("on", "off"):
+        salir("uso: mint-macos-sharing remote-login|file-sharing|printer-sharing on|off", 2)
+    que, estado = sys.argv[1], sys.argv[2] == "on"
+    if que == "printer-sharing":
+        correr("cupsctl", "--share-printers" if estado else "--no-share-printers")
+        return
+    if que not in SERVICIOS:
+        salir(f"Servicio no válido: {que!r}", 2)
+    unidades = [u for u in SERVICIOS[que] if existe(u)]
+    if not unidades:
+        salir("Ese servicio no está instalado en esta computadora.", 3)
+    if estado:
+        # Con ssh se enciende el socket (lo que usa Ubuntu/Mint); smbd se enciende tal cual.
+        principales = [u for u in unidades if u.endswith(".socket")] or unidades
+        correr("systemctl", "enable", "--now", *principales)
+    else:
+        correr("systemctl", "disable", "--now", *unidades)
+
+
+if __name__ == "__main__":
+    main()
