@@ -277,10 +277,11 @@ cap_win()  { [ -n "$2" ] || { log "sin ventana para $1"; return; }; sleep 0.7; s
 ventana_pref() { # la ventana principal de System Preferences: la que tiene título (el panel actual); si no, la más grande
   local id; id=$($H ventanas "System Preferences" | awk -F'\t' '$2==0 && $4!="" {print $1; exit}')
   [ -n "$id" ] && echo "$id" || ventana_de "System Preferences"; }
-cerrar_paneles_pref() { # hojas (sheets) que abren algunas pestañas, p. ej. Accessibility ▸ Dwell con «Done»: bloquean la ventana hasta cerrarlas
+cerrar_paneles_pref() { # hojas (sheets) que abren algunas pestañas, p. ej. Accessibility ▸ Dwell con «Done»: bloquean la ventana hasta cerrarlas.
+  # Cancel primero: en Catalina es la Mac de todos los días y un OK podría aplicar algo; OK solo si no hay otro botón.
   osa -e 'with timeout of 15 seconds' -e 'tell application "System Events" to tell process "System Preferences"' \
       -e 'repeat with w in windows' -e 'repeat with s in sheets of w' \
-      -e 'repeat with b in {"Done", "OK", "Cancel", "Close"}' -e 'try' -e 'click (first button of s whose name is b)' -e 'exit repeat' -e 'end try' -e 'end repeat' \
+      -e 'repeat with b in {"Cancel", "Done", "Close", "OK"}' -e 'try' -e 'click (first button of s whose name is b)' -e 'exit repeat' -e 'end try' -e 'end repeat' \
       -e 'end repeat' -e 'end repeat' -e 'end tell' -e 'end timeout' 2>/dev/null; sleep 0.6; }
 ventana_de() { # dueño [regex del título] → id de la ventana normal MÁS GRANDE (no la primera: puede haber paneles sueltos)
   $H ventanas "$1" | awk -F'\t' -v t="${2:-}" '$2==0 && (t=="" || $4 ~ t) { split($5, b, " "); a=b[3]*b[4]; if (a>max) {max=a; id=$1} } END { if (id) print id }'; }
