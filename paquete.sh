@@ -15,6 +15,7 @@
 #   apple-extra.tar.gz  lo de Apple que se sacó en la Mac misma (glifos-finder)
 #                       y lo de la pantalla de inicio (constanza/login)
 #   cursores-base.tar.gz  McMojave-cursors, la base de los cursores de Constanza
+#   spotlyte.tar.gz     Spotlyte (el Spotlight), y spotlyte-config.tar.gz su configuración
 #   greeter.tar.gz      el fork de la pantalla de inicio, en el hash de login/instalar.sh
 #   instalar-aqui.sh    el que se corre en la otra computadora
 #   asistente-root.sh   la parte de root del asistente gráfico (pkexec, una clave)
@@ -71,6 +72,17 @@ if [ -d /usr/share/icons/McMojave-cursors/cursors ]; then
 else
   echo "  ✗ no está /usr/share/icons/McMojave-cursors: sin él faltan la flecha y la espera"; exit 1
 fi
+
+# Spotlyte, el Spotlight (fork de Ulauncher en ../spotlyte): el código tal
+# como está commiteado y su configuración (atajo ⌘Espacio y el tema).
+paso "Spotlyte"
+SPOT="${SPOTLYTE_REPO:-$(dirname "$REPO")/spotlyte}"
+[ -d "$SPOT/.git" ] || { echo "  ✗ no está el repo de Spotlyte en $SPOT (SPOTLYTE_REPO)"; exit 1; }
+git -C "$SPOT" archive --prefix=app/ HEAD | gzip > "$DEST/spotlyte.tar.gz"
+UL_CONF=()
+for f in .config/ulauncher/settings.json .config/ulauncher/user-themes; do [ -e "$HOME/$f" ] && UL_CONF+=("$f"); done
+[ ${#UL_CONF[@]} -gt 0 ] && tar -czf "$DEST/spotlyte-config.tar.gz" -C "$HOME" "${UL_CONF[@]}"
+echo "  $(git -C "$SPOT" rev-parse --short HEAD), $(du -h "$DEST/spotlyte.tar.gz" | cut -f1)"
 
 paso "Fynder y el Dock instalados"
 LISTA="$(mktemp)"

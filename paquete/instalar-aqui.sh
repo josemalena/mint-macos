@@ -81,6 +81,39 @@ fi
 echo "  en $MAC (hace de disco de la Mac para los guiones)"
 }
 
+# Spotlyte, el Spotlight: va antes de mint-macos para que install.sh encuentre
+# su configuración (⌘Espacio deja de abrir el Run de Cinnamon).
+p_spotlyte() {
+paso "Spotlyte (el Spotlight)"
+[ -f "$AQUI/spotlyte.tar.gz" ] || { echo "  el paquete no trae Spotlyte"; return 0; }
+SPOT="$HOME/.local/share/spotlyte"
+[ -e "$SPOT/app" ] && mv "$SPOT/app" "$SPOT/app.antes-$(date +%Y%m%d-%H%M%S)"
+mkdir -p "$SPOT" "$HOME/.local/bin" "$HOME/.config/autostart"
+tar -xzf "$AQUI/spotlyte.tar.gz" -C "$SPOT"
+cat > "$HOME/.local/bin/spotlyte" <<'EOF'
+#!/bin/sh
+# Spotlyte: fork de ULauncher con el diseño del Spotlight de Catalina (instalado en ~/.local/share/spotlyte).
+exec env GDK_BACKEND=x11 python3 "$HOME/.local/share/spotlyte/app/bin/ulauncher" "$@"
+EOF
+chmod 755 "$HOME/.local/bin/spotlyte"
+cat > "$HOME/.config/autostart/spotlyte.desktop" <<EOF
+[Desktop Entry]
+Name=Spotlyte
+Comment=Spotlight para Linux (fork de ULauncher)
+GenericName=Launcher
+Exec=$HOME/.local/bin/spotlyte --hide-window
+Icon=ulauncher
+Terminal=false
+Type=Application
+X-GNOME-Autostart-enabled=true
+EOF
+# La configuración solo si no hay una (la del usuario no se toca).
+if [ -f "$AQUI/spotlyte-config.tar.gz" ] && [ ! -e "$HOME/.config/ulauncher/settings.json" ]; then
+  tar -xzf "$AQUI/spotlyte-config.tar.gz" -C "$HOME"
+fi
+echo "  en $SPOT/app; arranca al entrar (⌘Espacio)"
+}
+
 p_mint_macos() {
 paso "5. mint-macos"
 export MAC_SISTEMA="$MAC"
@@ -122,13 +155,13 @@ echo "  - $MAC se puede borrar al terminar; solo hace falta para volver a genera
 
 # Los pasos en orden. Los de root los corre asistente-root.sh en el asistente,
 # y sudo aquí.
-PASOS="verificar repo root:requisitos binarios apple mint-macos root:arranque greeter root:login bloqueo root:vigilante lo-que-queda"
+PASOS="verificar repo root:requisitos binarios apple spotlyte mint-macos root:arranque greeter root:login bloqueo root:vigilante lo-que-queda"
 
 case "${1:-}" in
   --lista) for p in $PASOS; do echo "$p" | sed 's/^root:/root /'; done; exit 0 ;;
   --paso)
     case "${2:-}" in
-      verificar|repo|binarios|apple|mint-macos|greeter|bloqueo|lo-que-queda) "p_$(echo "$2" | tr - _)"; exit 0 ;;
+      verificar|repo|binarios|apple|spotlyte|mint-macos|greeter|bloqueo|lo-que-queda) "p_$(echo "$2" | tr - _)"; exit 0 ;;
       *) echo "  ✗ paso desconocido o de root: ${2:-}" >&2; exit 2 ;;
     esac ;;
   "") ;;
@@ -149,6 +182,7 @@ trap 'kill $MANTENER 2>/dev/null || true' EXIT
 sudo "$REPO/requisitos.sh"
 p_binarios
 p_apple
+p_spotlyte
 p_mint_macos
 paso "6. El arranque y la pantalla de inicio (sudo, con la misma clave)"
 sudo "$REPO/tema/arranque/instalar.sh"

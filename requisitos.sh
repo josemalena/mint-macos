@@ -100,6 +100,10 @@ EJECUCION=(
   gnome-screenshot xdg-user-dirs ffmpeg
   # zsh, el shell de la Mac desde Catalina
   zsh
+  # Spotlyte (el fork de Ulauncher): lo que pide el paquete ulauncher
+  libkeybinder-3.0-0 gir1.2-keybinder-3.0 gir1.2-webkit2-4.1 gir1.2-notify-0.7
+  gir1.2-gdkpixbuf-2.0 python3-gi-cairo python3-dbus python3-levenshtein
+  python3-pyinotify python3-websocket python3-xdg gir1.2-ayatanaappindicator3-0.1
   # icloud/icloud.sh: la clave de rclone.conf cifrado en el llavero; unzip
   libsecret-tools unzip
   # tema/iconos/car.py: los íconos que vienen en Assets.car (LZFSE) y los
