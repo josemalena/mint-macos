@@ -98,6 +98,8 @@ EJECUCION=(
   rsync
   # capturas/ (⇧⌘3, ⇧⌘4…, la grabación de ⇧⌘5) y la carpeta del escritorio
   gnome-screenshot xdg-user-dirs ffmpeg
+  # zsh, el shell de la Mac desde Catalina
+  zsh
   # icloud/icloud.sh: la clave de rclone.conf cifrado en el llavero; unzip
   libsecret-tools unzip
   # tema/iconos/car.py: los íconos que vienen en Assets.car (LZFSE) y los
@@ -113,6 +115,18 @@ else
   [ "$(id -u)" = 0 ] || { echo "  ✗ corre esto con sudo (o con --simular)"; exit 1; }
   apt-get update -q
   apt-get install -y "${COMPILAR[@]}" "${EJECUCION[@]}"
+fi
+
+paso "zsh como shell, como en Catalina"
+ZSH_BIN="$(command -v zsh || echo /usr/bin/zsh)"
+ACTUAL="$(getent passwd "$USUARIO" | cut -d: -f7)"
+if [ "$ACTUAL" = "$ZSH_BIN" ]; then
+  echo "  ya está"
+elif $SIMULAR; then
+  echo "  $USUARIO pasaría de $ACTUAL a $ZSH_BIN"
+else
+  chsh -s "$ZSH_BIN" "$USUARIO"
+  echo "  $USUARIO: $ACTUAL → $ZSH_BIN (vale al volver a entrar; para volver: sudo chsh -s $ACTUAL $USUARIO)"
 fi
 
 paso "keyd $KEYD_VERSION"

@@ -1,0 +1,23 @@
+# ~/.zshrc de mint-macos: zsh como en la Terminal de Catalina.
+#
+# Lo instala install.sh SOLO si no hay un ~/.zshrc (el que tengas no se toca).
+# Los valores se tomaron del /etc/zshrc de la Mac (Catalina, verificado en el
+# disco de la Mac el 15-10-2026); el archivo de Apple no se copia.
+
+# El prompt de la Mac: «usuario@equipo carpeta %».
+PS1='%n@%m %1~ %# '
+
+# El historial, con los mismos tamaños.
+HISTFILE=${ZDOTDIR:-$HOME}/.zsh_history
+HISTSIZE=2000
+SAVEHIST=1000
+
+# Acentos y ñ como un solo carácter, y la campana como en la Mac.
+setopt COMBINING_CHARS BEEP
+
+# Inicio, Fin, Supr y las flechas ↑ ↓ que buscan en el historial por lo escrito.
+[[ -n "$terminfo[khome]" ]] && bindkey "$terminfo[khome]" beginning-of-line
+[[ -n "$terminfo[kend]" ]]  && bindkey "$terminfo[kend]" end-of-line
+[[ -n "$terminfo[kdch1]" ]] && bindkey "$terminfo[kdch1]" delete-char
+[[ -n "$terminfo[kcuu1]" ]] && bindkey "$terminfo[kcuu1]" up-line-or-search
+[[ -n "$terminfo[kcud1]" ]] && bindkey "$terminfo[kcud1]" down-line-or-search

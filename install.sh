@@ -55,6 +55,14 @@ if ! grep -q '^include macos-keys.conf' "$KITTY/kitty.conf"; then
   printf '\n# Atajos estilo macOS (repo mint-macos)\ninclude macos-keys.conf\n' >> "$KITTY/kitty.conf"
 fi
 
+paso "zsh: el ~/.zshrc de la Mac (el shell lo cambia requisitos.sh)"
+if [ -e "$HOME/.zshrc" ]; then
+  echo "  ya hay un ~/.zshrc: no se toca"
+else
+  cp "$REPO/zsh/zshrc" "$HOME/.zshrc"
+  echo "  ~/.zshrc con el prompt «usuario@equipo carpeta %»"
+fi
+
 paso "VS Code: keybindings.json"
 VSCODE="$HOME/.config/Code/User"
 mkdir -p "$VSCODE"
