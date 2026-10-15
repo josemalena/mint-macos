@@ -1,0 +1,202 @@
+// herramientas.js — ayudantes de extraer.sh en JXA (osascript -l JavaScript),
+// para no depender de swiftc ni de las Command Line Tools en la Mac.
+//
+//   osascript -l JavaScript herramientas.js pantalla
+//       ancho alto escala barra dock   (puntos; dock = alto que reserva abajo)
+//   osascript -l JavaScript herramientas.js ventanas [dueño]
+//       id \t capa \t dueño \t título \t x y w h      (una ventana por línea)
+//   osascript -l JavaScript herramientas.js raton mover|clic|derecho X Y
+//   osascript -l JavaScript herramientas.js raton arrastrar X1 Y1 X2 Y2 [captura.png]
+//       con captura.png toma la pantalla con el botón todavía apretado
+//       (el rectángulo de selección) y después lo suelta
+//   osascript -l JavaScript herramientas.js medidas
+//       JSON con lo que AppKit dice de la interfaz, en puntos (como
+//       medidas.json de la entrega de macOS 27)
+//
+// Las coordenadas van en puntos, con el origen arriba a la izquierda (las de
+// screencapture -R y System Events).
+ObjC.import('Cocoa');
+ObjC.import('CoreGraphics');
+
+function run(argv) {
+  const cmd = argv[0];
+  if (cmd === 'pantalla') return pantalla();
+  if (cmd === 'ventanas') return ventanas(argv[1] || '');
+  if (cmd === 'raton') return raton(argv.slice(1));
+  if (cmd === 'medidas') return medidas();
+  return 'uso: pantalla | ventanas [dueño] | raton … | medidas';
+}
+
+function pantalla() {
+  const s = $.NSScreen.mainScreen;
+  const f = s.frame, v = s.visibleFrame;
+  const barra = (f.origin.y + f.size.height) - (v.origin.y + v.size.height);
+  const dock = v.origin.y - f.origin.y;
+  return [f.size.width, f.size.height, s.backingScaleFactor, barra, dock].join(' ');
+}
+
+function ventanas(filtro) {
+  const ref = $.CGWindowListCopyWindowInfo($.kCGWindowListOptionOnScreenOnly | $.kCGWindowListExcludeDesktopElements, $.kCGNullWindowID);
+  const lista = ObjC.deepUnwrap(ObjC.castRefToObject(ref)) || [];
+  const out = [];
+  lista.forEach(w => {
+    const dueno = w.kCGWindowOwnerName || '';
+    if (filtro && dueno.toLowerCase().indexOf(filtro.toLowerCase()) < 0) return;
+    const b = w.kCGWindowBounds || {};
+    out.push([w.kCGWindowNumber, w.kCGWindowLayer, dueno, w.kCGWindowName || '',
+      [b.X, b.Y, b.Width, b.Height].map(n => Math.round(n || 0)).join(' ')].join('\t'));
+  });
+  return out.join('\n');
+}
+
+function evento(tipo, x, y, boton) {
+  const e = $.CGEventCreateMouseEvent($(), tipo, $.CGPointMake(x, y), boton || $.kCGMouseButtonLeft);
+  $.CGEventPost($.kCGHIDEventTap, e);
+}
+function pausa(seg) { delay(seg); }
+
+function raton(a) {
+  const n = a.slice(1).map(Number);
+  switch (a[0]) {
+    case 'mover': evento($.kCGEventMouseMoved, n[0], n[1]); break;
+    case 'clic':
+      evento($.kCGEventMouseMoved, n[0], n[1]); pausa(0.08);
+      evento($.kCGEventLeftMouseDown, n[0], n[1]); pausa(0.06);
+      evento($.kCGEventLeftMouseUp, n[0], n[1]); break;
+    case 'derecho':
+      evento($.kCGEventMouseMoved, n[0], n[1]); pausa(0.08);
+      evento($.kCGEventRightMouseDown, n[0], n[1], $.kCGMouseButtonRight); pausa(0.06);
+      evento($.kCGEventRightMouseUp, n[0], n[1], $.kCGMouseButtonRight); break;
+    case 'arrastrar': {
+      const [x1, y1, x2, y2] = n;
+      evento($.kCGEventMouseMoved, x1, y1); pausa(0.1);
+      evento($.kCGEventLeftMouseDown, x1, y1); pausa(0.15);
+      const pasos = 25;
+      for (let i = 1; i <= pasos; i++) {
+        const f = i / pasos;
+        evento($.kCGEventLeftMouseDragged, x1 + (x2 - x1) * f, y1 + (y2 - y1) * f);
+        pausa(0.03);
+      }
+      pausa(0.6);
+      if (a[5]) {
+        const app = Application.currentApplication(); app.includeStandardAdditions = true;
+        app.doShellScript('/usr/sbin/screencapture -x ' + "'" + a[5].replace(/'/g, "'\\''") + "'");
+      }
+      evento($.kCGEventLeftMouseUp, x2, y2);
+      break;
+    }
+    default: return 'uso: raton mover|clic|derecho X Y | arrastrar X1 Y1 X2 Y2 [captura.png]';
+  }
+  return '';
+}
+
+// ---- medidas ---------------------------------------------------------------
+function r3(x) { return Math.round(x * 1000) / 1000; }
+function srgb(c) {
+  try {
+    const s = c.colorUsingColorSpace($.NSColorSpace.sRGBColorSpace);
+    if (!s || s.isNil()) return { error: 'no convertible a sRGB' };
+    const comp = [s.redComponent, s.greenComponent, s.blueComponent, s.alphaComponent];
+    const hex = '#' + comp.slice(0, 3).map(v => ('0' + Math.round(v * 255).toString(16).toUpperCase()).slice(-2)).join('');
+    return { hex: hex, alfa: r3(comp[3]), rgba: comp.map(r3) };
+  } catch (e) { return { error: String(e) }; }
+}
+function fuente(f) {
+  try {
+    const traits = ObjC.deepUnwrap(f.fontDescriptor.objectForKey($.NSFontTraitsAttribute)) || {};
+    return { familia: f.familyName.js, nombre_postscript: f.fontName.js, tamano_pt: f.pointSize,
+      peso_nsfont: r3(traits.NSCTFontWeightTrait || 0) };
+  } catch (e) { return { error: String(e) }; }
+}
+const COLORES = ['controlAccentColor', 'selectedContentBackgroundColor', 'unemphasizedSelectedContentBackgroundColor',
+  'windowBackgroundColor', 'controlBackgroundColor', 'underPageBackgroundColor', 'textBackgroundColor', 'controlColor',
+  'labelColor', 'secondaryLabelColor', 'tertiaryLabelColor', 'quaternaryLabelColor', 'textColor', 'placeholderTextColor',
+  'separatorColor', 'gridColor', 'selectedMenuItemTextColor', 'selectedTextBackgroundColor', 'keyboardFocusIndicatorColor',
+  'linkColor', 'findHighlightColor', 'headerTextColor', 'shadowColor',
+  'systemRedColor', 'systemOrangeColor', 'systemYellowColor', 'systemGreenColor', 'systemMintColor', 'systemTealColor',
+  'systemCyanColor', 'systemBlueColor', 'systemIndigoColor', 'systemPurpleColor', 'systemPinkColor', 'systemBrownColor',
+  'systemGrayColor'];
+function coloresEn(nombre) {
+  const out = {};
+  $.NSAppearance.setCurrentAppearance($.NSAppearance.appearanceNamed(nombre));
+  COLORES.forEach(k => {
+    try { const c = $.NSColor[k]; out[k] = (c && !c.isNil()) ? srgb(c) : 'no existe en esta versión'; }
+    catch (e) { out[k] = 'no existe en esta versión'; }
+  });
+  try {
+    const alt = $.NSColor.alternatingContentBackgroundColors;
+    out.alternatingContentBackgroundColors = [0, 1].map(i => srgb(alt.objectAtIndex(i)));
+  } catch (e) {}
+  return out;
+}
+function pref(dominio, clave) {
+  const d = dominio === '-g'
+    ? $.NSUserDefaults.standardUserDefaults.persistentDomainForName($.NSGlobalDomain)
+    : $.NSUserDefaults.alloc.initWithSuiteName(dominio).dictionaryRepresentation;
+  const v = d && !d.isNil() ? ObjC.deepUnwrap(d.objectForKey(clave)) : undefined;
+  return v === undefined || v === null ? 'por defecto' : v;
+}
+function medidas() {
+  $.NSApplication.sharedApplication;
+  const s = $.NSScreen.mainScreen, f = s.frame, v = s.visibleFrame;
+  const res = {
+    generado: new Date().toISOString(),
+    sistema: $.NSProcessInfo.processInfo.operatingSystemVersionString.js,
+    unidad: 'puntos (pt); 1 pt = backingScaleFactor px',
+    pantalla: {
+      frame_pt: [f.size.width, f.size.height],
+      visibleFrame_pt: [v.origin.x, v.origin.y, v.size.width, v.size.height],
+      backingScaleFactor: s.backingScaleFactor,
+      alto_barra_menu_pt: (f.origin.y + f.size.height) - (v.origin.y + v.size.height),
+      alto_reservado_dock_pt: v.origin.y - f.origin.y,
+      nota_dock: 'si el Dock se oculta solo, alto_reservado_dock_pt es 0',
+    },
+    NSStatusBar_thickness_pt: $.NSStatusBar.systemStatusBar.thickness,
+  };
+  const F = $.NSFont;
+  res.fuentes = {
+    systemFont: fuente(F.systemFontOfSize(0)), systemFont_bold: fuente(F.boldSystemFontOfSize(0)),
+    menuFont: fuente(F.menuFontOfSize(0)), menuBarFont: fuente(F.menuBarFontOfSize(0)),
+    titleBarFont: fuente(F.titleBarFontOfSize(0)), toolTipsFont: fuente(F.toolTipsFontOfSize(0)),
+    labelFont: fuente(F.labelFontOfSize(0)), messageFont: fuente(F.messageFontOfSize(0)),
+    paletteFont: fuente(F.paletteFontOfSize(0)), controlContentFont: fuente(F.controlContentFontOfSize(0)),
+    monospacedSystemFont: fuente(F.monospacedSystemFontOfSizeWeight(0, 0)),
+    tamanos_estandar_pt: { system: F.systemFontSize, small: F.smallSystemFontSize, label: F.labelFontSize },
+    estilos_de_texto: {},
+  };
+  ['LargeTitle', 'Title1', 'Title2', 'Title3', 'Headline', 'Body', 'Callout', 'Subheadline', 'Footnote', 'Caption1', 'Caption2']
+    .forEach(n => {
+      try { res.fuentes.estilos_de_texto[n.charAt(0).toLowerCase() + n.slice(1)] = fuente(F.preferredFontForTextStyleOptions($['NSFontTextStyle' + n], $({}))); }
+      catch (e) { res.fuentes.estilos_de_texto[n] = String(e); }
+    });
+  res.colores = { claro: coloresEn($.NSAppearanceNameAqua), oscuro: coloresEn($.NSAppearanceNameDarkAqua) };
+
+  // Ventana de prueba (no se muestra): barra de título y semáforos.
+  const ventana = {};
+  try {
+    const w = $.NSWindow.alloc.initWithContentRectStyleMaskBackingDefer($.NSMakeRect(0, 0, 600, 400), 15, 2, true);
+    ventana.alto_barra_titulo_pt = w.frame.size.height - w.contentLayoutRect.size.height;
+    ventana.semaforos = {};
+    [['cerrar', 0], ['minimizar', 1], ['zoom', 2]].forEach(([n, t]) => {
+      const b = w.standardWindowButton(t);
+      if (b && !b.isNil()) ventana.semaforos[n] = { x_pt: b.frame.origin.x, y_desde_abajo_pt: b.frame.origin.y, ancho_pt: b.frame.size.width, alto_pt: b.frame.size.height };
+    });
+    // 4096 = unifiedTitleAndToolbar; toolbarStyle 3 = unified
+    const wt = $.NSWindow.alloc.initWithContentRectStyleMaskBackingDefer($.NSMakeRect(0, 0, 600, 400), 15 | 4096, 2, true);
+    wt.toolbar = $.NSToolbar.alloc.initWithIdentifier('medida');
+    try { wt.toolbarStyle = 3; } catch (e) {}
+    ventana.alto_titulo_mas_toolbar_unificada_pt = wt.frame.size.height - wt.contentLayoutRect.size.height;
+  } catch (e) { ventana.error = String(e); }
+  ventana.radio_esquina_pt = 'no medido aquí: ver capturas';
+  ventana.sombra = 'no medido aquí: ver capturas';
+  res.ventana = ventana;
+
+  res.preferencias = {
+    AppleInterfaceStyle: pref('-g', 'AppleInterfaceStyle'), AppleAccentColor: pref('-g', 'AppleAccentColor'),
+    AppleHighlightColor: pref('-g', 'AppleHighlightColor'), AppleReduceTransparency: pref('com.apple.universalaccess', 'reduceTransparency'),
+    dock_tilesize: pref('com.apple.dock', 'tilesize'), dock_largesize: pref('com.apple.dock', 'largesize'),
+    dock_magnification: pref('com.apple.dock', 'magnification'), dock_orientation: pref('com.apple.dock', 'orientation'),
+    dock_autohide: pref('com.apple.dock', 'autohide'),
+  };
+  return JSON.stringify(res, null, 2);
+}
