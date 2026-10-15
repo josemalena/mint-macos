@@ -1,0 +1,149 @@
+"""Siri y Screen Time: los dos paneles de Catalina que Linux no tiene.
+
+Se dibujan como en las capturas (Screen Shot 2026-10-14 at 12.13.06 AM Siri y 1.25.57 PM … 1.26.31 PM
+Screen Time) pero en gris, como en una Mac que no tuviera esa función: nada se inventa ni se deja
+funcionando de adorno. Screen Time no enseña datos (no hay uso que contar); solo el esqueleto.
+La hoja Siri Suggestions & Privacy… y las otras pantallas de Screen Time (Pickups, Downtime, App Limits,
+Communication, Always Allowed y Content & Privacy) no se dibujan: no hay nada que configurar.
+"""
+import gi
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gtk  # noqa: E402
+
+import paneles  # noqa: E402
+
+MOTIVO = "This feature is not available on this computer."
+
+
+def _gris(widget):
+    widget.set_sensitive(False)
+    widget.set_tooltip_text(MOTIVO)
+    return widget
+
+
+def _marco():
+    m = Gtk.Frame()
+    m.get_style_context().add_class("mp-sd-lista")
+    return m
+
+
+class _Ausente:
+    claves = []
+    externo = False
+    propio = True
+    celda = None
+
+    def __init__(self):
+        self.panel = paneles.Panel(self.id, self.nombre, [], palabras=self.palabras)
+        self.ventana = None
+
+    def coincide(self, texto):
+        t = texto.lower().strip()
+        return bool(t) and any(t in c.lower() for c in (self.nombre, self.panel.palabras, self.id))
+
+
+class PanelSiri(_Ausente):
+    id = "com.apple.preference.speech"
+    nombre = "Siri"
+    palabras = "siri, voice, ask siri, hey siri, dictation"
+
+    def construir(self):
+        from propios import imagen_icono_panel
+        caja = Gtk.Box(spacing=0)
+        caja.get_style_context().add_class("mp-propio")
+        caja.set_margin_top(18)
+        caja.set_margin_bottom(18)
+        izq = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        izq.set_size_request(240, -1)
+        izq.pack_start(imagen_icono_panel(self.id, 112), False, False, 10)
+        t = Gtk.Label(label="Siri")
+        t.get_style_context().add_class("mp-titulo-negrita")
+        izq.pack_start(t, False, False, 0)
+        c = Gtk.CheckButton(label="Enable Ask Siri")
+        c.set_active(True)
+        c.set_halign(Gtk.Align.CENTER)
+        izq.pack_start(_gris(c), False, False, 0)
+        caja.pack_start(izq, False, False, 0)
+        caja.pack_start(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL), False, False, 0)
+
+        der = Gtk.Grid(column_spacing=10, row_spacing=10, margin=20)
+        d = Gtk.Label(label="Siri helps you get things done, just by asking. Find files on your Mac, dictate a "
+                            "note, check the weather, and more.", xalign=0)
+        d.set_line_wrap(True)
+        d.set_max_width_chars(52)
+        der.attach(d, 0, 0, 2, 1)
+        hey = Gtk.CheckButton(label="Listen for “Hey Siri” on headphones")
+        der.attach(_gris(hey), 1, 1, 1, 1)
+        filas = (("Keyboard Shortcut:", "Hold Command Space"), ("Language:", "English (United States)"),
+                 ("Siri Voice:", "American (Female)"))
+        for i, (t_, v) in enumerate(filas):
+            e = Gtk.Label(label=t_, xalign=1.0)
+            e.get_style_context().add_class("mp-fila-etiqueta")
+            der.attach(e, 0, 2 + i, 1, 1)
+            cb = Gtk.ComboBoxText()
+            cb.append("v", v)
+            cb.set_active(0)
+            der.attach(_gris(cb), 1, 2 + i, 1, 1)
+        e = Gtk.Label(label="Voice Feedback:", xalign=1.0)
+        e.get_style_context().add_class("mp-fila-etiqueta")
+        der.attach(e, 0, 5, 1, 1)
+        vf = Gtk.Box(spacing=12)
+        on = Gtk.RadioButton.new_with_label_from_widget(None, "On")
+        off = Gtk.RadioButton.new_with_label_from_widget(on, "Off")
+        vf.pack_start(on, False, False, 0)
+        vf.pack_start(off, False, False, 0)
+        der.attach(_gris(vf), 1, 5, 1, 1)
+        e = Gtk.Label(label="Siri History:", xalign=1.0)
+        e.get_style_context().add_class("mp-fila-etiqueta")
+        der.attach(e, 0, 6, 1, 1)
+        der.attach(_gris(Gtk.Button(label="Delete Siri & Dictation History")), 1, 6, 1, 1)
+        menu = Gtk.CheckButton(label="Show Siri in menu bar")
+        menu.set_active(True)
+        der.attach(_gris(menu), 0, 7, 2, 1)
+        der.attach(_gris(Gtk.Button(label="Siri Suggestions & Privacy…")), 1, 7, 1, 1)
+        caja.pack_start(der, True, True, 0)
+        caja.show_all()
+        return caja
+
+
+class PanelScreenTime(_Ausente):
+    id = "com.apple.preference.screentime"
+    nombre = "Screen Time"
+    palabras = "screen time, app usage, downtime, app limits, content privacy"
+
+    def construir(self):
+        caja = Gtk.Box(spacing=0)
+        caja.get_style_context().add_class("mp-propio")
+        caja.set_margin_bottom(14)
+        izq = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6, margin=14)
+        izq.set_size_request(210, 330)
+        izq.pack_start(_gris(Gtk.Image.new_from_icon_name("avatar-default", Gtk.IconSize.DIALOG)), False, False, 8)
+        usuario = Gtk.ComboBoxText()
+        usuario.append("u", "Screen Time")
+        usuario.set_active(0)
+        izq.pack_start(_gris(usuario), False, False, 8)
+        lista = Gtk.ListBox()
+        for n in ("App Usage", "Notifications", "Pickups", "Downtime", "App Limits", "Communication",
+                  "Always Allowed", "Content & Privacy"):
+            fila = Gtk.ListBoxRow()
+            fila.add(Gtk.Label(label=n, xalign=0, margin=6))
+            lista.add(fila)
+        izq.pack_start(_gris(lista), True, True, 0)
+        izq.pack_start(_gris(Gtk.Button(label="Options")), False, False, 0)
+        caja.pack_start(izq, False, False, 0)
+        caja.pack_start(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL), False, False, 0)
+        der = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8, margin=14)
+        marco = _marco()
+        marco.set_size_request(-1, 280)
+        t = Gtk.Label(label="Usage", xalign=0, margin=10)
+        marco.add(t)
+        der.pack_start(_gris(marco), True, True, 0)
+        pie = Gtk.Box(spacing=8)
+        todos = Gtk.ComboBoxText()
+        todos.append("a", "All Devices")
+        todos.set_active(0)
+        pie.pack_start(_gris(todos), False, False, 0)
+        der.pack_start(pie, False, False, 0)
+        caja.pack_start(der, True, True, 0)
+        caja.show_all()
+        return caja

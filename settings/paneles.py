@@ -50,6 +50,9 @@ _GRUPOS_POR_TEMA = [
               ["workspaces", "hotcorner", "windows"],
               pestanas={"workspaces": "Spaces", "hotcorner": "Hot Corners", "windows": "Windows"},
               palabras="spaces, desktops, workspaces, hot corners, windows, tiling"),
+        Panel("com.apple.preference.speech", "Siri", [], palabras="siri, voice, ask siri"),
+        Panel("com.apple.preference.screentime", "Screen Time", [],
+              palabras="screen time, app usage, downtime, app limits"),
         Panel("com.apple.preference.spotlight", "Spotlyte", [],
               palabras="spotlyte, spotlight, search, ulauncher, shortcut, menu bar, recent apps"),
         Panel("com.apple.Localization", "Language & Region", ["mintlocale"],
@@ -117,8 +120,8 @@ _GRUPOS_POR_TEMA = [
 # la red; el último es lo de terceros, aquí «Advanced». El orden es el de la
 # captura de System Preferences (12.07.52).
 _ORDEN = [
-    ["general", "desktopscreeneffect", "dock", "expose", "spotlight", "Localization", "notifications",
-     "internetaccounts", "users", "universalaccess", "extensions", "security"],
+    ["general", "desktopscreeneffect", "dock", "expose", "speech", "spotlight", "Localization", "notifications",
+     "internetaccounts", "users", "universalaccess", "screentime", "extensions", "security"],
     ["softwareupdate", "network", "Bluetooth", "sound", "printfax", "keyboard", "trackpad", "mouse",
      "displays", "energysaver", "datetime", "sharing", "backup", "startupdisk"],
 ]

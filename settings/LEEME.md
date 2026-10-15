@@ -45,8 +45,7 @@ son etiquetas, no bandas; el orden sale de la captura):
 Un panel sin ningún módulo disponible no sale. Los que son un programa externo
 (Software Update, Time Machine, impresoras, Bluetooth…) lo lanzan y la ventana se
 queda donde estaba. Un panel con varios módulos (Desktop & Screen Saver) muestra una
-pestaña por módulo. Faltan en Linux Siri, Spotlight, Screen Time, Sharing, Profiles
-y CDs & DVDs. **Apple ID** no está en la cuadrícula: se abre con el ícono de la
+pestaña por módulo. Siri y Screen Time están como esqueleto en gris (`ausentes.py`); Profiles y CDs & DVDs no salen. **Apple ID** no está en la cuadrícula: se abre con el ícono de la
 franja de arriba.
 
 ### Paneles propios (`propios.py`)
