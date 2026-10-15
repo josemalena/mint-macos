@@ -79,6 +79,8 @@ COMPILAR=(
   valac libgdk-pixbuf-2.0-dev libgee-0.8-dev libbamf3-dev libcairo2-dev libwnck-3-dev
   libgnome-menu-3-dev libcanberra-dev libdbusmenu-glib-dev libdbusmenu-gtk3-dev
   libxi-dev libxfixes-dev
+  # la pantalla de inicio (slick-greeter-mac, login/instalar.sh)
+  liblightdm-gobject-1-dev libpixman-1-dev
   # keyd y libfsapfs
   python3-xlib autoconf automake autopoint libtool libssl-dev libfuse3-dev fuse3 curl
 )

@@ -13,6 +13,7 @@
 #                       Assets.car, PDFs, plists, fuentes, cursores y el fondo
 #                       de Catalina. Sin binarios ni idiomas que no son inglés.
 #   apple-extra.tar.gz  lo de Apple que se sacó en la Mac misma (glifos-finder)
+#                       y lo de la pantalla de inicio (constanza/login)
 #   instalar-aqui.sh    el que se corre en la otra computadora
 #
 # Lo de Apple es para las máquinas de quien tiene la Mac: el paquete no se
@@ -86,6 +87,9 @@ echo "  $(du -h "$DEST/mac-sistema.tar" | cut -f1)"
 paso "Lo de Apple sacado en la Mac misma"
 EXTRA=()
 [ -d "$HOME/.local/share/constanza/glifos-finder" ] && EXTRA+=(.local/share/constanza/glifos-finder)
+# La pantalla de inicio: fondos, foto de la cuenta y botones (login/desde-mac.sh
+# los saca del volumen de DATOS, que el paquete no lleva).
+[ -d "$HOME/.local/share/constanza/login" ] && EXTRA+=(.local/share/constanza/login)
 if [ ${#EXTRA[@]} -gt 0 ]; then
   tar -czf "$DEST/apple-extra.tar.gz" -C "$HOME" "${EXTRA[@]}"; echo "  ${EXTRA[*]}"
 else
