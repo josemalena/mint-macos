@@ -17,8 +17,13 @@ LIB="$HOME/.local/lib/mint-macos/settings"
 BIN="$HOME/.local/bin/mac-settings"
 LANZADOR="$HOME/.local/share/applications/mint-macos-settings.desktop"
 ICONO="$HOME/.local/share/mint-macos/settings/iconos/sistema.png"
+AUTOARRANQUE="$HOME/.config/autostart/mint-macos-settings.desktop"
+APP_ID=io.github.josemalena.MintMacosSettings
+RUTA_DBUS="/$(echo "$APP_ID" | tr . /)"
 
 if [ "${1:-}" = "--quitar" ]; then
+  rm -f "$AUTOARRANQUE"
+  pkill -f "$LIB/preferencias.py" 2>/dev/null || true      # el residente de esta sesión
   rm -rf "$LIB" "$BIN" "$LANZADOR"
   update-desktop-database "$HOME/.local/share/applications" 2>/dev/null || true
   echo "Listo: System Preferences quitada. Los íconos de Apple en ~/.local/share/mint-macos/settings se quedan (son tuyos)."
@@ -40,11 +45,31 @@ install -m 644 "$AQUI/apple_id.py" "$LIB/apple_id.py"
 install -m 644 "$AQUI/propios.py" "$LIB/propios.py"
 install -m 644 "$AQUI/estilo/catalina.css" "$LIB/estilo/catalina.css"
 
+# System Preferences es residente: arranca escondida con la sesión y mac-settings solo le
+# pide, por D-Bus y sin arrancar Python, que se muestre (con el panel pedido). Si el
+# proceso no está (se cayó o aún no arrancó), el mismo comando lo levanta.
 cat > "$BIN" <<EOF
 #!/bin/sh
+case "\${1:-}" in
+  -*) ;;                                   # --lista y demás van al programa
+  *) if [ "\$#" -le 1 ]; then
+       gdbus call --session --dest $APP_ID --object-path $RUTA_DBUS \\
+         --method org.gtk.Actions.Activate abrir "[<'\${1:-}'>]" '{}' >/dev/null 2>&1 && exit 0
+     fi ;;
+esac
 exec python3 "$LIB/preferencias.py" "\$@"
 EOF
 chmod +x "$BIN"
+mkdir -p "$(dirname "$AUTOARRANQUE")"
+cat > "$AUTOARRANQUE" <<EOF
+[Desktop Entry]
+Type=Application
+Name=System Preferences (residente)
+Comment=Deja System Preferences armada y escondida para que se abra al instante
+Exec=python3 $LIB/preferencias.py --residente
+Terminal=false
+X-GNOME-Autostart-enabled=true
+EOF
 
 icono="preferences-system"
 [ -f "$ICONO" ] && icono="$ICONO"

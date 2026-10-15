@@ -11,7 +11,8 @@ Todas las medidas salen de las capturas de Catalina de José (14-10-2026,
 y se escalan con el tamaño de la pantalla. Los glifos del buscador son los de
 Apple (SearchMagGlass y Cancel), sacados de la Mac por tema/iconos/finder.py.
 
-    mac-launchpad          abre (o cierra, si ya está abierto)
+    mac-launchpad              abre (o esconde, si ya está abierto); si no hay proceso, lo arma
+    mac-launchpad --residente  se arma oculto (lo arranca la sesión) y espera el atajo
     mac-launchpad --lista  lo que mostraría, sin abrir nada
     Esc                    borra la búsqueda, cierra la carpeta o cierra
 """
@@ -297,7 +298,56 @@ class Ventana(Gtk.Window):
         self.connect("motion-notify-event", self.al_mover)
         self.connect("scroll-event", self.al_scroll)
         self.add_tick_callback(self._cuadro)
+        self.ruta_fondo = ruta
+        self.sello = self._sello_apps()
+
+    # ── residente: se arma una vez y se muestra y oculta ─────────────────
+    @staticmethod
+    def _sello_apps():
+        """Qué hay hoy en /Applications y en Utilities (nombre y fecha de cada lanzador)."""
+        sello = []
+        for d in (DESTINO, os.path.join(DESTINO, "Utilities")):
+            try:
+                with os.scandir(d) as it:
+                    sello.extend((e.path, e.stat().st_mtime_ns) for e in it if e.name.endswith(".desktop"))
+            except OSError:
+                pass
+        return sorted(sello)
+
+    def precalentar(self):
+        """Pinta un cuadro fuera de pantalla para que los íconos queden cargados antes del primer atajo."""
+        t0 = self.t0
+        self.t0 -= 10
+        sup = cairo.ImageSurface(cairo.FORMAT_ARGB32, self.W, self.H)
+        self.al_pintar(self, cairo.Context(sup))
+        self.t0 = t0
+
+    def mostrar(self):
+        """Lo deja como recién abierto (página 1, sin búsqueda, sin carpeta) y lo enseña."""
+        sello = self._sello_apps()
+        if sello != self.sello:                      # se instaló o quitó una app
+            self.sello = sello
+            self.elementos, self.todas = leer_aplicaciones()
+            self.paginas = max(1, math.ceil(len(self.elementos) / self.por_pagina))
+        ruta = construir_fondo(self.W, self.H)       # de caché; cambia si cambió el escritorio
+        if ruta != self.ruta_fondo:
+            self.ruta_fondo = ruta
+            try:
+                self.fondo = cairo.ImageSurface.create_from_png(ruta) if ruta else None
+            except Exception:  # noqa: BLE001
+                self.fondo = None
+        self.pagina, self.pos = 0, 0.0
+        self.consulta, self.sel = "", 0
+        self.carpeta, self.pag_carpeta = None, 0
+        self.arrastre = None
+        self.scroll_acum = self.scroll_hasta = 0.0
+        self.cierra = False
+        self.t0 = time.monotonic()
         self.show_all()
+        self.present_with_time(Gdk.CURRENT_TIME)
+
+    def ocultar(self):
+        self.hide()
 
     # ── geometría ────────────────────────────────────────────────────────
     def px(self, v):
@@ -558,7 +608,8 @@ class Ventana(Gtk.Window):
             self.cerrar()
 
     def cerrar(self):
-        self.get_application().quit()
+        # Como en la Mac, el Launchpad no sale: se esconde y el siguiente atajo lo vuelve a enseñar.
+        self.ocultar()
 
     def ir_pagina(self, n):
         n = max(0, min(self.paginas - 1, n))
@@ -697,6 +748,7 @@ class Aplicacion(Gtk.Application):
     def __init__(self):
         super().__init__(application_id=APP_ID, flags=Gio.ApplicationFlags.FLAGS_NONE)
         self.ventana = None
+        self.solo_armar = False
 
     def _prueba(self):
         """LAUNCHPAD_PNG=archivo: pinta un cuadro a LAUNCHPAD_TAM y sale (sin ventana útil)."""
@@ -712,14 +764,27 @@ class Aplicacion(Gtk.Application):
         self.quit()
         return False
 
+    def do_startup(self):
+        Gtk.Application.do_startup(self)
+        self.hold()                       # residente: sigue vivo con la ventana oculta
+
     def do_activate(self):
-        # Pedirlo otra vez estando abierto lo cierra (F4 abre y cierra).
-        if self.ventana is not None:
-            self.quit()
+        # Pedirlo estando abierto lo esconde (F4 abre y cierra); si no existe, se arma.
+        if self.ventana is None:
+            self.ventana = Ventana(self)
+            if os.environ.get("LAUNCHPAD_PNG"):
+                GLib.timeout_add(300, self._prueba)
+                return
+            self.ventana.precalentar()
+            if self.solo_armar:           # --residente: arranca con la sesión, sin enseñarse
+                self.solo_armar = False
+                return
+            self.ventana.mostrar()
             return
-        self.ventana = Ventana(self)
-        if os.environ.get("LAUNCHPAD_PNG"):
-            GLib.timeout_add(300, self._prueba)
+        if self.ventana.get_visible():
+            self.ventana.ocultar()
+        else:
+            self.ventana.mostrar()
 
 
 def main():
@@ -732,7 +797,10 @@ def main():
                 print(e.nombre)
         return 0
     GLib.set_prgname("mac-launchpad")
-    return Aplicacion().run([sys.argv[0]])
+    app = Aplicacion()
+    # --residente: lo arranca la sesión; se arma y espera oculto al primer atajo.
+    app.solo_armar = "--residente" in sys.argv
+    return app.run([sys.argv[0]])
 
 
 if __name__ == "__main__":

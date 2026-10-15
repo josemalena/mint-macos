@@ -18,6 +18,9 @@ BIN="$HOME/.local/bin/mac-launchpad"
 LANZADOR="$HOME/.local/share/applications/launchpad.desktop"
 RESPALDO="$HOME/.local/share/mint-macos/respaldos/launchpad.desktop.antes"
 MARCA="X-MintMacos-Launchpad=1"
+AUTOARRANQUE="$HOME/.config/autostart/mint-macos-launchpad.desktop"
+APP_ID=io.github.josemalena.MintMacosLaunchpad
+RUTA_DBUS="/$(echo "$APP_ID" | tr . /)"
 CLAVES=org.cinnamon.desktop.keybindings
 RUTA=/org/cinnamon/desktop/keybindings/custom-keybindings
 ATAJO="<Control><Alt>l"
@@ -58,6 +61,8 @@ if [ "${1:-}" = "--quitar" ]; then
     echo "Lanzador propio quitado."
   fi
   quitar_atajo
+  rm -f "$AUTOARRANQUE"
+  pkill -f "$LIB/launchpad.py" 2>/dev/null || true      # el residente de esta sesión
   rm -f "$BIN"; rm -rf "$LIB"
   echo "Listo. mac-launchpad ya no está instalado."
   exit 0
@@ -65,8 +70,29 @@ fi
 
 mkdir -p "$LIB" "$(dirname "$BIN")" "$(dirname "$RESPALDO")"
 install -m 0644 "$AQUI/launchpad.py" "$LIB/launchpad.py"
-printf '#!/bin/sh\nexec python3 "%s/launchpad.py" "$@"\n' "$LIB" > "$BIN"
+# El Launchpad es residente: arranca oculto con la sesión y el atajo solo le pide, por
+# D-Bus y sin arrancar Python, que se muestre o se esconda. Si el proceso no está (se cayó
+# o aún no arrancó), el mismo comando lo levanta y lo muestra.
+cat > "$BIN" <<LANZ
+#!/bin/sh
+if [ "\$#" -eq 0 ]; then
+  gdbus call --session --dest $APP_ID --object-path $RUTA_DBUS \\
+    --method org.freedesktop.Application.Activate '{}' >/dev/null 2>&1 && exit 0
+fi
+exec python3 "$LIB/launchpad.py" "\$@"
+LANZ
 chmod +x "$BIN"
+mkdir -p "$(dirname "$AUTOARRANQUE")"
+cat > "$AUTOARRANQUE" <<AUTO
+[Desktop Entry]
+Type=Application
+Name=Launchpad (residente)
+Comment=Deja el Launchpad armado y oculto para que el atajo lo muestre al instante
+Exec=python3 $LIB/launchpad.py --residente
+Terminal=false
+X-GNOME-Autostart-enabled=true
+$MARCA
+AUTO
 
 # El lanzador del usuario: el Dock (Plank) apunta a este archivo. Si ya había uno que
 # no es nuestro (el de rofi), se guarda una sola vez para poder devolverlo.

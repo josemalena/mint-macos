@@ -269,6 +269,9 @@ class Ventana(Gtk.ApplicationWindow):
         self.set_icon_name("preferences-system")
         self.get_style_context().add_class("mp-ventana")
         self.historial, self.pos = [None], 0     # la cuadrícula es el primer paso: de un panel se vuelve a ella
+        # Como en la Mac, cerrar la ventana no cierra el programa: se esconde y el siguiente
+        # clic en el ítem del menú o el atajo la vuelve a enseñar sin cargar nada otra vez.
+        self.connect("delete-event", self._al_cerrar)
         self.actual = None            # PanelVivo abierto, o None en la cuadrícula
         self.claves_pestana = {}
         self.modulo_actual = None
@@ -307,7 +310,9 @@ class Ventana(Gtk.ApplicationWindow):
         self.pila.add_named(self._pagina(), "pagina")
         self.connect("key-press-event", self._tecla)
         self.connect("button-press-event", self._boton)
-        self.show_all()
+        # Solo los hijos: la ventana se enseña cuando alguien la pide (el residente nace escondido).
+        self.get_child().show_all()
+        self.get_titlebar().show_all()
         traza("show_all")
         self.mostrar_todo(registrar=False)
         traza("lista")
@@ -664,6 +669,17 @@ class Ventana(Gtk.ApplicationWindow):
                     return True
         return False
 
+    def _al_cerrar(self, _w, _ev):
+        if self.get_application().residente:
+            self.hide()
+            return True               # no se destruye
+        return False
+
+    def mostrar_de_nuevo(self):
+        """Después de estar escondida vuelve a la cuadrícula, como recién abierta."""
+        self.historial, self.pos = [None], 0
+        self.mostrar_todo(registrar=False)
+
     def mostrar_todo(self, registrar=True):
         self._salir_modulo()
         self.actual = None
@@ -801,9 +817,11 @@ class Aplicacion(Gtk.Application):
         super().__init__(application_id=APP_ID,
                          flags=Gio.ApplicationFlags.HANDLES_COMMAND_LINE)
         self.ventana = None
+        self.residente = True
 
     def do_startup(self):
         Gtk.Application.do_startup(self)
+        self.hold()                   # residente: sigue vivo con la ventana escondida
         # app.abrir("sound") desde otro proceso o desde un menú.
         accion = Gio.SimpleAction.new("abrir", GLib.VariantType.new("s"))
         accion.connect("activate", lambda _a, v: self._abrir_accion(v.get_string()))
@@ -813,8 +831,11 @@ class Aplicacion(Gtk.Application):
         self.add_action(todo)
 
     def _abrir_accion(self, nombre):
+        """El ítem del menú y los atajos entran por aquí (gdbus, sin arrancar Python)."""
         if self.ventana is None:
             return
+        if not self.ventana.get_visible():
+            self.ventana.mostrar_de_nuevo()
         if nombre:
             self.ventana.abrir_por_nombre(nombre)
         self.ventana.present()
@@ -837,8 +858,14 @@ class Aplicacion(Gtk.Application):
         if args and args[0] == "--lista":
             for pv in self.ventana.todos:
                 print(f"{pv.id:46} {pv.nombre:24} {','.join(pv.claves)}")
+            self.residente = False
             self.ventana.destroy()
+            self.release()
             return 0
+        if args and args[0] == "--residente":
+            return 0                  # la sesión lo deja armado y escondido
+        if not self.ventana.get_visible():
+            self.ventana.mostrar_de_nuevo()
         if args:
             if not self.ventana.abrir_por_nombre(args[0]):
                 print(f"No hay un panel «{args[0]}». Mira mac-settings --lista.", file=sys.stderr)

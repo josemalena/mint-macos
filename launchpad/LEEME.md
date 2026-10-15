@@ -44,3 +44,13 @@ Las capturas son de Apple y no entran al repo; el glifo de la lupa y el de borra
 - El Dock no se ve encima: la ventana es de pantalla completa, y en Muffin eso queda
   por encima de los docks.
 - Reordenar con el ratón y crear carpetas no están (el orden es alfabético).
+
+## Residente (14-10-2026)
+
+El Launchpad es un proceso residente: `instalar.sh` pone `~/.config/autostart/mint-macos-launchpad.desktop`
+(`launchpad.py --residente`), que lo deja armado y oculto al iniciar sesión (íconos ya cargados, ~80 MB).
+`mac-launchpad` ya no es Python: es un `sh` que le pide por D-Bus (`gdbus`, `org.freedesktop.Application.Activate`)
+que se muestre o se esconda, y solo si el proceso no existe (se cayó o aún no arrancó) lo levanta él mismo.
+Esc, un clic en el vacío o abrir una app lo esconden; no sale. Medido en Xephyr: del atajo a la ventana visible,
+de ~410 ms (Python arrancando) a ~20 ms. Si cambia /Applications o el escritorio, la siguiente vez que se muestra
+relee los lanzadores y el fondo. `--quitar` borra el arranque y termina el residente.

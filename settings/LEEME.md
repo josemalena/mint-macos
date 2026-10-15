@@ -168,3 +168,12 @@ estilo sobre el mismo motor.
   cinnamon-settings de Mint). Los íconos del tema se fuerzan al mismo tamaño que los demás.
 - El primero ya es así: Dock (propios.py). Cada panel escribirá en el archivo de configuración del programa
   (Plank, por ejemplo) en vez de traer la interfaz de ese programa. Se trabaja panel por panel.
+
+## Residente (14-10-2026)
+
+System Preferences también es residente: `instalar.sh` pone `~/.config/autostart/mint-macos-settings.desktop`
+(`preferencias.py --residente`), que la deja armada y escondida al iniciar sesión (los módulos de Cinnamon ya
+cargados, ~85 MB). `mac-settings` es un `sh` que llama por D-Bus a la acción `abrir` (con el panel pedido, o
+vacío para la cuadrícula) y solo arranca Python si no hay proceso o si recibe una opción como `--lista`.
+Cerrar la ventana la esconde, como en la Mac; al volver a abrirla aparece la cuadrícula. Medido en Xephyr: de
+~900 ms a ~30 ms (la cuadrícula) y ~160 ms (un panel con su módulo). `--quitar` borra el arranque y termina el residente.
