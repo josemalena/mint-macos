@@ -1082,6 +1082,7 @@ class PanelMissionControl:
         self.escribir_esquina(indice, self.ACCIONES[int(n)][0])
 
 
+import avisos  # noqa: E402
 import general  # noqa: E402  (teclado, raton y general usan cosas de este módulo, por eso van al final)
 import pantallas  # noqa: E402
 import raton  # noqa: E402
@@ -1090,7 +1091,7 @@ import teclado  # noqa: E402
 
 PROPIOS = {p.id: p for p in (PanelDock(), PanelAppleID(), PanelSpotlight(), PanelStartupDisk(),
                                      PanelMissionControl(), teclado.PanelKeyboard(), raton.PanelMouse(),
-                                     general.PanelGeneral(), sonido.PanelSound(), pantallas.PanelDisplays())}
+                                     general.PanelGeneral(), sonido.PanelSound(), pantallas.PanelDisplays(), avisos.PanelNotifications())}
 # Sin touchpad, Trackpad es la pantalla «No trackpad found» de Catalina; con uno, lo sirve el módulo de Cinnamon.
 if not raton.hay_touchpad():
     PROPIOS[raton.PanelTrackpad.id] = raton.PanelTrackpad()

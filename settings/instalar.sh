@@ -48,6 +48,7 @@ install -m 644 "$AQUI/raton.py" "$LIB/raton.py"
 install -m 644 "$AQUI/general.py" "$LIB/general.py"
 install -m 644 "$AQUI/sonido.py" "$LIB/sonido.py"
 install -m 644 "$AQUI/pantallas.py" "$LIB/pantallas.py"
+install -m 644 "$AQUI/avisos.py" "$LIB/avisos.py"
 install -m 644 "$AQUI/estilo/catalina.css" "$LIB/estilo/catalina.css"
 
 # System Preferences es residente: arranca escondida con la sesión y mac-settings solo le
