@@ -10,6 +10,10 @@
 //       con captura.png toma la pantalla con el botón todavía apretado
 //       (el rectángulo de selección) y después lo suelta
 //   osascript -l JavaScript herramientas.js medidas
+//   osascript -l JavaScript herramientas.js permisos [pedir]
+//       {"accesibilidad":bool,"grabacion":bool} para la app que corre esto
+//       (Terminal); con «pedir» dispara los diálogos del sistema de los dos
+//       permisos de una vez, para concederlos al principio y no uno por uno.
 //       JSON con lo que AppKit dice de la interfaz, en puntos (como
 //       medidas.json de la entrega de macOS 27)
 //
@@ -17,6 +21,11 @@
 // screencapture -R y System Events).
 ObjC.import('Cocoa');
 ObjC.import('CoreGraphics');
+ObjC.import('ApplicationServices');
+// Estas tres no vienen en el puente: se declaran a mano (10.15+ las dos de CG).
+try { ObjC.bindFunction('CGPreflightScreenCaptureAccess', ['bool', []]); } catch (e) {}
+try { ObjC.bindFunction('CGRequestScreenCaptureAccess', ['bool', []]); } catch (e) {}
+try { ObjC.bindFunction('AXIsProcessTrustedWithOptions', ['bool', ['id']]); } catch (e) {}
 
 function run(argv) {
   const cmd = argv[0];
@@ -24,7 +33,8 @@ function run(argv) {
   if (cmd === 'ventanas') return ventanas(argv[1] || '');
   if (cmd === 'raton') return raton(argv.slice(1));
   if (cmd === 'medidas') return medidas();
-  return 'uso: pantalla | ventanas [dueño] | raton … | medidas';
+  if (cmd === 'permisos') return permisos(argv[1] === 'pedir');
+  return 'uso: pantalla | ventanas [dueño] | raton … | medidas | permisos [pedir]';
 }
 
 function pantalla() {
@@ -88,6 +98,26 @@ function raton(a) {
     default: return 'uso: raton mover|clic|derecho X Y | arrastrar X1 Y1 X2 Y2 [captura.png]';
   }
   return '';
+}
+
+// ---- permisos ---------------------------------------------------------------
+function permisos(pedir) {
+  let acc = false, grab = false;
+  try {
+    if (pedir) {
+      const op = $.NSMutableDictionary.alloc.init;
+      op.setObjectForKey($.NSNumber.numberWithBool(true), $('AXTrustedCheckOptionPrompt'));
+      acc = !!$.AXIsProcessTrustedWithOptions(op);
+    } else acc = !!$.AXIsProcessTrusted();
+  } catch (e) { acc = 'error: ' + e; }
+  try {
+    const v = $.NSProcessInfo.processInfo.operatingSystemVersion;
+    if (v.majorVersion > 10 || (v.majorVersion === 10 && v.minorVersion >= 15)) {
+      grab = !!$.CGPreflightScreenCaptureAccess();
+      if (!grab && pedir) grab = !!$.CGRequestScreenCaptureAccess();
+    } else grab = 'no medible en esta versión (anterior a 10.15: no hace falta)';
+  } catch (e) { grab = 'error: ' + e; }
+  return JSON.stringify({ accesibilidad: acc, grabacion: grab });
 }
 
 // ---- medidas ---------------------------------------------------------------

@@ -4,10 +4,18 @@
 # toma del disco de Catalina: recursos del sistema, medidas y capturas.
 # Lo lanza «Extraer Mac.applescript»; también corre solo desde Terminal:
 #
-#   bash extraer.sh [recursos] [medidas] [capturas] [videos]     (sin nada: todo)
+#   bash extraer.sh [permisos] [recursos] [medidas] [capturas] [videos] [entregar]   (sin nada: todo)
+#   BLOQUES="08 09" bash extraer.sh capturas      (solo esos bloques de la tanda: 01 03 05 06 07 08 09 12 13 14 15)
 #
-# Escribe en una carpeta «salida-<Mac>-<versión>-<fecha>» al lado de este
-# guion (la memoria TRANSPORTE). Nada de esto va a ningún repo: es de Apple.
+#   «permisos» va primero y pide DE UNA VEZ todo lo que el guion va a usar
+#   (Accessibility, Screen Recording y la automatización de cada app), espera
+#   a que lo concedas y, si Screen Recording se acaba de conceder, reabre
+#   Terminal solo y sigue con los demás pasos. Así no hay que volver a la Mac
+#   cada vez que salga un diálogo.
+#
+# Escribe en ~/extraer-salida/macos<versión>-<fecha> (disco local) y al final
+# «entregar» comprime todo en un .tar.gz con SHA-256 y copia ese único archivo a
+# la carpeta del guion (la memoria TRANSPORTE). Nada va a ningún repo: es de Apple.
 #
 # Reglas:
 #   - /System se lee, no se toca. Nada pide la clave de administrador (la
@@ -26,7 +34,10 @@ AQUI="$(cd "$(dirname "$0")" && pwd)"
 H="osascript -l JavaScript $AQUI/herramientas.js"
 NOMBRE="$(scutil --get ComputerName 2>/dev/null | tr -cd 'A-Za-z0-9-' )"
 VERSION="$(sw_vers -productVersion)"
-SAL="${SALIDA:-$AQUI/macos$VERSION-$(date +%Y%m%d)}"
+# Siempre en disco local: la memoria USB (FAT32) escribe a menos de 1 MB/s con
+# archivos chicos y volvía lentísimas las capturas. Al final, «entregar» comprime
+# y copia UN solo archivo a la carpeta del guion (la memoria).
+SAL="${SALIDA:-$HOME/extraer-salida/macos$VERSION-$(date +%Y%m%d)}"
 CAP="$SAL/capturas"; VID="$SAL/videos"; MED="$SAL/medidas"; REC="$SAL/recursos"; HER="$SAL/herramientas"
 mkdir -p "$SAL"
 mkdir -p "$HER"; cp "$AQUI/extraer.sh" "$AQUI/herramientas.js" "$HER/" 2>/dev/null
@@ -36,10 +47,68 @@ log() { echo "$(date +%H:%M:%S) $*" >> "$LOG"; }
 aviso() { log "$*"; osascript -e "display notification \"$*\" with title \"Extraer Mac\"" 2>/dev/null; }
 osa() { osascript "$@" 2>>"$LOG"; }
 
-PASOS="$*"; [ -z "$PASOS" ] && PASOS="recursos medidas capturas videos"
+PASOS="$*"; [ -z "$PASOS" ] && PASOS="permisos recursos medidas capturas videos entregar"
 quiere() { case " $PASOS " in *" $1 "*) return 0 ;; esac; return 1; }
 
-log "=== extraer.sh ($PASOS) en $NOMBRE, macOS $VERSION ==="
+log "=== extraer.sh ($PASOS) en $NOMBRE, macOS $VERSION, usuario $USER, TERM_PROGRAM=${TERM_PROGRAM:-?} ==="
+
+
+# ---------------------------------------------------------------- permisos
+# Todo de una vez, al principio. Los permisos son de la app que corre esto
+# (Terminal, o la que el usuario use); los diálogos los muestra el sistema.
+permisos_estado() { $H permisos 2>>"$LOG"; }
+permisos_ok() { case "$1" in *'"accesibilidad":true'*) case "$1" in *'"grabacion":true'*|*'"grabacion":"no medible'*) return 0;; esac;; esac; return 1; }
+pedir_permisos() {
+  local antes r i
+  antes="$(permisos_estado)"; log "permisos antes: $antes"
+  echo; echo "== Permisos =="; echo "Voy a pedir ahora TODOS los permisos que usa el guion. Acepta cada diálogo"
+  echo "y marca ${TERM_PROGRAM:-la terminal} en System Preferences ▸ Security & Privacy ▸ Privacy,"
+  echo "en Accessibility y en Screen Recording. Espero hasta 10 minutos."; echo
+  # 1. Automatización: un evento inofensivo a cada app que el guion controla
+  #    (System Events, Finder, System Preferences, TextEdit y Terminal).
+  for app in "System Events" "Finder" "System Preferences" "TextEdit" "Terminal"; do
+    if osascript -e "with timeout of 300 seconds" -e "tell application \"$app\" to get name" -e "end timeout" >/dev/null 2>>"$LOG"; then
+      log "automatización de $app: ok"
+    else
+      log "automatización de $app: DENEGADA o sin respuesta"; echo "  ✗ Automatización de $app: denegada. Se concede en Privacy ▸ Automation."
+    fi
+  done
+  osascript -e 'tell application "System Preferences" to quit' >/dev/null 2>&1
+  osascript -e 'tell application "TextEdit" to quit saving no' >/dev/null 2>&1
+  # 2. Accessibility y Screen Recording: un solo disparo de los dos diálogos.
+  permisos_estado >/dev/null; r="$($H permisos pedir 2>>"$LOG")"; log "permisos pedidos: $r"
+  i=0
+  until permisos_ok "$r"; do
+    i=$((i+1)); [ $i -ge 120 ] && break
+    [ $((i % 12)) = 1 ] && { echo "  esperando… ($r)"; aviso "Faltan permisos: Accessibility y/o Screen Recording"; }
+    sleep 5; r="$(permisos_estado)"
+  done
+  log "permisos después: $r"
+  if ! permisos_ok "$r"; then
+    echo; echo "No se concedieron todos los permisos ($r). Concede lo que falte y vuelve a correr el guion."; return 1
+  fi
+  echo "  ✓ Accessibility y Screen Recording concedidos."
+  # 3. Screen Recording recién concedido solo aplica cuando la app se reabre:
+  #    si antes no estaba, reabro Terminal con los pasos que faltan y me voy.
+  case "$antes" in
+    *'"grabacion":false'*)
+      if [ "${TERM_PROGRAM:-}" = "Apple_Terminal" ]; then
+        local resto; resto="$(echo " $PASOS " | sed 's/ permisos / /; s/^ *//; s/ *$//')"
+        echo; echo "Screen Recording se acaba de conceder: cierro Terminal y lo vuelvo a abrir con: $resto"
+        log "relanzando Terminal con: $resto"
+        nohup /bin/bash -c "sleep 4; open -a Terminal; sleep 4; osascript -e 'tell application \"Terminal\" to do script \"cd $(printf %q "$AQUI") && /bin/bash ./extraer.sh $resto\"'" >/dev/null 2>&1 &
+        sleep 1; osascript -e 'tell application "Terminal" to quit' >/dev/null 2>&1
+        sleep 10; exit 0
+      else
+        echo; echo "Screen Recording se acaba de conceder: cierra ${TERM_PROGRAM:-la terminal}, ábrela otra vez y corre el guion de nuevo (sin «permisos»)."
+        exit 0
+      fi;;
+  esac
+  return 0
+}
+if quiere permisos; then
+  pedir_permisos || exit 2
+fi
 
 # ---------------------------------------------------------------- recursos
 if quiere recursos; then
@@ -165,7 +234,19 @@ devolver() {
   log "estado del usuario devuelto"
 }
 
+comprobar_permisos() {
+  local ok=true
+  if ! osascript -e 'tell application "System Events" to tell process "Finder" to get name of menu bar item 1 of menu bar 1' >/dev/null 2>&1; then
+    log "SIN Accessibility: la terminal que corre esto no puede controlar la interfaz"; ok=false; fi
+  local t; t="$(mktemp /tmp/extraer-prueba.XXXXXX).png"; screencapture -x "$t" 2>/dev/null
+  if ! $H ventanas | awk -F'\t' '$2==0' | grep -q . ; then log "aviso: no hay ventanas normales abiertas para probar Screen Recording"; fi
+  rm -f "$t"
+  $ok || { aviso "Faltan permisos (Accessibility). Mira capturas.log"; return 1; }
+  return 0
+}
+
 if quiere capturas || quiere videos; then
+  comprobar_permisos || { log "=== abortado por permisos ==="; exit 2; }
   trap devolver EXIT
   read -r W HH ESC BARRA DOCK <<< "$($H pantalla)"
   W=${W%.*}; HH=${HH%.*}; BARRA=${BARRA%.*}; DOCK=${DOCK%.*}
@@ -193,7 +274,16 @@ raton_fuera() { $H raton mover $((W-10)) $((HH/2)); sleep 0.3; }
 cap_full() { sleep 0.7; screencapture -x "$CAP/$1.png" && log "cap $1"; }
 cap_reg()  { sleep 0.7; screencapture -x -R "$2" "$CAP/$1.png" && log "cap $1 ($2)"; }
 cap_win()  { [ -n "$2" ] || { log "sin ventana para $1"; return; }; sleep 0.7; screencapture -x -o -l "$2" "$CAP/$1.png" && log "cap $1 (ventana $2)"; }
-ventana_de() { $H ventanas "$1" | awk -F'\t' -v t="${2:-}" '$2==0 && (t=="" || $4 ~ t) {print $1; exit}'; }
+ventana_pref() { # la ventana principal de System Preferences: la que tiene título (el panel actual); si no, la más grande
+  local id; id=$($H ventanas "System Preferences" | awk -F'\t' '$2==0 && $4!="" {print $1; exit}')
+  [ -n "$id" ] && echo "$id" || ventana_de "System Preferences"; }
+cerrar_paneles_pref() { # hojas (sheets) que abren algunas pestañas, p. ej. Accessibility ▸ Dwell con «Done»: bloquean la ventana hasta cerrarlas
+  osa -e 'with timeout of 15 seconds' -e 'tell application "System Events" to tell process "System Preferences"' \
+      -e 'repeat with w in windows' -e 'repeat with s in sheets of w' \
+      -e 'repeat with b in {"Done", "OK", "Cancel", "Close"}' -e 'try' -e 'click (first button of s whose name is b)' -e 'exit repeat' -e 'end try' -e 'end repeat' \
+      -e 'end repeat' -e 'end repeat' -e 'end tell' -e 'end timeout' 2>/dev/null; sleep 0.6; }
+ventana_de() { # dueño [regex del título] → id de la ventana normal MÁS GRANDE (no la primera: puede haber paneles sueltos)
+  $H ventanas "$1" | awk -F'\t' -v t="${2:-}" '$2==0 && (t=="" || $4 ~ t) { split($5, b, " "); a=b[3]*b[4]; if (a>max) {max=a; id=$1} } END { if (id) print id }'; }
 centro() { local p s; p=(${1//,/ }); s=(${2//,/ }); echo "$(( ${p[0]} + ${s[0]}/2 )) $(( ${p[1]} + ${s[1]}/2 ))"; }
 finder_activar() { osa -e 'tell application "Finder" to activate'; sleep 0.5; }
 cerrar_finder() { osa -e 'tell application "Finder" to close every Finder window'; }
@@ -203,20 +293,30 @@ hover_item() { # proceso menú ítem
   local p s; p=$(osa -e "tell application \"System Events\" to tell process \"$1\" to get position of menu item \"$3\" of menu 1 of menu bar item \"$2\" of menu bar 1")
   s=$(osa -e "tell application \"System Events\" to tell process \"$1\" to get size of menu item \"$3\" of menu 1 of menu bar item \"$2\" of menu bar 1")
   [ -n "$p" ] && $H raton mover $(centro "$p" "$s"); sleep 0.8; }
-item_barra() { # descripción del ítem de ControlCenter (Control Center, Clock…)
-  osa -e "tell application \"System Events\" to tell process \"ControlCenter\" to click (first menu bar item of menu bar 1 whose description is \"$1\")"; }
+item_barra() { # ítem de la barra: "Control Center" o "Clock" (Monterey+) / "Notification Center" (Catalina)
+  if osa -e "tell application \"System Events\" to tell process \"ControlCenter\" to click (first menu bar item of menu bar 1 whose description is \"$1\")" 2>/dev/null; then return 0; fi
+  # Catalina y anteriores: no hay ControlCenter; el reloj y Notification Center viven en SystemUIServer
+  local nom="$1"; [ "$nom" = "Clock" ] && nom="Notification Center"
+  if osa -e "tell application \"System Events\" to tell process \"SystemUIServer\" to click (first menu bar item of menu bar 1 whose description contains \"$nom\")" 2>/dev/null; then return 0; fi
+  # respaldo por coordenadas: la ventana del ítem en la barra (Control Center = BentoBox)
+  nom="$1"; [ "$nom" = "Control Center" ] && nom=BentoBox
+  local b; b=$($H ventanas "Control Center" | awk -F'\t' -v n="$nom" '$4==n {print $5; exit}')
+  [ -n "$b" ] && { set -- $b; $H raton clic $(( $1 + $3/2 )) $(( $2 + $4/2 )); log "item_barra $nom por coordenadas"; return 0; }
+  log "item_barra $1: no existe en esta versión"; return 1; }
 ventana_finder() { # carpeta-dentro-de-Muestra («.» = Muestra) vista x1 y1 x2 y2
   local f="folder \"$1\" of folder \"Muestra\" of home"; [ "$1" = . ] && f='folder "Muestra" of home'
   osa -e 'tell application "Finder"' -e "set w to make new Finder window to ($f)" \
       -e "set current view of w to $2 view" -e "set bounds of w to {$3, $4, $5, $6}" -e 'end tell'; sleep 1.5; }
 id_finder() { osa -e "tell application \"Finder\" to get id of Finder window ${1:-1}"; }
 
+bloque() { case " ${BLOQUES:-todos} " in *" todos "*|*" $1 "*) return 0;; esac; return 1; }
 tanda() { # claro | oscuro
   local M=$1 DM=false; [ "$M" = oscuro ] && DM=true
   log "=== tanda $M ==="; aviso "Capturas en modo $M"
   modo $DM; ocultar; finder_activar; cerrar_finder; raton_fuera
 
   # 01-02 Escritorio y barra de menú
+  if bloque 01; then
   cap_full 01-escritorio-vacio-$M
   cap_reg 02-barra-menu-sola-$M 0,0,$W,$BARRA
   cap_reg 02-barra-menu-estado-reloj-$M $((W*69/100)),0,$((W*31/100)),$BARRA
@@ -227,11 +327,15 @@ tanda() { # claro | oscuro
   for m in Edit View Go Window Help; do abrir_menu Finder $m; cap_full 02-barra-menu-$(echo $m | tr A-Z a-z)-abierto-$M; esc; done
   cerrar_finder; raton_fuera
 
+  fi
   # 03-04 Control Center y Notification Center
-  item_barra "Control Center"; sleep 1.5; cap_full 03-control-center-$M; esc; sleep 0.4; esc; raton_fuera
+  if bloque 03; then
+  if item_barra "Control Center"; then sleep 1.5; cap_full 03-control-center-$M; esc; sleep 0.4; esc; fi; raton_fuera
   item_barra "Clock"; sleep 1.8; cap_full 04-notification-center-$M; item_barra "Clock"; sleep 0.8; esc; raton_fuera
 
+  fi
   # 05 Dock
+  if bloque 05; then
   cap_reg 05-dock-normal-$M 0,$((HH-DOCK-10)),$W,$((DOCK+10))
   osa -e 'tell application "System Events" to tell process "Dock" to perform action "AXShowMenu" of UI element "Finder" of list 1'; sleep 0.9
   cap_full 05-dock-menu-contextual-$M; esc
@@ -267,7 +371,9 @@ tanda() { # claro | oscuro
   defaults write com.apple.dock orientation left; killall Dock; sleep 2.5; cap_full 05-dock-izquierda-$M
   poner_def com.apple.dock orientation "$ORI_ORIG" string; killall Dock; sleep 2.5
 
+  fi
   # 06 Finder
+  if bloque 06; then
   defaults write com.apple.finder ShowStatusBar -bool true
   ocultar; finder_activar; cerrar_finder
   ventana_finder . icon $X1 $Y1 $X2 $Y2; raton_fuera
@@ -330,33 +436,39 @@ tanda() { # claro | oscuro
   raton_fuera
   poner_def com.apple.finder CreateDesktop "$DESK_ORIG" bool; killall Finder; sleep 2.5
 
+  fi
   # 07 Spotlight y Launchpad
+  if bloque 07; then
   osa -e 'tell application "System Events" to keystroke space using command down'; sleep 1.5; cap_full 07-spotlight-vacio-$M
   osa -e 'tell application "System Events" to keystroke "Lago"'; sleep 2.5; cap_full 07-spotlight-resultados-$M; esc; sleep 0.4; esc; sleep 0.5
   open -a Launchpad; sleep 2; cap_full 07-launchpad-$M; esc; sleep 1
 
+  fi
   # 08 System Preferences: la cuadrícula, cada panel y cada pestaña (anchor)
-  osa -e 'tell application "System Preferences" to activate' -e 'tell application "System Preferences" to set show all of it to true' ; sleep 2; raton_fuera
+  if bloque 08; then
+  osa -e 'tell application "System Preferences" to quit'; sleep 2; pkill -x "System Preferences" 2>/dev/null; sleep 1
+  osa -e 'tell application "System Preferences" to activate' -e 'tell application "System Preferences" to set show all of it to true' ; sleep 2.5; raton_fuera
+  osa -e 'tell application "System Preferences" to activate'; sleep 1
   ocultar_excepto "System Preferences"
-  cap_win 08-preferencias-todas-$M "$(ventana_de 'System Preferences')"
+  cap_win 08-preferencias-todas-$M "$(ventana_pref)"
   osa -e 'tell application "System Preferences" to get id of every pane' | tr ',' '\n' | sed 's/^ *//' > "$SAL/.paneles"
   while read -r PANE; do
     [ -n "$PANE" ] || continue
     osa -e "tell application \"System Preferences\" to set current pane to pane id \"$PANE\"" || continue
     sleep 2.5; raton_fuera
-    cap_win 08-pref-$PANE-$M "$(ventana_de 'System Preferences')"
+    cerrar_paneles_pref; cap_win 08-pref-$PANE-$M "$(ventana_pref)"
     osa -e "tell application \"System Preferences\" to get name of every anchor of pane id \"$PANE\"" | tr ',' '\n' | sed 's/^ *//' > "$SAL/.anclas"
     while read -r A; do
       [ -n "$A" ] || continue
       osa -e "tell application \"System Preferences\" to reveal anchor \"$A\" of pane id \"$PANE\"" || continue
       sleep 1.5; raton_fuera
-      cap_win "08-pref-$PANE--$(echo "$A" | tr -c 'A-Za-z0-9_\n-' '_')-$M" "$(ventana_de 'System Preferences')"
+      cap_win "08-pref-$PANE--$(echo "$A" | tr -c 'A-Za-z0-9_\n-' '_')-$M" "$(ventana_pref)"; cerrar_paneles_pref
     done < "$SAL/.anclas"
   done < "$SAL/.paneles"
   rm -f "$SAL/.paneles" "$SAL/.anclas"
   # Notifications con una app escogida (la segunda de la lista)
   osa -e 'tell application "System Preferences" to set current pane to pane id "com.apple.preference.notifications"'; sleep 2
-  osa -e 'tell application "System Events" to tell process "System Preferences" to select row 2 of table 1 of scroll area 1 of window 1' && { sleep 1; cap_win 08-pref-notifications-app-$M "$(ventana_de 'System Preferences')"; }
+  osa -e 'tell application "System Events" to tell process "System Preferences" to select row 2 of table 1 of scroll area 1 of window 1' && { sleep 1; cap_win 08-pref-notifications-app-$M "$(ventana_pref)"; }
   # Desktop & Screen Saver ▸ Screen Saver Options…
   osa -e 'tell application "System Preferences" to reveal anchor "ScreenSaverPref" of pane id "com.apple.preference.desktopscreeneffect"'; sleep 2.5
   if osa -e 'tell application "System Events" to tell process "System Preferences" to click (first button of tab group 1 of window 1 whose name starts with "Screen Saver Options")'; then
@@ -374,7 +486,7 @@ tanda() { # claro | oscuro
   done
   i=1; while [ -n "$TABLA" ] && [ "$i" -le "${N:-0}" ]; do
     osa -e "tell application \"System Events\" to tell process \"System Preferences\" to select row $i of $TABLA"; sleep 1
-    cap_win 08-pref-keyboard-shortcuts-$i-$M "$(ventana_de 'System Preferences')"; i=$((i+1))
+    cap_win 08-pref-keyboard-shortcuts-$i-$M "$(ventana_pref)"; i=$((i+1))
   done
   [ -z "$TABLA" ] && log "no encontré la lista de categorías de Shortcuts"
   # Keyboard ▸ Modifier Keys…, con el menú de una tecla abierto
@@ -396,7 +508,9 @@ tanda() { # claro | oscuro
   fi
   osa -e 'tell application "System Preferences" to quit'; sleep 1
 
+  fi
   # 09 Diálogos
+  if bloque 09; then
   osascript -e 'display alert "Do you want to replace the existing file?" message "A file with the same name already exists in this location. Replacing it will overwrite its current contents." buttons {"Cancel","Replace"} default button 2' >/dev/null 2>&1 & P1=$!
   sleep 2.5; raton_fuera; cap_win 09-alerta-2-botones-$M "$(ventana_de osascript)"; kill $P1 2>/dev/null; sleep 1
   osascript -e 'display alert "Do you want to save the changes made to the document “Notas”?" message "Your changes will be lost if you don’t save them." buttons {"Don’t Save","Cancel","Save"} default button 3' >/dev/null 2>&1 & P2=$!
@@ -420,7 +534,9 @@ tanda() { # claro | oscuro
   sleep 3; raton_fuera; cap_win 09-dialogo-contrasena-admin-$M "$(ventana_de SecurityAgent)"
   osa -e 'tell application "System Events" to tell process "SecurityAgent" to click button "Cancel" of window 1'; kill $P3 2>/dev/null; sleep 1.5
 
+  fi
   # 12 About This Mac, sus pestañas (los nombres cambian entre versiones: se
+  if bloque 12; then
   #    prueban todos los conocidos y se anota cuáles había)
   abrir_menu_apple Finder; osa -e 'tell application "System Events" to tell process "Finder" to click menu item 1 of menu 1 of menu bar item 1 of menu bar 1'; sleep 2.5; raton_fuera
   cap_win 12-about-this-mac-overview-$M "$(ventana_de 'System Information')"
@@ -430,9 +546,11 @@ tanda() { # claro | oscuro
       || osa -e "tell application \"System Events\" to tell process \"System Information\" to click button \"$tab\" of toolbar 1 of window 1" || continue
     sleep 2; cap_win 12-about-this-mac-$(echo $tab | tr A-Z a-z)-$M "$(ventana_de 'System Information')"
   done
-  osa -e 'tell application "System Information" to quit'; sleep 1
+  pkill -x "System Information" 2>/dev/null; sleep 1
 
+  fi
   # 15 Force Quit (⌥⌘Esc) y la barra de ⇧⌘5
+  if bloque 15; then
   finder_activar; osa -e 'tell application "System Events" to key code 53 using {command down, option down}'; sleep 2; raton_fuera
   cap_win 15-force-quit-$M "$(ventana_de loginwindow)"; [ -f "$CAP/15-force-quit-$M.png" ] || cap_full 15-force-quit-$M
   osa -e 'tell application "System Events" to key code 53'; sleep 0.5
@@ -440,17 +558,22 @@ tanda() { # claro | oscuro
   osa -e 'tell application "System Events" to keystroke "5" using {shift down, command down}'; sleep 2; raton_fuera
   cap_full 15-captura-pantalla-barra-$M; esc; sleep 1
 
+  fi
   # 13 ⌘Tab y Mission Control
+  if bloque 13; then
   osa -e 'tell application "System Events"' -e 'key down command' -e 'keystroke tab' -e 'delay 1.2' \
       -e "do shell script \"screencapture -x '$CAP/13-cmd-tab-$M.png'\"" -e 'key code 53' -e 'key up command' -e 'end tell'; log "cap 13-cmd-tab-$M"; sleep 0.5
   open -a "Mission Control"; sleep 2
   screencapture -x "$CAP/13-mission-control-$M.png"; log "cap 13-mission-control-$M"; esc; sleep 1
 
+  fi
   # 14 Migration Assistant: solo la primera pantalla. Lo demás va a mano al
+  if bloque 14; then
   #    final: Continue pide la clave y cierra todas las apps, Terminal incluido.
   open -a "Migration Assistant"; sleep 3; raton_fuera
   cap_win 14-migration-assistant-inicio-$M "$(ventana_de 'Migration Assistant')"
-  osa -e 'tell application "Migration Assistant" to quit'; sleep 1
+  pkill -x "Migration Assistant" 2>/dev/null; sleep 1
+  fi
   log "=== fin tanda $M ==="
 }
 
@@ -469,7 +592,7 @@ if quiere videos; then
   defaults write com.apple.dock magnification -bool true; defaults write com.apple.dock largesize -int 128; killall Dock; sleep 3
   grabar 01-dock-lupa 8; x=$((W/5)); while [ $x -lt $((W*4/5)) ]; do $H raton mover $x $((HH-DOCK/2)); sleep 0.12; x=$((x+40)); done; raton_fuera; wait $GP; log "video 01"
   poner_def com.apple.dock magnification "$MAG_ORIG" bool; poner_def com.apple.dock largesize "$LARGE_ORIG" int; killall Dock; sleep 3
-  grabar 02-control-center 7; item_barra "Control Center"; sleep 3.5; esc; raton_fuera; wait $GP; log "video 02"
+  grabar 02-control-center 7; item_barra "Control Center" || true; sleep 3.5; esc; raton_fuera; wait $GP; log "video 02"
   grabar 03-spotlight 8; osa -e 'tell application "System Events" to keystroke space using command down'; sleep 2; osa -e 'tell application "System Events" to keystroke "Lago"'; sleep 2.5; esc; sleep 0.3; esc; wait $GP; log "video 03"
   grabar 04-mission-control 7; open -a "Mission Control"; sleep 3; esc; sleep 1; wait $GP; log "video 04"
   ventana_finder . list $X1 $Y1 $X2 $Y2; raton_fuera
@@ -477,6 +600,39 @@ if quiere videos; then
   grabar 06-notification-center 7; item_barra "Clock"; sleep 3.5; item_barra "Clock"; raton_fuera; wait $GP; log "video 06"
   grabar 07-launchpad 6; open -a Launchpad; sleep 3; esc; wait $GP; log "video 07"
   aviso "Videos listos"
+fi
+
+# ---------------------------------------------------------------- entregar
+# Un solo archivo: <salida>.tar.gz + .sha256, copiados a la carpeta del guion
+# (la memoria) y verificados allá. Si pasa de 3.9 GB se parte (FAT32: 4 GB).
+if quiere entregar; then
+  aviso "Comprimiendo la salida"
+  PAQ="$(dirname "$SAL")/macos$VERSION-$NOMBRE-$(date +%Y%m%d).tar.gz"
+  rm -f "$PAQ" "$PAQ.sha256" "$PAQ".parte-*
+  if ( cd "$(dirname "$SAL")" && tar -cf - "$(basename "$SAL")" | gzip -1 > "$PAQ" ) && gzip -t "$PAQ" 2>>"$LOG"; then
+    ( cd "$(dirname "$PAQ")" && shasum -a 256 "$(basename "$PAQ")" > "$PAQ.sha256" )
+    log "paquete: $PAQ ($(du -h "$PAQ" | cut -f1)) · $(cat "$PAQ.sha256")"
+    DEST="$AQUI"; TAM=$(stat -f %z "$PAQ")
+    if [ "$TAM" -gt 4000000000 ]; then
+      ( cd "$(dirname "$PAQ")" && split -b 3900m "$(basename "$PAQ")" "$(basename "$PAQ").parte-" ); LLEVAR="$PAQ".parte-*
+      log "pasa de 4 GB: va partido; se junta con: cat $(basename "$PAQ").parte-* > $(basename "$PAQ")"
+    else LLEVAR="$PAQ"; fi
+    aviso "Copiando a $DEST (la memoria es lenta)"
+    if cp $LLEVAR "$PAQ.sha256" "$DEST/" 2>>"$LOG"; then
+      if [ "$TAM" -le 4000000000 ] && ( cd "$DEST" && shasum -a 256 -c "$(basename "$PAQ").sha256" >>"$LOG" 2>&1 ); then
+        log "copia verificada en $DEST"; aviso "Entregado y verificado: $DEST/$(basename "$PAQ")"
+        echo "LISTO: $DEST/$(basename "$PAQ")  (SHA-256 verificado). La carpeta local $SAL se queda por si hace falta algo suelto."
+      elif [ "$TAM" -gt 4000000000 ]; then
+        log "copia partida en $DEST (verifica tras juntar)"; echo "LISTO (partido): $DEST/$(basename "$PAQ").parte-*  → juntar con cat y comprobar con $(basename "$PAQ").sha256"
+      else
+        log "LA COPIA EN $DEST NO COINCIDE con el sha256"; echo "OJO: la copia en $DEST no pasó la verificación; el bueno es $PAQ"
+      fi
+    else
+      log "no pude copiar a $DEST"; echo "No pude copiar a $DEST. El paquete bueno está en $PAQ"
+    fi
+  else
+    log "falló la compresión"; echo "Falló la compresión; la salida sigue en $SAL"
+  fi
 fi
 
 aviso "Terminado: $SAL"
