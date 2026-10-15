@@ -15,6 +15,7 @@
 # Qué deja:
 #   <destino>/iconos/<identificador del panel>.png   p. ej. com.apple.preference.sound.png
 #   <destino>/iconos/sistema.png                     el ícono de System Preferences
+#   <destino>/sonidos/*.aiff                          las alertas de Sound Effects (Basso, Blow…)
 #   <destino>/orden.json                             los grupos y el orden de los paneles,
 #                                                    tal como los define Catalina
 #   <destino>/glifos/GoBack@1x.png …                los glifos de la barra de herramientas
@@ -219,5 +220,12 @@ print(f"{hechos} íconos de paneles.")
 if faltan:
     print("Sin ícono suelto (se usa el del tema):", ", ".join(sorted(faltan)))
 PY
+
+# Los sonidos de alerta de Sound Effects (Basso, Blow, Bottle…): se copian tal cual.
+if [ -d "$MAC_SISTEMA/System/Library/Sounds" ]; then
+  mkdir -p "$DESTINO/sonidos"
+  cp "$MAC_SISTEMA"/System/Library/Sounds/*.aiff "$DESTINO/sonidos/"
+  echo "▸ $(ls "$DESTINO/sonidos" | wc -l) sonidos de alerta en $DESTINO/sonidos"
+fi
 
 echo "✓ Listo."
