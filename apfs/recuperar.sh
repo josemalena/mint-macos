@@ -8,4 +8,5 @@ PUNTO="${1:-/media/$USER/MacMini}"
 UNIDAD="$(systemd-escape -p --suffix=mount "$PUNTO")"
 sudo umount -l "$PUNTO" || true
 sudo systemctl restart "$UNIDAD"
+# Para que se haga solo: sudo apfs/vigilar.sh --instalar (cada minuto).
 ls "$PUNTO" >/dev/null && echo "✓ $PUNTO responde"
