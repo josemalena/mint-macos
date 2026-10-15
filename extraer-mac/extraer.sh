@@ -417,7 +417,15 @@ tanda() { # claro | oscuro
   cap_full 06-finder-quick-look-$M; osa -e 'tell application "System Events" to tell process "Finder" to keystroke " "'; sleep 1
   # rectángulo de selección dentro de la ventana (vista de íconos)
   osa -e 'tell application "Finder" to set target of Finder window 1 to (folder "Muestra" of home)' -e 'tell application "Finder" to set current view of Finder window 1 to icon view'; sleep 1.2
-  $H raton arrastrar $((X1+30)) $((Y1+120)) $((X2-40)) $((Y2-60)) "$CAP/06-finder-seleccion-rectangulo-$M.png"; log "cap 06-finder-seleccion-rectangulo-$M"
+  # El arrastre empieza en un hueco vacío del área de archivos (abajo a la
+  # derecha) y sube hacia los íconos. Antes empezaba a 30 pt del borde: caía en
+  # la barra lateral y, al soltar fuera, sacaba favoritos del lateral (Monterey
+  # perdió Documents y Downloads, 15-10-2026). Con una ventana chica no se arrastra.
+  B=$(osa -e 'tell application "Finder" to get bounds of Finder window 1' | tr -d ' ')
+  bx1=$(echo "$B" | cut -d, -f1); by1=$(echo "$B" | cut -d, -f2); bx2=$(echo "$B" | cut -d, -f3); by2=$(echo "$B" | cut -d, -f4)
+  if [ -n "$by2" ] && [ $((bx2-bx1)) -ge 500 ] && [ $((by2-by1)) -ge 300 ]; then
+    $H raton arrastrar $((bx2-30)) $((by2-80)) $((bx1+(bx2-bx1)*45/100)) $((by1+70)) "$CAP/06-finder-seleccion-rectangulo-$M.png"; log "cap 06-finder-seleccion-rectangulo-$M"
+  else log "06-finder-seleccion-rectangulo-$M: ventana de Finder sin tamaño ($B); no se arrastra"; fi
   sleep 0.5; raton_fuera
   # semáforos en reposo y con el ratón encima
   osa -e 'tell application "Finder" to set current view of Finder window 1 to list view'; sleep 1.2; raton_fuera
@@ -460,7 +468,11 @@ tanda() { # claro | oscuro
   defaults write com.apple.finder CreateDesktop -bool true; killall Finder; sleep 3; cerrar_finder
   cap_full 01-escritorio-iconos-$M
   $H raton derecho $((W/5)) $((HH*55/100)); sleep 1; cap_full 06-finder-menu-contextual-escritorio-$M; esc; raton_fuera
-  $H raton arrastrar $((W-20)) $((BARRA+10)) $((W*70/100)) $((HH*55/100)) "$CAP/06-escritorio-seleccion-rectangulo-$M.png"; log "cap 06-escritorio-seleccion-rectangulo-$M"
+  # En el escritorio, de un hueco del centro hacia abajo: nunca desde la columna
+  # de íconos (un arrastre que empieza sobre un ícono lo mueve).
+  if [ "${W:-0}" -ge 800 ]; then
+    $H raton arrastrar $((W*40/100)) $((HH*30/100)) $((W*60/100)) $((HH*55/100)) "$CAP/06-escritorio-seleccion-rectangulo-$M.png"; log "cap 06-escritorio-seleccion-rectangulo-$M"
+  else log "06-escritorio-seleccion-rectangulo-$M: pantalla sin medida; no se arrastra"; fi
   raton_fuera
   poner_def com.apple.finder CreateDesktop "$DESK_ORIG" bool; killall Finder; sleep 2.5
 
