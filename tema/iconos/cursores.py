@@ -155,7 +155,10 @@ def main():
         sys.exit(__doc__)
     mac, tema = sys.argv[1], sys.argv[2]
     base = sys.argv[3] if len(sys.argv) == 4 else BASE
-    cursores = os.path.join(tema, "cursors")
+    final = os.path.join(tema, "cursors")
+    # Se arma en una carpeta hermana y solo al final se cambia por la de siempre: un tema activo
+    # nunca se queda sin cursores mientras se rearma ni si el guion se cae a la mitad.
+    cursores = f"{final}.nuevo-{os.getpid()}"
     if os.path.isdir(cursores):
         shutil.rmtree(cursores)
     if os.path.isdir(os.path.join(base, "cursors")):
@@ -177,6 +180,13 @@ def main():
             for n in nombres[1:]:
                 os.symlink(nombres[0], os.path.join(cursores, n))
             hechos.append(origen)
+    viejo = None
+    if os.path.lexists(final):
+        viejo = f"{final}.viejo-{os.getpid()}"
+        os.rename(final, viejo)
+    os.rename(cursores, final)
+    if viejo:
+        shutil.rmtree(viejo)
     faltan = [o for o in NOMBRES if o not in hechos]
     print(f"  cursores de Catalina: {len(hechos)}" + (f" (faltan: {' '.join(faltan)})" if faltan else "")
           + f"; el resto, de {os.path.basename(base)}")

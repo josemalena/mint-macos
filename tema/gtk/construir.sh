@@ -11,7 +11,7 @@ MOJAVE_COMMIT=eff1025
 NOMBRE=Constanza-Oscuro
 DEST="$HOME/.themes"
 TMP="$(mktemp -d)"
-trap 'desmontar_mac 2>/dev/null; rm -rf "$TMP"' EXIT
+trap 'desmontar_mac 2>/dev/null; rm -rf "${TMP:?}"' EXIT
 
 for p in sassc glib-compile-resources; do
   command -v "$p" >/dev/null || sudo apt install -y sassc libglib2.0-dev-bin
@@ -67,12 +67,18 @@ if montar_mac_sistema; then
   desmontar_mac
 fi
 
-rm -rf "$DEST/$NOMBRE"; mkdir -p "$DEST"
-mv "$BASE" "$DEST/$NOMBRE"
+# El tema nuevo se copia al lado y se cambia de un golpe por el de siempre (el activo no se
+# queda sin tema mientras se arma, ni si el guion se cae a la mitad).
+mkdir -p "${DEST:?}"
+cp -a "$BASE" "$DEST/${NOMBRE:?}.nuevo-$$"
+if [ -e "$DEST/$NOMBRE" ]; then mv "$DEST/$NOMBRE" "$DEST/$NOMBRE.viejo-$$"; fi
+mv "$DEST/$NOMBRE.nuevo-$$" "$DEST/$NOMBRE"
+rm -rf "${DEST:?}/${NOMBRE:?}.viejo-$$"
 
 # Dock: el tema de Plank oscuro de Mojave con el nombre de Constanza.
-PLANK="$HOME/.local/share/plank/themes/$NOMBRE"
-rm -rf "$PLANK"; mkdir -p "$PLANK"
+PLANK_FINAL="$HOME/.local/share/plank/themes/${NOMBRE:?}"
+PLANK="$PLANK_FINAL.nuevo-$$"          # se arma al lado y se cambia al final
+rm -rf "${PLANK:?}"; mkdir -p "$PLANK"
 cp "$TMP/mojave/src/other/plank/Theme-Dark/"* "$PLANK/"
 # El Dock de Catalina, medido por la sesión de Plank contra las capturas de
 # José (alto 73 con íconos de 56, paso de 60, el punto de 4 px). Las claves
@@ -122,4 +128,7 @@ for l in lineas:
 cerrar(seccion)
 open(ruta, 'w').write('\n'.join(salida) + '\n')
 PY
+if [ -e "$PLANK_FINAL" ]; then mv "$PLANK_FINAL" "$PLANK_FINAL.viejo-$$"; fi
+mv "$PLANK" "$PLANK_FINAL"
+rm -rf "${PLANK_FINAL:?}.viejo-$$"
 echo "  tema: $DEST/$NOMBRE"

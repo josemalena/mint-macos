@@ -15,11 +15,20 @@
 set -euo pipefail
 AQUI="$(cd "$(dirname "$0")" && pwd)"
 source "$AQUI/../comun.sh"
-TEMA="${CONSTANZA_DESTINO:-$HOME/.local/share/icons/Constanza}"
+DESTINO="${CONSTANZA_DESTINO:-$HOME/.local/share/icons/Constanza}"
+# Se arma en una carpeta hermana y solo si todo salió bien se cambia por la de siempre: el tema
+# activo no se toca mientras tanto, y si el guion se cae no se pierde (queda la nueva a medias, que se borra).
+TEMA="$DESTINO.nueva-$$"
 TMP="$(mktemp -d)"
-trap 'desmontar_mac; rm -rf "$TMP"' EXIT
+LISTO=0
+limpiar() {
+  desmontar_mac
+  rm -rf "${TMP:?}"
+  [ "$LISTO" = 1 ] || rm -rf "${TEMA:?}"
+}
+trap limpiar EXIT
 
-rm -rf "$TEMA"; mkdir -p "$TEMA/escalables/places" "$TEMA/escalables/apps"
+rm -rf "${TEMA:?}"; mkdir -p "$TEMA/escalables/places" "$TEMA/escalables/apps"
 DIRS=()
 
 # Logos oficiales que traen las aplicaciones instaladas.
@@ -106,4 +115,16 @@ DIRS+=("escalables/places 128 1 Scalable" "escalables/apps 128 1 Scalable")
   done
 } > "$TEMA/index.theme"
 gtk-update-icon-cache -q -f "$TEMA" 2>/dev/null || true
-echo "  íconos: $TEMA"
+
+# El cambio de un golpe: el tema de antes pasa a respaldo (uno solo) y el nuevo ocupa su lugar.
+# Dentro del tema solo hay rutas relativas, así que mover la carpeta no lo rompe.
+RESPALDO="$HOME/.local/share/mint-macos/respaldos/$(basename "$DESTINO")-anterior"
+if [ -e "$DESTINO" ] || [ -L "$DESTINO" ]; then
+  mkdir -p "$(dirname "$RESPALDO")"
+  rm -rf "${RESPALDO:?}"
+  mv "$DESTINO" "$RESPALDO"
+fi
+mv "$TEMA" "$DESTINO"
+LISTO=1
+gtk-update-icon-cache -q -f "$DESTINO" 2>/dev/null || true
+echo "  íconos: $DESTINO (el anterior quedó en $RESPALDO)"
