@@ -39,15 +39,24 @@ y la primera pantalla de Migration Assistant.
 
 ## Pasos
 
-1. Copia la carpeta `extraer-mac` de la memoria TRANSPORTE al iMac, o córrela
-   desde la memoria: escribe la salida al lado del guion.
-2. En **System Preferences ▸ Security & Privacy ▸ Privacy**, abre el candado y
-   dale a **Terminal** permiso en **Screen Recording** y en **Accessibility**.
-   La clave la tecleas tú. Si Terminal estaba abierto, ciérralo y ábrelo otra vez.
+1. Córrelo desde la memoria TRANSPORTE. **La salida va al disco local**
+   (`~/extraer-salida/macos<versión>-<fecha>`), porque la memoria escribe lento;
+   el último paso, `entregar`, comprime todo en `macos<versión>-<Mac>-<fecha>.tar.gz`
+   con su `.sha256`, copia ese único archivo a la carpeta del guion en la memoria
+   y verifica la suma sobre la copia. Si pasa de 4 GB va partido (FAT32).
+2. **Los permisos se piden todos al principio.** El primer paso del guion
+   (`permisos`) dispara de una vez los diálogos de Automatización (System
+   Events, Finder, System Preferences, TextEdit, Terminal), Accessibility y
+   Screen Recording. Dale **OK** a cada uno y, en System Preferences ▸ Security
+   & Privacy ▸ Privacy, marca **Terminal** en **Accessibility** y en **Screen
+   Recording** (el candado pide tu clave). El guion espera hasta 10 minutos a
+   que estén. Si Screen Recording se acaba de conceder, cierra Terminal y lo
+   vuelve a abrir solo con los pasos que faltan. Después de eso no hace falta
+   volver a la Mac.
 3. Abre `Extraer Mac.applescript` con **Script Editor** y dale a **▶ Run**.
    Escoge qué sacar y dale a **Empezar**. Se abre Terminal y empieza.
-   Sin Script Editor: en Terminal, `bash extraer.sh` (todo) o
-   `bash extraer.sh recursos medidas`.
+   Sin Script Editor: en Terminal, `bash extraer.sh` (todo, con permisos primero) o
+   `bash extraer.sh permisos recursos medidas`.
 4. **No toques el iMac mientras corren las capturas.** Mueve el ratón, abre
    menús y cambia entre claro y oscuro. Avisa con notificaciones en cada parte.
 5. Al terminar, el modo, el Dock y el Finder vuelven a como estaban. La carpeta
@@ -57,14 +66,23 @@ y la primera pantalla de Migration Assistant.
    **No migres nada.** Al darle a Continue te pide la clave y cierra todas las
    apps; por eso no va en el guion. Guárdalas en `capturas/` con el nombre
    `14-migration-assistant-NN-oscuro.png`.
-7. Expulsa la memoria y tráela.
+7. Al final busca en la memoria `extraer-mac/macos<versión>-<Mac>-<fecha>.tar.gz`
+   y su `.sha256`. Expulsa la memoria y tráela.
 
 ## Tiempo, más o menos
 
-- Recursos: 10 a 20 minutos (escribe unos 3 GB en la memoria).
+- Recursos: 1 a 3 minutos en disco local.
 - Medidas: menos de un minuto.
 - Capturas: unos 20 minutos por modo, 40 en total (System Preferences se lleva la mitad).
 - Videos: 2 minutos.
+- Entregar: 2 minutos de compresión y 15 a 40 de copia a la memoria (2.3 GB a menos de 2 MB/s).
+
+## Catalina
+
+Sirve igual. Diferencias que el guion ya contempla: no hay Control Center (la
+captura 03 y el video 02 se saltan), el reloj y Notification Center viven en
+SystemUIServer, y System Preferences tiene sus propios paneles. Las ventanas
+sueltas salen a 1x si la pantalla no es Retina.
 
 ## Lo que no puede
 
@@ -74,5 +92,4 @@ y la primera pantalla de Migration Assistant.
   intenta por varias rutas; si ninguna sirve, sale en `capturas.log` y esa
   captura falta. Los clics van a elementos con nombre; solo el menú del escritorio
   y los rectángulos de selección van por coordenadas, sacadas del tamaño de la pantalla.
-- Escrito y revisado en Linux (sintaxis); **no se ha corrido todavía en una Mac**.
-  La primera corrida es la prueba: lo que falle queda en `capturas.log`.
+- Corrido en el iMac con Monterey 12.7.6 el 2026-10-15 (CVRPC0187). Lo que falle queda en `capturas.log`.
