@@ -465,8 +465,9 @@ class AppleMenuApplet extends Applet.IconApplet {
     } else if (lista.some(p => propios.indexOf(p) >= 0) || this.antesLogout || this.antesBotonEncendido) {
       atajos.set_strv("custom-list", lista.filter(p => propios.indexOf(p) < 0));
       try {
-        let antes = this.antesLogout ? JSON.parse(this.antesLogout) : ["<Shift><Super>q"];
-        media.set_strv("logout", antes);
+        let antes = this.antesLogout ? JSON.parse(this.antesLogout) : [];
+        // Si al encender ya estaba vacío, se devuelve el atajo de siempre de Cinnamon
+        media.set_strv("logout", antes.length ? antes : ["<Shift><Super>q"]);
       } catch (e) {
         media.set_strv("logout", ["<Shift><Super>q"]);
       }
