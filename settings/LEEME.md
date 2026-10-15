@@ -88,6 +88,10 @@ Escriben directo en la configuración del programa, en vez de traer su interfaz:
   interfaz por `org.cinnamon.desktop.sound`. Las alertas (Basso, Blow…) salen del disco de la Mac con `desde-mac.sh`.
 - **Displays** (`pantallas.py`): Rotation y Refresh Rate por el DisplayConfig de Cinnamon con vuelta atrás a los
   15 s; Color (colord) y Night Shift (`org.cinnamon.settings-daemon.plugins.color`).
+- **Desktop & Screen Saver** (`escritorio.py`): la cuadrícula de fondos de Apple (Desktop Pictures y Colors) y
+  las carpetas del usuario, Change picture / Random order (slideshow de Cinnamon), Start after, Show with
+  clock y Hot Corners…. Los fondos salen del disco de la Mac con `fondos.py` (49 fotos y 19 colores, ~30 MB, a
+  `~/.local/share/mint-macos/fondos`); los protectores de Apple van en gris.
 - **Notifications** (`avisos.py`): todo en gris, como una Mac sin esa función (Cinnamon no filtra por app).
 - **Date & Time** (`fecha.py`): timedatectl con el candado por polkit y el formato del reloj de la barra.
 - **Energy Saver** (`energia.py`): Computer sleep y Display sleep (`...plugins.power`); lo demás en gris.

@@ -228,4 +228,7 @@ if [ -d "$MAC_SISTEMA/System/Library/Sounds" ]; then
   echo "▸ $(ls "$DESTINO/sonidos" | wc -l) sonidos de alerta en $DESTINO/sonidos"
 fi
 
+# Los fondos de escritorio de Apple (Desktop Pictures y Colors), a un tamaño razonable.
+python3 "$REPO/settings/fondos.py" "$MAC_SISTEMA" "$(dirname "$DESTINO")/fondos"
+
 echo "✓ Listo."
