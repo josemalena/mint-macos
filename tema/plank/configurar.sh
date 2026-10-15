@@ -38,7 +38,7 @@ DOCKLETS="$HOME/.local/lib/x86_64-linux-gnu/plank/docklets"
 # Terminal y Firefox donde Safari. Los que no existan aquí se saltan.
 ANTES=(finder launchpad applications thunderbird org.gnome.Calendar mintinstall
        system-preferences cinnamon-settings kitty microsoft-edge firefox code)
-DESPUES=(separator downloads-stack trash)
+DESPUES=(separator separator-sistema downloads-stack trash)
 
 mkdir -p "$LANZADORES"
 
@@ -72,6 +72,9 @@ fi
 
 if [ -f "$DOCKLETS/libdocklet-separator.so" ] && [ -f "$DOCKLETS/libdocklet-stacks.so" ]; then
   escribir_lanzador separator docklet://separator
+  # El segundo separador, como el Dock de la Mac: apps fijas | apps abiertas sin fijar | Downloads y Trash.
+  # El fork pone las apps sin fijar entre los dos.
+  escribir_lanzador separator-sistema docklet://separator
   escribir_lanzador downloads-stack docklet://stacks
   # La pila reemplaza a la carpeta Descargas suelta.
   rm -f "$LANZADORES/downloads.dockitem"
