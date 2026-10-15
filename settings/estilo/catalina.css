@@ -48,6 +48,9 @@ headerbar.mp-barra entry {
 .mp-grupo {
   padding: 10px 14px 6px 14px;
 }
+.mp-grupo:last-child {
+  padding-bottom: 12px;
+}
 .mp-raya {
   min-height: 1px;
   background-color: #3c3c3c;

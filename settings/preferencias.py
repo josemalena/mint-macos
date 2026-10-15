@@ -288,6 +288,7 @@ class Ventana(Gtk.ApplicationWindow):
         self.pila = Gtk.Stack()
         self.pila.set_transition_type(Gtk.StackTransitionType.CROSSFADE)
         self.pila.set_transition_duration(120)
+        self.pila.set_vhomogeneous(False)     # el alto lo manda la página visible: la cuadrícula no hereda el de un panel
         raiz.pack_start(self.pila, True, True, 0)
 
         # La caja donde los módulos de Cinnamon ponen su página.
@@ -308,6 +309,7 @@ class Ventana(Gtk.ApplicationWindow):
 
         self.pila.add_named(self._cuadricula(), "cuadricula")
         traza("cuadrícula armada")
+        self.set_default_size(ANCHO, self._alto_cuadricula())
         self.pila.add_named(self._pagina(), "pagina")
         self.connect("key-press-event", self._tecla)
         self.connect("button-press-event", self._boton)
@@ -428,7 +430,7 @@ class Ventana(Gtk.ApplicationWindow):
             GLib.idle_add(lambda: self.abrir(self.panel_apple, registrar=False) and False)
         for c in self.banner.get_children():
             self.banner.remove(c)
-        self.banner.pack_start(self._avatar(48), False, False, 0)
+        self.banner.pack_start(self._avatar(56 if actual else 64, generico=not actual), False, False, 0)
         textos = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         if actual:
             t1, t2 = GLib.get_real_name() or GLib.get_user_name(), actual
@@ -446,6 +448,11 @@ class Ventana(Gtk.ApplicationWindow):
             b.set_valign(Gtk.Align.CENTER)
             b.connect("clicked", lambda *_: self._hoja_apple_id())
             self.banner.pack_start(b, False, False, 0)
+        if not actual:
+            # Sin sesión Catalina solo enseña la silueta, el texto y Sign In (captura 1.31.45 PM): el
+            # ícono de Apple ID, a la derecha, sale únicamente con sesión.
+            self.banner.show_all()
+            return False
         # El ícono de Apple ID, a la derecha como en Catalina: abre su panel.
         celda = Gtk.Button()
         celda.set_relief(Gtk.ReliefStyle.NONE)
@@ -483,9 +490,25 @@ class Ventana(Gtk.ApplicationWindow):
             self._leer_apple_id()
         d.destroy()
 
-    def _avatar(self, lado):
+    def _avatar(self, lado, generico=False):
         area = Gtk.DrawingArea()
         area.set_size_request(lado, lado)
+        if generico:
+            # La silueta gris de Catalina sin sesión: un círculo gris con la cabeza y los hombros en claro.
+            def silueta(w, cr):
+                import math
+                cr.arc(lado / 2, lado / 2, lado / 2, 0, 2 * math.pi)
+                cr.clip_preserve()
+                cr.set_source_rgb(0.62, 0.62, 0.64)
+                cr.fill()
+                cr.set_source_rgb(0.97, 0.97, 0.98)
+                cr.arc(lado / 2, lado * 0.40, lado * 0.20, 0, 2 * math.pi)
+                cr.fill()
+                cr.arc(lado / 2, lado * 1.02, lado * 0.36, 0, 2 * math.pi)
+                cr.fill()
+                return False
+            area.connect("draw", silueta)
+            return area
         pb = None
         for ruta in (os.path.expanduser("~/.face"),
                      f"/var/lib/AccountsService/icons/{GLib.get_user_name()}"):
@@ -689,11 +712,16 @@ class Ventana(Gtk.ApplicationWindow):
         for hijo in self.content_box.get_children():
             hijo.hide()
         self.buscar.set_text("")
-        _min, nat = self.cuadricula.get_preferred_height()
-        tope = int(Gdk.Screen.get_default().get_height() * 0.85)
-        self.resize(ANCHO, max(MIN_ALTO, min(nat + 60, tope)))
+        self.resize(ANCHO, self._alto_cuadricula())
         if registrar:
             self._registrar(None)
+
+    def _alto_cuadricula(self):
+        """El alto justo de la cuadrícula: la ventana termina debajo de la última fila. Con una barra propia
+        (set_titlebar) GTK mide el tamaño de la ventana sin la barra, que se suma aparte."""
+        _min, nat = self.cuadricula.get_preferred_height()
+        tope = int(Gdk.Screen.get_default().get_height() * 0.85)
+        return max(MIN_ALTO, min(nat, tope))
 
     def _registrar(self, ident):
         del self.historial[self.pos + 1:]
