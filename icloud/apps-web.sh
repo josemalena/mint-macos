@@ -47,20 +47,30 @@ LISTA=(
 )
 
 if [ "${1:-}" = "--quitar" ]; then
-  rm -f "$APPS/$PREFIJO-"*.desktop "$ICONOS/$PREFIJO-"*.png
+  rm -f "$APPS/$PREFIJO-"*.desktop "$ICONOS/$PREFIJO-"*.png "$APPS/WebApp-mintmacos"*.desktop
+  # Los perfiles de Firefox de esas apps (con su sesión de iCloud).
+  rm -rf "$HOME/.local/share/ice/firefox/mintmacos"*
   update-desktop-database "$APPS" 2>/dev/null || true
   gtk-update-icon-cache -q -t "$HOME/.local/share/icons/hicolor" 2>/dev/null || true
   echo "Listo: apps web de Apple quitadas."
   exit 0
 fi
 
-# Sin navegador que sirva no se corta la instalación (iMac, 15-10-2026: sin Edge,
-# el paquete se detenía aquí): avisa y sale bien; se corre otra vez al instalarlo.
-command -v "$NAVEGADOR" >/dev/null || {
-  echo "  ⚠ sin Edge ni Chrome/Chromium: las apps web de iCloud no se crean."
-  echo "    Instala uno y corre otra vez: $0"
-  exit 0
-}
+# Sin Chromium, Firefox por el backend de Web Apps de Mint (webapp-manager), como
+# pidió José (15-10-2026; la iMac no tiene Edge): cada app en su ventana con su
+# perfil de Firefox aparte, y se ven y se editan en la app Web Apps.
+WEBAPPS=/usr/lib/webapp-manager
+MODO=chromium
+if ! command -v "$NAVEGADOR" >/dev/null; then
+  if command -v firefox >/dev/null && [ -f "$WEBAPPS/common.py" ]; then
+    MODO=firefox; NAVEGADOR=firefox
+  else
+    # Sin navegador que sirva no se corta la instalación: avisa y sale bien.
+    echo "  ⚠ sin Edge, Chrome/Chromium ni Firefox con Web Apps: las apps web de iCloud no se crean."
+    echo "    Instala uno y corre otra vez: $0"
+    exit 0
+  fi
+fi
 mkdir -p "$APPS" "$ICONOS"
 
 # La clase de ventana que pone Chromium con --app: «host__ruta», con las barras
@@ -108,6 +118,29 @@ i = icns_de(sys.argv[1]); i and png_256(i, sys.argv[2])" "$MAC/${origen#mac:}" "
       icono_tienda "${origen#tienda:}" "$icono" || echo "⚠ $nombre: no pude bajar el ícono del App Store." ;;
   esac
   [ -f "$icono" ] && ic="$PREFIJO-$id" || ic="web-browser"
+  if [ "$MODO" = firefox ]; then
+    # Nombre fijo (Web Apps le pone 4 cifras al azar): una corrida nueva pisa la
+    # anterior en vez de duplicarla. El Exec y el perfil los arma webapp-manager.
+    cod="mintmacos$id"
+    rm -f "$APPS/$PREFIJO-$id.desktop"
+    python3 - "$WEBAPPS" "$cod" "$nombre" "$url" "$( [ -f "$icono" ] && echo "$icono" || echo web-browser )" "$APPS/WebApp-$cod.desktop" <<'PY'
+import sys
+sys.path.insert(0, sys.argv[1])
+import common
+cod, nombre, url, icono, destino = sys.argv[2:7]
+m = common.WebAppManager()
+ff = next(b for b in m.get_supported_browsers() if b.name == "Firefox")
+exec_ = m.get_exec_string(ff, cod, "", icono, True, False, False, url)
+with open(destino, "w") as f:
+    f.write("[Desktop Entry]\nVersion=1.0\nName=%s\nComment=%s en la web de Apple\nExec=%s\n"
+            "Terminal=false\nX-MultipleArgs=false\nType=Application\nIcon=%s\nCategories=GTK;Network;\n"
+            "StartupWMClass=WebApp-%s\nStartupNotify=true\nX-WebApp-Browser=Firefox\nX-WebApp-URL=%s\n"
+            "X-WebApp-CustomParameters=\nX-WebApp-Navbar=false\nX-WebApp-PrivateWindow=false\n"
+            "X-WebApp-Isolated=true\n" % (nombre, nombre, exec_, icono, cod, url))
+PY
+    hechos=$((hechos + 1))
+    continue
+  fi
   cat > "$APPS/$PREFIJO-$id.desktop" <<EOF
 [Desktop Entry]
 Type=Application
@@ -125,4 +158,4 @@ done
 
 update-desktop-database "$APPS" 2>/dev/null || true
 gtk-update-icon-cache -q -t "$HOME/.local/share/icons/hicolor" 2>/dev/null || true
-echo "Listo: $hechos apps web de Apple con $NAVEGADOR. Para quitarlas: $0 --quitar"
+echo "Listo: $hechos apps web de Apple con $NAVEGADOR$( [ "$MODO" = firefox ] && echo " (Web Apps de Mint)"). Para quitarlas: $0 --quitar"
