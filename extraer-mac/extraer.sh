@@ -423,7 +423,11 @@ tanda() { # claro | oscuro
   # perdió Documents y Downloads, 15-10-2026). Con una ventana chica no se arrastra.
   B=$(osa -e 'tell application "Finder" to get bounds of Finder window 1' | tr -d ' ')
   bx1=$(echo "$B" | cut -d, -f1); by1=$(echo "$B" | cut -d, -f2); bx2=$(echo "$B" | cut -d, -f3); by2=$(echo "$B" | cut -d, -f4)
-  if [ -n "$by2" ] && [ $((bx2-bx1)) -ge 500 ] && [ $((by2-by1)) -ge 300 ]; then
+  # Y solo en la ~/Muestra que creó el guion (tres carpetas arriba a la
+  # izquierda): en una carpeta del usuario no se arrastra nada.
+  if ! $MUESTRA_CREADA; then
+    log "06-finder-seleccion-rectangulo-$M: ~/Muestra ya existía (es del usuario); no se arrastra"
+  elif [ -n "$by2" ] && [ $((bx2-bx1)) -ge 500 ] && [ $((by2-by1)) -ge 300 ]; then
     $H raton arrastrar $((bx2-30)) $((by2-80)) $((bx1+(bx2-bx1)*45/100)) $((by1+70)) "$CAP/06-finder-seleccion-rectangulo-$M.png"; log "cap 06-finder-seleccion-rectangulo-$M"
   else log "06-finder-seleccion-rectangulo-$M: ventana de Finder sin tamaño ($B); no se arrastra"; fi
   sleep 0.5; raton_fuera
@@ -470,7 +474,19 @@ tanda() { # claro | oscuro
   $H raton derecho $((W/5)) $((HH*55/100)); sleep 1; cap_full 06-finder-menu-contextual-escritorio-$M; esc; raton_fuera
   # En el escritorio, de un hueco del centro hacia abajo: nunca desde la columna
   # de íconos (un arrastre que empieza sobre un ícono lo mueve).
-  if [ "${W:-0}" -ge 800 ]; then
+  # Antes se comprueba con Finder que ningún ícono del escritorio caiga en el
+  # rectángulo (con 100 pt de margen): el escritorio de José tiene archivos de
+  # verdad, y un arrastre que empieza sobre uno lo mueve o lo mete en una carpeta.
+  RX1=$((W*40/100)); RY1=$((HH*30/100)); RX2=$((W*60/100)); RY2=$((HH*55/100))
+  # osascript da las posiciones aplanadas: «x1, y1, x2, y2, …». Si Finder no
+  # contesta, no se arrastra (vacío solo vale cuando el escritorio no tiene nada).
+  if POS=$(osascript -e 'tell application "Finder" to get desktop position of every item of desktop' 2>>"$LOG"); then
+    ICONOS_EN_MEDIO=$(echo "$POS" | tr -d ' {}' | tr ',' '\n' | grep . | paste -d' ' - - \
+      | awk -v a=$((RX1-100)) -v b=$((RY1-100)) -v c=$((RX2+100)) -v d=$((RY2+100)) '$1+0>=a && $1+0<=c && $2+0>=b && $2+0<=d' | wc -l | tr -d ' ')
+  else ICONOS_EN_MEDIO="?"; fi
+  if [ "${ICONOS_EN_MEDIO:-1}" != 0 ]; then
+    log "06-escritorio-seleccion-rectangulo-$M: hay $ICONOS_EN_MEDIO ícono(s) del escritorio en la zona (o no se pudo leer); no se arrastra"
+  elif [ "${W:-0}" -ge 800 ]; then
     $H raton arrastrar $((W*40/100)) $((HH*30/100)) $((W*60/100)) $((HH*55/100)) "$CAP/06-escritorio-seleccion-rectangulo-$M.png"; log "cap 06-escritorio-seleccion-rectangulo-$M"
   else log "06-escritorio-seleccion-rectangulo-$M: pantalla sin medida; no se arrastra"; fi
   raton_fuera
