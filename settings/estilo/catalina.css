@@ -171,3 +171,8 @@ headerbar.mp-barra entry {
   background: none;
   box-shadow: none;
 }
+
+/* Un texto en negrita dentro de un panel propio (Trackpad: «No trackpad found»). */
+.mp-titulo-negrita {
+  font-weight: 700;
+}
