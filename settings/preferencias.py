@@ -262,6 +262,32 @@ def glifo(nombre, respaldo, color=(1.0, 1.0, 1.0, 0.85)):
     return Gtk.Image.new_from_surface(pintado)
 
 
+class ListaResultados(Gtk.Window):
+    """La caja de resultados de la búsqueda, pegada debajo del campo y del mismo ancho."""
+
+    def __init__(self, campo):
+        super().__init__(type=Gtk.WindowType.POPUP)
+        self.campo = campo
+        self.set_decorated(False)
+        self.set_resizable(False)
+        self.set_skip_taskbar_hint(True)
+        self.get_style_context().add_class("mp-resultados")
+
+    def popup(self):
+        ventana = self.campo.get_window()
+        if ventana is None:
+            return
+        _ok, x, y = ventana.get_origin()
+        a = self.campo.get_allocation()
+        self.set_size_request(a.width, -1)
+        self.resize(a.width, 1)
+        self.move(x + a.x, y + a.y + a.height)
+        self.show_all()
+
+    def popdown(self):
+        self.hide()
+
+
 class Ventana(Gtk.ApplicationWindow):
     def __init__(self, app):
         super().__init__(application=app, title=TITULO)
@@ -362,9 +388,10 @@ class Ventana(Gtk.ApplicationWindow):
         self.buscar.connect("activate", self._buscar_enter)
         barra.pack_end(self.buscar)
 
-        self.resultados = Gtk.Popover.new(self.buscar)
-        self.resultados.set_modal(False)
-        self.resultados.set_position(Gtk.PositionType.BOTTOM)
+        # La lista de resultados: una caja plana pegada al campo (captura 1.27.39 PM), sin la flecha ni las
+        # esquinas de un popover. Es una ventana POPUP sin decorar, que no toma el foco: se sigue escribiendo.
+        self.resultados = ListaResultados(self.buscar)
+        self.connect("hide", lambda *_: self.resultados.popdown())
         self.lista = Gtk.ListBox()
         self.lista.set_selection_mode(Gtk.SelectionMode.SINGLE)
         self.lista.connect("row-activated", lambda lb, fila: self._abrir_desde_busqueda(fila))
