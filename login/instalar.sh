@@ -50,6 +50,7 @@ CONF=/etc/lightdm/slick-greeter-mac.conf
 ACTIVA=/etc/lightdm/lightdm.conf.d/90-mint-macos-login.conf
 REVERTIR=/usr/local/sbin/login-mac-revertir
 FUENTES=/usr/local/share/fonts/mint-macos
+CURSORES_SIS=/usr/share/icons/Constanza-cursors
 
 paso() { printf '\n== %s\n' "$1"; }
 
@@ -57,6 +58,10 @@ if [ "$ACCION" = deshacer ]; then
   paso "Quitar slick-greeter-mac"
   rm -f "$ACTIVA" "$BINARIO" "$DESKTOP" "$CONF" "$REVERTIR"
   rm -rf "$DATOS" "$FUENTES"
+  if [ -d "$CURSORES_SIS" ]; then
+    update-alternatives --remove x-cursor-theme "$CURSORES_SIS/cursor.theme" >/dev/null 2>&1 || true
+    rm -rf "$CURSORES_SIS"
+  fi
   fc-cache -f >/dev/null 2>&1 || true
   echo "  listo: el login es el slick-greeter de Mint."
   echo "  La foto de la cuenta (AccountsService) se queda; se cambia en Configuración > Cuentas."
@@ -164,6 +169,29 @@ OSCUROS=""
 if echo "$ESTILO" | grep -qiE 'dark|oscuro'; then OSCUROS="$USUARIO;"; fi
 echo "  estilo de $USUARIO:${OSCUROS:+ oscuro}${OSCUROS:- claro} ($ESTILO)"
 
+# Los cursores de Catalina para todo el sistema: la pantalla de inicio (corre
+# como lightdm y no ve el $HOME) y las apps que no leen el tema de Cinnamon
+# usan el cursor por defecto, que en Mint es Bibata (iMac, 15-10-2026). Salen
+# del tema Constanza que armó tema/instalar.sh desde el disco de la Mac; no
+# van a ningún repo.
+paso "Cursores de Catalina para todo el sistema"
+if [ -d "$HOGAR/.local/share/icons/Constanza/cursors" ]; then
+  rm -rf "$CURSORES_SIS"
+  mkdir -p "$CURSORES_SIS"
+  cp -a "$HOGAR/.local/share/icons/Constanza/cursors" "$CURSORES_SIS/"
+  chown -R root:root "$CURSORES_SIS"
+  chmod -R a+rX,go-w "$CURSORES_SIS"
+  printf '[Icon Theme]\nName=Constanza-cursors\nComment=Los cursores de Catalina (mint-macos)\n' > "$CURSORES_SIS/index.theme"
+  printf '[Icon Theme]\nName=Constanza-cursors\nInherits=Constanza-cursors\n' > "$CURSORES_SIS/cursor.theme"
+  update-alternatives --install /usr/share/icons/default/index.theme x-cursor-theme "$CURSORES_SIS/cursor.theme" 100 >/dev/null
+  update-alternatives --set x-cursor-theme "$CURSORES_SIS/cursor.theme" >/dev/null
+  CURSOR_GREETER=Constanza-cursors
+  echo "  $CURSORES_SIS ($(ls "$CURSORES_SIS/cursors" | wc -l) cursores), por defecto del sistema"
+else
+  CURSOR_GREETER=McMojave-cursors
+  echo "  sin Constanza en $HOGAR/.local/share/icons (corre antes tema/instalar.sh): se queda McMojave"
+fi
+
 paso "Configuración: $CONF"
 cat > "$CONF" <<CONF
 # slick-greeter-mac (mint-macos, login/instalar.sh). La del slick-greeter de
@@ -178,7 +206,7 @@ draw-user-backgrounds=false
 draw-grid=false
 theme-name=WhiteSur-Dark
 icon-theme-name=WhiteSur-dark
-cursor-theme-name=McMojave-cursors
+cursor-theme-name=$CURSOR_GREETER
 font-name=.SF NS 10
 xft-antialias=true
 xft-hintstyle=hintnone

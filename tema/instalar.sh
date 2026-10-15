@@ -86,6 +86,13 @@ else
   CURSORES=McMojave-cursors
 fi
 gsettings set org.cinnamon.desktop.interface cursor-theme "$CURSORES" 2>/dev/null || true
+# El cursor por defecto del usuario, para las apps que no leen el de Cinnamon
+# (sin esto sale el Bibata de Mint). Solo si no hay uno o es el nuestro.
+DEF="$HOME/.icons/default/index.theme"
+if [ ! -e "$DEF" ] || grep -q '^# mint-macos' "$DEF"; then
+  mkdir -p "$HOME/.icons/default"
+  printf '# mint-macos (tema/instalar.sh)\n[Icon Theme]\nInherits=%s\n' "$CURSORES" > "$DEF"
+fi
 gsettings set org.cinnamon.desktop.wm.preferences button-layout 'close,minimize,maximize:'
 dconf write /net/launchpad/plank/docks/dock1/theme "'Constanza-Oscuro'"
 # El resto del dock (tamaño, zoom, posición, monitor, lanzadores) lo pone
