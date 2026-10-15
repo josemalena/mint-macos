@@ -26,7 +26,12 @@ import tempfile
 from PIL import Image, ImageFilter
 
 TAMANOS = (24, 32, 48, 64)   # nominales de Xcursor; 24 = 1x de macOS
-BASE = "/usr/share/icons/McMojave-cursors"
+# El tema base: el del sistema, o el que deja el paquete en el $HOME (iMac,
+# 15-10-2026: sin él faltaban la flecha, la I de texto y la espera).
+BASES = ("/usr/share/icons/McMojave-cursors",
+         os.path.expanduser("~/.local/share/icons/McMojave-cursors"),
+         os.path.expanduser("~/.icons/McMojave-cursors"))
+BASE = next((b for b in BASES if os.path.isdir(os.path.join(b, "cursors"))), BASES[0])
 
 # Cursor de macOS → nombres de X11/CSS (el primero es el archivo; los demás,
 # enlaces). Los hash son los que piden Qt y las apps viejas.
@@ -164,6 +169,7 @@ def main():
     if os.path.isdir(os.path.join(base, "cursors")):
         shutil.copytree(os.path.join(base, "cursors"), cursores, symlinks=True)
     else:
+        print(f"  ⚠ sin el tema base {base}: faltan la flecha, la I de texto y la espera", file=sys.stderr)
         os.makedirs(cursores)
     hechos = []
     with tempfile.TemporaryDirectory() as tmp:

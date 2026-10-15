@@ -14,6 +14,7 @@
 #                       de Catalina. Sin binarios ni idiomas que no son inglés.
 #   apple-extra.tar.gz  lo de Apple que se sacó en la Mac misma (glifos-finder)
 #                       y lo de la pantalla de inicio (constanza/login)
+#   cursores-base.tar.gz  McMojave-cursors, la base de los cursores de Constanza
 #   greeter.tar.gz      el fork de la pantalla de inicio, en el hash de login/instalar.sh
 #   instalar-aqui.sh    el que se corre en la otra computadora
 #   asistente-root.sh   la parte de root del asistente gráfico (pkexec, una clave)
@@ -59,6 +60,17 @@ git -C "$GT/mint-macos-greeter" checkout -q --detach "$GH"
 tar -czf "$DEST/greeter.tar.gz" -C "$GT" mint-macos-greeter
 rm -rf "$GT"
 echo "  ${GH:0:7} de $GF, $(du -h "$DEST/greeter.tar.gz" | cut -f1)"
+
+# El tema base de los cursores (McMojave-cursors, de vinceliuice, GPL): de
+# él salen la flecha, la I de texto y la espera, que Catalina no trae como
+# archivo. No viene en Mint; tema/iconos/cursores.py lo busca también en ~/.local.
+paso "Cursores base (McMojave-cursors)"
+if [ -d /usr/share/icons/McMojave-cursors/cursors ]; then
+  tar -czf "$DEST/cursores-base.tar.gz" -C /usr/share/icons McMojave-cursors
+  echo "  $(du -h "$DEST/cursores-base.tar.gz" | cut -f1)"
+else
+  echo "  ✗ no está /usr/share/icons/McMojave-cursors: sin él faltan la flecha y la espera"; exit 1
+fi
 
 paso "Fynder y el Dock instalados"
 LISTA="$(mktemp)"

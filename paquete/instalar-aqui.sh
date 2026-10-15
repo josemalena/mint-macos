@@ -73,6 +73,11 @@ paso "4. Lo de Apple"
 rm -rf "${MAC:?}"; mkdir -p "$MAC"
 tar -xf "$AQUI/mac-sistema.tar" -C "$MAC"
 [ -f "$AQUI/apple-extra.tar.gz" ] && tar -xzf "$AQUI/apple-extra.tar.gz" -C "$HOME"
+# La base de los cursores, antes del tema (la flecha, la I y la espera).
+if [ -f "$AQUI/cursores-base.tar.gz" ]; then
+  mkdir -p "$HOME/.local/share/icons"
+  tar -xzf "$AQUI/cursores-base.tar.gz" -C "$HOME/.local/share/icons"
+fi
 echo "  en $MAC (hace de disco de la Mac para los guiones)"
 }
 
