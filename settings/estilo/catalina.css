@@ -242,3 +242,8 @@ headerbar.mp-barra entry {
   min-width: 14px;
   min-height: 14px;
 }
+
+/* Los rótulos de las marcas de los sliders (Slow, Fast, 15 min…) son chicos, como en Catalina. */
+.mp-propio scale marks label {
+  font-size: 8px;
+}
