@@ -130,18 +130,21 @@ STAGE="$(mktemp -d)"
 cd "$MAC_SISTEMA"
 for d in "System/Applications" "System/Library/CoreServices" "System/Library/PreferencePanes" \
          "System/Library/Extensions" "System/Library/Frameworks" "System/Library/PrivateFrameworks" \
-         "System/Library/Fonts" "Library/Fonts"; do
+         "System/Library/Fonts" "Library/Fonts" "System/Library/Sounds" \
+         "System/Library/Components/CoreAudio.component/Contents/SharedSupport/SystemSounds"; do
   [ -d "$d" ] || continue
   rsync -a --prune-empty-dirs -R \
     --include='en.lproj/' --include='English.lproj/' --include='Base.lproj/' --exclude='*.lproj/' \
     --exclude='MacOS/' --exclude='_CodeSignature/' --include='*/' \
     --include='*.icns' --include='*.car' --include='*.pdf' --include='*.png' --include='*.tif' \
     --include='*.tiff' --include='*.plist' --include='*.strings' --include='*.json' \
-    --include='*.ttf' --include='*.otf' --include='*.ttc' --exclude='*' \
+    --include='*.ttf' --include='*.otf' --include='*.ttc' --include='*.aiff' --include='*.caf' \
+    --include='*.xml' --exclude='*' \
     "$d" "$STAGE/"
 done
-mkdir -p "$STAGE/System/Library/Desktop Pictures"
-cp -a "System/Library/Desktop Pictures/Catalina.heic" "$STAGE/System/Library/Desktop Pictures/" 2>/dev/null || true
+# Todos los fondos de Desktop & Screen Saver (los .heic, Solid Colors y el
+# orden), no solo Catalina.heic: settings/fondos.py los lee (15-10-2026).
+[ -d "System/Library/Desktop Pictures" ] && rsync -a -R "System/Library/Desktop Pictures" "$STAGE/"
 cd "$REPO"
 desmontar_mac
 tar -cf "$DEST/mac-sistema.tar" -C "$STAGE" .
