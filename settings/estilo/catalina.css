@@ -250,3 +250,8 @@ headerbar.mp-barra entry {
 .mp-propio scale marks label {
   font-size: 8px;
 }
+
+/* La lista de resultados de la búsqueda (captura 1.27.39 PM): texto plano y el escogido en azul. */
+popover list row { padding: 0; }
+popover list row:selected { background-color: #0a64d6; color: #ffffff; }
+popover list row:selected label { color: #ffffff; }

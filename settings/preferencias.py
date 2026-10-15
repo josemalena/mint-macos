@@ -399,7 +399,58 @@ class Ventana(Gtk.ApplicationWindow):
         sw.set_shadow_type(Gtk.ShadowType.NONE)
         sw.add(caja)
         self.cuadricula = caja
-        return sw
+        # El velo de la búsqueda (captura 1.27.39 PM): oscurece la cuadrícula y deja con halo los paneles que
+        # coinciden. Va encima, sin recibir clics.
+        self.velo = Gtk.DrawingArea()
+        self.velo.set_can_focus(False)
+        self.velo.connect("draw", self._pintar_velo)
+        self.velo.set_no_show_all(True)
+        self._hallados_velo = []
+        overlay = Gtk.Overlay()
+        overlay.add(sw)
+        overlay.add_overlay(self.velo)
+        overlay.set_overlay_pass_through(self.velo, True)
+        self.overlay_cuadricula = overlay
+        return overlay
+
+    def _pintar_velo(self, w, cr):
+        """Un velo oscuro con un hueco suave (y un halo claro) sobre cada panel que coincide."""
+        import cairo as _cairo
+        ancho, alto = w.get_allocated_width(), w.get_allocated_height()
+        # Todo en un grupo aparte: DEST_OUT sobre la ventana misma borraría también lo que hay debajo.
+        cr.push_group()
+        cr.set_operator(_cairo.OPERATOR_OVER)
+        cr.set_source_rgba(0.07, 0.07, 0.07, 0.80)
+        cr.paint()
+        for pv in self._hallados_velo:
+            celda = getattr(pv, "celda", None)
+            if celda is None or not celda.get_mapped():
+                continue
+            xy = celda.translate_coordinates(w, 0, 0)
+            if xy is None:
+                continue
+            cx = xy[0] + celda.get_allocated_width() / 2
+            cy = xy[1] + celda.get_allocated_height() / 2 - 4
+            # El halo: un disco claro y suave; encima se destapa el ícono.
+            halo = _cairo.RadialGradient(cx, cy, 8, cx, cy, 46)
+            halo.add_color_stop_rgba(0, 1, 1, 1, 0.16)
+            halo.add_color_stop_rgba(0.75, 1, 1, 1, 0.10)
+            halo.add_color_stop_rgba(1, 1, 1, 1, 0.0)
+            cr.set_operator(_cairo.OPERATOR_DEST_OUT)
+            hueco = _cairo.RadialGradient(cx, cy, 20, cx, cy, 58)
+            hueco.add_color_stop_rgba(0, 0, 0, 0, 1)
+            hueco.add_color_stop_rgba(1, 0, 0, 0, 0)
+            cr.set_source(hueco)
+            cr.arc(cx, cy, 58, 0, 6.2832)
+            cr.fill()
+            cr.set_operator(_cairo.OPERATOR_OVER)
+            cr.set_source(halo)
+            cr.arc(cx, cy, 46, 0, 6.2832)
+            cr.fill()
+        cr.pop_group_to_source()
+        cr.set_operator(_cairo.OPERATOR_OVER)
+        cr.paint()
+        return False
 
     def _banner(self):
         """La franja de arriba: el Apple ID, como en Catalina. Sin sesión, «Sign in
@@ -754,24 +805,65 @@ class Ventana(Gtk.ApplicationWindow):
         self.i_adelante.set_opacity(1.0 if hay_adelante else 0.35)
 
     # ── búsqueda ─────────────────────────────────────────────────────────
+    # Las frases que Catalina ofrece como subítems de un panel («Dock settings» lleva a Dock). Solo están las
+    # que salen en las capturas; se amplía con las que vayan apareciendo.
+    ANCLAS = {
+        "com.apple.preference.dock": ["Dock settings"],
+        "com.apple.preference.keyboard": ["Keyboard shortcuts"],
+    }
+
+    def _resultados_de(self, texto):
+        """[(rótulo, panel)]: primero los paneles cuyo nombre coincide (con sus subítems) y luego los que
+        coinciden por sus palabras clave, como en la captura 1.27.39 PM."""
+        t = texto.strip().lower()
+        por_nombre = [pv for pv in self.todos if t in pv.nombre.lower()]
+        por_clave = [pv for pv in self.todos if pv not in por_nombre and pv.coincide(texto)]
+        filas = []
+        for pv in por_nombre + por_clave:
+            if pv in por_nombre:
+                filas.append((pv.nombre, pv))
+            for ancla in self.ANCLAS.get(pv.id, []):
+                if t in ancla.lower():
+                    filas.append((ancla, pv))
+            if pv in por_clave:
+                filas.append((pv.nombre, pv))
+        # Un subítem que no coincide por nombre también sale (Keyboard shortcuts), tras los demás.
+        for pv in self.todos:
+            for ancla in self.ANCLAS.get(pv.id, []):
+                if t in ancla.lower() and (ancla, pv) not in filas:
+                    filas.append((ancla, pv))
+        vistos, unicos = set(), []
+        for rotulo, pv in filas:
+            if (rotulo, pv.id) not in vistos:
+                vistos.add((rotulo, pv.id))
+                unicos.append((rotulo, pv))
+        return unicos
+
     def _buscando(self, entrada):
         texto = entrada.get_text()
         for fila in self.lista.get_children():
             self.lista.remove(fila)
         if not texto.strip():
             self.resultados.popdown()
+            self._hallados_velo = []
+            self.velo.hide()
             return
-        hallados = [pv for pv in self.todos if pv.coincide(texto)]
-        for pv in hallados[:12]:
+        filas = self._resultados_de(texto)
+        if self.actual is None:          # el velo solo va sobre la cuadrícula
+            self._hallados_velo = [pv for _r, pv in filas]
+            self.velo.show()
+            self.velo.queue_draw()
+        for rotulo, pv in filas[:12]:
             fila = Gtk.ListBoxRow()
             fila.pv = pv
-            caja = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-            caja.pack_start(imagen_icono(pv.id, pv.panel.icono_tema, 20), False, False, 0)
-            caja.pack_start(Gtk.Label(label=pv.nombre, xalign=0), False, False, 0)
-            caja.set_border_width(4)
-            fila.add(caja)
+            etiqueta = Gtk.Label(label=rotulo, xalign=0)
+            etiqueta.set_margin_top(3)
+            etiqueta.set_margin_bottom(3)
+            etiqueta.set_margin_start(8)
+            etiqueta.set_margin_end(16)
+            fila.add(etiqueta)
             self.lista.add(fila)
-        if hallados:
+        if filas:
             self.lista.show_all()
             self.lista.select_row(self.lista.get_row_at_index(0))
             self.resultados.popup()
@@ -782,7 +874,8 @@ class Ventana(Gtk.ApplicationWindow):
             fila = Gtk.ListBoxRow()
             fila.pv = None
             etiqueta = Gtk.Label(label="No results")
-            etiqueta.set_border_width(8)
+            for lado in ("top", "bottom", "start", "end"):
+                getattr(etiqueta, "set_margin_" + lado)(8)
             fila.add(etiqueta)
             self.lista.add(fila)
             self.lista.show_all()
@@ -796,6 +889,8 @@ class Ventana(Gtk.ApplicationWindow):
     def _abrir_desde_busqueda(self, fila):
         pv = getattr(fila, "pv", None)
         self.resultados.popdown()
+        self._hallados_velo = []
+        self.velo.hide()
         if pv is not None:
             self.abrir(pv)
             self.buscar.set_text("")
