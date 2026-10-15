@@ -16,6 +16,7 @@
 #                       y lo de la pantalla de inicio (constanza/login)
 #   cursores-base.tar.gz  McMojave-cursors, la base de los cursores de Constanza
 #   spotlyte.tar.gz     Spotlyte (el Spotlight), y spotlyte-config.tar.gz su configuración
+#   fynder-ajustes.dconf  los ajustes de Fynder del usuario (etiquetas, menú global…)
 #   greeter.tar.gz      el fork de la pantalla de inicio, en el hash de login/instalar.sh
 #   instalar-aqui.sh    el que se corre en la otra computadora
 #   asistente-root.sh   la parte de root del asistente gráfico (pkexec, una clave)
@@ -83,6 +84,25 @@ UL_CONF=()
 for f in .config/ulauncher/settings.json .config/ulauncher/user-themes; do [ -e "$HOME/$f" ] && UL_CONF+=("$f"); done
 [ ${#UL_CONF[@]} -gt 0 ] && tar -czf "$DEST/spotlyte-config.tar.gz" -C "$HOME" "${UL_CONF[@]}"
 echo "  $(git -C "$SPOT" rev-parse --short HEAD), $(du -h "$DEST/spotlyte.tar.gz" | cut -f1)"
+
+# Los ajustes de Fynder de este usuario (las etiquetas, la barra de ruta, dónde
+# abre una ventana nueva, la letra del escritorio, el menú global), sin
+# tamaños de ventana ni pestañas guardadas.
+paso "Ajustes de Fynder"
+dconf dump /io/github/josemalena/fynder/ | python3 -c '
+import sys
+quiero = {"preferences": {"finder-new-window-location", "finder-show-path-bar", "toolbar-finder-layout",
+                          "show-hidden-files", "finder-tags", "global-menu"},
+          "desktop": {"font", "finder-desktop-optical-disks"}}
+grupo = None
+for l in sys.stdin:
+    l = l.rstrip("\n")
+    if l.startswith("["):
+        grupo = l.strip("[]"); print(l) if grupo in quiero else None; continue
+    if grupo in quiero and l.split("=", 1)[0] in quiero[grupo]:
+        print(l)
+' > "$DEST/fynder-ajustes.dconf"
+echo "  $(grep -c = "$DEST/fynder-ajustes.dconf") ajustes"
 
 paso "Fynder y el Dock instalados"
 LISTA="$(mktemp)"

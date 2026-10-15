@@ -52,6 +52,8 @@ respaldar "$DBUS_SERVICIOS/com.canonical.AppMenu.Registrar.service" dbus-registr
 [ -n "$FF_PERFIL" ] && respaldar "$FF_PERFIL/user.js" firefox-user.js
 [ -n "$TB_PERFIL" ] && respaldar "$TB_PERFIL/user.js" thunderbird-user.js
 gsettings get org.appmenu.gtk-module blacklist > "$RESPALDO/blacklist.txt" 2>/dev/null || true
+FYNDER_GM=/io/github/josemalena/fynder/preferences/global-menu
+dconf read "$FYNDER_GM" > "$RESPALDO/fynder-global-menu.txt" 2>/dev/null || true
 
 cat > "$RESPALDO/volver.sh" <<EOF
 #!/bin/bash
@@ -69,6 +71,7 @@ reponer dbus-registrar.service "$DBUS_SERVICIOS/com.canonical.AppMenu.Registrar.
 $( [ -n "$FF_PERFIL" ] && echo "reponer firefox-user.js \"$FF_PERFIL/user.js\"" )
 $( [ -n "$TB_PERFIL" ] && echo "reponer thunderbird-user.js \"$TB_PERFIL/user.js\"" )
 [ -s "\$R/blacklist.txt" ] && gsettings set org.appmenu.gtk-module blacklist "\$(cat "\$R/blacklist.txt")"
+if [ -s "\$R/fynder-global-menu.txt" ]; then dconf write $FYNDER_GM "\$(cat "\$R/fynder-global-menu.txt")"; else dconf reset $FYNDER_GM; fi
 systemctl --user daemon-reload
 [ -f "$UNIDADES/appmenu-registrador.service" ] && systemctl --user enable --now appmenu-registrador.service
 echo "Listo. Las variables de la sesión vuelven al cerrar sesión y entrar de nuevo;"
@@ -172,6 +175,9 @@ poner_pref() { # perfil
 poner_pref "$FF_PERFIL"
 poner_pref "$TB_PERFIL"
 
+# Fynder publica su menú solo con su ajuste global-menu, que viene apagado: aquí
+# estaba encendido a mano y en la iMac no salía el menú de Fynder (15-10-2026).
+dconf write "$FYNDER_GM" true
 echo "Menú global encendido para la sesión: hace falta cerrar sesión y entrar."
 echo "Firefox y Thunderbird lo toman al reiniciarlos."
 echo "Respaldo y vuelta atrás: $RESPALDO/volver.sh"

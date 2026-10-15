@@ -65,6 +65,8 @@ p_binarios() {
 paso "3. Fynder y el Dock"
 tar -xzf "$AQUI/binarios.tar.gz" -C "$HOME"
 glib-compile-schemas "$HOME/.local/share/glib-2.0/schemas"
+# Los ajustes de Fynder de la otra computadora (etiquetas, menú global…).
+[ -f "$AQUI/fynder-ajustes.dconf" ] && dconf load /io/github/josemalena/fynder/ < "$AQUI/fynder-ajustes.dconf"
 echo "  $(tar -tzf "$AQUI/binarios.tar.gz" | wc -l) archivos en ~/.local"
 }
 
