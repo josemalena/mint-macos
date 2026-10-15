@@ -5,7 +5,8 @@
 # Lo lanza «Extraer Mac.applescript»; también corre solo desde Terminal:
 #
 #   bash extraer.sh [permisos] [recursos] [medidas] [capturas] [videos] [entregar]   (sin nada: todo)
-#   BLOQUES="08 09" bash extraer.sh capturas      (solo esos bloques de la tanda: 01 03 05 06 07 08 09 12 13 14 15)
+#   BLOQUES="08 09" bash extraer.sh capturas      (solo esos bloques de la tanda: 01 03 05 06 07 08 09 12 13 14 15 16)
+#   BLOQUES="16" bash extraer.sh capturas         solo lo que faltaba de la lista de Catalina (en oscuro; pide la clave para el candado)
 #
 #   «permisos» va primero y pide DE UNA VEZ todo lo que el guion va a usar
 #   (Accessibility, Screen Recording y la automatización de cada app), espera
@@ -32,6 +33,7 @@ set -u
 
 AQUI="$(cd "$(dirname "$0")" && pwd)"
 H="osascript -l JavaScript $AQUI/herramientas.js"
+U="osascript $AQUI/ui.applescript"
 NOMBRE="$(scutil --get ComputerName 2>/dev/null | tr -cd 'A-Za-z0-9-' )"
 VERSION="$(sw_vers -productVersion)"
 # Siempre en disco local: la memoria USB (FAT32) escribe a menos de 1 MB/s con
@@ -40,7 +42,7 @@ VERSION="$(sw_vers -productVersion)"
 SAL="${SALIDA:-$HOME/extraer-salida/macos$VERSION-$(date +%Y%m%d)}"
 CAP="$SAL/capturas"; VID="$SAL/videos"; MED="$SAL/medidas"; REC="$SAL/recursos"; HER="$SAL/herramientas"
 mkdir -p "$SAL"
-mkdir -p "$HER"; cp "$AQUI/extraer.sh" "$AQUI/herramientas.js" "$HER/" 2>/dev/null
+mkdir -p "$HER"; cp "$AQUI/extraer.sh" "$AQUI/herramientas.js" "$AQUI/ui.applescript" "$HER/" 2>/dev/null
 LOG="$HER/capturas.log"
 
 log() { echo "$(date +%H:%M:%S) $*" >> "$LOG"; }
@@ -512,6 +514,8 @@ tanda() { # claro | oscuro
   if bloque 08; then
   osa -e 'tell application "System Preferences" to quit'; sleep 2; pkill -x "System Preferences" 2>/dev/null; sleep 1
   osa -e 'tell application "System Preferences" to activate' -e 'tell application "System Preferences" to set show all of it to true' ; sleep 2.5; raton_fuera
+  # En Monterey «show all» no bastó (la captura salió con un panel): ⌘L es View ▸ Show All Preferences.
+  osa -e 'tell application "System Events" to tell process "System Preferences" to keystroke "l" using command down'; sleep 2
   osa -e 'tell application "System Preferences" to activate'; sleep 1
   ocultar_excepto "System Preferences"
   cap_win 08-preferencias-todas-$M "$(ventana_pref)"
@@ -627,7 +631,7 @@ tanda() { # claro | oscuro
   if bloque 13; then
   osa -e 'tell application "System Events"' -e 'key down command' -e 'keystroke tab' -e 'delay 1.2' \
       -e "do shell script \"screencapture -x '$CAP/13-cmd-tab-$M.png'\"" -e 'key code 53' -e 'key up command' -e 'end tell'; log "cap 13-cmd-tab-$M"; sleep 0.5
-  open -a "Mission Control"; sleep 2
+  open -a "Mission Control"; sleep 3.5   # con 2 s salió a mitad de la animación (Monterey)
   screencapture -x "$CAP/13-mission-control-$M.png"; log "cap 13-mission-control-$M"; esc; sleep 1
 
   fi
@@ -637,6 +641,179 @@ tanda() { # claro | oscuro
   open -a "Migration Assistant"; sleep 3; raton_fuera
   cap_win 14-migration-assistant-inicio-$M "$(ventana_de 'Migration Assistant')"
   pkill -x "Migration Assistant" 2>/dev/null; sleep 1
+  fi
+  # 16 Lo que faltaba de la lista de Catalina (lista-capturas-catalina-20261015):
+  # menús de estado, Recent Items, Go to Folder, búsqueda, pestañas, menús del
+  # fondo, Dock (separador y Trash), About This Mac completo, Input Sources +,
+  # los desplegables de cada panel, Privacy entera, Network (Wi-Fi, Proxies,
+  # Edit Locations), Displays Scaled, Desktop Colors/Folders, Screen Time,
+  # Family Sharing, Launchpad en edición y lo que pide el candado. Solo en
+  # oscuro (la lista es en oscuro). Nada se aplica: cada hoja se cierra con
+  # Cancel o Done, y lo que se marca para la captura se devuelve.
+  if bloque 16 && [ "$M" = oscuro ]; then
+  aviso "Bloque 16: lo que faltaba de la lista"
+  pref_panel() { osa -e 'tell application "System Preferences" to activate' -e "tell application \"System Preferences\" to set current pane to pane id \"$1\""; sleep 2.5; raton_fuera; }
+  pref_ancla() { osa -e 'tell application "System Preferences" to activate' -e "tell application \"System Preferences\" to reveal anchor \"$2\" of pane id \"$1\""; sleep 2.5; raton_fuera; }
+  ui_log() { local r; r="$($U "$@" 2>>"$LOG")"; [ "$r" = ok ] || log "16: ui $* → ${r:-sin respuesta}"; [ "$r" = ok ]; }
+  cap_pref() { cap_win "16-$1-$M" "$(ventana_pref)"; }
+  # Todos los desplegables de la ventana, uno por uno, abiertos.
+  desplegables() { # prefijo
+    local n i; n="$($U popups "System Preferences" 2>>"$LOG")"; log "16: $1 tiene ${n:-0} desplegables"
+    i=1; while [ "$i" -le "${n:-0}" ]; do
+      if ui_log popup "System Preferences" "$i"; then sleep 1; cap_full "16-$1-desplegable-$i-$M"; esc; sleep 0.4; fi
+      i=$((i+1))
+    done; }
+  # El candado: lo abre el guion y la clave la teclea José (aviso y espera hasta 3 minutos).
+  desbloquear() { # panel
+    [ "$($U candado "System Preferences" 2>>"$LOG")" = abierto ] && return 0
+    ui_log clic "System Preferences" "Click the lock" || return 1
+    aviso "Escribe tu clave en System Preferences ($1): el guion espera hasta 3 minutos"
+    local i=0; while [ $i -lt 90 ]; do
+      [ "$($U candado "System Preferences" 2>>"$LOG")" = abierto ] && { log "16: $1 desbloqueado"; sleep 1; return 0; }
+      sleep 2; i=$((i+1))
+    done
+    log "16: $1 sigue con candado: se salta lo que lo necesita"; esc; return 1; }
+  bloquear() { [ "$($U candado "System Preferences" 2>>"$LOG")" = abierto ] && ui_log clic "System Preferences" "Click the lock"; sleep 1; }
+
+  # --- Barra de menús: los menús de estado de SystemUIServer (sin Siri, que se abre sola)
+  # (una descripción puede traer comas, «Wi-Fi, Wi-Fi is not enabled.»: se pide una por una)
+  N=$(osa -e 'tell application "System Events" to count menu bar items of menu bar 1 of process "SystemUIServer"')
+  i=1; while [ "$i" -le "${N:-0}" ]; do
+    d=$(osa -e "tell application \"System Events\" to get description of menu bar item $i of menu bar 1 of process \"SystemUIServer\"")
+    case "$d" in ""|Siri*) i=$((i+1)); continue ;; esac
+    if osa -e "tell application \"System Events\" to tell process \"SystemUIServer\" to click menu bar item $i of menu bar 1"; then
+      sleep 1.2; cap_full "16-barra-estado-$i-$(echo "$d" | cut -d, -f1 | tr -c 'A-Za-z0-9\n' '-' | tr A-Z a-z | sed 's/-*$//')-$M"; esc; sleep 0.5
+    fi
+    i=$((i+1))
+  done; raton_fuera
+
+  # --- Menú Apple ▸ Recent Items, con su submenú
+  finder_activar; abrir_menu_apple Finder
+  P=$(osa -e 'tell application "System Events" to tell process "Finder" to get position of menu item "Recent Items" of menu 1 of menu bar item 1 of menu bar 1')
+  S=$(osa -e 'tell application "System Events" to tell process "Finder" to get size of menu item "Recent Items" of menu 1 of menu bar item 1 of menu bar 1')
+  [ -n "$P" ] && { $H raton mover $(centro "$P" "$S"); sleep 1.2; cap_full "16-menu-apple-recent-items-$M"; }
+  esc; esc; raton_fuera
+
+  # --- Finder: Go to Folder, búsqueda, dos pestañas y el menú del fondo de la ventana
+  ocultar; finder_activar; cerrar_finder
+  ventana_finder . icon $X1 $Y1 $X2 $Y2; raton_fuera
+  osa -e 'tell application "System Events" to tell process "Finder" to keystroke "g" using {shift down, command down}'; sleep 1.5
+  cap_win "16-finder-go-to-folder-$M" "$(id_finder)"; esc; sleep 0.6
+  osa -e 'tell application "System Events" to tell process "Finder" to keystroke "t" using command down'; sleep 1.5
+  cap_win "16-finder-dos-pestanas-$M" "$(id_finder)"
+  osa -e 'tell application "System Events" to tell process "Finder" to keystroke "w" using command down'; sleep 1
+  osa -e 'tell application "System Events" to tell process "Finder" to keystroke "f" using command down'; sleep 1.2
+  osa -e 'tell application "System Events" to tell process "Finder" to keystroke "Notas"'; sleep 2.5
+  cap_win "16-finder-busqueda-$M" "$(id_finder)"; esc; sleep 0.6
+  osa -e 'tell application "Finder" to set target of Finder window 1 to (folder "Muestra" of home)'; sleep 1
+  B=$(osa -e 'tell application "Finder" to get bounds of Finder window 1' | tr -d ' ')
+  bx2=$(echo "$B" | cut -d, -f3); by2=$(echo "$B" | cut -d, -f4)
+  if $MUESTRA_CREADA && [ -n "$by2" ]; then
+    $H raton derecho $((bx2-40)) $((by2-90)); sleep 1; cap_full "16-finder-menu-fondo-ventana-$M"; esc
+  fi
+  cerrar_finder; raton_fuera
+
+  # --- Dock: el menú del separador y el de la Trash (con el Dock visible)
+  if [ "$AUTOHIDE_ORIG" = 1 ]; then defaults write com.apple.dock autohide -bool false; killall Dock; sleep 2.5; fi
+  P=$(osa -e 'tell application "System Events" to tell process "Dock" to get position of (first UI element of list 1 whose subrole is "AXSeparatorDockItem")')
+  S=$(osa -e 'tell application "System Events" to tell process "Dock" to get size of (first UI element of list 1 whose subrole is "AXSeparatorDockItem")')
+  [ -n "$P" ] && { $H raton derecho $(centro "$P" "$S"); sleep 1; cap_full "16-dock-menu-separador-$M"; esc; }
+  osa -e 'tell application "System Events" to tell process "Dock" to perform action "AXShowMenu" of UI element "Trash" of list 1' && { sleep 1; cap_full "16-dock-menu-trash-$M"; esc; }
+  poner_def com.apple.dock autohide "$AUTOHIDE_ORIG" bool; killall Dock; sleep 2.5; raton_fuera
+
+  # --- About This Mac: la versión con Build y con número de serie, y cada pestaña
+  abrir_menu_apple Finder; osa -e 'tell application "System Events" to tell process "Finder" to click menu item 1 of menu 1 of menu bar item 1 of menu bar 1'; sleep 2.5; raton_fuera
+  for k in 1 2; do ui_log clic-valor "System Information" "Version" && { sleep 1; cap_win "16-about-overview-version-$k-$M" "$(ventana_de 'System Information')"; }; done
+  ui_log clic-valor "System Information" "Version"
+  for tab in Displays Storage Support Service; do
+    ui_log clic "System Information" "$tab" && { sleep 2; cap_win "16-about-$(echo $tab | tr A-Z a-z)-$M" "$(ventana_de 'System Information')"; }
+    if [ "$tab" = Storage ] && ui_log clic "System Information" "Manage"; then
+      sleep 3; cap_full "16-about-storage-manage-$M"; pkill -x "Storage Management" 2>/dev/null; sleep 1
+    fi
+  done
+  pkill -x "System Information" 2>/dev/null; sleep 1
+
+  # --- System Preferences
+  osa -e 'tell application "System Preferences" to quit'; sleep 2
+  osa -e 'tell application "System Preferences" to activate'; sleep 2; ocultar_excepto "System Preferences"
+  # Keyboard ▸ Input Sources con la hoja de +
+  pref_ancla com.apple.preference.keyboard InputSources
+  { ui_log clic "System Preferences" "add" || ui_log clic "System Preferences" "Add" || ui_log clic "System Preferences" "+"; } && {
+    sleep 1.5; cap_pref teclado-input-sources-agregar; ui_log clic "System Preferences" "Cancel"; sleep 1; }
+  # Los desplegables de General, Dock, Mission Control, Language & Region y Hot Corners
+  pref_panel com.apple.preference.general; desplegables general
+  pref_panel com.apple.preference.dock; desplegables dock
+  pref_panel com.apple.preference.expose; desplegables mission-control
+  pref_panel com.apple.Localization; desplegables idioma-region
+  pref_panel com.apple.preference.expose
+  if ui_log clic "System Preferences" "Hot Corners"; then sleep 1.5; desplegables esquinas; ui_log clic "System Preferences" "Cancel" || ui_log clic "System Preferences" "OK"; sleep 1; fi
+  # Security & Privacy ▸ Privacy: cada categoría
+  pref_ancla com.apple.preference.security Privacy
+  for c in "Location Services" "Contacts" "Calendars" "Reminders" "Photos" "Camera" "Microphone" "Speech Recognition" \
+           "Accessibility" "Input Monitoring" "Full Disk Access" "Files and Folders" "Screen Recording" "Automation" \
+           "Advertising" "Analytics & Improvements" "Developer Tools"; do
+    ui_log fila "System Preferences" "$c" && { sleep 1.2; cap_pref "privacy-$(echo "$c" | tr -c 'A-Za-z0-9\n' '-' | tr A-Z a-z | sed 's/-*$//')"; }
+  done
+  # Network: Wi-Fi escogido, Advanced ▸ Proxies (cada protocolo, sin marcar nada), Edit Locations
+  pref_panel com.apple.preference.network
+  ui_log fila "System Preferences" "Wi-Fi" && { sleep 1.5; cap_pref network-wi-fi; }
+  if ui_log clic "System Preferences" "Advanced"; then
+    sleep 2; ui_log clic "System Preferences" "Proxies" && sleep 1.2
+    for pr in "Web Proxy (HTTP)" "Secure Web Proxy (HTTPS)" "SOCKS Proxy" "FTP Proxy" "Automatic Proxy Configuration"; do
+      ui_log fila "System Preferences" "$pr" && { sleep 1; cap_pref "network-proxies-$(echo "$pr" | tr -c 'A-Za-z0-9\n' '-' | tr A-Z a-z | sed 's/-*$//')"; }
+    done
+    ui_log clic "System Preferences" "Cancel"; sleep 1.5
+  fi
+  # Displays ▸ Scaled (y de vuelta a Default for display)
+  pref_ancla com.apple.preference.displays displaysDisplayTab
+  if ui_log clic "System Preferences" "Scaled"; then sleep 1.5; cap_pref displays-scaled; ui_log clic "System Preferences" "Default for display"; sleep 1.5; fi
+  # Desktop & Screen Saver ▸ Desktop: las categorías Colors y Folders
+  pref_ancla com.apple.preference.desktopscreeneffect DesktopPref
+  for c in Colors Folders; do ui_log fila "System Preferences" "$c" && { sleep 1.5; cap_pref "desktop-$(echo $c | tr A-Z a-z)"; }; done
+  # Screen Time ▸ Content & Privacy y sus pestañas
+  pref_panel com.apple.preference.screentime
+  if ui_log fila "System Preferences" "Content & Privacy"; then
+    sleep 1.5; cap_pref screen-time-content-privacy
+    for t in Content Stores Apps Other; do ui_log clic "System Preferences" "$t" && { sleep 1; cap_pref "screen-time-content-privacy-$(echo $t | tr A-Z a-z)"; }; done
+  fi
+  # Family Sharing: cada categoría de la izquierda
+  pref_panel com.apple.preferences.FamilySharingPrefPane
+  $U filas "System Preferences" 2>>"$LOG" > "$SAL/.familia"
+  while read -r c; do [ -n "$c" ] || continue
+    ui_log fila "System Preferences" "$c" && { sleep 1.5; cap_pref "family-sharing-$(echo "$c" | tr -c 'A-Za-z0-9\n' '-' | tr A-Z a-z | sed 's/-*$//')"; }
+  done < "$SAL/.familia"; rm -f "$SAL/.familia"
+  # Con el candado (la clave la teclea José). Cada hoja se cierra con Cancel o Done.
+  pref_ancla com.apple.preference.security General
+  if desbloquear security; then
+    ui_log clic "System Preferences" "Advanced" && { sleep 1.5; cap_pref security-advanced; ui_log clic "System Preferences" "Cancel" || ui_log clic "System Preferences" "OK"; sleep 1; }
+    pref_ancla com.apple.preference.security Firewall
+    ui_log clic "System Preferences" "Firewall Options" && { sleep 1.5; cap_pref security-firewall-options; ui_log clic "System Preferences" "Cancel"; sleep 1; }
+    bloquear
+  fi
+  pref_panel com.apple.preferences.users
+  if desbloquear users; then
+    cap_pref users-desbloqueado
+    ui_log fila "System Preferences" "Guest User" && { sleep 1.2; cap_pref users-guest-user; }
+    ui_log fila "System Preferences" "Groups" && { sleep 1.2; cap_pref users-groups; }
+    { ui_log clic "System Preferences" "add" || ui_log clic "System Preferences" "Add"; } && { sleep 1.5; cap_pref users-nuevo-usuario; ui_log clic "System Preferences" "Cancel"; sleep 1; }
+    ui_log fila "System Preferences" "$(id -F 2>/dev/null)"; sleep 1
+    ui_log clic "System Preferences" "Change Password" && { sleep 1.5; cap_pref users-change-password; ui_log clic "System Preferences" "Cancel"; sleep 1; }
+    bloquear
+  fi
+  pref_panel com.apple.preference.datetime
+  if desbloquear datetime; then cap_pref date-time-desbloqueado; bloquear; fi
+  pref_panel com.apple.preference.network
+  if desbloquear network; then
+    ui_log popup-item "System Preferences" 1 "Edit Locations…" && { sleep 1.5; cap_pref network-edit-locations; ui_log clic "System Preferences" "Done" || ui_log clic "System Preferences" "Cancel"; sleep 1; }
+    bloquear
+  fi
+  osa -e 'tell application "System Preferences" to quit'; sleep 1
+
+  # --- Launchpad en modo de edición (con ⌥ apretado, sin tocar ningún ícono)
+  open -a Launchpad; sleep 2
+  osa -e 'tell application "System Events"' -e 'key down option' -e 'delay 1.5' \
+      -e "do shell script \"screencapture -x '$CAP/16-launchpad-edicion-$M.png'\"" -e 'key up option' -e 'end tell' && log "cap 16-launchpad-edicion-$M"
+  esc; sleep 1; raton_fuera
   fi
   log "=== fin tanda $M ==="
 }
