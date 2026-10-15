@@ -1,0 +1,144 @@
+#!/usr/bin/python3
+"""Ayudante de root de Keyboard ▸ Modifier Keys (System Preferences).
+
+Lo corre pkexec (acción org.mintmacos.modifierkeys.run, con clave de administrador).
+Recibe cuatro argumentos TECLA=ACCIÓN y reescribe, en /etc/keyd/default.conf, un bloque
+[main] delimitado por marcas; el resto del archivo no se toca.
+
+    capslock=ACCIÓN  control=ACCIÓN  option=ACCIÓN  command=ACCIÓN
+    ACCIÓN: capslock | control | option | command | escape | none
+
+Cada argumento se valida contra esa lista cerrada. Antes de dejar el archivo nuevo se
+comprueba con `keyd check`, y si keyd no recarga se devuelve el anterior: el teclado
+nunca se queda sin configuración válida. Vive en /usr/libexec/mint-macos/ con dueño
+root: no se debe correr una copia editable por el usuario.
+"""
+import os
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+
+CONF = "/etc/keyd/default.conf"
+RESPALDO = CONF + ".mint-macos.bak"
+INICIO = "# >>> mint-macos modifier-keys (lo escribe System Preferences; no lo edites a mano)"
+FIN = "# <<< mint-macos modifier-keys"
+TECLAS = ("capslock", "control", "option", "command")
+ACCIONES = ("capslock", "control", "option", "command", "escape", "none")
+# Las teclas físicas de cada nombre en keyd, y lo que hace cada una por defecto.
+FISICAS = {"capslock": ["capslock"], "control": ["leftcontrol", "rightcontrol"],
+           "option": ["leftalt", "rightalt"], "command": ["leftmeta", "rightmeta"]}
+DEFECTO = {"capslock": "capslock", "leftcontrol": "layer(control)", "rightcontrol": "layer(control)",
+           "leftalt": "layer(alt)", "rightalt": "layer(altgr)", "leftmeta": "layer(meta)",
+           "rightmeta": "layer(meta)"}
+# Lo que se escribe en keyd para cada acción.
+DESTINO = {"capslock": "capslock", "control": "layer(control)", "option": "layer(alt)",
+           "command": "layer(meta)", "escape": "esc", "none": "noop"}
+
+
+def salir(msg, codigo=1):
+    print(msg, file=sys.stderr)
+    sys.exit(codigo)
+
+
+def validar(args):
+    """{tecla: acción} de los argumentos TECLA=ACCIÓN; cualquier otra cosa se rechaza."""
+    elegido = {}
+    for a in args:
+        m = re.fullmatch(r"([a-z]+)=([a-z]+)", a)
+        if not m or m.group(1) not in TECLAS or m.group(2) not in ACCIONES or m.group(1) in elegido:
+            salir(f"Argumento no válido: {a!r}", 2)
+        elegido[m.group(1)] = m.group(2)
+    if set(elegido) != set(TECLAS):
+        salir("Faltan teclas: se piden capslock, control, option y command.", 2)
+    return elegido
+
+
+def bloque(elegido):
+    """Las líneas del bloque: un comentario por tecla (para que el panel lo lea) y el [main]."""
+    lineas = [INICIO]
+    lineas += [f"# {t} = {elegido[t]}" for t in TECLAS]
+    reglas = []
+    for tecla in TECLAS:
+        if elegido[tecla] == tecla:
+            continue
+        for fisica in FISICAS[tecla]:
+            reglas.append(f"{fisica} = {DESTINO[elegido[tecla]]}")
+    # Una tecla cuyo destino defecto era otro (rightalt era altgr) que se queda sin regla no hace falta.
+    if reglas:
+        lineas.append("[main]")
+        lineas += reglas
+    lineas.append(FIN)
+    return lineas
+
+
+def reescribir(texto, elegido):
+    """El archivo sin el bloque anterior y con el nuevo, antes de la primera capa (tras [ids])."""
+    fuera, dentro, tras_bloque = [], False, False
+    for l in texto.splitlines():
+        if l.strip() == INICIO:
+            dentro = True
+            continue
+        if dentro:
+            if l.strip() == FIN:
+                dentro, tras_bloque = False, True
+            continue
+        if tras_bloque and l == "":
+            tras_bloque = False          # la línea en blanco que puso el propio bloque
+            continue
+        tras_bloque = False
+        fuera.append(l)
+    if dentro:
+        salir("El bloque de mint-macos está sin cerrar en keyd: no toco nada.", 3)
+    nuevo = bloque(elegido)
+    if "[main]" in nuevo and any(l.strip() == "[main]" for l in fuera):
+        salir("keyd ya tiene una sección [main] propia: hay que unirla a mano antes de usar este panel.", 3)
+    # Se inserta justo antes de la primera sección que no es [ids] (la primera capa).
+    pos = None
+    en_ids = False
+    for i, l in enumerate(fuera):
+        s = l.strip()
+        if s == "[ids]":
+            en_ids = True
+        elif s.startswith("[") and s.endswith("]"):
+            if en_ids:
+                pos = i
+                break
+    if pos is None:
+        pos = len(fuera)
+    salida = fuera[:pos] + nuevo + [""] + fuera[pos:]
+    return "\n".join(salida).rstrip("\n") + "\n"
+
+
+def main():
+    if len(sys.argv) != 5:
+        salir("uso: mint-macos-modifier-keys capslock=… control=… option=… command=…", 2)
+    elegido = validar(sys.argv[1:])
+    original = open(CONF, encoding="utf-8").read()
+    nuevo = reescribir(original, elegido)
+    with tempfile.NamedTemporaryFile("w", suffix=".conf", dir="/etc/keyd", delete=False) as f:
+        f.write(nuevo)
+        tmp = f.name
+    try:
+        os.chmod(tmp, 0o644)
+        r = subprocess.run(["keyd", "check", tmp], capture_output=True, text=True)
+        if r.returncode != 0:
+            salir("keyd rechaza la configuración nueva: " + (r.stdout + r.stderr).strip(), 4)
+        if not os.path.exists(RESPALDO):
+            shutil.copy2(CONF, RESPALDO)
+        os.replace(tmp, CONF)
+        tmp = None
+    finally:
+        if tmp and os.path.exists(tmp):
+            os.unlink(tmp)
+    r = subprocess.run(["keyd", "reload"], capture_output=True, text=True)
+    if r.returncode != 0:
+        with open(CONF, "w", encoding="utf-8") as f:
+            f.write(original)
+        subprocess.run(["keyd", "reload"], capture_output=True, text=True)
+        salir("keyd no recargó; se devolvió la configuración anterior: " + (r.stdout + r.stderr).strip(), 5)
+
+
+if __name__ == "__main__":
+    main()

@@ -73,6 +73,12 @@ Escriben directo en la configuración del programa, en vez de traer su interfaz:
   `global.mintMacosNotificationCenter()`); esos dos pedirán reiniciar Cinnamon (o ReloadXlet) tras
   actualizar. Las otras opciones de Catalina (Automatically rearrange Spaces, Group windows by
   application…) no están: Cinnamon no las tiene.
+- **Keyboard** (`teclado.py`): las cinco pestañas de Catalina. Keyboard: Key Repeat y Delay Until Repeat
+  (los pasos de Catalina, escritos en `org.cinnamon.desktop.peripherals.keyboard`), Modifier Keys…
+  (abajo) y Set Up Bluetooth Keyboard… (abre Bluetooth). Shortcuts: la lista de categorías de Catalina; hoy solo
+  trae contenido Spotlight (el atajo de Spotlyte). Input Sources: las distribuciones de teclado
+  (`org.gnome.libgnomekbd.keyboard`). Lo que Linux no tiene (Text, Dictation, el visor de emojis, Show Finder
+  search window) se dibuja como en la captura pero en gris, como en una Mac sin esa función.
 - **Startup Disk**: arranque EFI y entrada por defecto de GRUB (abajo).
 
 ## Apple ID: iCloud Drive, Mail y Calendar
@@ -117,6 +123,19 @@ El ayudante vive en `/usr/libexec/mint-macos/startup-disk`, con dueño root, y v
 cada argumento contra una lista cerrada. Para elegir una entrada de GRUB hace falta
 `GRUB_DEFAULT=saved`: el panel ofrece «Enable…», que lo pone (con respaldo de
 `/etc/default/grub`) y corre `update-grub`.
+
+## Keyboard ▸ Modifier Keys
+
+Reasigna Caps Lock, Control, Option y Command (cada una a Caps Lock, Control, Option, Command, Escape o
+No Action) sobre **keyd**. El panel no escribe en `/etc`: se lo pide por `pkexec` a un ayudante de root
+(`modifier-keys/`), que valida los cuatro argumentos, reescribe un bloque `[main]` delimitado por marcas en
+`/etc/keyd/default.conf`, lo comprueba con `keyd check` y recarga; si keyd no recarga, devuelve el archivo
+anterior. El primer respaldo queda en `/etc/keyd/default.conf.mint-macos.bak`.
+
+```
+sudo settings/modifier-keys/instalar-root.sh            # instala el ayudante y la acción de polkit
+sudo settings/modifier-keys/instalar-root.sh --quitar   # los quita y deja las teclas por defecto
+```
 
 ## Los íconos y glifos de Apple
 

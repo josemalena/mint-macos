@@ -5,9 +5,9 @@ Cada uno es una clase con `id`, `nombre`, `panel` (para el buscador y el ícono)
 `construir()`, que devuelve el widget de la página. El diseño es el de la captura
 de Catalina (Screen Shot 2026-10-14 at 12.12.52 AM, panel Dock).
 
-Solo van los controles que de verdad hacen algo aquí. Los de Catalina que Linux o
-nuestro Plank no tienen (Prefer tabs when opening documents) no se dibujan: un
-control que no hace nada engaña.
+Los controles que de verdad hacen algo aquí van conectados. Los de Catalina que Linux o
+nuestro Plank no tienen (Prefer tabs when opening documents) no se inventan: donde la
+captura los muestra se dibujan en gris, como en una Mac sin esa función (ver teclado.py).
 """
 import json
 import os
@@ -1070,5 +1070,7 @@ class PanelMissionControl:
         self.escribir_esquina(indice, self.ACCIONES[int(n)][0])
 
 
+import teclado  # noqa: E402  (usa PanelSpotlight de este módulo, por eso va al final)
+
 PROPIOS = {p.id: p for p in (PanelDock(), PanelAppleID(), PanelSpotlight(), PanelStartupDisk(),
-                                     PanelMissionControl())}
+                                     PanelMissionControl(), teclado.PanelKeyboard())}
