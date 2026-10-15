@@ -15,6 +15,7 @@
 #   apple-extra.tar.gz  lo de Apple que se sacó en la Mac misma (glifos-finder)
 #                       y lo de la pantalla de inicio (constanza/login)
 #   instalar-aqui.sh    el que se corre en la otra computadora
+#   asistente-root.sh   la parte de root del asistente gráfico (pkexec, una clave)
 #
 # Lo de Apple es para las máquinas de quien tiene la Mac: el paquete no se
 # publica ni va a ningún repo.
@@ -96,8 +97,8 @@ else
   echo "  nada (no hay glifos-finder)"
 fi
 
-cp "$REPO/paquete/instalar-aqui.sh" "$DEST/"
-chmod +x "$DEST/instalar-aqui.sh"
+cp "$REPO/paquete/instalar-aqui.sh" "$REPO/paquete/asistente-root.sh" "$DEST/"
+chmod +x "$DEST/instalar-aqui.sh" "$DEST/asistente-root.sh"
 cat > "$DEST/origen.txt" <<EOF
 usuario=$USER
 home=$HOME
