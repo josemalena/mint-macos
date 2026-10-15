@@ -38,6 +38,10 @@ case "$modo" in
   ventana)  args=(-w) ;;
   herramienta)
     # La barra de Catalina (herramienta.py); sin ella, la de gnome-screenshot.
+    # Con el ayudante residente vivo (mint-macos-ayudante) se le pide por D-Bus y no arranca Python.
+    gdbus call --session --dest io.github.josemalena.MintMacosAyudante \
+      --object-path /io/github/josemalena/MintMacosAyudante \
+      --method org.gtk.Actions.Activate captura '[]' '{}' >/dev/null 2>&1 && exit 0
     aqui="$(dirname "$(readlink -f "$0")")"
     if [ -x "$aqui/mac-captura-herramienta" ]; then exec "$aqui/mac-captura-herramienta"; fi
     exec gnome-screenshot -i ;;

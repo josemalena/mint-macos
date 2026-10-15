@@ -1,4 +1,17 @@
 #!/usr/bin/env python3
+# Vía rápida: con el ayudante residente (mint-macos-ayudante) vivo, se le pide la ventana
+# por D-Bus (gdbus) y este proceso termina sin cargar GTK. Si no está, sigue de largo.
+import subprocess as _sp
+import sys as _sys
+if __name__ == "__main__":
+    try:
+        if _sp.run(["gdbus", "call", "--session", "--dest", "io.github.josemalena.MintMacosAyudante",
+                    "--object-path", "/io/github/josemalena/MintMacosAyudante",
+                    "--method", "org.gtk.Actions.Activate", "forcequit", "[]", "{}"],
+                   stdout=_sp.DEVNULL, stderr=_sp.DEVNULL, timeout=3).returncode == 0:
+            _sys.exit(0)
+    except (OSError, _sp.SubprocessError):
+        pass
 import os
 import re
 import signal
@@ -178,7 +191,6 @@ class ForceQuitWindow(Gtk.Window):
         self.force_btn.connect("clicked", self._on_force_quit)
         bottom.pack_start(self.force_btn, False, False, 0)
 
-        self.connect("destroy", Gtk.main_quit)
 
     def _populate(self):
         for child in self.listbox.get_children():
@@ -270,6 +282,7 @@ class ForceQuitWindow(Gtk.Window):
 
 def main():
     win = ForceQuitWindow()
+    win.connect("destroy", Gtk.main_quit)
     win.show_all()
     Gtk.main()
 

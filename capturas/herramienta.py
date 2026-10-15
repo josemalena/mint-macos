@@ -378,6 +378,11 @@ class Elegir(Gtk.Window):
 
 
 # ── la barra ────────────────────────────────────────────────────────────────
+# Qué pasa cuando la barra termina: suelto, el programa sale; dentro del ayudante
+# residente (ayudante/ayudante.py) esto se cambia por una función que no hace nada.
+SALIR = Gtk.main_quit
+
+
 class Barra(Gtk.Window):
     def __init__(self):
         super().__init__(type=Gtk.WindowType.TOPLEVEL)
@@ -400,7 +405,7 @@ class Barra(Gtk.Window):
         self.set_type_hint(Gdk.WindowTypeHint.DOCK)
         self.set_title("Screenshot")
         self.connect("key-press-event", self._tecla)
-        self.connect("destroy", Gtk.main_quit)
+        self.connect("destroy", lambda *_: SALIR())
 
         fila = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=2)
         fila.set_name("barra")
@@ -577,12 +582,12 @@ class Barra(Gtk.Window):
             subprocess.run(cmd, timeout=30, check=True)
         except Exception as e:
             print(f"No se pudo capturar: {e}", file=sys.stderr)
-            Gtk.main_quit()
+            self.destroy()
             return
         if self.cfg.get("miniatura", True):
             self._miniatura(ruta)
         else:
-            Gtk.main_quit()
+            self.destroy()
 
     def _miniatura(self, ruta):
         w = Gtk.Window(type=Gtk.WindowType.POPUP)
@@ -598,11 +603,14 @@ class Barra(Gtk.Window):
             caja.add(Gtk.Image.new_from_pixbuf(pb))
         except Exception:
             caja.add(Gtk.Label(label=os.path.basename(ruta)))
-        caja.connect("button-press-event", lambda *_: (subprocess.Popen(["xdg-open", ruta]), Gtk.main_quit()))
+        def fin(*_):
+            w.destroy()
+            self.destroy()          # la barra (oculta); en el proceso suelto eso cierra el programa
+        caja.connect("button-press-event", lambda *_: (subprocess.Popen(["xdg-open", ruta]), fin()))
         w.add(caja)
         w.show_all()
         w.move(scr.get_width() - w.get_allocated_width() - 20, scr.get_height() - w.get_allocated_height() - 40)
-        GLib.timeout_add(5000, Gtk.main_quit)
+        GLib.timeout_add(5000, lambda: fin() or False)
 
     def _grabar(self, carpeta, region):
         ruta = nombre_libre(carpeta, "Screen Recording", "mov")
@@ -657,7 +665,7 @@ class Barra(Gtk.Window):
         if self.cfg.get("miniatura", True):
             self.show_all()
             self.hide()
-        Gtk.main_quit()
+        self.destroy()
 
 
 def main():
