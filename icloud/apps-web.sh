@@ -18,6 +18,12 @@
 set -euo pipefail
 
 AQUI="$(cd "$(dirname "$0")" && pwd)"
+# Edge si está; si no, el primer Chromium que haya. Firefox no sirve: no tiene --app.
+if [ -z "${NAVEGADOR:-}" ]; then
+  for n in microsoft-edge-stable google-chrome-stable chromium chromium-browser brave-browser; do
+    command -v "$n" >/dev/null && { NAVEGADOR="$n"; break; }
+  done
+fi
 NAVEGADOR="${NAVEGADOR:-microsoft-edge-stable}"
 APPS="$HOME/.local/share/applications"
 ICONOS="$HOME/.local/share/icons/hicolor/256x256/apps"
@@ -48,7 +54,13 @@ if [ "${1:-}" = "--quitar" ]; then
   exit 0
 fi
 
-command -v "$NAVEGADOR" >/dev/null || { echo "✗ No encuentro $NAVEGADOR (NAVEGADOR=…)." >&2; exit 1; }
+# Sin navegador que sirva no se corta la instalación (iMac, 15-10-2026: sin Edge,
+# el paquete se detenía aquí): avisa y sale bien; se corre otra vez al instalarlo.
+command -v "$NAVEGADOR" >/dev/null || {
+  echo "  ⚠ sin Edge ni Chrome/Chromium: las apps web de iCloud no se crean."
+  echo "    Instala uno y corre otra vez: $0"
+  exit 0
+}
 mkdir -p "$APPS" "$ICONOS"
 
 # La clase de ventana que pone Chromium con --app: «host__ruta», con las barras
