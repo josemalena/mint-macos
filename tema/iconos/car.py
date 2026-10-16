@@ -5,7 +5,7 @@
                                             apariencia, formato y compresor
     car.py sacar <Assets.car> <carpeta> [nombre…]
                                             escribe en PNG lo que se pueda
-                                            descomprimir (sin comprimir y LZFSE)
+                                            descomprimir (sin comprimir, LZFSE y deepmap2)
     car.py glifos <Assets.car> <carpeta> [--oscuro] [nombre…]
                                             los glifos que traen vector (PDF),
                                             dibujados con pdftocairo a su tamaño
@@ -17,10 +17,9 @@ bloque CSI («CTSI», little-endian) con un encabezado fijo, una lista TLV y los
 datos. El formato no es público; esto sigue lo que se ha documentado
 desmontándolo (Timac, «Reverse engineering the .car file format»).
 
-Lo que no se puede abrir fuera de macOS: deepmap2 (compresión 11), con
-pérdida y sin documentar. Esas imágenes se listan pero no se sacan. Muchos
-glifos que solo tienen mapa de bits en deepmap2 traen además su vector en
-PDF (bloque RAWD): «glifos» los saca de ahí.
+deepmap2 (compresión 11, la de Catalina) se abre con deepmap2.py, traducido
+del decodificador de carfile-go (MIT; 16-10-2026). Muchos glifos traen además
+su vector en PDF (bloque RAWD): «glifos» los saca de ahí.
 Nada de lo que sale de aquí va al repo.
 """
 import ctypes
@@ -212,7 +211,17 @@ def pixeles_de(im):
     if im.envoltura != "CELM":
         return None
     cuerpo = d[16:]
-    if cuerpo[:4] == b"KCBC":
+    if im.compresor == 11:
+        # deepmap2: tema/iconos/deepmap2.py (traducido de carfile-go). Sale en el
+        # mismo orden que el camino LZFSE, sin relleno de fila.
+        import deepmap2
+        try:
+            a, h, formato, crudo = deepmap2.decodificar(cuerpo, lzfse)
+        except deepmap2.Error:
+            return None
+        if (a, h) != (im.ancho, im.alto) or formato != (4 if canales == 4 else 2):
+            return None
+    elif cuerpo[:4] == b"KCBC":
         # En trozos: cada KCBC trae (0, 0, filas, largo) y su propio flujo.
         partes, p = [], 0
         while cuerpo[p:p + 4] == b"KCBC":
@@ -346,7 +355,7 @@ def sacar(ruta, carpeta, solo):
             (f"@{im.escala:g}x" if im.escala != 1 else "")
         img.save(os.path.join(carpeta, f"{nombre}{sufijo}.png"))
         hechos += 1
-    print(f"  {hechos} imágenes; {saltados} sin poder abrir (deepmap2, vectores u otro formato)")
+    print(f"  {hechos} imágenes; {saltados} sin poder abrir (vectores u otro formato)")
 
 
 if __name__ == "__main__":
