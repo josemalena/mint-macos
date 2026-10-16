@@ -290,6 +290,20 @@ def cursor_camara(display):
     return Gdk.Cursor.new_from_surface(display, s, 16, 17)
 
 
+def extensiones_gtk(xid):
+    """(izq, der, arriba, abajo) de _GTK_FRAME_EXTENTS, o ceros si la ventana no dibuja sombra."""
+    try:
+        out = subprocess.run(["xprop", "-id", str(xid), "_GTK_FRAME_EXTENTS"],
+                             capture_output=True, text=True, timeout=2).stdout
+        if "=" in out:
+            v = [int(n) for n in out.split("=", 1)[1].replace(",", " ").split()]
+            if len(v) >= 4:
+                return tuple(v[:4])
+    except Exception:
+        pass
+    return (0, 0, 0, 0)
+
+
 class Elegir(Gtk.Window):
     """Cursor de cámara: al pasar sobre una ventana (o la pantalla) se resalta; un clic la elige.
     Devuelve el id de la ventana ('root' para la pantalla) o None si se cancela con Esc."""
@@ -335,7 +349,13 @@ class Elegir(Gtk.Window):
                 if w.get_type_hint() in (Gdk.WindowTypeHint.DESKTOP, Gdk.WindowTypeHint.DOCK):
                     continue
                 r = w.get_frame_extents()
-                out.append((str(w.get_xid()) if hasattr(w, "get_xid") else None, (r.x, r.y, r.width, r.height)))
+                x, y, ancho, alto = r.x, r.y, r.width, r.height
+                # Las ventanas que dibujan su propia sombra (GTK, Edge…) la incluyen en su geometría X
+                # y lo avisan en _GTK_FRAME_EXTENTS: izquierda, derecha, arriba, abajo.
+                izq, der, arr, aba = extensiones_gtk(w.get_xid())
+                x, y, ancho, alto = x + izq, y + arr, ancho - izq - der, alto - arr - aba
+                out.append((str(w.get_xid()) if hasattr(w, "get_xid") else None,
+                            (x, y, ancho, alto), (izq, arr)))
             except Exception:
                 continue
         return [o for o in out if o[0]]
@@ -344,9 +364,9 @@ class Elegir(Gtk.Window):
         if self.modo == "ventana":
             x, y = e.x_root, e.y_root
             nuevo = None
-            for wid, (rx, ry, rw, rh) in self.ventanas:
+            for wid, (rx, ry, rw, rh), sombra in self.ventanas:
                 if rx <= x < rx + rw and ry <= y < ry + rh:
-                    nuevo = (wid, (rx, ry, rw, rh))
+                    nuevo = ((wid, (rw, rh), sombra), (rx, ry, rw, rh))
                     break
             if nuevo != self.sel:
                 self.sel = nuevo
@@ -741,7 +761,11 @@ class Barra(Gtk.Window):
         if modo == "pantalla":
             cmd = ["import", "-window", "root", ruta]
         elif modo == "ventana":
-            cmd = ["import", "-frame", "-window", str(dato), ruta]
+            wid, (ancho, alto), (izq, arr) = dato
+            cmd = ["import", "-frame", "-window", str(wid)]
+            if izq or arr:      # sin la sombra transparente que la propia ventana dibuja alrededor
+                cmd += ["-crop", f"{ancho}x{alto}+{izq}+{arr}", "+repage"]
+            cmd += [ruta]
         else:
             x, y, w, h = dato
             cmd = ["import", "-window", "root", "-crop", f"{w}x{h}+{x}+{y}", "+repage", ruta]
