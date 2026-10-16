@@ -261,6 +261,7 @@ class GlobalMenuApplet extends Applet.Applet {
     } catch (e) {}
 
     this._ventana = w;
+    this._probando = null;
     this._soltarModelo();
     this._limpiar();
     if (!bus || !rutaMenu) { this._probarDbusmenu(w); return; }
@@ -289,10 +290,21 @@ class GlobalMenuApplet extends Applet.Applet {
     });
   }
 
+  // ¿El modelo de GTK trae al menos un menú que se pueda pintar?
+  _modeloConMenus(m) {
+    let n = m.get_n_items();
+    for (let i = 0; i < n; i++) {
+      if (m.get_item_link(i, LINK_SUBMENU) && limpiarEtiqueta(texto(m, i, ATTR_LABEL))) return true;
+    }
+    return false;
+  }
+
   _armarBarra() {
-    this._limpiar();
     let m = this._modelo;
     if (!m) return;
+    // Ya se está pintando el menú de dbusmenu y el de GTK sigue vacío: no se borra.
+    if (this._lector && !this._modeloConMenus(m)) return;
+    this._limpiar();
     this._vivos = [];
     precargar(m, 0, this._vivos);
     let n = m.get_n_items();
@@ -305,6 +317,16 @@ class GlobalMenuApplet extends Applet.Applet {
       let propio = atributo(m, i, "x-constanza-app-menu");
       try { if (propio && propio.get_boolean()) continue; } catch (e) {}
       this._agregarBoton(etiqueta, sub);
+    }
+    // Causa de «Firefox pierde el menú global»: con GTK_MODULES=appmenu-gtk-module el módulo anota
+    // _GTK_MENUBAR_OBJECT_PATH en CADA ventana GTK, también en las que exportan su menú por dbusmenu
+    // (Firefox lo registra en com.canonical.AppMenu.Registrar). El modelo de GTK queda vacío y, como
+    // había bus y ruta, nunca se probaba dbusmenu. Si GTK no da ningún menú, se prueba dbusmenu.
+    if (this._menus.length > 0) {
+      if (this._lector) { try { this._lector.destruir(); } catch (e) {} this._lector = null; }
+    } else if (!this._lector && this._ventana && this._probando !== this._ventana) {
+      this._probando = this._ventana;
+      this._probarDbusmenu(this._ventana);
     }
   }
 
