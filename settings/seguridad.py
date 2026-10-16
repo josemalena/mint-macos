@@ -27,8 +27,9 @@ BLOQUEO = [(0, "immediately"), (5, "5 seconds"), (60, "1 minute"), (300, "5 minu
            (3600, "1 hour"), (14400, "4 hours"), (28800, "8 hours")]
 # Privacy: cada categoría y su página. Los textos salen de Security.prefPane/Resources/en.lproj/Localizable.strings del
 # disco de la Mac (y de las capturas 16-privacy-*). Las nueve primeras y su orden son los de la captura; el orden de las
-# demás, que en la Mac quedan fuera de la vista de la barra lateral, NO está confirmado (pendiente de una captura con la
-# lista desplazada hasta abajo). Developer Tools no sale: Catalina la oculta mientras no tenga aplicaciones.
+# demás, que en la Mac quedan fuera de la vista de la barra lateral, es el de la guía «Change Privacy preferences on Mac»
+# de macOS 10.15 (https://support.apple.com/guide/mac-help/mh32356/10.15/mac/10.15): orden de la guía, sin captura.
+# Developer Tools no sale: Catalina la oculta mientras no tenga aplicaciones.
 SIN_APPS = "Apps that have requested access to %s will appear here."
 CATEGORIAS = [
     ("Location Services", "ubicacion", None),
