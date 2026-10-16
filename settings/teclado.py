@@ -21,6 +21,7 @@ gi.require_version("Gtk", "3.0")
 from gi.repository import Gdk, Gio, GLib, Gtk  # noqa: E402
 import cairo  # noqa: E402
 
+import iconos_catalina  # noqa: E402
 import paneles  # noqa: E402
 
 # Los pasos de los dos sliders son los de Catalina, en milisegundos
@@ -391,7 +392,7 @@ class PanelKeyboard:
         derecha = Gtk.Stack()
         for nombre in self.CATEGORIAS:
             fila = Gtk.ListBoxRow()
-            fila.add(Gtk.Label(label=nombre, xalign=0, margin=4))
+            fila.add(self._fila_categoria(nombre))
             fila.nombre = nombre
             categorias.add(fila)
             derecha.add_named(self._pagina_de(nombre), nombre)
@@ -411,6 +412,19 @@ class PanelKeyboard:
         pagina.pack_start(Gtk.Label(label="Press the Tab key to move focus forward and Shift Tab to move focus backward.",
                                     xalign=0), False, False, 0)
         return pagina
+
+    ICONOS_CATEGORIA = {"Launchpad & Dock": "dock", "Display": "display", "Mission Control": "expose",
+                        "Keyboard": "keyboard", "Input Sources": "keyboard", "Screenshots": "screenshots",
+                        "Services": "services", "Spotlight": "spotlight", "Accessibility": "ua",
+                        "App Shortcuts": "appshortcuts"}
+
+    def _fila_categoria(self, nombre):
+        caja = Gtk.Box(spacing=8, margin=4)
+        icono = iconos_catalina.de_atajos(self.ICONOS_CATEGORIA.get(nombre, ""), 16)
+        if icono is not None:
+            caja.pack_start(icono, False, False, 0)
+        caja.pack_start(Gtk.Label(label=nombre, xalign=0), True, True, 0)
+        return caja
 
     def _pagina_de(self, categoria):
         """La lista de una categoría con su pie: Restore Defaults, o + y − en App Shortcuts."""
@@ -518,7 +532,12 @@ class PanelKeyboard:
         dibujo = DibujoTeclado()
         for capa in self._capas():
             fila = Gtk.ListBoxRow()
-            fila.add(Gtk.Label(label=self._nombre_capa(capa), xalign=0, margin=6))
+            caja_capa = Gtk.Box(spacing=8, margin=6)
+            bandera = iconos_catalina.bandera(capa, 18)      # solo U.S. y Spanish; las demás sin bandera
+            if bandera is not None:
+                caja_capa.pack_start(bandera, False, False, 0)
+            caja_capa.pack_start(Gtk.Label(label=self._nombre_capa(capa), xalign=0), True, True, 0)
+            fila.add(caja_capa)
             lista.add(fila)
         lista.connect("row-selected", lambda _l, f: f and dibujo.poner(f.get_index()))
         izq = _marco()

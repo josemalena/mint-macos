@@ -16,6 +16,7 @@ import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gio, GLib, Gtk  # noqa: E402
 
+import iconos_catalina  # noqa: E402
 import paneles  # noqa: E402
 
 MOTIVO = "Screen Time is not available on this computer."
@@ -159,11 +160,11 @@ class PanelScreenTime:
                 fila.set_activatable(False)
                 fila.add(Gtk.Separator())
             else:
-                fila.add(Gtk.Label(label=n, xalign=0, margin=6))
+                fila.add(self._fila_lateral(n))
                 fila.nombre = n
             lista.add(fila)
         opciones = Gtk.ListBoxRow()
-        opciones.add(Gtk.Label(label="Options", xalign=0, margin=6))
+        opciones.add(self._fila_lateral("Options"))
         opciones.nombre = "Options"
         def al_elegir(_l, f):
             if f is not None and getattr(f, "nombre", None):
@@ -196,6 +197,17 @@ class PanelScreenTime:
         paginas.show_all()
         lista.select_row(lista.get_row_at_index(0))
         paginas.set_visible_child_name("App Usage")
+        return caja
+
+    ICONOS = {"App Usage": "Usage", "Content & Privacy": "Content and Privacy"}
+
+    def _fila_lateral(self, nombre):
+        """Una fila de la barra lateral: el ícono de Catalina (si está sacado del disco) y el nombre."""
+        caja = Gtk.Box(spacing=8, margin=6)
+        icono = iconos_catalina.de_screentime(self.ICONOS.get(nombre, nombre), 24)
+        if icono is not None:
+            caja.pack_start(icono, False, False, 0)
+        caja.pack_start(Gtk.Label(label=nombre, xalign=0), True, True, 0)
         return caja
 
     # ── App Usage, Notifications y Pickups ─────────────────────────────

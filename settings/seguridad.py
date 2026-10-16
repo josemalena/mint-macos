@@ -21,6 +21,7 @@ import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gio, GLib, Gtk  # noqa: E402
 
+import iconos_catalina  # noqa: E402
 import paneles  # noqa: E402
 
 BLOQUEO = [(0, "immediately"), (5, "5 seconds"), (60, "1 minute"), (300, "5 minutes"), (900, "15 minutes"),
@@ -30,6 +31,11 @@ BLOQUEO = [(0, "immediately"), (5, "5 seconds"), (60, "1 minute"), (300, "5 minu
 # demás, que en la Mac quedan fuera de la vista de la barra lateral, es el de la guía «Change Privacy preferences on Mac»
 # de macOS 10.15 (https://support.apple.com/guide/mac-help/mh32356/10.15/mac/10.15): orden de la guía, sin captura.
 # Developer Tools no sale: Catalina la oculta mientras no tenga aplicaciones.
+# Íconos de la lista (08-pref-…security--Privacy…): los de Security.prefPane y los de las apps. Solo las nueve de la captura.
+ICONOS_PRIVACIDAD = {"Location Services": "locationservices", "Contacts": "contacts", "Calendars": "calendars",
+                     "Reminders": "reminders", "Photos": "photos", "Camera": "cameraservices",
+                     "Microphone": "microphoneservices", "Speech Recognition": "microphoneservices",
+                     "Accessibility": "accessibilityservices"}
 SIN_APPS = "Apps that have requested access to %s will appear here."
 CATEGORIAS = [
     ("Location Services", "ubicacion", None),
@@ -294,7 +300,12 @@ class PanelSecurity:
         paginas = Gtk.Stack()
         for nombre, tipo, dato in CATEGORIAS:
             fila = Gtk.ListBoxRow()
-            fila.add(Gtk.Label(label=nombre, xalign=0, margin=10))
+            caja_fila = Gtk.Box(spacing=10, margin=8)
+            icono = iconos_catalina.de_privacidad(ICONOS_PRIVACIDAD.get(nombre, ""), 24)
+            if icono is not None:
+                caja_fila.pack_start(icono, False, False, 0)
+            caja_fila.pack_start(Gtk.Label(label=nombre, xalign=0), True, True, 0)
+            fila.add(caja_fila)
             fila.nombre = nombre
             lista.add(fila)
             paginas.add_named(self._pagina_privacidad(tipo, dato), nombre)
