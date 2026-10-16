@@ -132,8 +132,11 @@ def entregar(destino, ruta):
     """Lo que se hace con el archivo cuando el destino no es una carpeta."""
     try:
         if destino == "clipboard":
-            subprocess.run(["xclip", "-selection", "clipboard", "-t", "image/png", "-i", ruta],
-                           timeout=10, check=True)
+            # xclip se queda sirviendo la selección hasta que otro programa la toma: no se espera a que termine
+            # (y se desliga de este proceso, que puede ser el ayudante residente).
+            subprocess.Popen(["xclip", "-selection", "clipboard", "-t", "image/png", "-i", ruta],
+                             stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                             start_new_session=True)
         elif destino == "mail":
             subprocess.Popen(["xdg-email", "--attach", ruta], start_new_session=True)
         elif destino == "preview":
@@ -742,10 +745,12 @@ class Barra(Gtk.Window):
             menu.append(i)
 
         def marca(texto, activo, cb):
+            # Una opción de un grupo (Save to, Timer, Microphone): escoger una desmarca las otras. Se aplica al
+            # activarla (aunque ya estuviera marcada) y el menú se rehace, para que las marcas no queden viejas.
             i = Gtk.CheckMenuItem(label=texto)
             i.set_active(activo)
             i.set_draw_as_radio(False)
-            i.connect("toggled", lambda it: it.get_active() and cb())
+            i.connect("activate", lambda it: (cb(), GLib.idle_add(self._reponer_menu)))
             menu.append(i)
 
         titulo("Save to")
@@ -789,6 +794,10 @@ class Barra(Gtk.Window):
         menu.show_all()
         return menu
 
+    def _reponer_menu(self):
+        self.opciones.set_popup(self._menu())
+        return False
+
     def _set(self, clave, valor):
         self.cfg[clave] = valor
         guardar(self.cfg)
@@ -798,12 +807,17 @@ class Barra(Gtk.Window):
         self._set("guardar_en", ruta)
 
     def _otra_carpeta(self):
+        # El marco, la cámara y demás capas están a pantalla completa y por encima de todo: el diálogo quedaba
+        # tapado, sin poder tocarlo, y la herramienta parecía colgada. Se sueltan antes y se vuelven a armar después.
+        self._soltar_armado()
         d = Gtk.FileChooserDialog(title="Choose", parent=self, action=Gtk.FileChooserAction.SELECT_FOLDER)
         d.add_buttons("Cancel", Gtk.ResponseType.CANCEL, "Choose", Gtk.ResponseType.OK)
+        d.set_keep_above(True)
         if d.run() == Gtk.ResponseType.OK:
             self._carpeta_elegida(d.get_filename())
         d.destroy()
         self.opciones.set_popup(self._menu())
+        self._armar()
 
     # ── hacer la captura o la grabación ────────────────────────────────────
     def _ejecutar(self):
