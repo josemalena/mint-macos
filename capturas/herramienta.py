@@ -62,7 +62,8 @@ CSS = b"""
 
 # ── configuración ───────────────────────────────────────────────────────────
 def cargar():
-    base = {"modo": "pantalla", "guardar_en": "", "temporizador": 0, "micro": "", "miniatura": True, "recordar": True}
+    base = {"modo": "pantalla", "guardar_en": "", "destino": "carpeta", "temporizador": 0, "micro": "",
+            "miniatura": True, "recordar": True}
     try:
         with open(CONFIG) as f:
             base.update(json.load(f))
@@ -114,6 +115,38 @@ def micros():
     except Exception:
         return []
     return [l.split("\t")[1] for l in out.splitlines() if len(l.split("\t")) > 1 and ".monitor" not in l]
+
+
+# Save to de Catalina (Options): Desktop, Documents, [la carpeta escogida], Clipboard, Mail, Messages,
+# Preview y Other Location… (al grabar: sin Clipboard, y QuickTime Player en lugar de Preview).
+# Messages no existe aquí: sale en gris.
+TEMPORALES = os.path.expanduser("~/.cache/mac-captura")
+
+
+def carpeta_temporal():
+    os.makedirs(TEMPORALES, exist_ok=True)
+    return TEMPORALES
+
+
+def entregar(destino, ruta):
+    """Lo que se hace con el archivo cuando el destino no es una carpeta."""
+    try:
+        if destino == "clipboard":
+            subprocess.run(["xclip", "-selection", "clipboard", "-t", "image/png", "-i", ruta],
+                           timeout=10, check=True)
+        elif destino == "mail":
+            subprocess.Popen(["xdg-email", "--attach", ruta], start_new_session=True)
+        elif destino == "preview":
+            subprocess.Popen(["xdg-open", ruta], start_new_session=True)
+    except Exception as e:
+        print(f"No se pudo entregar la captura ({destino}): {e}", file=sys.stderr)
+
+
+def con_sombra(ruta):
+    """Como la captura de ventana de la Mac: sombra alrededor, en el canal alfa. Medida en una captura de
+    Catalina (Screen Shot 1.31.45 PM): 56 px a los lados, 38 arriba, 74 abajo, alfa ~43 en el borde de la ventana."""
+    subprocess.run(["convert", ruta, "(", "+clone", "-background", "black", "-shadow", "35x28+0+18", ")", "+swap",
+                    "-background", "none", "-layers", "merge", "+repage", ruta], timeout=30, check=True)
 
 
 # ── íconos dibujados ────────────────────────────────────────────────────────
@@ -627,6 +660,8 @@ class Barra(Gtk.Window):
             ctx.add_class("elegido") if m == modo else ctx.remove_class("elegido")
         self.accion.set_label("Record" if modo.startswith("grabar") else "Capture")
         guardar(self.cfg)
+        if getattr(self, "opciones", None) is not None:
+            self.opciones.set_popup(self._menu())     # Save to cambia entre capturar y grabar
         if armar:
             self._armar()
 
@@ -684,9 +719,24 @@ class Barra(Gtk.Window):
             menu.append(i)
 
         titulo("Save to")
+        grabando = self.cfg["modo"].startswith("grabar")
+        destino = self.cfg.get("destino", "carpeta")
         actual = self.cfg["guardar_en"] or escritorio()
-        for nombre, ruta in carpetas():
-            marca(nombre, ruta == actual, lambda r=ruta: self._set("guardar_en", r))
+        fijas = carpetas()[:2]               # Desktop y Documents
+        for nombre, ruta in fijas:
+            marca(nombre, destino == "carpeta" and ruta == actual, lambda r=ruta: self._carpeta_elegida(r))
+        if actual not in [r for _n, r in fijas]:    # la carpeta escogida con Other Location…, como «SS» en la Mac
+            marca(os.path.basename(actual.rstrip("/")) or actual, destino == "carpeta",
+                  lambda r=actual: self._carpeta_elegida(r))
+        if not grabando:
+            marca("Clipboard", destino == "clipboard", lambda: self._set("destino", "clipboard"))
+        marca("Mail", destino == "mail", lambda: self._set("destino", "mail"))
+        mensajes = Gtk.CheckMenuItem(label="Messages")
+        mensajes.set_sensitive(False)
+        mensajes.set_draw_as_radio(False)
+        menu.append(mensajes)
+        marca("QuickTime Player" if grabando else "Preview", destino == "preview",
+              lambda: self._set("destino", "preview"))
         otra = Gtk.MenuItem(label="Other Location…")
         otra.connect("activate", lambda *_: self._otra_carpeta())
         menu.append(otra)
@@ -713,13 +763,17 @@ class Barra(Gtk.Window):
         self.cfg[clave] = valor
         guardar(self.cfg)
 
+    def _carpeta_elegida(self, ruta):
+        self.cfg["destino"] = "carpeta"
+        self._set("guardar_en", ruta)
+
     def _otra_carpeta(self):
         d = Gtk.FileChooserDialog(title="Choose", parent=self, action=Gtk.FileChooserAction.SELECT_FOLDER)
         d.add_buttons("Cancel", Gtk.ResponseType.CANCEL, "Choose", Gtk.ResponseType.OK)
         if d.run() == Gtk.ResponseType.OK:
-            self._set("guardar_en", d.get_filename())
-            self.opciones.set_popup(self._menu())
+            self._carpeta_elegida(d.get_filename())
         d.destroy()
+        self.opciones.set_popup(self._menu())
 
     # ── hacer la captura o la grabación ────────────────────────────────────
     def _ejecutar(self):
@@ -749,7 +803,14 @@ class Barra(Gtk.Window):
         seg = int(self.cfg["temporizador"])
         GLib.timeout_add(max(seg, 0) * 1000 + 250, lambda: fn() or False)
 
+    def _destino(self):
+        d = self.cfg.get("destino", "carpeta")
+        return "carpeta" if (d == "clipboard" and self.cfg["modo"].startswith("grabar")) else d
+
     def _carpeta(self):
+        """Dónde se escribe el archivo: la carpeta escogida, o una temporal si va al portapapeles, al correo o a un visor."""
+        if self._destino() != "carpeta":
+            return carpeta_temporal()
         return self.cfg["guardar_en"] or escritorio()
 
     def _hacer(self, modo, dato):
@@ -771,16 +832,25 @@ class Barra(Gtk.Window):
             cmd = ["import", "-window", "root", "-crop", f"{w}x{h}+{x}+{y}", "+repage", ruta]
         try:
             subprocess.run(cmd, timeout=30, check=True)
+            if modo == "ventana":
+                con_sombra(ruta)
         except Exception as e:
             print(f"No se pudo capturar: {e}", file=sys.stderr)
             self.destroy()
             return
+        entregar(self._destino(), ruta)
+        borrar = self._destino() == "clipboard"     # al portapapeles no se deja archivo
         if self.cfg.get("miniatura", True):
-            self._miniatura(ruta)
+            self._miniatura(ruta, borrar)
         else:
+            if borrar:
+                try:
+                    os.remove(ruta)
+                except OSError:
+                    pass
             self.destroy()
 
-    def _miniatura(self, ruta):
+    def _miniatura(self, ruta, borrar=False):
         w = Gtk.Window(type=Gtk.WindowType.POPUP)
         scr = w.get_screen()
         if scr.get_rgba_visual():
@@ -795,6 +865,11 @@ class Barra(Gtk.Window):
         except Exception:
             caja.add(Gtk.Label(label=os.path.basename(ruta)))
         def fin(*_):
+            if borrar:
+                try:
+                    os.remove(ruta)
+                except OSError:
+                    pass
             w.destroy()
             self.destroy()          # la barra (oculta); en el proceso suelto eso cierra el programa
         caja.connect("button-press-event", lambda *_: (subprocess.Popen(["xdg-open", ruta]), fin()))
@@ -853,6 +928,8 @@ class Barra(Gtk.Window):
             except Exception:
                 self.grabacion.kill()
         w.destroy()
+        if self._destino() in ("preview", "mail"):
+            entregar(self._destino(), ruta)     # QuickTime Player ↔ el reproductor predeterminado
         if self.cfg.get("miniatura", True):
             self.show_all()
             self.hide()
