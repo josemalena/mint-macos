@@ -85,6 +85,10 @@ _GRUPOS_POR_TEMA = [
               palabras="sharing, remote login, ssh, file sharing, printer sharing, computer name"),
         Panel("com.apple.preference.startupdisk", "Startup Disk", [],
               palabras="startup disk, boot, grub, efi, restart, default os, macos"),
+        Panel("com.apple.preferences.configurationprofiles", "Profiles", [],
+              palabras="profiles, configuration profiles, provisioning profiles, mdm"),
+        Panel("com.apple.preference.digihub.discs", "CDs & DVDs", [],
+              palabras="cd, dvd, disc, insert, blank, music cd, picture cd, video dvd, eject"),
     ]),
     ("net", [
         Panel("com.apple.preferences.internetaccounts", "Internet Accounts", ["gnome-online-accounts-gtk"],
@@ -123,7 +127,8 @@ _ORDEN = [
     ["general", "desktopscreeneffect", "dock", "expose", "speech", "spotlight", "Localization", "notifications",
      "internetaccounts", "users", "universalaccess", "screentime", "extensions", "security"],
     ["softwareupdate", "network", "Bluetooth", "sound", "printfax", "keyboard", "trackpad", "mouse",
-     "displays", "energysaver", "datetime", "sharing", "backup", "startupdisk"],
+     "displays", "energysaver", "datetime", "sharing", "backup", "startupdisk",
+     "configurationprofiles", "discs"],
 ]
 _TODOS = {p.id.rsplit(".", 1)[1]: p for _, ps in _GRUPOS_POR_TEMA for p in ps}
 GRUPOS = [("bloque%d" % (i + 1), [_TODOS[k] for k in orden if k in _TODOS]) for i, orden in enumerate(_ORDEN)]

@@ -1,10 +1,12 @@
-"""Siri y Screen Time: los dos paneles de Catalina que Linux no tiene.
+"""Siri, Screen Time, Profiles y CDs & DVDs: los paneles de Catalina que Linux no tiene.
 
 Se dibujan como en las capturas (Screen Shot 2026-10-14 at 12.13.06 AM Siri y 1.25.57 PM … 1.26.31 PM
 Screen Time) pero en gris, como en una Mac que no tuviera esa función: nada se inventa ni se deja
 funcionando de adorno. Screen Time no enseña datos (no hay uso que contar); solo el esqueleto.
 La hoja Siri Suggestions & Privacy… y las otras pantallas de Screen Time (Pickups, Downtime, App Limits,
 Communication, Always Allowed y Content & Privacy) no se dibujan: no hay nada que configurar.
+Profiles (08-pref-com.apple.preferences.configurationprofiles) y CDs & DVDs (…digihub.discs): sin perfiles de
+aprovisionamiento ni unidad óptica; se dibujan igual, vacíos y en gris.
 """
 import gi
 gi.require_version("Gtk", "3.0")
@@ -145,5 +147,86 @@ class PanelScreenTime(_Ausente):
         pie.pack_start(_gris(todos), False, False, 0)
         der.pack_start(pie, False, False, 0)
         caja.pack_start(der, True, True, 0)
+        caja.show_all()
+        return caja
+
+
+def _ayuda():
+    """El «?» redondo de abajo a la derecha de los paneles de Catalina (aquí no hay Help Viewer: en gris)."""
+    b = Gtk.Button(label="?")
+    b.get_style_context().add_class("circular")
+    b.set_size_request(24, 24)
+    return _gris(b)
+
+
+class PanelProfiles(_Ausente):
+    id = "com.apple.preferences.configurationprofiles"
+    nombre = "Profiles"
+    palabras = "profiles, configuration profiles, provisioning profiles, mdm"
+
+    def construir(self):
+        caja = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        caja.get_style_context().add_class("mp-propio")
+        for lado in ("top", "bottom", "start", "end"):
+            getattr(caja, "set_margin_" + lado)(14)
+        cuerpo = Gtk.Box(spacing=8)
+        izq = _marco()
+        izq.set_size_request(190, 300)
+        lista = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        cab = Gtk.Label(label="Provisioning Profiles", xalign=0, margin=8)
+        cab.get_style_context().add_class("mp-sd-detalle")
+        lista.pack_start(cab, False, False, 0)
+        izq.add(lista)
+        der = _marco()
+        cuerpo.pack_start(izq, False, False, 0)
+        cuerpo.pack_start(der, True, True, 0)
+        caja.pack_start(cuerpo, True, True, 0)
+        pie = Gtk.Box()
+        botones = Gtk.Box()
+        botones.get_style_context().add_class("linked")
+        for t in ("+", "\u2212"):
+            botones.pack_start(_gris(Gtk.Button(label=t)), False, False, 0)
+        pie.pack_start(botones, False, False, 0)
+        pie.pack_end(_ayuda(), False, False, 0)
+        caja.pack_start(pie, False, False, 0)
+        caja.show_all()
+        return caja
+
+
+class PanelDiscs(_Ausente):
+    id = "com.apple.preference.digihub.discs"
+    nombre = "CDs & DVDs"
+    palabras = "cd, dvd, disc, insert, blank, music cd, picture cd, video dvd, eject"
+
+    def construir(self):
+        caja = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        caja.get_style_context().add_class("mp-propio")
+        for lado in ("top", "bottom", "start", "end"):
+            getattr(caja, "set_margin_" + lado)(20)
+        rejilla = Gtk.Grid(column_spacing=10, row_spacing=10)
+        rejilla.set_halign(Gtk.Align.CENTER)
+        filas = (("When you insert a blank CD:", "Ask what to do"), ("When you insert a blank DVD:", "Ask what to do"),
+                 None,
+                 ("When you insert a music CD:", "Ignore"), ("When you insert a picture CD:", "Ignore"),
+                 ("When you insert a video DVD:", "Ignore"))
+        for i, fila in enumerate(filas):
+            if fila is None:
+                rejilla.attach(Gtk.Box(), 0, i, 2, 1)
+                rejilla.get_child_at(0, i).set_size_request(-1, 16)
+                continue
+            e = Gtk.Label(label=fila[0], xalign=1.0)
+            e.get_style_context().add_class("mp-fila-etiqueta")
+            rejilla.attach(e, 0, i, 1, 1)
+            c = Gtk.ComboBoxText()
+            c.append("v", fila[1])
+            c.set_active(0)
+            c.set_size_request(236, -1)
+            rejilla.attach(_gris(c), 1, i, 1, 1)
+        eject = Gtk.CheckButton(label="Show eject in menu bar")
+        rejilla.attach(_gris(eject), 1, len(filas), 1, 1)
+        caja.pack_start(rejilla, False, False, 0)
+        pie = Gtk.Box()
+        pie.pack_end(_ayuda(), False, False, 0)
+        caja.pack_start(pie, False, False, 0)
         caja.show_all()
         return caja
