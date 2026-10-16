@@ -19,14 +19,39 @@ import subprocess
 
 import gi
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gio, Gtk  # noqa: E402
+from gi.repository import Gio, GLib, Gtk  # noqa: E402
 
 import paneles  # noqa: E402
 
 BLOQUEO = [(0, "immediately"), (5, "5 seconds"), (60, "1 minute"), (300, "5 minutes"), (900, "15 minutes"),
            (3600, "1 hour"), (14400, "4 hours"), (28800, "8 hours")]
-CATEGORIAS = ["Location Services", "Contacts", "Calendars", "Reminders", "Photos", "Camera", "Microphone",
-              "Speech Recognition", "Accessibility"]       # las que se ven en la captura
+# Privacy: cada categoría y su página. Los textos salen de Security.prefPane/Resources/en.lproj/Localizable.strings del
+# disco de la Mac (y de las capturas 16-privacy-*). Las nueve primeras y su orden son los de la captura; el orden de las
+# demás, que en la Mac quedan fuera de la vista de la barra lateral, NO está confirmado (pendiente de una captura con la
+# lista desplazada hasta abajo). Developer Tools no sale: Catalina la oculta mientras no tenga aplicaciones.
+SIN_APPS = "Apps that have requested access to %s will appear here."
+CATEGORIAS = [
+    ("Location Services", "ubicacion", None),
+    ("Contacts", "vacia", SIN_APPS % "your contacts"),
+    ("Calendars", "vacia", SIN_APPS % "your calendars"),
+    ("Reminders", "vacia", SIN_APPS % "your reminders"),
+    ("Photos", "vacia", SIN_APPS % "your photos"),
+    ("Camera", "vacia", SIN_APPS % "your camera"),
+    ("Microphone", "vacia", SIN_APPS % "your microphone"),
+    ("Speech Recognition", "vacia", "Apps that have requested access to speech recognition will appear here. Speech "
+                                    "recognition sends recorded voice to Apple to process your requests."),
+    ("Accessibility", "lista", ("Allow the apps below to control your computer.", True)),
+    ("Input Monitoring", "lista", ("Allow the apps below to monitor input from your keyboard even while using other apps.",
+                                   True)),
+    ("Full Disk Access", "lista", ("Allow the apps below to access data like Mail, Messages, Safari, Home, Time Machine "
+                                   "backups, and certain administrative settings for all users on this Mac.", True)),
+    ("Files and Folders", "lista", ("Allow the apps below to access files and folders.", True)),
+    ("Screen Recording", "vacia", SIN_APPS % "record the contents of your screen"),
+    ("Automation", "lista", ("Allow the apps below to control other apps. This will provide access to documents and data "
+                             "in those apps, and to perform actions within them.", False)),
+    ("Advertising", "publicidad", None),
+    ("Analytics & Improvements", "analitica", None),
+]
 
 
 def _salida(*cmd):
@@ -262,25 +287,116 @@ class PanelSecurity:
     def _privacidad(self):
         pagina = Gtk.Box(spacing=14, margin=16)
         lista = Gtk.ListBox()
-        lista.set_size_request(210, 330)
-        for n in CATEGORIAS:
+        desplazable = Gtk.ScrolledWindow()
+        desplazable.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        desplazable.set_size_request(210, 330)
+        paginas = Gtk.Stack()
+        for nombre, tipo, dato in CATEGORIAS:
             fila = Gtk.ListBoxRow()
-            fila.add(Gtk.Label(label=n, xalign=0, margin=10))
+            fila.add(Gtk.Label(label=nombre, xalign=0, margin=10))
+            fila.nombre = nombre
             lista.add(fila)
+            paginas.add_named(self._pagina_privacidad(tipo, dato), nombre)
+        lista.connect("row-selected", lambda _l, f: f and paginas.set_visible_child_name(f.nombre))
+        desplazable.add(lista)
         ml = _marco()
-        ml.add(_gris(lista, "Linux has no per-app privacy permissions to show."))
+        ml.add(desplazable)
         pagina.pack_start(ml, False, False, 0)
-        der = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-        c = Gtk.CheckButton(label="Enable Location Services")
-        c.set_active(True)
-        der.pack_start(_gris(c), False, False, 0)
-        der.pack_start(Gtk.Label(label="Allow the apps and services below to determine your location.",
-                                 xalign=0), False, False, 0)
-        marco = _marco()
-        marco.set_size_request(-1, 200)
-        der.pack_start(_gris(marco), True, True, 0)
-        b = Gtk.Box()
-        b.pack_end(_gris(Gtk.Button(label="About Location Services & Privacy…")), False, False, 0)
-        der.pack_start(b, False, False, 0)
-        pagina.pack_start(der, True, True, 0)
+        pagina.pack_start(paginas, True, True, 0)
+        paginas.show_all()
+        lista.select_row(lista.get_row_at_index(0))
+        paginas.set_visible_child_name(CATEGORIAS[0][0])
         return pagina
+
+    def _pagina_privacidad(self, tipo, dato):
+        der = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+
+        def texto(t, negrita=False):
+            l = Gtk.Label(xalign=0)
+            if negrita:
+                l.set_markup("<b>%s</b>" % GLib.markup_escape_text(t))
+            else:
+                l.set_text(t)
+            l.set_line_wrap(True)
+            l.set_max_width_chars(48)
+            return l
+
+        def boton(t):
+            b = Gtk.Button(label=t)
+            b.set_halign(Gtk.Align.END)
+            return _gris(b)
+
+        if tipo == "ubicacion":
+            c = Gtk.CheckButton(label="Enable Location Services")
+            c.set_active(True)
+            der.pack_start(_gris(c), False, False, 0)
+            der.pack_start(texto("Allow the apps and services below to determine your location."), False, False, 0)
+            marco = _marco()
+            marco.set_size_request(-1, 200)
+            der.pack_start(_gris(marco), True, True, 0)
+            b = Gtk.Box()
+            b.pack_end(boton("About Location Services & Privacy…"), False, False, 0)
+            der.pack_start(b, False, False, 0)
+        elif tipo == "vacia":
+            marco = _marco()
+            centro = Gtk.Label(label=dato, justify=Gtk.Justification.CENTER)
+            centro.set_line_wrap(True)
+            centro.set_max_width_chars(32)
+            marco.add(centro)
+            der.pack_start(_gris(marco), True, True, 0)
+        elif tipo == "lista":
+            resumen, con_barra = dato
+            der.pack_start(texto(resumen), False, False, 0)
+            marco = _marco()
+            marco.set_size_request(-1, 200)
+            der.pack_start(_gris(marco), True, True, 0)
+            if con_barra:
+                botones = Gtk.Box()
+                botones.get_style_context().add_class("linked")
+                for t in ("+", "\u2212"):
+                    botones.pack_start(_gris(Gtk.Button(label=t)), False, False, 0)
+                der.pack_start(botones, False, False, 0)
+        elif tipo == "publicidad":
+            der.pack_start(texto("All Advertisers", negrita=True), False, False, 0)
+            limitar = Gtk.CheckButton(label="Limit Ad Tracking")
+            der.pack_start(_gris(limitar), False, False, 0)
+            der.pack_start(texto("Opt out of receiving ads targeted to your interests in Apple Apps and your iOS devices. "
+                                 "You may still receive the same number of ads, but the ads may be less relevant to you."),
+                           False, False, 0)
+            der.pack_start(boton("Reset Advertising Identifier"), False, False, 0)
+            der.pack_start(texto("Advertising in Apple Apps", negrita=True), False, False, 12)
+            der.pack_start(texto("View the information used by Apple to deliver more relevant ads to you in Apple News, "
+                                 "Stocks, and the iOS App Store. Your personal data is not provided to third parties."),
+                           False, False, 0)
+            der.pack_start(boton("View Ad Information"), False, False, 0)
+            pie = Gtk.Box()
+            pie.pack_end(boton("About Advertising & Privacy…"), False, False, 0)
+            der.pack_end(pie, False, False, 0)
+        else:   # analitica
+            der.pack_start(texto("Help Apple and app developers improve their products and services automatically."),
+                           False, False, 0)
+            marco = _marco()
+            desplazable = Gtk.ScrolledWindow()
+            desplazable.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+            desplazable.set_size_request(-1, 240)
+            col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6, margin=8)
+            for titulo, detalle in (
+                    ("Share Mac Analytics", "Help Apple improve its products and services by automatically sending "
+                                            "diagnostics and usage data. Diagnostic data may include locations."),
+                    ("Improve Siri & Dictation", "Help improve Siri and Dictation by allowing Apple to store and review "
+                                                 "audio of your Siri and Dictation interactions from this device."),
+                    ("Share with App Developers", "Help app developers improve their apps by allowing Apple to share crash "
+                                                  "and usage data with them.")):
+                c = Gtk.CheckButton(label=titulo)
+                col.pack_start(c, False, False, 0)
+                d = texto(detalle)
+                d.set_margin_start(26)
+                d.get_style_context().add_class("mp-sd-detalle")
+                col.pack_start(d, False, False, 0)
+            desplazable.add(col)
+            marco.add(desplazable)
+            der.pack_start(_gris(marco), True, True, 0)
+            pie = Gtk.Box()
+            pie.pack_end(boton("About Analytics and Privacy…"), False, False, 0)
+            der.pack_start(pie, False, False, 0)
+        return der
