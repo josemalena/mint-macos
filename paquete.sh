@@ -155,6 +155,15 @@ desmontar_mac
 tar -cf "$DEST/mac-sistema.tar" -C "$STAGE" .
 rm -rf "$STAGE"
 echo "  $(du -h "$DEST/mac-sistema.tar" | cut -f1)"
+# La memoria TRANSPORTE es FAT32 (nada de más de 4 GB): con todos los Desktop
+# Pictures el tar pasa de 4.4 GB (16-10-2026). Se parte en trozos de 3.9 GB que
+# instalar-aqui.sh vuelve a juntar.
+if [ "$(stat -c %s "$DEST/mac-sistema.tar")" -gt 3900000000 ]; then
+  rm -f "$DEST"/mac-sistema.tar.parte-*
+  split -b 3900m -d "$DEST/mac-sistema.tar" "$DEST/mac-sistema.tar.parte-"
+  rm -f "$DEST/mac-sistema.tar"
+  echo "  partido para FAT32: $(ls "$DEST"/mac-sistema.tar.parte-* | xargs -n1 basename | tr '\n' ' ')"
+fi
 
 paso "Lo de Apple sacado en la Mac misma"
 EXTRA=()

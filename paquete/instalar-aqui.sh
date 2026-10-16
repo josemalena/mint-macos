@@ -75,7 +75,9 @@ echo "  $(tar -tzf "$AQUI/binarios.tar.gz" | wc -l) archivos en ~/.local"
 p_apple() {
 paso "4. Lo de Apple"
 rm -rf "${MAC:?}"; mkdir -p "$MAC"
-tar -xf "$AQUI/mac-sistema.tar" -C "$MAC"
+# Entero, o partido en trozos (.parte-00, -01…) cuando pasa de 4 GB (FAT32).
+if [ -f "$AQUI/mac-sistema.tar" ]; then tar -xf "$AQUI/mac-sistema.tar" -C "$MAC"
+else cat "$AQUI"/mac-sistema.tar.parte-* | tar -xf - -C "$MAC"; fi
 [ -f "$AQUI/apple-extra.tar.gz" ] && tar -xzf "$AQUI/apple-extra.tar.gz" -C "$HOME"
 # La base de los cursores, antes del tema (la flecha, la I y la espera).
 if [ -f "$AQUI/cursores-base.tar.gz" ]; then
