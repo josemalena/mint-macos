@@ -61,6 +61,8 @@ if [ -e "$REPO" ]; then
   echo "  el que había quedó al lado, con fecha"
 fi
 tar -xzf "$AQUI/mint-macos.tar.gz" -C "$HOME"
+# Los ayudantes de root en Rust, ya compilados (los instala cada instalar-root.sh).
+[ -f "$AQUI/rust-binarios.tar.gz" ] && tar -xzf "$AQUI/rust-binarios.tar.gz" -C "$REPO"
 }
 
 p_binarios() {

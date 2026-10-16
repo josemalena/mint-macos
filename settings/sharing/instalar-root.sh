@@ -1,6 +1,7 @@
 #!/bin/bash
 # Instala el ayudante de Sharing y su acción de polkit. REQUIERE ROOT:
 #   sudo ./instalar-root.sh            instala
+#   sudo ./instalar-root.sh --python   instala el de Python aunque esté el de Rust
 #   sudo ./instalar-root.sh --quitar   lo quita (no apaga los servicios que ya estén encendidos)
 # (El panel muestra el estado sin esto, pero sin la acción no hay clave y no cambia nada.)
 set -euo pipefail
@@ -13,6 +14,15 @@ if [ "${1:-}" = "--quitar" ]; then
   echo "Quitado."; exit 0
 fi
 install -d -m 0755 /usr/libexec/mint-macos
-install -m 0755 -o root -g root "$AQUI/mint-macos-sharing" "$DEST"
+# El ayudante en Rust (rust/sharing, mismo comportamiento que el Python, 16-10-2026)
+# si está compilado: cd rust && cargo build --release (como tu usuario, NO con sudo).
+# Si no, el de Python. --python fuerza el de Python. Siempre se COPIA a
+# /usr/libexec con dueño root: la .policy nunca apunta a algo que el usuario pueda escribir.
+RUST="$AQUI/../../rust/target/release/mint-macos-sharing"
+if [ "${1:-}" != "--python" ] && [ -x "$RUST" ]; then
+  install -m 0755 -o root -g root "$RUST" "$DEST"; echo "  ayudante: Rust ($RUST)"
+else
+  install -m 0755 -o root -g root "$AQUI/mint-macos-sharing" "$DEST"; echo "  ayudante: Python"
+fi
 install -m 0644 -o root -g root "$AQUI/org.mintmacos.sharing.policy" "$POL"
 echo "Instalado: $DEST y $POL"

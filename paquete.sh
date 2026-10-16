@@ -17,6 +17,7 @@
 #   cursores-base.tar.gz  McMojave-cursors, la base de los cursores de Constanza
 #   spotlyte.tar.gz     Spotlyte (el Spotlight), y spotlyte-config.tar.gz su configuración
 #   fynder-ajustes.dconf  los ajustes de Fynder del usuario (etiquetas, menú global…)
+#   rust-binarios.tar.gz  los ayudantes de root en Rust (rust/target/release)
 #   greeter.tar.gz      el fork de la pantalla de inicio, en el hash de login/instalar.sh
 #   instalar-aqui.sh    el que se corre en la otra computadora
 #   asistente-root.sh   la parte de root del asistente gráfico (pkexec, una clave)
@@ -108,6 +109,21 @@ echo "  $(grep -c = "$DEST/fynder-ajustes.dconf") ajustes"
 # Dock compilados del HEAD commiteado, para no llevar lo que haya instalado aquí
 # a medias (16-10-2026). Por defecto, lo instalado en este ~/.local.
 ORIGEN_BIN="${BINARIOS_DESDE:-$HOME}"
+# Los binarios de Rust (rust/: los ayudantes de root), compilados del HEAD
+# commiteado en una carpeta aparte; van a ~/mint-macos/rust/target/release, donde
+# los buscan los instalar-root.sh. En la otra computadora no hace falta Rust.
+paso "Binarios de Rust"
+if command -v cargo >/dev/null && [ -f "$REPO/rust/Cargo.toml" ]; then
+  RT="$(mktemp -d)"
+  git -C "$REPO" archive HEAD rust | tar -x -C "$RT"
+  ( cd "$RT/rust" && CARGO_TARGET_DIR="$RT/rust/target" cargo build --release --locked --quiet )
+  ( cd "$RT" && tar -czf "$DEST/rust-binarios.tar.gz" $(cd "$RT" && find rust/target/release -maxdepth 1 -type f -name 'mint-macos-*' -perm -u+x) )
+  echo "  $(tar -tzf "$DEST/rust-binarios.tar.gz" | xargs -n1 basename | tr '\n' ' ')"
+  rm -rf "$RT"
+else
+  echo "  sin cargo o sin rust/: el paquete va sin binarios de Rust (los instalar-root usan el Python)"
+fi
+
 paso "Fynder y el Dock instalados${BINARIOS_DESDE:+ (de $BINARIOS_DESDE)}"
 LISTA="$(mktemp)"
 for b in "$BUILD_FYNDER" "$BUILD_DOCK"; do
