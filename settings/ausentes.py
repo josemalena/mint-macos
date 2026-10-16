@@ -1,4 +1,4 @@
-"""Siri, Screen Time, Profiles y CDs & DVDs: los paneles de Catalina que Linux no tiene.
+"""Siri, Profiles y CDs & DVDs: los paneles de Catalina que Linux no tiene.
 
 Se dibujan como en las capturas (Screen Shot 2026-10-14 at 12.13.06 AM Siri y 1.25.57 PM … 1.26.31 PM
 Screen Time) pero en gris, como en una Mac que no tuviera esa función: nada se inventa ni se deja
@@ -103,49 +103,6 @@ class PanelSiri(_Ausente):
         menu.set_active(True)
         der.attach(_gris(menu), 0, 7, 2, 1)
         der.attach(_gris(Gtk.Button(label="Siri Suggestions & Privacy…")), 1, 7, 1, 1)
-        caja.pack_start(der, True, True, 0)
-        caja.show_all()
-        return caja
-
-
-class PanelScreenTime(_Ausente):
-    id = "com.apple.preference.screentime"
-    nombre = "Screen Time"
-    palabras = "screen time, app usage, downtime, app limits, content privacy"
-
-    def construir(self):
-        caja = Gtk.Box(spacing=0)
-        caja.get_style_context().add_class("mp-propio")
-        caja.set_margin_bottom(14)
-        izq = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6, margin=14)
-        izq.set_size_request(210, 330)
-        izq.pack_start(_gris(Gtk.Image.new_from_icon_name("avatar-default", Gtk.IconSize.DIALOG)), False, False, 8)
-        usuario = Gtk.ComboBoxText()
-        usuario.append("u", "Screen Time")
-        usuario.set_active(0)
-        izq.pack_start(_gris(usuario), False, False, 8)
-        lista = Gtk.ListBox()
-        for n in ("App Usage", "Notifications", "Pickups", "Downtime", "App Limits", "Communication",
-                  "Always Allowed", "Content & Privacy"):
-            fila = Gtk.ListBoxRow()
-            fila.add(Gtk.Label(label=n, xalign=0, margin=6))
-            lista.add(fila)
-        izq.pack_start(_gris(lista), True, True, 0)
-        izq.pack_start(_gris(Gtk.Button(label="Options")), False, False, 0)
-        caja.pack_start(izq, False, False, 0)
-        caja.pack_start(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL), False, False, 0)
-        der = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8, margin=14)
-        marco = _marco()
-        marco.set_size_request(-1, 280)
-        t = Gtk.Label(label="Usage", xalign=0, margin=10)
-        marco.add(t)
-        der.pack_start(_gris(marco), True, True, 0)
-        pie = Gtk.Box(spacing=8)
-        todos = Gtk.ComboBoxText()
-        todos.append("a", "All Devices")
-        todos.set_active(0)
-        pie.pack_start(_gris(todos), False, False, 0)
-        der.pack_start(pie, False, False, 0)
         caja.pack_start(der, True, True, 0)
         caja.show_all()
         return caja
