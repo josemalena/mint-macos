@@ -10,3 +10,6 @@ tema/**/*.png
 *.heic
 *.jpg
 *.jpeg
+
+# Lo que compila cargo.
+rust/target/

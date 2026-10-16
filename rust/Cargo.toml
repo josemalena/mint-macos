@@ -1,0 +1,16 @@
+# Los binarios de mint-macos en Rust: ayudantes de root y servicios sin ventana
+# (decisión de José, 16-10-2026). Lo que tiene ventana va en Vala.
+[workspace]
+resolver = "2"
+members = ["modifier-keys"]
+
+[workspace.package]
+edition = "2021"
+license = "GPL-3.0-or-later"
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
