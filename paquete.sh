@@ -104,21 +104,26 @@ for l in sys.stdin:
 ' > "$DEST/fynder-ajustes.dconf"
 echo "  $(grep -c = "$DEST/fynder-ajustes.dconf") ajustes"
 
-paso "Fynder y el Dock instalados"
+# BINARIOS_DESDE: un «home» de montaje (meson install --destdir) con Fynder y el
+# Dock compilados del HEAD commiteado, para no llevar lo que haya instalado aquí
+# a medias (16-10-2026). Por defecto, lo instalado en este ~/.local.
+ORIGEN_BIN="${BINARIOS_DESDE:-$HOME}"
+paso "Fynder y el Dock instalados${BINARIOS_DESDE:+ (de $BINARIOS_DESDE)}"
 LISTA="$(mktemp)"
 for b in "$BUILD_FYNDER" "$BUILD_DOCK"; do
   [ -f "$b/build.ninja" ] || { echo "  ✗ no hay build de meson en $b (BUILD_FYNDER / BUILD_DOCK)"; exit 1; }
   meson introspect --installed "$b" | python3 -c '
 import json, os, sys
 home = os.path.expanduser("~") + "/"
+origen = sys.argv[1].rstrip("/") + "/"
 for destino in json.load(sys.stdin).values():
     if not destino.startswith(home + ".local/"):
         sys.exit(f"  ✗ {destino} no está en ~/.local")
-    if os.path.lexists(destino):
+    if os.path.lexists(origen + destino[len(home):]):
         print(destino[len(home):])
-' >> "$LISTA"
+' "$ORIGEN_BIN" >> "$LISTA"
 done
-tar -czf "$DEST/binarios.tar.gz" -C "$HOME" -T "$LISTA"
+tar -czf "$DEST/binarios.tar.gz" -C "$ORIGEN_BIN" -T "$LISTA"
 echo "  $(wc -l < "$LISTA") archivos, $(du -h "$DEST/binarios.tar.gz" | cut -f1)"
 rm -f "$LISTA"
 
