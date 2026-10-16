@@ -142,6 +142,36 @@ def entregar(destino, ruta):
         print(f"No se pudo entregar la captura ({destino}): {e}", file=sys.stderr)
 
 
+def capturar_ventana(wid, ruta):
+    """Guarda la ventana con su canal alfa (import lo pierde y deja el margen transparente en negro).
+    Si la ventana trae marco del gestor, se toma el marco; si dibuja su propia sombra con
+    _GTK_FRAME_EXTENTS, se recorta. Devuelve True si la propia ventana ya trae una sombra o margen
+    transparente en los bordes (entonces no se le añade la de la Mac)."""
+    display = Gdk.Display.get_default()
+    cliente = GdkX11.X11Window.foreign_new_for_display(display, int(wid))
+    arriba, ox, oy = cliente, 0, 0
+    padre = cliente.get_parent()
+    if padre is not None and padre.get_window_type() != Gdk.WindowType.ROOT:
+        arriba = padre
+        ox, oy = cliente.get_position()
+    izq, der, arr, aba = extensiones_gtk(wid)
+    if any((izq, der, arr, aba)):
+        x, y = ox + izq, oy + arr
+        ancho, alto = cliente.get_width() - izq - der, cliente.get_height() - arr - aba
+        arriba = padre if (ox or oy) else cliente
+        pb = Gdk.pixbuf_get_from_window(arriba, x, y, ancho, alto)
+    else:
+        pb = Gdk.pixbuf_get_from_window(arriba, 0, 0, arriba.get_width(), arriba.get_height())
+    if pb is None:
+        raise RuntimeError("no se pudo leer la ventana")
+    pb.savev(ruta, "png", [], [])
+    if not pb.get_has_alpha():
+        return False
+    w, h, fila, canales, datos = pb.get_width(), pb.get_height(), pb.get_rowstride(), pb.get_n_channels(), pb.get_pixels()
+    centros = [(w // 2, 0), (w // 2, h - 1), (0, h // 2), (w - 1, h // 2)]
+    return any(datos[y * fila + x * canales + 3] < 250 for x, y in centros)
+
+
 def con_sombra(ruta):
     """Como la captura de ventana de la Mac: sombra alrededor, en el canal alfa. Medida en una captura de
     Catalina (Screen Shot 1.31.45 PM): 56 px a los lados, 38 arriba, 74 abajo, alfa ~43 en el borde de la ventana."""
@@ -822,18 +852,16 @@ class Barra(Gtk.Window):
         if modo == "pantalla":
             cmd = ["import", "-window", "root", ruta]
         elif modo == "ventana":
-            wid, (ancho, alto), (izq, arr) = dato
-            cmd = ["import", "-frame", "-window", str(wid)]
-            if izq or arr:      # sin la sombra transparente que la propia ventana dibuja alrededor
-                cmd += ["-crop", f"{ancho}x{alto}+{izq}+{arr}", "+repage"]
-            cmd += [ruta]
+            cmd = None
         else:
             x, y, w, h = dato
             cmd = ["import", "-window", "root", "-crop", f"{w}x{h}+{x}+{y}", "+repage", ruta]
         try:
-            subprocess.run(cmd, timeout=30, check=True)
             if modo == "ventana":
-                con_sombra(ruta)
+                if not capturar_ventana(dato[0], ruta):     # sin sombra propia: se le pone la de la Mac
+                    con_sombra(ruta)
+            else:
+                subprocess.run(cmd, timeout=30, check=True)
         except Exception as e:
             print(f"No se pudo capturar: {e}", file=sys.stderr)
             self.destroy()
