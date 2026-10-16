@@ -13,3 +13,5 @@ tema/**/*.png
 
 # Lo que compila cargo.
 rust/target/
+
+nativo/build/
