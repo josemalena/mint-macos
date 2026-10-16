@@ -294,7 +294,7 @@ class Elegir(Gtk.Window):
     """Cursor de cámara: al pasar sobre una ventana (o la pantalla) se resalta; un clic la elige.
     Devuelve el id de la ventana ('root' para la pantalla) o None si se cancela con Esc."""
 
-    def __init__(self, modo, alResolver):
+    def __init__(self, modo, alResolver, barra=None):
         super().__init__(type=Gtk.WindowType.POPUP)
         self.modo = modo
         self.alResolver = alResolver
@@ -318,7 +318,10 @@ class Elegir(Gtk.Window):
         gw = self.get_window()
         gw.set_cursor(cursor_camara(self.get_display()))
         gw.focus(Gdk.CURRENT_TIME)
-        self.get_display().get_default_seat().grab(gw, Gdk.SeatCapabilities.ALL, True, None, None, None)
+        if barra is None:
+            self.get_display().get_default_seat().grab(gw, Gdk.SeatCapabilities.ALL, True, None, None, None)
+        else:
+            dejar_pasar_a_la_barra(self, barra)
         if modo == "pantalla":
             self.sel = ("root", (0, 0, scr.get_width(), scr.get_height()))
 
@@ -377,6 +380,135 @@ class Elegir(Gtk.Window):
         self.alResolver(r)
 
 
+# ── el marco de «Capture Selected Portion» y el hueco para la barra ─────────
+def dejar_pasar_a_la_barra(ventana, barra):
+    """La ventana a pantalla completa deja pasar los clics sobre la barra (y la barra sigue arriba)."""
+    gw, gb = ventana.get_window(), barra.get_window()
+    if not gw or not gb:
+        return
+    pant = ventana.get_screen()
+    region = cairo.Region(cairo.RectangleInt(0, 0, pant.get_width(), pant.get_height()))
+    r = gb.get_frame_extents()
+    region.subtract(cairo.RectangleInt(r.x, r.y, r.width, r.height))
+    gw.input_shape_combine_region(region, 0, 0)
+    gb.raise_()
+    ventana.hueco_barra = (r.x, r.y, r.width, r.height)
+
+
+class Marco(Gtk.Window):
+    """Como en la Mac: un marco ya puesto, que se mueve arrastrando por dentro y se ajusta por los
+    bordes y las esquinas. El botón Capture toma lo que queda dentro (ver Barra._ejecutar)."""
+    AGARRE = 9
+    MINIMO = 40
+
+    def __init__(self, rect, barra, alSalir):
+        super().__init__(type=Gtk.WindowType.POPUP)
+        self.barra = barra
+        self.alSalir = alSalir
+        scr = self.get_screen()
+        if scr.get_rgba_visual():
+            self.set_visual(scr.get_rgba_visual())
+        self.set_app_paintable(True)
+        self.set_decorated(False)
+        self.set_keep_above(True)
+        self.ancho, self.alto = scr.get_width(), scr.get_height()
+        self.rect = list(rect)
+        self.arrastre = None
+        self.add_events(Gdk.EventMask.BUTTON_PRESS_MASK | Gdk.EventMask.BUTTON_RELEASE_MASK |
+                        Gdk.EventMask.POINTER_MOTION_MASK)
+        self.connect("draw", self._dibujar)
+        self.connect("button-press-event", self._abajo)
+        self.connect("motion-notify-event", self._mover)
+        self.connect("button-release-event", self._arriba)
+        self.move(0, 0)
+        self.resize(self.ancho, self.alto)
+        self.show_all()
+        dejar_pasar_a_la_barra(self, barra)
+
+    def get_rect(self):
+        x, y, w, h = self.rect
+        return (int(x), int(y), int(w), int(h))
+
+    def _zona(self, px, py):
+        x, y, w, h = self.rect
+        g = self.AGARRE
+        if not (x - g <= px <= x + w + g and y - g <= py <= y + h + g):
+            return None
+        izq, der = abs(px - x) <= g, abs(px - (x + w)) <= g
+        arr, aba = abs(py - y) <= g, abs(py - (y + h)) <= g
+        return (("n" if arr else "s" if aba else "") + ("w" if izq else "e" if der else "")) or "mover"
+
+    def _cursor(self, zona):
+        nombres = {"n": "ns-resize", "s": "ns-resize", "e": "ew-resize", "w": "ew-resize",
+                   "nw": "nwse-resize", "se": "nwse-resize", "ne": "nesw-resize", "sw": "nesw-resize",
+                   "mover": "move"}
+        gw = self.get_window()
+        if gw:
+            gw.set_cursor(Gdk.Cursor.new_from_name(self.get_display(), nombres.get(zona, "default")))
+
+    def _dibujar(self, _w, cr):
+        x, y, w, h = self.rect
+        cr.set_operator(cairo.OPERATOR_SOURCE)
+        cr.set_source_rgba(0, 0, 0, 0.25)
+        cr.paint()
+        cr.set_source_rgba(0, 0, 0, 0.01)
+        cr.rectangle(x, y, w, h)
+        cr.fill()
+        if getattr(self, "hueco_barra", None):      # la barra no se atenúa
+            cr.set_source_rgba(0, 0, 0, 0)
+            cr.rectangle(*self.hueco_barra)
+            cr.fill()
+        cr.set_operator(cairo.OPERATOR_OVER)
+        cr.set_source_rgba(1, 1, 1, 0.95)
+        cr.set_line_width(1)
+        cr.rectangle(x + 0.5, y + 0.5, w, h)
+        cr.stroke()
+        for hx, hy in ((x, y), (x + w / 2, y), (x + w, y), (x, y + h / 2), (x + w, y + h / 2),
+                       (x, y + h), (x + w / 2, y + h), (x + w, y + h)):
+            cr.rectangle(hx - 3, hy - 3, 7, 7)
+            cr.set_source_rgba(1, 1, 1, 1)
+            cr.fill_preserve()
+            cr.set_source_rgba(0, 0, 0, 0.5)
+            cr.stroke()
+        cr.set_source_rgba(1, 1, 1, 1)
+        cr.set_font_size(12)
+        cr.move_to(x + w + 6, y + h + 16)
+        cr.show_text(f"{int(w)}×{int(h)}")
+        return True
+
+    def _abajo(self, _w, e):
+        zona = self._zona(e.x_root, e.y_root)
+        if zona and e.button == 1:
+            self.arrastre = (zona, e.x_root, e.y_root, list(self.rect))
+
+    def _mover(self, _w, e):
+        if not self.arrastre:
+            self._cursor(self._zona(e.x_root, e.y_root))
+            return
+        zona, px, py, r0 = self.arrastre
+        dx, dy = e.x_root - px, e.y_root - py
+        x, y, w, h = r0
+        if zona == "mover":
+            x = min(max(0, x + dx), self.ancho - w)
+            y = min(max(0, y + dy), self.alto - h)
+        else:
+            if "w" in zona:
+                nx = min(max(0, x + dx), x + w - self.MINIMO)
+                w, x = w + (x - nx), nx
+            if "e" in zona:
+                w = min(max(self.MINIMO, w + dx), self.ancho - x)
+            if "n" in zona:
+                ny = min(max(0, y + dy), y + h - self.MINIMO)
+                h, y = h + (y - ny), ny
+            if "s" in zona:
+                h = min(max(self.MINIMO, h + dy), self.alto - y)
+        self.rect = [x, y, w, h]
+        self.queue_draw()
+
+    def _arriba(self, _w, _e):
+        self.arrastre = None
+
+
 # ── la barra ────────────────────────────────────────────────────────────────
 # Qué pasa cuando la barra termina: suelto, el programa sale; dentro del ayudante
 # residente (ayudante/ayudante.py) esto se cambia por una función que no hace nada.
@@ -391,6 +523,9 @@ class Barra(Gtk.Window):
             self.cfg["modo"] = "pantalla"
         self.grabacion = None
         self.botones = {}
+        self.marco = None           # el marco de «Selected Portion» mientras está puesto
+        self.selector = None        # el cursor de cámara de «Selected Window»
+        self.rect = None            # el último marco, para volver a ponerlo igual
 
         prov = Gtk.CssProvider()
         prov.load_from_data(CSS)
@@ -445,11 +580,12 @@ class Barra(Gtk.Window):
         self.accion.connect("clicked", lambda *_: self._ejecutar())
         fila.pack_start(self.accion, False, False, 0)
 
-        self._elegir(self.cfg["modo"])
+        self._elegir(self.cfg["modo"], armar=False)
         self.show_all()
         pant = self.get_screen()
         self.move((pant.get_width() - self.get_allocated_width()) // 2, pant.get_height() - 150)
         GLib.idle_add(self._centrar)
+        GLib.timeout_add(120, lambda: self._armar() or False)
 
     def _centrar(self):
         pant = self.get_screen()
@@ -464,13 +600,43 @@ class Barra(Gtk.Window):
         s.set_margin_top(8); s.set_margin_bottom(8)
         return s
 
-    def _elegir(self, modo):
+    def _elegir(self, modo, armar=True):
         self.cfg["modo"] = modo
         for m, b in self.botones.items():
             ctx = b.get_style_context()
             ctx.add_class("elegido") if m == modo else ctx.remove_class("elegido")
         self.accion.set_label("Record" if modo.startswith("grabar") else "Capture")
         guardar(self.cfg)
+        if armar:
+            self._armar()
+
+    def _soltar_armado(self):
+        if self.marco is not None:
+            self.rect = self.marco.get_rect()
+            self.marco.destroy()
+            self.marco = None
+        if self.selector is not None:
+            self.selector.destroy()
+            self.selector = None
+
+    def _armar(self):
+        """Lo que cada modo deja puesto antes de pulsar Capture, como en la Mac: la porción tiene su
+        marco; la ventana, el cursor de cámara (se elige con un clic, sin usar Capture); la pantalla
+        entera, nada: Capture la toma."""
+        self._soltar_armado()
+        modo = self.cfg["modo"]
+        if modo in ("porcion", "grabar-porcion"):
+            if self.rect is None:
+                pant = self.get_screen()
+                ancho, alto = pant.get_width() // 2, pant.get_height() // 2
+                self.rect = (pant.get_width() // 4, pant.get_height() // 4, ancho, alto)
+            self.marco = Marco(self.rect, self, self.destroy)
+        elif modo == "ventana":
+            self.selector = Elegir("ventana", self._tras_elegir_ventana, self)
+
+    def destroy(self):
+        self._soltar_armado()
+        super().destroy()
 
     def _tecla(self, _w, e):
         if e.keyval == Gdk.KEY_Escape:
@@ -537,26 +703,27 @@ class Barra(Gtk.Window):
 
     # ── hacer la captura o la grabación ────────────────────────────────────
     def _ejecutar(self):
+        """El botón Capture (o Record) hace la captura ya, con el modo escogido y el temporizador de Options."""
         modo = self.cfg["modo"]
-        self.hide()
+        if modo == "ventana":
+            return              # la ventana se elige con un clic, no con Capture (guía «Take a screenshot»)
         if modo in ("porcion", "grabar-porcion"):
-            GLib.timeout_add(150, lambda: Seleccion(lambda r: self._tras_seleccion(modo, r)) and False)
-        elif modo in ("ventana", "pantalla"):
-            GLib.timeout_add(150, lambda: Elegir(modo, lambda w: self._tras_elegir(modo, w)) and False)
+            if self.marco is None:
+                return
+            self.rect = self.marco.get_rect()
+            dato = self.rect
         else:
-            self._con_temporizador(lambda: self._hacer(modo, None))
+            dato = None
+        self._soltar_armado()
+        self.hide()
+        self._con_temporizador(lambda: self._hacer(modo, dato))
 
-    def _tras_elegir(self, modo, wid):
+    def _tras_elegir_ventana(self, wid):
+        self.selector = None
         if wid is None:
-            self.show()
             return
-        self._con_temporizador(lambda: self._hacer(modo, wid))
-
-    def _tras_seleccion(self, modo, r):
-        if r is None:
-            self.show()
-            return
-        self._con_temporizador(lambda: self._hacer(modo, r))
+        self.hide()
+        self._con_temporizador(lambda: self._hacer("ventana", wid))
 
     def _con_temporizador(self, fn):
         seg = int(self.cfg["temporizador"])
