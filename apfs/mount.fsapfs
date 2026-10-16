@@ -1,8 +1,34 @@
 #!/bin/bash
-# mount(8) helper para el volumen APFS "MacMini - Data" via fsapfsmount (FUSE, userspace)
-# Invocado automaticamente por mount/systemd cuando fstab usa fstype=fsapfs
-SRC="$1"
-shift
-TARGET="$1"
-shift
-exec /usr/local/bin/fsapfsmount -f 1 -X allow_other "$SRC" "$TARGET"
+# mount(8) helper para un volumen APFS de la Mac vía fsapfsmount (FUSE, userspace).
+# Lo llaman mount/systemd cuando fstab usa fstype=fsapfs:
+#   mount.fsapfs <contenedor> <punto> [-o opciones]
+#
+# Lo arranca root (el automount), así que sin uid/gid todo saldría con dueño 0
+# y la .Trashes/<uid> (0700) del usuario quedaría ilegible (Dev, 16-10-2026).
+# El dueño sale, en este orden: uid=/gid= de las opciones de fstab, el dueño de
+# la carpeta de montaje, o el de la carpeta que la contiene (/media/<usuario>,
+# cuando el punto lo creó root). Nunca un número fijo: en la Mac mini José es
+# 501 y en koralis02 1000. Volumen: fsvol=N en las opciones (por defecto 1, el
+# de datos).
+SRC="$1"; shift
+TARGET="$1"; shift
+OPCIONES=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -o) OPCIONES="${OPCIONES:+$OPCIONES,}${2:-}"; shift 2 ;;
+    -o*) OPCIONES="${OPCIONES:+$OPCIONES,}${1#-o}"; shift ;;
+    *) shift ;;
+  esac
+done
+opcion() { echo ",$OPCIONES," | sed -n "s/.*,$1=\([^,]*\),.*/\1/p"; }
+U="$(opcion uid)"; G="$(opcion gid)"; VOL="$(opcion fsvol)"
+if [ -z "$U" ]; then
+  U="$(stat -c %u "$TARGET" 2>/dev/null)"; G="${G:-$(stat -c %g "$TARGET" 2>/dev/null)}"
+  if [ "${U:-0}" = 0 ]; then
+    U="$(stat -c %u "$(dirname "$TARGET")" 2>/dev/null)"; G="$(stat -c %g "$(dirname "$TARGET")" 2>/dev/null)"
+  fi
+fi
+[[ "${U:-}" =~ ^[0-9]+$ ]] || U=0
+[[ "${G:-}" =~ ^[0-9]+$ ]] || G="$U"
+[[ "${VOL:-}" =~ ^[0-9]+$ ]] || VOL=1
+exec /usr/local/bin/fsapfsmount -f "$VOL" -X "allow_other,uid=$U,gid=$G" "$SRC" "$TARGET"
