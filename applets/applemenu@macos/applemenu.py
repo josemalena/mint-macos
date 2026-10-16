@@ -546,6 +546,7 @@ class ConfirmDialog(Gtk.Window):
         titulo.set_name("mac-titulo")
         titulo.set_xalign(0.0)
         titulo.set_line_wrap(True)
+        titulo.set_max_width_chars(36)   # sin tope, el ancho «natural» (todo el texto en una línea) ensancha la ventana
         titulo.set_size_request(ANCHO - 91 - 20, -1)
         derecha.pack_start(titulo, False, False, 0)
 
@@ -553,6 +554,7 @@ class ConfirmDialog(Gtk.Window):
         self.countdown_lbl.set_name("mac-cuenta")
         self.countdown_lbl.set_xalign(0.0)
         self.countdown_lbl.set_line_wrap(True)
+        self.countdown_lbl.set_max_width_chars(46)   # ídem: el ancho natural queda en lo que mide la columna
         self.countdown_lbl.set_size_request(ANCHO - 91 - 20, -1)
         self.countdown_lbl.set_margin_top(8)
         derecha.pack_start(self.countdown_lbl, False, False, 0)
@@ -750,6 +752,7 @@ class GuestLogoutDialog(Gtk.Window):
         texto.set_xalign(0.0)
         texto.set_yalign(0.0)
         texto.set_line_wrap(True)
+        texto.set_max_width_chars(36)   # ídem: sin tope el ancho natural ensancha la ventana
         texto.set_size_request(ancho_texto, -1)
         caja.put(texto, 92, FRANJA_INV + 44)
 
