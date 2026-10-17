@@ -205,7 +205,7 @@ hay ni uno en el repo** (`.gitignore` bloquea `.icns`, `.png`, `.ttf`, `.otf`,
 
 Todo lo de afuera va en una versión fija, y todas están en un solo archivo,
 `versiones.sh`, que los scripts cargan con `source`: el commit de cada fork
-(Fynder, mint-macos-dock, slick-greeter-mac; Spotlyte, todavía sin fijar) con su upstream y su
+(Fynder, mint-macos-dock, slick-greeter-mac, Spotlyte) con su upstream y su
 base, lo que se baja en una versión fija (keyd, libfsapfs, Magic Lamp,
 Mojave-gtk-theme, rclone) y los paquetes de apt de `requisitos.sh`. Ningún otro
 script fija un hash.
@@ -218,6 +218,11 @@ el HEAD y cada fork en su hash, compila, corre las pruebas y arma el paquete
 con `paquete.sh`. Dos corridas del mismo HEAD tienen que dar los mismos
 archivos (`SUMAS.sha256` en la carpeta del paquete).
 
+Fynder y Spotlyte están en repos privados: para clonarlos, `armar.sh` necesita
+credenciales de GitHub (`gh auth login`, que deja a `gh` de ayudante de git).
+Sin ellas cae al repo local de al lado, si tiene el hash, y lo avisa con ⚠. La
+computadora que recibe el paquete no clona nada: todo va dentro.
+
 `VERSIONES.md` es la lista de parches de cada fork sobre su upstream, generada;
 el verificador falla si quedó vieja o si un script volvió a fijar un hash por
 su cuenta.
@@ -226,7 +231,7 @@ su cuenta.
 
 | Repo | Qué es | Licencia |
 |---|---|---|
-| [josemalena/fynder](https://github.com/josemalena/fynder) | El administrador de archivos (fork de Nemo) | GPL-2+ |
+| [josemalena/fynder](https://github.com/josemalena/fynder) (privado) | El administrador de archivos (fork de Nemo) | GPL-2+ |
 | [josemalena/mint-macos-dock](https://github.com/josemalena/mint-macos-dock) | El Dock (fork de zquestz/plank-reloaded; se instala como `plank`) | GPL-3 |
 | [josemalena/mint-macos-greeter](https://github.com/josemalena/mint-macos-greeter) | La pantalla de inicio y de bloqueo (fork de linuxmint/slick-greeter; se instala como `slick-greeter-mac`) | GPL-3 |
 | [Magic Lamp](https://github.com/klangman/CinnamonMagicLamp) (klangman, Cinnamon Spices) | El efecto genio al minimizar; se baja en un commit fijo, no se copia | GPL-3 (su `LICENSE` va con ella) |

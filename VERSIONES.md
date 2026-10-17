@@ -7,9 +7,9 @@ Cada fork, el commit que se compila y los parches que lleva encima de su upstrea
 
 - Fork: https://github.com/josemalena/fynder.git
 - Upstream: https://github.com/linuxmint/nemo.git, rama `master`
-- Commit: `6df603c9598d92bef95cc13bc781a65abe53a043` (2026-10-10, iCloud Drive: círculo de progreso en la barra lateral y ventana con subidas y bajadas (API rc de rclone por socket Unix))
+- Commit: `0079bbae4d2ab412b287af06ebf76daa0f05a8d7` (2026-10-17, feat: ⌥⌘V mueve lo copiado, iCloud Drive entra en This Mac, glifo de Connect y build reproducible)
 - Base: `66eabf459bc86d03c24797274d0e3f60b9b7a7d8` (master.lmde7), 2026-10-06, nemo-icon-dnd.c: Fix reporting a successful drag result.
-- Parches: 106
+- Parches: 191
 
 | Commit | Fecha | Asunto |
 |---|---|---|
@@ -119,6 +119,91 @@ Cada fork, el commit que se compila y los parches que lleva encima de su upstrea
 | `af726aff` | 2026-10-10 | Los montajes FUSE de rclone (iCloud Drive) ya no salen como discos en la barra lateral ni en el escritorio |
 | `ab41db80` | 2026-10-10 | Barra lateral: solo se oculta el montaje de iCloud; los demás de rclone siguen en Locations (el escritorio los sigue omitiendo) |
 | `6df603c9` | 2026-10-10 | iCloud Drive: círculo de progreso en la barra lateral y ventana con subidas y bajadas (API rc de rclone por socket Unix) |
+| `a4c7ca42` | 2026-10-11 | Barra lateral: el botón (expulsar / progreso de iCloud) queda dentro del fondo de selección; el círculo de iCloud consulta cada segundo y se mantiene 2 s tras terminar |
+| `644aca47` | 2026-10-12 | Columnas Tags y Comments: lee las etiquetas de color y los comentarios de Finder (xattr o archivo ._ de AppleDouble) |
+| `42d87db3` | 2026-10-12 | Path Bar: la ruta termina en el elemento seleccionado, como en el Finder (una carpeta se abre al hacer clic; un archivo no) |
+| `0d5f44a8` | 2026-10-12 | Show Package Contents para paquetes de Mac (carpeta o zip de iCloud): abre el zip con archive:// de solo lectura, el doble clic no abre el gestor de archivos comprimidos, el Path Bar sigue por el zip; Tags y Comments vacíos en vez de «unknown» |
+| `ce6b5105` | 2026-10-12 | Iconos de paquetes de Mac: el .app (carpeta o zip de iCloud) muestra el icono que trae dentro (CFBundleIconFile → .icns → PNG, con caché) |
+| `ca67812a` | 2026-10-12 | Iconos de paquetes: solo el Info.plist y los .icns del primer nivel (no los de plugins anidados); la caché cambia de versión |
+| `f91a389c` | 2026-10-12 | Abrir una carpeta que ya está abierta en otra ventana o pestaña la trae al frente en vez de abrir una nueva |
+| `09f9c524` | 2026-10-12 | Importar .DS_Store: la vista de lista se lee de lsvC y solo si no hay se usa lsvp (en macOS 27 el Finder ignora lsvp) |
+| `fce51b20` | 2026-10-12 | Fynder escribe el .DS_Store: escritor del archivo (árbol B, bloques, plist binario) y exportación de vista, columnas, orden, tamaño y posiciones de íconos |
+| `0329cbc5` | 2026-10-12 | Exportación a .DS_Store: solo se avisa si el metadato guardado cambió de verdad (abrir una carpeta no escribe nada) |
+| `afb63a9c` | 2026-10-12 | Exportación a .DS_Store: el aviso compara contra el valor que había (los metadatos se guardan en segundo plano); prueba de la exportación |
+| `0877c704` | 2026-10-12 | Exportar a .DS_Store: la vista va en el .DS_Store del padre con el nombre de la carpeta, y lsvC lleva las columnas como lista con identifier (lo que escribe el Finder); el importador también lee esa forma |
+| `cb231bf6` | 2026-10-12 | Exportar a .DS_Store: junto con la vista se escriben vSrn, LSVO y lsvt como hace el Finder (solo si faltan) |
+| `cf906f5d` | 2026-10-12 | Exportar a .DS_Store: lsvt es de tipo «shor», como lo escribe el Finder |
+| `1c903590` | 2026-10-12 | Vista de columnas (as Columns) propia: una columna por carpeta del camino, vista previa del archivo, renombrar en el sitio, menú contextual, arrastrar y soltar y ancho ajustable; Cmd+3 la abre y navegar desde ella conserva la vista |
+| `5056ea81` | 2026-10-12 | Vista de columnas: la selección del camino se aplica aunque la fila ya esté, borde de columna invisible, icono de columnas |
+| `071f3693` | 2026-10-13 | Una sola ventana por carpeta: el doble clic y el escritorio traen al frente la que ya la tiene |
+| `50fadfd2` | 2026-10-13 | Arranque del escritorio: nada de stat síncronos sobre ~/Desktop en el hilo principal |
+| `15857532` | 2026-10-13 | El escritorio publica el menú de Fynder, como el Finder al hacer clic en él |
+| `20ebd0e0` | 2026-10-13 | Abrir una carpeta desde el escritorio ya no lanza otro proceso fynder |
+| `4b1e003f` | 2026-10-13 | Los discos montados se muestran en /Volumes, como en macOS |
+| `1419a54a` | 2026-10-13 | Los discos montados se cargan por /Volumes/<disco>, el enlace a /media/<usuario> |
+| `bfbe0ce8` | 2026-10-13 | Go > Applications (⇧⌘A) y Utilities (⇧⌘U), acción Applications en el menú del Dock, y el lanzador se nombra por lo que dice en la ruta |
+| `a9f5a333` | 2026-10-13 | Barra lateral: Applications después de Recent, y la papelera ya no sale |
+| `752cfd9b` | 2026-10-13 | /Applications como en el Finder: «Kind: Application» y el tamaño de cada aplicación |
+| `7f2a73b6` | 2026-10-13 | .localized como el Finder: la carpeta se muestra con el nombre del idioma del sistema |
+| `ac156773` | 2026-10-13 | Los .app de macOS: «macOS App», su tamaño, el «prohibido» y su Info.plist en Get Info |
+| `95d5d536` | 2026-10-13 | Abrir un .app de macOS avisa en vez de entrar a la carpeta |
+| `a202bf21` | 2026-10-13 | El aviso de los .app de macOS, como la hoja (sheet) del Finder |
+| `814b495f` | 2026-10-13 | Todos los avisos y confirmaciones salen como la hoja (sheet) del Finder |
+| `82a31afd` | 2026-10-13 | Diálogos: panel para las confirmaciones, atajos de Apple y foco del teclado |
+| `3540d5a0` | 2026-10-13 | CLAUDE.md: siempre revisar las capturas de referencia antes de diseñar o cerrar |
+| `df32c075` | 2026-10-13 | feat(sidebar): Applications como casilla en Settings > Sidebar; Trash sale de la lista |
+| `6b6e00cd` | 2026-10-13 | feat(preferences): pestañas con icono, título fijo y lista con iconos como el Finder |
+| `5607e88d` | 2026-10-13 | style: barra de herramientas y lateral con los grises de Catalina oscuro |
+| `251655cc` | 2026-10-13 | feat(tags): registro de etiquetas, escritura en xattr y pestaña Tags de Preferences |
+| `f624638e` | 2026-10-13 | style: una sola linea bajo la barra de herramientas |
+| `a21ae6bd` | 2026-10-13 | feat(tags): fila de puntos de color y Tags… en el menú contextual |
+| `28cc54ab` | 2026-10-13 | feat(tags): sección Tags en el lateral y búsqueda por etiqueta |
+| `3f7e9ebc` | 2026-10-13 | feat(tags): campo Tags en Get Info |
+| `309494d2` | 2026-10-13 | style: botones de la barra con los colores del Finder y glifo oscuro en la vista elegida |
+| `d393414e` | 2026-10-13 | feat(info): ventana Info del Finder, iCloud en el lateral e iconos de Preferences |
+| `fb70af79` | 2026-10-13 | feat(tags): botón Tags en la barra y atajo ⇧⌘⌫ de Empty Trash en el menú |
+| `ddbd278c` | 2026-10-13 | feat(view-options): Show View Options de la lista como el Finder |
+| `fe2eb618` | 2026-10-13 | feat(window): barra de título propia con el icono de la carpeta |
+| `30291829` | 2026-10-13 | style: barra de título y de herramientas de 54 px y encabezados del lateral como el Finder |
+| `1ba21252` | 2026-10-13 | feat(root): el disco como en el Finder, vistas alineadas al lateral y barra a 25/54 px |
+| `e7261de5` | 2026-10-13 | CLAUDE.md: el turno de pantalla (gui-lock) y el foco antes de tocar la sesión de José |
+| `4f5a165c` | 2026-10-14 | feat(view-options): iconos, galería, columnas y Desktop como el Finder, y la ventana sigue a la vista |
+| `c47046c2` | 2026-10-14 | feat(info): sugerencias de etiquetas con su punto de color en el campo Tags |
+| `8d5d6169` | 2026-10-14 | fix(desktop): el escritorio se vuelve a leer si su carpeta cambia por debajo |
+| `513d728a` | 2026-10-14 | fix(view-options): el espaciado de la rejilla del escritorio se aplica en fynder-desktop |
+| `b455dcab` | 2026-10-14 | fix(global-menu): «Fynder ▸ Empty Trash…» sale con su atajo ⇧⌘⌫ |
+| `6611bfba` | 2026-10-14 | fix(window): la raíz de un volumen lleva el icono del disco en la barra de título (TRANSPORTE, Data, HDD) |
+| `5898a1b3` | 2026-10-14 | fix(window): el icono del disco en el título busca el montaje por dispositivo e inodo (Fynder abre /Volumes/X) |
+| `8bf5d364` | 2026-10-14 | feat(desktop): rejilla del escritorio como Catalina: primera fila 30 px bajo la barra y columna derecha 45 px hacia el borde |
+| `d158eb91` | 2026-10-14 | Revert "feat(desktop): rejilla del escritorio como Catalina: primera fila 30 px bajo la barra y columna derecha 45 px hacia el borde" |
+| `e39a4f80` | 2026-10-14 | fix(desktop): la ventana del escritorio sin decoración queda en el área de trabajo (0,22), no en (-45,-7) |
+| `b34bd6eb` | 2026-10-14 | fix(info): Get Info de un disco del escritorio usa la ventana Info (ruta del URI de activación) |
+| `5674e0cc` | 2026-10-14 | feat(shortcuts): ⌘E expulsa o desmonta el disco, y los menús contextuales muestran los atajos con glifos |
+| `7c8186e5` | 2026-10-14 | feat(info): Get Info de un volumen muestra Kind, Format, Capacity, Available y Used, sin escanear el disco |
+| `80d6e473` | 2026-10-14 | feat(quicklook): la vista previa sigue a la selección con ↑↓←→, Espacio y Esc la cierran y el foco se queda en Fynder |
+| `0d65f684` | 2026-10-14 | feat(columns): el camino arranca en el disco, asa de dos rayitas, y el panel de datos con Dimensions, Tags, Where, Size y Show More |
+| `e040ed42` | 2026-10-14 | fix(icon-container): el relleno del rectángulo de selección sale del nodo rubberband del tema, no del fondo opaco del contenedor |
+| `7e8c5fc7` | 2026-10-14 | feat(columns): Add Tags… del panel agrega etiquetas con sugerencias y un clic en una etiqueta busca por ella |
+| `a25e1985` | 2026-10-14 | feat(columns): primer nivel del equipo (Macintosh HD, volúmenes montados y Network) y la cadena de un disco arranca en él |
+| `00489a11` | 2026-10-15 | fix(info): la ventana toma el alto de su contenido, el candado y los permisos funcionan, el engranaje abre las propiedades estándar; ⌘W cierra solo la ventana activa y ⌥⌘W todas |
+| `3a29f18e` | 2026-10-15 | feat(columns): clic derecho en una etiqueta del panel ofrece «Remove Tag» |
+| `2975f9eb` | 2026-10-15 | fix(info): el candado y el chmod por pkexec corren sin bloquear la ventana |
+| `0a88ee15` | 2026-10-15 | feat(pathbar): el ícono del título y los segmentos de la barra de ruta se arrastran como archivo o como ruta |
+| `2b1a04fe` | 2026-10-15 | feat(trash): la Trash suma la papelera de macOS de los discos externos (.Trashes/<uid>) |
+| `39605ace` | 2026-10-15 | test(trash): gancho FYNDER_TRASH_PRUEBA para probar Empty Trash sin tocar discos ni la Trash reales |
+| `bc25f90c` | 2026-10-16 | feat(disks): los discos APFS de fstab (fsapfs) salen siempre en Locations y en el escritorio |
+| `c69f0e69` | 2026-10-16 | feat(disks): los montajes internos de ~/.cache/mint-macos no se listan en ningún lado |
+| `153a1e56` | 2026-10-17 | feat(gallery): panel de información a la derecha, como el de la Gallery del Finder |
+| `5f44b6a8` | 2026-10-17 | feat(gallery): el tamaño de la tira sigue al zoom y «Show filename» pone los nombres bajo las miniaturas |
+| `e710bc0b` | 2026-10-17 | feat(view): Show Preview (⇧⌘P) y «Show preview column» de verdad; Columns y Gallery como vista por defecto |
+| `87e55b7f` | 2026-10-17 | feat(preview): Preview pane en Icons y List (⇧⌘P), panel común con la Gallery y candado de XDG para las pruebas |
+| `1e32ade5` | 2026-10-17 | fix(preview): el Preview pane se vacía al cambiar de carpeta en la misma vista |
+| `6dd6fd83` | 2026-10-17 | feat(go): la hoja «Go to the folder:» del Finder para ⇧⌘G y Go ▸ Go to Folder… |
+| `96ef69eb` | 2026-10-17 | feat(menus): Edit y Window como en el Finder de Catalina, con «Copy "nombre"» y la lista de ventanas |
+| `08f610d4` | 2026-10-17 | feat(tabs): la barra de pestañas del Finder, a todo el ancho de la ventana |
+| `78f3415c` | 2026-10-17 | feat(search): la búsqueda del Finder: alcance This Mac \| carpeta, criterio Kind, sugerencia y columnas Name/Size/Kind |
+| `cadf1399` | 2026-10-17 | feat(toolbar): Customize Toolbar del Finder: la barra sale de una lista que se edita arrastrando |
+| `0079bbae` | 2026-10-17 | feat: ⌥⌘V mueve lo copiado, iCloud Drive entra en This Mac, glifo de Connect y build reproducible |
 
 ## mint-macos-dock
 
