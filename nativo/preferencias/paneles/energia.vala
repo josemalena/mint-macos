@@ -89,7 +89,7 @@ namespace Preferencias {
                     esc.add_mark (i, Gtk.PositionType.BOTTOM, rotulo_de (i));
                 }
                 bool computadora = fila == 0;
-                esc.value_changed.connect (() => cambio (computadora, (int) Math.round (esc.get_value ())));
+                esc.value_changed.connect (() => cambio (computadora, (int) Math.rint (esc.get_value ())));
                 if (computadora) {
                     s_computadora = esc;
                 } else {

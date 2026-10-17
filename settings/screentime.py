@@ -197,6 +197,13 @@ class PanelScreenTime:
         paginas.show_all()
         lista.select_row(lista.get_row_at_index(0))
         paginas.set_visible_child_name("App Usage")
+        pedida = os.environ.get("MINT_SCREENTIME_PAGINA")        # solo para las pruebas visuales
+        if pedida:
+            for f in lista.get_children():
+                if getattr(f, "nombre", None) == pedida:
+                    lista.select_row(f)
+            if pedida == "Options":
+                pie.select_row(opciones)
         return caja
 
     ICONOS = {"App Usage": "Usage", "Content & Privacy": "Content and Privacy"}

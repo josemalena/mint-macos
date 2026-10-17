@@ -89,7 +89,7 @@ namespace Preferencias {
             }
             esc.add_mark (0, Gtk.PositionType.BOTTOM, pie_izq);
             esc.add_mark (PASOS - 1, Gtk.PositionType.BOTTOM, pie_der);
-            esc.value_changed.connect (() => al_cambiar ((int) Math.round (esc.get_value ())));
+            esc.value_changed.connect (() => al_cambiar ((int) Math.rint (esc.get_value ())));
             return esc;
         }
 

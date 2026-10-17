@@ -11,7 +11,7 @@ namespace Preferencias {
         public string[] argv;
     }
 
-    class OpcionCombo {
+    public class OpcionCombo {
         public string clave;
         public string nombre;
     }
@@ -30,7 +30,7 @@ namespace Preferencias {
             archivo = otro != null ? otro : Path.build_filename (Environment.get_home_dir (), ".config", "ulauncher", "settings.json");
         }
 
-        Json.Object leer () {
+        public Json.Object leer () {
             try {
                 var p = new Json.Parser ();
                 p.load_from_file (archivo);
@@ -44,7 +44,7 @@ namespace Preferencias {
         }
 
         /** Cambia una clave sin tocar las demás y reinicia Spotlyte para que la lea. */
-        void escribir (string clave, Json.Node valor) {
+        public void escribir (string clave, Json.Node valor) {
             if (cargando) {
                 return;
             }
@@ -154,6 +154,12 @@ namespace Preferencias {
             return c;
         }
 
+        /** Los atajos que ofrece el panel (los usa también Keyboard ▸ Shortcuts ▸ Spotlight). */
+        public static OpcionCombo[] atajos_ofrecidos () {
+            return { op ("<Super>space", "⌘Space"), op ("<Control>space", "⌃Space"), op ("<Alt>space", "⌥Space"),
+                     op ("<Alt><Super>space", "⌥⌘Space") };
+        }
+
         static OpcionCombo op (string clave, string nombre) {
             var o = new OpcionCombo ();
             o.clave = clave;
@@ -185,8 +191,7 @@ namespace Preferencias {
             marco.add (cuadro);
             int fila = 0;
 
-            OpcionCombo[] atajos = { op ("<Super>space", "⌘Space"), op ("<Control>space", "⌃Space"), op ("<Alt>space", "⌥Space"),
-                                     op ("<Alt><Super>space", "⌥⌘Space") };
+            var atajos = atajos_ofrecidos ();
             OpcionCombo[] pantallas = { op ("mouse-pointer-monitor", "Display with the mouse pointer"), op ("default-monitor", "Main display") };
             OpcionCombo[] recientes = { op ("0", "None"), op ("3", "3"), op ("5", "5"), op ("8", "8") };
 

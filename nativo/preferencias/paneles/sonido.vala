@@ -224,7 +224,7 @@ namespace Preferencias {
             if (cargando || prueba) {
                 return;
             }
-            pactl ({ "set-sink-volume", "@DEFAULT_SINK@", "%d%%".printf ((int) Math.round (v)) });
+            pactl ({ "set-sink-volume", "@DEFAULT_SINK@", "%d%%".printf ((int) Math.rint (v)) });
         }
 
         void poner_mudo (bool si) {
@@ -452,14 +452,14 @@ namespace Preferencias {
             double v = volumen_de (d);
             double izq = v * (1 - double.max (0.0, b) / 100.0);
             double der = v * (1 + double.min (0.0, b) / 100.0);
-            pactl ({ "set-sink-volume", "@DEFAULT_SINK@", "%d%%".printf ((int) Math.round (izq)), "%d%%".printf ((int) Math.round (der)) });
+            pactl ({ "set-sink-volume", "@DEFAULT_SINK@", "%d%%".printf ((int) Math.rint (izq)), "%d%%".printf ((int) Math.rint (der)) });
         }
 
         void poner_volumen_entrada (double v) {
             if (cargando || prueba) {
                 return;
             }
-            pactl ({ "set-source-volume", "@DEFAULT_SOURCE@", "%d%%".printf ((int) Math.round (v)) });
+            pactl ({ "set-source-volume", "@DEFAULT_SOURCE@", "%d%%".printf ((int) Math.rint (v)) });
         }
     }
 }

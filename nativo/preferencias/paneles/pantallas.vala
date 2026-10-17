@@ -410,7 +410,7 @@ namespace Preferencias {
             esc.set_size_request (210, -1);
             esc.add_mark (0, Gtk.PositionType.BOTTOM, "Less Warm");
             esc.add_mark (tabla.length - 1, Gtk.PositionType.BOTTOM, "More Warm");
-            esc.value_changed.connect (() => escribir (() => cfg.set_uint ("night-light-temperature", (uint) tabla[(int) Math.round (esc.get_value ())])));
+            esc.value_changed.connect (() => escribir (() => cfg.set_uint ("night-light-temperature", (uint) tabla[(int) Math.rint (esc.get_value ())])));
             g.attach (esc, 1, 3, 3, 1);
             pagina.pack_start (g, false, false, 0);
 
@@ -452,7 +452,7 @@ namespace Preferencias {
             ampm.append ("PM", "PM");
             int h24 = ((int) valor) % 24;
             h.set_value (h24 % 12 != 0 ? h24 % 12 : 12);
-            m.set_value (Math.round ((valor - (int) valor) * 60));
+            m.set_value (Math.rint ((valor - (int) valor) * 60));
             ampm.set_active_id (h24 >= 12 ? "PM" : "AM");
             Hacer guardar = () => {
                 int hora = (int) h.get_value () % 12 + (ampm.get_active_id () == "PM" ? 12 : 0);
