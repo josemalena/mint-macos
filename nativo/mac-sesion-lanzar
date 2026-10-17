@@ -1,0 +1,9 @@
+#!/bin/sh
+# Abre el diálogo de sesión (Log Out, Restart, Shut Down). Usa el binario en Vala si está
+# instalado; si no, o con MAC_SESION_PYTHON=1, el applemenu.py de siempre. Así volver atrás
+# es quitar el binario (instalar.sh --python): los atajos y el applet no se tocan.
+bin="$HOME/.local/bin/mac-sesion"
+if [ -z "$MAC_SESION_PYTHON" ] && [ -x "$bin" ]; then
+  exec "$bin" "$@"
+fi
+exec python3 "$HOME/.local/share/cinnamon/applets/applemenu@macos/applemenu.py" "$@"

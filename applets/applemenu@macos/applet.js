@@ -449,7 +449,7 @@ class AppleMenuApplet extends Applet.IconApplet {
     }
     let lista = atajos.get_strv("custom-list");
     const propios = ["applemenu-logout", "applemenu-encendido"];
-    let script = GLib.build_filenamev([this._appletPath, "applemenu.py"]);
+    const lanzador = this._lanzadorSesion();
 
     if (this.reemplazarSistema) {
       if (!this.antesLogout) this.antesLogout = JSON.stringify(media.get_strv("logout"));
@@ -457,9 +457,9 @@ class AppleMenuApplet extends Applet.IconApplet {
       media.set_strv("logout", []);
       power.set_string("button-power", "nothing");
       this._atajoPropio("applemenu-logout", "Log Out (diálogo de la Mac)",
-        `python3 '${script}' --mode logoff`, ["<Shift><Super>q"]);
+        `${lanzador} --mode logoff`, ["<Shift><Super>q"]);
       this._atajoPropio("applemenu-encendido", "Botón de encendido (diálogo de la Mac)",
-        `python3 '${script}' --mode shutdown`, ["XF86PowerOff"]);
+        `${lanzador} --mode shutdown`, ["XF86PowerOff"]);
       for (let p of propios) if (lista.indexOf(p) < 0) lista.push(p);
       atajos.set_strv("custom-list", lista);
     } else if (lista.some(p => propios.indexOf(p) >= 0) || this.antesLogout || this.antesBotonEncendido) {
@@ -477,6 +477,13 @@ class AppleMenuApplet extends Applet.IconApplet {
     }
   }
 
+  // El lanzador escoge el binario en Vala si está instalado y, si no, applemenu.py.
+  _lanzadorSesion() {
+    const l = GLib.build_filenamev([GLib.get_home_dir(), ".local", "bin", "mac-sesion-lanzar"]);
+    if (GLib.file_test(l, GLib.FileTest.IS_EXECUTABLE)) return `'${l}'`;
+    return `python3 '${GLib.build_filenamev([this._appletPath, "applemenu.py"])}'`;
+  }
+
   _atajoPropio(nombre, titulo, comando, teclas) {
     let s = new Gio.Settings({
       schema_id: "org.cinnamon.desktop.keybindings.custom-keybinding",
@@ -490,8 +497,10 @@ class AppleMenuApplet extends Applet.IconApplet {
   // ── Restart, Shut Down y Log Out: el diálogo de applemenu.py ─────────────
 
   _Dialog(mode) {
-    const scriptPath = GLib.build_filenamev([this._appletPath, "applemenu.py"]);
-    const argv = ["python3", scriptPath, "--mode", mode, "--print-json"];
+    const l = GLib.build_filenamev([GLib.get_home_dir(), ".local", "bin", "mac-sesion-lanzar"]);
+    const argv = GLib.file_test(l, GLib.FileTest.IS_EXECUTABLE)
+      ? [l, "--mode", mode, "--print-json"]
+      : ["python3", GLib.build_filenamev([this._appletPath, "applemenu.py"]), "--mode", mode, "--print-json"];
     let proc;
     try {
       proc = new Gio.Subprocess({ argv, flags: Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE });

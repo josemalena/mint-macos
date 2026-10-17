@@ -17,6 +17,7 @@
 #   cursores-base.tar.gz  McMojave-cursors, la base de los cursores de Constanza
 #   spotlyte.tar.gz     Spotlyte (el Spotlight), y spotlyte-config.tar.gz su configuración
 #   fynder-ajustes.dconf  los ajustes de Fynder del usuario (etiquetas, menú global…)
+#   nativo-binarios.tar.gz  mac-sesion y su lanzador (nativo/, Vala), a ~/.local/bin
 #   rust-binarios.tar.gz  los ayudantes de root en Rust (rust/target/release)
 #   greeter.tar.gz      el fork de la pantalla de inicio, en el hash de login/instalar.sh
 #   instalar-aqui.sh    el que se corre en la otra computadora
@@ -122,6 +123,17 @@ if command -v cargo >/dev/null && [ -f "$REPO/rust/Cargo.toml" ]; then
   rm -rf "$RT"
 else
   echo "  sin cargo o sin rust/: el paquete va sin binarios de Rust (los instalar-root usan el Python)"
+fi
+
+# Los diálogos de sesión en Vala (nativo/), compilados del HEAD; van a ~/.local/bin.
+paso "mac-sesion (Vala)"
+if command -v valac >/dev/null && command -v meson >/dev/null && [ -f "$REPO/nativo/meson.build" ]; then
+  NT="$(mktemp -d)"
+  "$REPO/nativo/compilar-desde-head.sh" "$NT"
+  tar -czf "$DEST/nativo-binarios.tar.gz" -C "$NT" .local/bin
+  rm -rf "$NT"
+else
+  echo "  sin valac o meson: el paquete va sin mac-sesion (los diálogos usan applemenu.py)"
 fi
 
 paso "Fynder y el Dock instalados${BINARIOS_DESDE:+ (de $BINARIOS_DESDE)}"

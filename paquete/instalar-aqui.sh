@@ -72,6 +72,8 @@ glib-compile-schemas "$HOME/.local/share/glib-2.0/schemas"
 # Los ajustes de Fynder de la otra computadora (etiquetas, menú global…).
 [ -f "$AQUI/fynder-ajustes.dconf" ] && dconf load /io/github/josemalena/fynder/ < "$AQUI/fynder-ajustes.dconf"
 echo "  $(tar -tzf "$AQUI/binarios.tar.gz" | wc -l) archivos en ~/.local"
+# Los diálogos de sesión en Vala (el lanzador cae a applemenu.py si faltan).
+[ -f "$AQUI/nativo-binarios.tar.gz" ] && tar -xzf "$AQUI/nativo-binarios.tar.gz" -C "$HOME"
 }
 
 p_apple() {
