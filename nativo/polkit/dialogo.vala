@@ -48,6 +48,23 @@ window.mp-polkit { background-color: #2f2f2f; border: 1px solid #1a1a1a; color: 
         return null;
     }
 
+    bool css_cargado = false;
+
+    // El CSS se carga una sola vez por proceso: el agente es residente y abre un diálogo por petición.
+    void cargar_css () {
+        if (css_cargado) {
+            return;
+        }
+        var css = new Gtk.CssProvider ();
+        try {
+            css.load_from_data (CSS);
+            Gtk.StyleContext.add_provider_for_screen (Gdk.Screen.get_default (), css, 800);
+            css_cargado = true;
+        } catch (Error e) {
+            warning ("CSS: %s", e.message);
+        }
+    }
+
     public class Dialogo : Gtk.Window {
         public signal void aceptado (string login);
         public signal void cancelado ();
@@ -73,13 +90,7 @@ window.mp-polkit { background-color: #2f2f2f; border: 1px solid #1a1a1a; color: 
             type_hint = Gdk.WindowTypeHint.DIALOG;
             title = "Authentication";
             get_style_context ().add_class ("mp-polkit");
-            var css = new Gtk.CssProvider ();
-            try {
-                css.load_from_data (CSS);
-                Gtk.StyleContext.add_provider_for_screen (Gdk.Screen.get_default (), css, 800);
-            } catch (Error e) {
-                warning ("CSS: %s", e.message);
-            }
+            cargar_css ();
 
             var raiz = new Gtk.Box (Gtk.Orientation.VERTICAL, 0);
             var franja = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 0);

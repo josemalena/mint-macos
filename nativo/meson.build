@@ -1,7 +1,7 @@
 project('mint-macos-nativo', ['c', 'vala'],
   version: '0.1.0',
   meson_version: '>= 0.60.0',
-  default_options: ['warning_level=1', 'c_std=gnu11'])
+  default_options: ['warning_level=1', 'c_std=gnu11', 'buildtype=release', 'strip=true', 'b_lto=true', 'b_asneeded=true'])
 
 # Las ventanas de mint-macos que se pasan de Python a binario: Vala + GTK3, sin intérprete.
 # libmacos es lo común (alerta estilo Catalina, estilo CSS, íconos dibujados); cada binario vive en su carpeta.

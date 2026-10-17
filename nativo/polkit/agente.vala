@@ -15,16 +15,34 @@ namespace MacPolkit {
         }
     }
 
+    class Anotacion : Object {
+        public string boton;
+        public string? icono;
+    }
+
+    // Las anotaciones de una acción no cambian mientras corre el agente: se leen una vez por acción.
+    HashTable<string, Anotacion>? cache_anotaciones = null;
+
     /** (texto del botón, id del panel para el ícono): de la .policy de la acción, o («OK», null). */
     void anotaciones (string action_id, out string boton, out string? icono) {
         boton = BOTON_AJENO;
         icono = null;
+        if (cache_anotaciones == null) {
+            cache_anotaciones = new HashTable<string, Anotacion> (str_hash, str_equal);
+        }
+        if (cache_anotaciones.contains (action_id)) {
+            var c = cache_anotaciones[action_id];
+            boton = c.boton;
+            icono = c.icono;
+            return;
+        }
         try {
             var autoridad = Polkit.Authority.get_sync (null);
             foreach (var d in autoridad.enumerate_actions_sync (null)) {
                 if (d.get_action_id () == action_id) {
                     boton = d.get_annotation (ANOTACION_BOTON) ?? BOTON_AJENO;
                     icono = d.get_annotation (ANOTACION_ICONO);
+                    cache_anotaciones[action_id] = new Anotacion () { boton = boton, icono = icono };
                     break;
                 }
             }
