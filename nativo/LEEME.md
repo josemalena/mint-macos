@@ -39,6 +39,20 @@ ayudantes de root y los servicios en Rust, en un solo proyecto con meson.
   `io.github.josemalena.MintMacosCaptura`). `capturas/captura.sh` lo usa solo si José lo activó: `activar-captura.sh` deja el
   marcador `~/.config/mint-macos/captura-vala.activo`; `--quitar` (o `instalar.sh --python`) devuelve ⇧⌘5 a Python.
 
+- `ventanas/`: `mac-ventanas`, el residente de las ventanas chicas (el equivalente de loginwindow): los diálogos de sesión,
+  Force Quit, la barra de ⇧⌘5 y la app del frente en un solo proceso con GTK ya cargado (About This Mac se suma después). Compila las
+  mismas fuentes que los binarios sueltos (que siguen existiendo para la vuelta atrás y las pruebas). Se le pide una orden por la
+  línea de comandos de GApplication, y lo que imprime y su código de salida llegan al cliente:
+
+      mac-ventanas --residente                        se arma oculto con la sesión
+      mac-ventanas sesion --mode restart --print-json el mismo JSON que mac-sesion
+      mac-ventanas forcequit [--prueba] | app-del-frente | captura
+
+  Sin residente, el mismo comando se arma en frío, hace la acción y sale al cerrarse la última ventana. No apaga ni cierra
+  sesión por su cuenta (lo hacen los comandos de mac-sesion). `activar-ventanas.sh` deja el marcador `~/.config/mint-macos/ventanas.activo`
+  y el arranque con la sesión, y lo arranca; `--sin-ayudante` quita además el ayudante de Python; `--quitar` es la vuelta atrás.
+  Los lanzadores (`mac-sesion-lanzar`, `mac-forcequit-lanzar`, `mac-captura`) y `forcekill.py` lo usan solo con el marcador.
+
 ### Launchpad: lo que NO tiene fuente (se portó igual que en Python, anotado en vez de dado por bueno)
 - «No Results» (texto, tamaño 26, 50 % de opacidad, a 300 px): ninguna captura de Catalina de una búsqueda sin resultados.
 - El fundido de entrada de 0.18 s y la animación de las páginas (aproximación 0.22 por cuadro): las capturas son estáticas.
@@ -110,6 +124,21 @@ pantalla, grabar porción), con el menú Options abierto, y en las capturas real
 sombra de la Mac): mismo tamaño y 0 píxeles distintos. La grabación (ffmpeg) sale válida con los dos.
 Sin probar: Mail y Preview como destino, el temporizador de 5 y 10 s, el micrófono, Other Location… y la miniatura en pantalla
 real (:0): en Xephyr no hay con qué abrirlos.
+
+## Medido: el residente mac-ventanas (Xephyr, bus propio, residente armado y oculto, ya precalentado)
+
+| | sueltos (en frío) | mac-ventanas (residente) |
+|---|---|---|
+| ⌥⌘⎋ hasta que se ve Force Quit | 616 ms (medido en :0) | 71 ms |
+| ⇧⌘5 hasta que se ve la barra | 225 ms | 50 ms |
+| ⌥⇧⌘⎋ (app del frente) | 74 ms | 46 ms |
+| memoria en reposo (PSS / anónima) | 0 (no hay proceso) | 7.6 MB / 5.7 MB |
+| memoria tras usar las tres ventanas | — | 10.4 MB |
+
+El ayudante de Python, hoy en swap, mide 4.9 MB de PSS en reposo y carga unos 40 MB cuando abre una ventana. Contra los sueltos:
+0 píxeles distintos en Force Quit y en la barra de ⇧⌘5; el diálogo de sesión difiere 106 px en un cuadro de 15 × 8 (el número de la
+cuenta regresiva, que cambia cada segundo) y su JSON es idéntico. El tiempo del diálogo de sesión no se midió bien (el detector de
+ventana de la prueba era impreciso): en frío el suelto tardó 128 ms.
 
 ## Notas
 

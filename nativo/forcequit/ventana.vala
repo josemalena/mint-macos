@@ -131,7 +131,11 @@ button.fq-boton:disabled label { color: rgba(255, 255, 255, 0.35); }
                 }
                 return false;
             });
-            destroy.connect (Gtk.main_quit);
+            destroy.connect (() => {
+                if (Gtk.main_level () > 0) {      // suelto: sale; dentro del residente no hay Gtk.main
+                    Gtk.main_quit ();
+                }
+            });
 
             var pantalla = Wnck.Screen.get_default ();
             pantalla.window_opened.connect (() => { pedir_repintado (); });

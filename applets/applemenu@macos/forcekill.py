@@ -6,6 +6,10 @@ import os as _os
 import subprocess as _sp
 import sys as _sys
 if __name__ == "__main__":
+    _vent = _os.path.expanduser("~/.local/bin/mac-ventanas")
+    if (not _os.environ.get("MAC_FORCEQUIT_PYTHON") and _os.access(_vent, _os.X_OK)
+            and _os.path.exists(_os.path.expanduser("~/.config/mint-macos/ventanas.activo"))):
+        _os.execv(_vent, [_vent, "forcequit"])      # el residente de ventanas (nativo/activar-ventanas.sh)
     _bin = _os.path.expanduser("~/.local/bin/mac-forcequit")
     if not _os.environ.get("MAC_FORCEQUIT_PYTHON") and _os.access(_bin, _os.X_OK):
         _os.execv(_bin, [_bin])

@@ -45,7 +45,7 @@ son etiquetas, no bandas; el orden sale de la captura):
 Un panel sin ningún módulo disponible no sale. Los que son un programa externo
 (Software Update, Time Machine, impresoras, Bluetooth…) lo lanzan y la ventana se
 queda donde estaba. Un panel con varios módulos (Desktop & Screen Saver) muestra una
-pestaña por módulo. Siri y Screen Time están como esqueleto en gris (`ausentes.py`); Profiles y CDs & DVDs no salen. **Apple ID** no está en la cuadrícula: se abre con el ícono de la
+pestaña por módulo. Siri está como esqueleto en gris (`ausentes.py`); Screen Time trae sus diez pantallas en gris (a8d937c); Profiles y CDs & DVDs salen en la fila 4, en gris (56b5f15). **Apple ID** no está en la cuadrícula: se abre con el ícono de la
 franja de arriba.
 
 ### Paneles propios (`propios.py`)
@@ -74,10 +74,10 @@ Escriben directo en la configuración del programa, en vez de traer su interfaz:
   application…) no están: Cinnamon no las tiene.
 - **Keyboard** (`teclado.py`): las cinco pestañas de Catalina. Keyboard: Key Repeat y Delay Until Repeat
   (los pasos de Catalina, escritos en `org.cinnamon.desktop.peripherals.keyboard`), Modifier Keys…
-  (abajo) y Set Up Bluetooth Keyboard… (abre Bluetooth). Shortcuts: la lista de categorías de Catalina; hoy solo
-  trae contenido Spotlight (el atajo de Spotlyte). Input Sources: las distribuciones de teclado
-  (`org.gnome.libgnomekbd.keyboard`). Lo que Linux no tiene (Text, Dictation, el visor de emojis, Show Finder
-  search window) se dibuja como en la captura pero en gris, como en una Mac sin esa función.
+  (abajo) y Set Up Bluetooth Keyboard… (abre Bluetooth). Shortcuts: las diez categorías de Catalina con sus filas y atajos
+  (a726bf2); todo en gris salvo el atajo de Spotlyte. Input Sources: las distribuciones de teclado
+  (`org.gnome.libgnomekbd.keyboard`) con el teclado dibujado y +/−. Lo que Linux no tiene (Text, Dictation, el visor de
+  emojis, Show Finder search window) se dibuja como en la captura pero en gris, como en una Mac sin esa función.
 - **Mouse y Trackpad** (`raton.py`): Natural scroll, Tracking speed, Double-Click speed y el botón principal
   (`org.cinnamon.desktop.peripherals.mouse`); Scrolling speed en gris. Sin touchpad, Trackpad es la pantalla
   «No trackpad found» de Catalina; con uno lo sirve el módulo de Cinnamon.

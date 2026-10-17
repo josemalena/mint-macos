@@ -2,6 +2,12 @@
 # Force Quit (⌥⌘⎋) y Force Quit de la app del frente (⌥⇧⌘⎋; con --app-del-frente). Usa el binario en Vala si está
 # instalado; si no, o con MAC_FORCEQUIT_PYTHON=1, los guiones de Python de siempre. Así volver atrás es quitar el
 # binario (instalar.sh --python): los atajos no se tocan.
+# Con el residente activado (nativo/activar-ventanas.sh) se le pide al residente.
+ventanas="$HOME/.local/bin/mac-ventanas"
+if [ -z "$MAC_FORCEQUIT_PYTHON" ] && [ -f "$HOME/.config/mint-macos/ventanas.activo" ] && [ -x "$ventanas" ]; then
+  if [ "$1" = "--app-del-frente" ]; then exec "$ventanas" app-del-frente; fi
+  exec "$ventanas" forcequit "$@"
+fi
 bin="$HOME/.local/bin/mac-forcequit"
 if [ -z "$MAC_FORCEQUIT_PYTHON" ] && [ -x "$bin" ]; then
   exec "$bin" "$@"

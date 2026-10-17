@@ -38,6 +38,10 @@ case "$modo" in
   ventana)  args=(-w) ;;
   herramienta)
     # La barra de Catalina; sin ella, la de gnome-screenshot.
+    # Con el residente de ventanas activado (nativo/activar-ventanas.sh) se le pide la barra.
+    if [ -f "$HOME/.config/mint-macos/ventanas.activo" ] && [ -x "$HOME/.local/bin/mac-ventanas" ]; then
+      exec "$HOME/.local/bin/mac-ventanas" captura
+    fi
     # En Vala (mac-captura-herramienta-vala) si está instalado y activado con nativo/activar-captura.sh (marcador).
     if [ -f "$HOME/.config/mint-macos/captura-vala.activo" ] && [ -x "$HOME/.local/bin/mac-captura-herramienta-vala" ]; then
       exec "$HOME/.local/bin/mac-captura-herramienta-vala"
