@@ -20,7 +20,10 @@ ayudantes de root y los servicios en Rust, en un solo proyecto con meson.
 - `forcequit/`: `mac-forcequit`, la ventana «Force Quit Applications» con las medidas de la captura de Catalina
   (`15-force-quit-oscuro`): lista de 298 × 168 con filas de 22 px, botón «Force Quit» o «Relaunch» (con Fynder, el Finder de
   aquí), flechas y Enter, y la lista se actualiza sola al abrirse o cerrarse ventanas (libwnck). `--prueba` no mata nada.
-  `applets/applemenu@macos/forcekill.py` lo usa si está instalado (⌥⌘⎋ y Apple ▸ Force Quit…); `instalar.sh --python` lo quita.
+  `applets/applemenu@macos/forcekill.py` lo usa si está instalado (Apple ▸ Force Quit…); `instalar.sh --python` lo quita.
+  `--app-del-frente` (⌥⇧⌘⎋) fuerza la salida de la app activa sin abrir ventana (reemplaza a `forzar-app-del-frente.py`; 74 ms en
+  Xephyr; no toca el escritorio ni el panel). Los atajos ⌥⌘⎋ y ⌥⇧⌘⎋ van por `mac-forcequit-lanzar`: usa el binario si está y,
+  si no, los guiones de Python (así la vuelta atrás no toca los atajos).
 
 - `launchpad/`: `mac-launchpad-vala`, el Launchpad de Catalina residente (mismo id de aplicación que el de Python: solo uno
   de los dos es el residente). Port fiel de `launchpad/launchpad.py`, con las medidas de las capturas de Catalina del 14-10-2026.

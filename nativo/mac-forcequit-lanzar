@@ -1,0 +1,13 @@
+#!/bin/sh
+# Force Quit (⌥⌘⎋) y Force Quit de la app del frente (⌥⇧⌘⎋; con --app-del-frente). Usa el binario en Vala si está
+# instalado; si no, o con MAC_FORCEQUIT_PYTHON=1, los guiones de Python de siempre. Así volver atrás es quitar el
+# binario (instalar.sh --python): los atajos no se tocan.
+bin="$HOME/.local/bin/mac-forcequit"
+if [ -z "$MAC_FORCEQUIT_PYTHON" ] && [ -x "$bin" ]; then
+  exec "$bin" "$@"
+fi
+applet="$HOME/.local/share/cinnamon/applets/applemenu@macos"
+if [ "$1" = "--app-del-frente" ]; then
+  exec python3 "$applet/forzar-app-del-frente.py"
+fi
+exec python3 "$applet/forcekill.py" "$@"

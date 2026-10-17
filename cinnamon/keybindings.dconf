@@ -5,12 +5,12 @@ show-desklets=@as []
 
 [custom-keybindings/custom0]
 binding=['<Alt><Super>Escape']
-command='python3 /home/jmalena/.local/share/cinnamon/applets/applemenu@macos/forcekill.py'
+command='/home/jmalena/.local/bin/mac-forcequit-lanzar'
 name='Force Quit…'
 
 [custom-keybindings/custom1]
 binding=['<Alt><Shift><Super>Escape']
-command='python3 /home/jmalena/.local/share/cinnamon/applets/applemenu@macos/forzar-app-del-frente.py'
+command='/home/jmalena/.local/bin/mac-forcequit-lanzar --app-del-frente'
 name='Force Quit (app del frente)'
 
 [custom-keybindings/custom2]
