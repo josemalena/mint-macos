@@ -104,12 +104,17 @@ namespace Launchpad {
                 var pantalla = display.get_primary_monitor () ?? display.get_monitor (0);
                 // El gestor de ventanas escoge el monitor de un fullscreen() a secas (con dos pantallas salía en la otra,
                 // recortado): se pide el principal por su número.
+                var geo = pantalla.get_geometry ();
+                // Muffin no hace caso de fullscreen_on_monitor: se coloca la ventana sobre el monitor principal y luego se
+                // pide pantalla completa, que el gestor da en el monitor donde está.
+                move (geo.x, geo.y);
+                set_default_size (geo.width, geo.height);
                 for (int i = 0; i < display.get_n_monitors (); i++) {
                     if (display.get_monitor (i) == pantalla) {
                         fullscreen_on_monitor (get_screen (), i);
                     }
                 }
-                var geo = pantalla.get_geometry ();
+                fullscreen ();
                 W = geo.width;
                 H = geo.height;
             } else {
