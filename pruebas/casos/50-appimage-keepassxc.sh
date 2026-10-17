@@ -1,4 +1,4 @@
-# caso: KeePassXC (AppImage oficial) soltada en Applications queda como app: lanzador, ícono, Open With y Fynder
+# caso: KeePassXC (AppImage oficial) soltada en Applications queda como app: lanzador, ícono, Open With y «KeePassXC.app» en Fynder
 # límite: 90
 prueba() {
   requiere python3 gio fynder update-desktop-database
@@ -26,10 +26,11 @@ a = Gio.DesktopAppInfo.new(sys.argv[1])
 sys.exit(0 if a and a.should_show() and a.get_display_name() == "KeePassXC" else 1)' "mint-macos-appimage-$md5.desktop"
   comprobar "Open With la ofrece para las bases .kdbx" sh -c "gio mime application/x-keepass2 | grep -q 'mint-macos-appimage-$md5.desktop'"
 
-  # Fynder la enseña con su ícono (el miniaturizador de AppImage de xapp).
+  # Fynder la enseña como una app de Mac: el nombre de su lanzador con .app (y
+  # su ícono, que se mira en la captura). Fynder 223db0b1 o posterior.
   lanzar fynder "$dest"
   local v; v="$(esperar_ventana '[Ff]ynder' 30)"
-  esperar_texto "$v" "KeePassXC-2.7.12-x86_64.AppImage" 20
+  esperar_texto "$v" "KeePassXC.app" 20
   sleep 2
   captura fynder
   cerrar_ventana "$v"

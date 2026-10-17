@@ -2,10 +2,12 @@
 """Busca un texto en lo que muestra una app, por accesibilidad (AT-SPI): sin
 teclas ni clics, lee el árbol de la app como lo leería un lector de pantalla.
 
-    atspi.py --pid PID --texto TEXTO [--segundos N] [--rol ROL]
+    atspi.py --pid PID --texto TEXTO [--segundos N] [--rol ROL] [--pulsar]
 
 Sale con 0 en cuanto un elemento de la app tiene ese nombre (exacto), con 1 si
-no aparece en N segundos (por defecto 15). Con --volcar imprime el árbol.
+no aparece en N segundos (por defecto 15). Con --volcar imprime el árbol. Con
+--pulsar, además, hace su primera acción (un botón: lo pulsa, como un clic, sin
+depender de cuál es el botón por defecto ni de la posición).
 """
 import argparse
 import sys
@@ -56,6 +58,7 @@ def main():
     p.add_argument("--rol")
     p.add_argument("--segundos", type=float, default=15)
     p.add_argument("--volcar", action="store_true")
+    p.add_argument("--pulsar", action="store_true")
     a = p.parse_args()
     fin = time.time() + a.segundos
     while True:
@@ -70,6 +73,11 @@ def main():
                     print("  " * n + f"[{rol}] {nombre}")
                 elif nombre == a.texto and (not a.rol or rol == a.rol):
                     print(f"[{rol}] {nombre}")
+                    if a.pulsar:
+                        accion = x.get_action_iface()
+                        if accion is None or accion.get_n_actions() == 0 or not accion.do_action(0):
+                            print(f"«{a.texto}» no tiene una acción que hacer", file=sys.stderr)
+                            return 1
                     return 0
             if a.volcar:
                 return 0

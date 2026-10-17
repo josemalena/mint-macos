@@ -13,6 +13,8 @@
 #   titulo ID                          el título de la ventana
 #   esperar_texto ID TEXTO [SEG]       espera a que la app de esa ventana muestre un
 #                                      elemento con ese nombre (accesibilidad, AT-SPI)
+#   pulsar ID TEXTO [SEG]              pulsa el botón con ese nombre (AT-SPI, como un
+#                                      clic; no depende del botón por defecto)
 #   cerrar_ventana ID                  la cierra como el botón rojo (sin teclas)
 #   teclas TECLA…                      xdotool key (solo en Xephyr)
 #   captura NOMBRE                     la pantalla a resultados/<caso>-NOMBRE.png
@@ -80,6 +82,14 @@ esperar_texto() {
   python3 "$(dirname "$PRUEBAS_LIB")/atspi.py" --pid "$pid" --texto "$2" --segundos "${3:-15}" >&2 \
     || falla "la ventana $1 no muestra «$2»"
   paso "se ve «$2»"
+}
+
+pulsar() {
+  necesita_teclado
+  local pid; pid="$(xdotool getwindowpid "$1")"
+  python3 "$(dirname "$PRUEBAS_LIB")/atspi.py" --pid "$pid" --texto "$2" --rol "push button" --pulsar --segundos "${3:-10}" >&2 \
+    || falla "no se pudo pulsar «$2» en la ventana $1"
+  paso "pulso «$2»"
 }
 
 cerrar_ventana() { paso "cierro $1"; wmctrl -i -c "$1"; }

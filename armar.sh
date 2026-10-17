@@ -24,6 +24,8 @@
 #
 # Trabaja en ~/.cache/mint-macos/armar (ARMAR_TRABAJO=<carpeta> la cambia; se
 # borra al empezar) y la borra al terminar, salvo con ARMAR_GUARDAR=1.
+# ARMAR_COMMIT=<commit> arma ese commit en vez del HEAD: dos armados para
+# comparar no cambian aunque se commitee en el medio (17-10-2026).
 set -euo pipefail
 
 REPO="$(cd "$(dirname "$0")" && pwd)"
@@ -32,7 +34,7 @@ DEST=""
 for a in "$@"; do
   case "$a" in
     --sin-paquete) SIN_PAQUETE=true ;;
-    -h|--help) sed -n '2,26p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,28p' "$0"; exit 0 ;;
     -*) echo "opción desconocida: $a" >&2; exit 2 ;;
     *) DEST="$a" ;;
   esac
@@ -65,7 +67,7 @@ mkdir -p "$T"
 [ "${ARMAR_GUARDAR:-0}" = 1 ] || trap 'rm -rf "${T:?}"' EXIT
 
 paso "mint-macos en su HEAD"
-HEAD="$(git -C "$REPO" rev-parse HEAD)"
+HEAD="$(git -C "$REPO" rev-parse --verify "${ARMAR_COMMIT:-HEAD}^{commit}")"
 git clone -q --no-hardlinks "$REPO" "$T/mint-macos"
 git -C "$T/mint-macos" checkout -q --detach "$HEAD"
 M="$T/mint-macos"
@@ -149,8 +151,8 @@ echo "  listo"
 paso "Pruebas: versiones.sh"
 # El verificador lee los repos locales con su upstream; corre sobre el
 # manifiesto commiteado, que tiene que ser el mismo del árbol.
-git -C "$REPO" diff --quiet HEAD -- versiones.sh VERSIONES.md verificar-versiones.sh \
-  || { echo "  ✗ versiones.sh, VERSIONES.md o verificar-versiones.sh tienen cambios sin commitear"; exit 1; }
+git -C "$REPO" diff --quiet "$HEAD" -- versiones.sh VERSIONES.md verificar-versiones.sh \
+  || { echo "  ✗ versiones.sh, VERSIONES.md o verificar-versiones.sh no son los de ${HEAD:0:9}"; exit 1; }
 callado "$REPO/verificar-versiones.sh"
 echo "  cuadra"
 
