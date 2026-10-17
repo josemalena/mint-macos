@@ -41,11 +41,16 @@ BUILD_DOCK="${BUILD_DOCK:-$HOME/.cache/mint-macos/build/plank-reloaded}"
 
 paso() { printf '\n▸ %s\n' "$*"; }
 mkdir -p "$DEST"
+# Que dos corridas del mismo HEAD den los mismos archivos: los tar en orden de
+# nombre, sin dueño, y ninguna fecha más nueva que la del commit (lo recién
+# compilado o copiado); el gzip sin nombre ni fecha (-n).
+EPOCA="$(git -C "$REPO" log -1 --format=%ct HEAD)"
+tar_fijo() { tar --sort=name --owner=0 --group=0 --numeric-owner --mtime="@$EPOCA" --clamp-mtime "$@"; }
 
 paso "mint-macos (HEAD $(git -C "$REPO" rev-parse --short HEAD))"
 [ -z "$(git -C "$REPO" status --porcelain --untracked-files=no)" ] \
   || echo "  ojo: hay cambios sin commitear en el repo; el paquete lleva solo lo commiteado"
-git -C "$REPO" archive --prefix=mint-macos/ HEAD | gzip > "$DEST/mint-macos.tar.gz"
+git -C "$REPO" archive --prefix=mint-macos/ HEAD | gzip -n > "$DEST/mint-macos.tar.gz"
 echo "  $(du -h "$DEST/mint-macos.tar.gz" | cut -f1)"
 
 # La pantalla de inicio se compila en la otra computadora, del fork en el hash
@@ -59,11 +64,9 @@ for g in "${GREETER_FUENTE:-}" "$(dirname "$REPO")/$GREETER_LOCAL" "$HOME/.cache
   [ -n "$g" ] && git -C "$g" cat-file -e "$GH^{commit}" 2>/dev/null && { GF="$g"; break; }
 done
 [ -n "$GF" ] || { echo "  ✗ ningún repo local tiene $GH (GREETER_FUENTE=<repo del fork>)"; exit 1; }
-GT="$(mktemp -d)"
-git clone -q "$GF" "$GT/mint-macos-greeter"
-git -C "$GT/mint-macos-greeter" checkout -q --detach "$GH"
-tar -czf "$DEST/greeter.tar.gz" -C "$GT" mint-macos-greeter
-rm -rf "$GT"
+# Solo el árbol del commit (git archive), sin .git: el índice y los logs de un
+# clon llevan fechas y rutas, y en la otra computadora no hace falta.
+git -C "$GF" archive --prefix=mint-macos-greeter/ "$GH" | gzip -n > "$DEST/greeter.tar.gz"
 echo "  ${GH:0:7} de $GF, $(du -h "$DEST/greeter.tar.gz" | cut -f1)"
 
 # El tema base de los cursores (McMojave-cursors, de vinceliuice, GPL): de
@@ -71,7 +74,7 @@ echo "  ${GH:0:7} de $GF, $(du -h "$DEST/greeter.tar.gz" | cut -f1)"
 # archivo. No viene en Mint; tema/iconos/cursores.py lo busca también en ~/.local.
 paso "Cursores base (McMojave-cursors)"
 if [ -d /usr/share/icons/McMojave-cursors/cursors ]; then
-  tar -czf "$DEST/cursores-base.tar.gz" -C /usr/share/icons McMojave-cursors
+  tar_fijo -cf - -C /usr/share/icons McMojave-cursors | gzip -n > "$DEST/cursores-base.tar.gz"
   echo "  $(du -h "$DEST/cursores-base.tar.gz" | cut -f1)"
 else
   echo "  ✗ no está /usr/share/icons/McMojave-cursors: sin él faltan la flecha y la espera"; exit 1
@@ -86,10 +89,10 @@ SPOT="${SPOTLYTE_FUENTE:-$(dirname "$REPO")/$SPOTLYTE_LOCAL}"
 [ -d "$SPOT/.git" ] || { echo "  ✗ no está el repo de Spotlyte en $SPOT (SPOTLYTE_FUENTE)"; exit 1; }
 SPOT_REV="${SPOTLYTE_HASH:-HEAD}"
 [ -n "$SPOTLYTE_HASH" ] || echo "  ⚠ Spotlyte no tiene hash en versiones.sh: va su HEAD"
-git -C "$SPOT" archive --prefix=app/ "$SPOT_REV" | gzip > "$DEST/spotlyte.tar.gz"
+git -C "$SPOT" archive --prefix=app/ "$SPOT_REV" | gzip -n > "$DEST/spotlyte.tar.gz"
 UL_CONF=()
 for f in .config/ulauncher/settings.json .config/ulauncher/user-themes; do [ -e "$HOME/$f" ] && UL_CONF+=("$f"); done
-[ ${#UL_CONF[@]} -gt 0 ] && tar -czf "$DEST/spotlyte-config.tar.gz" -C "$HOME" "${UL_CONF[@]}"
+[ ${#UL_CONF[@]} -gt 0 ] && tar_fijo -cf - -C "$HOME" "${UL_CONF[@]}" | gzip -n > "$DEST/spotlyte-config.tar.gz"
 echo "  $(git -C "$SPOT" rev-parse --short "$SPOT_REV"), $(du -h "$DEST/spotlyte.tar.gz" | cut -f1)"
 
 # Los ajustes de Fynder de este usuario (las etiquetas, la barra de ruta, dónde
@@ -123,7 +126,7 @@ if command -v cargo >/dev/null && [ -f "$REPO/rust/Cargo.toml" ]; then
   RT="$(mktemp -d)"
   git -C "$REPO" archive HEAD rust | tar -x -C "$RT"
   ( cd "$RT/rust" && CARGO_TARGET_DIR="$RT/rust/target" cargo build --release --locked --quiet )
-  ( cd "$RT" && tar -czf "$DEST/rust-binarios.tar.gz" $(cd "$RT" && find rust/target/release -maxdepth 1 -type f -name 'mint-macos-*' -perm -u+x) )
+  ( cd "$RT" && tar_fijo -cf - $(cd "$RT" && find rust/target/release -maxdepth 1 -type f -name 'mint-macos-*' -perm -u+x) | gzip -n > "$DEST/rust-binarios.tar.gz" )
   echo "  $(tar -tzf "$DEST/rust-binarios.tar.gz" | xargs -n1 basename | tr '\n' ' ')"
   rm -rf "$RT"
 else
@@ -135,7 +138,7 @@ paso "mac-sesion (Vala)"
 if command -v valac >/dev/null && command -v meson >/dev/null && [ -f "$REPO/nativo/meson.build" ]; then
   NT="$(mktemp -d)"
   "$REPO/nativo/compilar-desde-head.sh" "$NT"
-  tar -czf "$DEST/nativo-binarios.tar.gz" -C "$NT" .local/bin
+  tar_fijo -cf - -C "$NT" .local/bin | gzip -n > "$DEST/nativo-binarios.tar.gz"
   rm -rf "$NT"
 else
   echo "  sin valac o meson: el paquete va sin mac-sesion (los diálogos usan applemenu.py)"
@@ -156,7 +159,7 @@ for destino in json.load(sys.stdin).values():
         print(destino[len(home):])
 ' "$ORIGEN_BIN" >> "$LISTA"
 done
-tar -czf "$DEST/binarios.tar.gz" -C "$ORIGEN_BIN" -T "$LISTA"
+tar_fijo -cf - -C "$ORIGEN_BIN" -T "$LISTA" | gzip -n > "$DEST/binarios.tar.gz"
 echo "  $(wc -l < "$LISTA") archivos, $(du -h "$DEST/binarios.tar.gz" | cut -f1)"
 rm -f "$LISTA"
 
@@ -185,7 +188,7 @@ done
 [ -d "System/Library/Desktop Pictures" ] && rsync -a -R "System/Library/Desktop Pictures" "$STAGE/"
 cd "$REPO"
 desmontar_mac
-tar -cf "$DEST/mac-sistema.tar" -C "$STAGE" .
+tar_fijo -cf "$DEST/mac-sistema.tar" -C "$STAGE" .
 rm -rf "$STAGE"
 echo "  $(du -h "$DEST/mac-sistema.tar" | cut -f1)"
 # La memoria TRANSPORTE es FAT32 (nada de más de 4 GB): con todos los Desktop
@@ -205,7 +208,7 @@ EXTRA=()
 # los saca del volumen de DATOS, que el paquete no lleva).
 [ -d "$HOME/.local/share/constanza/login" ] && EXTRA+=(.local/share/constanza/login)
 if [ ${#EXTRA[@]} -gt 0 ]; then
-  tar -czf "$DEST/apple-extra.tar.gz" -C "$HOME" "${EXTRA[@]}"; echo "  ${EXTRA[*]}"
+  tar_fijo -cf - -C "$HOME" "${EXTRA[@]}" | gzip -n > "$DEST/apple-extra.tar.gz"; echo "  ${EXTRA[*]}"
 else
   echo "  nada (no hay glifos-finder)"
 fi

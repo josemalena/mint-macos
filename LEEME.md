@@ -213,6 +213,11 @@ script fija un hash.
     ./verificar-versiones.sh             # comprueba el manifiesto contra los repos
     ./verificar-versiones.sh --escribir  # y reescribe VERSIONES.md
 
+El paquete para otra computadora sale de un solo comando, `./armar.sh`: clona
+el HEAD y cada fork en su hash, compila, corre las pruebas y arma el paquete
+con `paquete.sh`. Dos corridas del mismo HEAD tienen que dar los mismos
+archivos (`SUMAS.sha256` en la carpeta del paquete).
+
 `VERSIONES.md` es la lista de parches de cada fork sobre su upstream, generada;
 el verificador falla si quedó vieja o si un script volvió a fijar un hash por
 su cuenta.

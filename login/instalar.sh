@@ -100,7 +100,9 @@ if [ ! -d "$FUENTE/build" ]; then
   sudo -u "$USUARIO" meson setup "$FUENTE/build" "$FUENTE" --prefix=/usr/local >/dev/null
 fi
 sudo -u "$USUARIO" ninja -C "$FUENTE/build" >/dev/null
-echo "  $(sudo -u "$USUARIO" git -C "$FUENTE" log --oneline -1)"
+# El del paquete viene sin .git (git archive): entonces, el hash del manifiesto.
+if [ -d "$FUENTE/.git" ]; then echo "  $(sudo -u "$USUARIO" git -C "$FUENTE" log --oneline -1)"
+else echo "  $FUENTE (sin .git; el paquete trae ${GREETER_HASH:0:7})"; fi
 
 paso "Instalar el greeter (aparte del de Mint)"
 install -Dm755 "$FUENTE/build/src/slick-greeter-mac" "$BINARIO"
