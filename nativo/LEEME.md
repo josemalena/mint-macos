@@ -110,5 +110,5 @@ real (:0): en Xephyr no hay con qué abrirlos.
 
 ## Notas
 
-- Los estilos van por clases CSS (`.mac-caja`), no por id (`#mac-caja`): en Vala `widget.set_name(…)` llama al de `Gtk.Buildable` y no al del widget: si hace falta un id, `widget.name = \"x\"`.
+- Los estilos van por clases CSS (`.mac-caja`), no por id (`#mac-caja`): en Vala `widget.set_name(…)` llama al de `Gtk.Buildable` y no al del widget: si hace falta un id, `widget.name = "x"`.
 - Nada de Apple en el repo: la fuente «.SF NS» y los íconos se generan en local.
