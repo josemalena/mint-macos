@@ -7,7 +7,7 @@ set -euo pipefail
 AQUI="$(cd "$(dirname "$0")" && pwd)"
 case "${1:-}" in
   --python)
-    rm -f "$HOME/.local/bin/mac-sesion" "$HOME/.local/bin/mac-polkit" "$HOME/.local/bin/mac-forcequit" "$HOME/.local/bin/mac-launchpad-vala" "$HOME/.config/mint-macos/launchpad-vala.activo" \
+    rm -f "$HOME/.local/bin/mac-sesion" "$HOME/.local/bin/mac-gatekeeper" "$HOME/.local/bin/mac-polkit" "$HOME/.local/bin/mac-forcequit" "$HOME/.local/bin/mac-launchpad-vala" "$HOME/.config/mint-macos/launchpad-vala.activo" \
       "$HOME/.local/bin/mac-captura-herramienta-vala" "$HOME/.config/mint-macos/captura-vala.activo" \
       "$HOME/.local/bin/mac-ventanas" "$HOME/.config/mint-macos/ventanas.activo" \
       "$HOME/.local/bin/mac-preferencias" "$HOME/.config/mint-macos/preferencias-vala.activo" "$HOME/.config/autostart/mint-macos-ventanas.desktop"
