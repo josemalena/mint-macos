@@ -98,6 +98,8 @@ EJECUCION=(
   wmctrl xdotool cinnamon-screensaver
   # agente de polkit: el binario enlaza la librería; el de Python usa el typelib
   libpolkit-agent-1-0 gir1.2-polkit-1.0
+  # System Preferences en Vala (nativo/preferencias): json-glib para pactl e iso-codes; ipptool para Printers & Scanners
+  libjson-glib-1.0-0 cups-ipp-utils iso-codes
   # migrar-datos.sh
   rsync
   # capturas/ (⇧⌘3, ⇧⌘4…, la grabación de ⇧⌘5) y la carpeta del escritorio

@@ -11,6 +11,7 @@ glib_dep = dependency('glib-2.0')
 gio_dep = dependency('gio-2.0')
 gtk_x11_dep = dependency('gdk-x11-3.0')
 gobject_dep = dependency('gobject-2.0')
+json_dep = dependency('json-glib-1.0')
 posix_dep = meson.get_compiler('vala').find_library('posix')
 m_dep = meson.get_compiler('c').find_library('m', required: false)
 
@@ -20,6 +21,7 @@ subdir('forcequit')
 subdir('launchpad')
 subdir('captura')
 subdir('ventanas')
+subdir('preferencias')
 
 # El agente de polkit necesita los headers de desarrollo (libpolkit-agent-1-dev); sin ellos se compila lo demás.
 polkit_agent_dep = dependency('polkit-agent-1', required: false)

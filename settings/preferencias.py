@@ -57,7 +57,7 @@ def traza(texto):
         print(f"[{time.time() - _T0:6.2f}s] {texto}", file=sys.stderr, flush=True)
 
 
-APP_ID = "io.github.josemalena.MintMacosSettings"
+APP_ID = os.environ.get("MP_APP_ID") or "io.github.josemalena.MintMacosSettings"   # MP_APP_ID: otro id (el respaldo de mac-preferencias)
 TITULO = "System Preferences"
 ICONO = 40            # el ícono de cada panel en la cuadrícula
 COLUMNAS = 8          # paneles por fila, como en Catalina
@@ -973,11 +973,14 @@ class Aplicacion(Gtk.Application):
         super().__init__(application_id=APP_ID,
                          flags=Gio.ApplicationFlags.HANDLES_COMMAND_LINE)
         self.ventana = None
-        self.residente = True
+        # MP_SIN_RESIDENTE=1: sin residente (lo abre mac-preferencias para los paneles que aún no son suyos): al cerrar la
+        # ventana el programa termina.
+        self.residente = not os.environ.get("MP_SIN_RESIDENTE")
 
     def do_startup(self):
         Gtk.Application.do_startup(self)
-        self.hold()                   # residente: sigue vivo con la ventana escondida
+        if self.residente:
+            self.hold()               # residente: sigue vivo con la ventana escondida
         # app.abrir("sound") desde otro proceso o desde un menú.
         accion = Gio.SimpleAction.new("abrir", GLib.VariantType.new("s"))
         accion.connect("activate", lambda _a, v: self._abrir_accion(v.get_string()))
