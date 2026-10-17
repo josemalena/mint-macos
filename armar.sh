@@ -158,9 +158,10 @@ echo "  cuadra"
 
 paso "Pruebas: rust (cargo test)"
 ( cd "$M/rust" && CARGO_TARGET_DIR="$T/build/rust" callado cargo test --locked --quiet )
-# Los binarios también, para las pruebas de tareas reales (las AppImages).
-( cd "$M/rust" && CARGO_TARGET_DIR="$T/build/rust" callado cargo build --locked --quiet )
 echo "  $(grep -Eo '[0-9]+ passed' "$T/ultimo.log" | awk '{s += $1} END {print s + 0}') pruebas pasan"
+# Los binarios también, para las pruebas de tareas reales (las AppImages). Después
+# de contar: callado deja su salida en el mismo ultimo.log.
+( cd "$M/rust" && CARGO_TARGET_DIR="$T/build/rust" callado cargo build --locked --quiet )
 
 # meson test de Fynder y del Dock en un X, bus y XDG propios: nada de lo de
 # José (pantalla :0, dconf, ~/.config) entra en las pruebas. GIO_USE_VFS=local:
