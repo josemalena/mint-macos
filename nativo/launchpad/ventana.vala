@@ -87,6 +87,7 @@ namespace Launchpad {
         Cairo.ImageSurface? lupa = null;
         Cairo.ImageSurface? borrar = null;
         string sello;
+        bool adaptable = false;               // sigue al monitor donde cae (no en pruebas con tamaño fijo)
 
         public Ventana (Gtk.Application? app, int ancho = 0, int alto = 0) {
             Object (title: "Launchpad");
@@ -109,12 +110,18 @@ namespace Launchpad {
                 // pide pantalla completa, que el gestor da en el monitor donde está.
                 move (geo.x, geo.y);
                 set_default_size (geo.width, geo.height);
+                // _NET_WM_FULLSCREEN_MONITORS lleva el número de monitor del gestor, que cuenta de izquierda a derecha y no
+                // en el orden de GDK (el principal va primero): con dos pantallas el 0 de GDK caía en la otra.
+                int orden = 0;
                 for (int i = 0; i < display.get_n_monitors (); i++) {
-                    if (display.get_monitor (i) == pantalla) {
-                        fullscreen_on_monitor (get_screen (), i);
+                    var g2 = display.get_monitor (i).get_geometry ();
+                    if (g2.x < geo.x || (g2.x == geo.x && g2.y < geo.y)) {
+                        orden++;
                     }
                 }
+                fullscreen_on_monitor (get_screen (), orden);
                 fullscreen ();
+                adaptable = true;
                 W = geo.width;
                 H = geo.height;
             } else {
@@ -126,6 +133,7 @@ namespace Launchpad {
                 var p = tam.split ("x");
                 W = int.parse (p[0]);
                 H = int.parse (p[1]);
+                adaptable = false;
             }
             esc = double.min ((double) W / REF_W, (double) H / REF_H);
             dx = (W - REF_W * esc) / 2;              // centrado si la pantalla no es 16:10
@@ -210,8 +218,48 @@ namespace Launchpad {
             scroll_acum = 0.0;
             scroll_hasta = 0.0;
             t0 = ahora ();
+            if (adaptable) {
+                // El gestor pone el fullscreen en el monitor del puntero: se calcula para ese.
+                var m = monitor_del_puntero ();
+                if (m != null) {
+                    var g = m.get_geometry ();
+                    move (g.x, g.y);
+                    if (g.width != W || g.height != H) {
+                        aplicar_geometria (g.width, g.height);
+                    }
+                }
+            }
             show_all ();
             present_with_time (Gdk.CURRENT_TIME);
+            if (adaptable) {
+                // Y si aun así cayó en otro, se corrige con el tamaño real de la ventana.
+                Timeout.add (150, () => {
+                    int w = get_allocated_width (), h = get_allocated_height ();
+                    if (visible && w > 1 && h > 1 && (w != W || h != H)) {
+                        aplicar_geometria (w, h);
+                        queue_draw ();
+                    }
+                    return false;
+                });
+            }
+        }
+
+        Gdk.Monitor? monitor_del_puntero () {
+            var display = Gdk.Display.get_default ();
+            var puntero = display.get_default_seat ().get_pointer ();
+            int x, y;
+            puntero.get_position (null, out x, out y);
+            return display.get_monitor_at_point (x, y);
+        }
+
+        /** Rehace lo que depende del tamaño de la pantalla: la escala, el centrado y el fondo desenfocado (de caché). */
+        void aplicar_geometria (int w, int h) {
+            W = w;
+            H = h;
+            esc = double.min ((double) W / REF_W, (double) H / REF_H);
+            dx = (W - REF_W * esc) / 2;
+            ruta_fondo = construir_fondo (W, H);
+            cargar_fondo ();
         }
 
         public void ocultar () {
