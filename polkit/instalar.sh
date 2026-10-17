@@ -13,10 +13,12 @@ AQUI="$(cd "$(dirname "$0")" && pwd)"
 LIB="$HOME/.local/lib/mint-macos/polkit"
 BIN="$HOME/.local/bin/mint-macos-polkit"
 AUTOARRANQUE="$HOME/.config/autostart/mint-macos-polkit.desktop"
+# El agente de GNOME también arranca con la sesión (/etc/xdg/autostart) y ocupa el lugar: se oculta solo para este usuario.
+GNOME_OCULTO="$HOME/.config/autostart/polkit-gnome-authentication-agent-1.desktop"
 
 case "${1:-}" in
   --quitar)
-    rm -f "$AUTOARRANQUE"
+    rm -f "$AUTOARRANQUE" "$GNOME_OCULTO"
     for p in $(pgrep -x mint-macos-polkit 2>/dev/null || true); do kill "$p" 2>/dev/null || true; done   # el supervisor
     for p in $(pgrep -x mac-polkit 2>/dev/null || true); do kill "$p" 2>/dev/null || true; done
     for p in $(pgrep -f "^python3 $LIB/agente.py" 2>/dev/null || true); do kill "$p" 2>/dev/null || true; done
@@ -30,6 +32,7 @@ case "${1:-}" in
     exit 0 ;;
   --activar)
     gsettings set org.cinnamon enable-polkit-agent false
+    printf '[Desktop Entry]\nType=Application\nName=PolicyKit Authentication Agent\nHidden=true\n' > "$GNOME_OCULTO"
     echo "Cinnamon ya no registrará su agente en el próximo arranque. Reinicia Cinnamon (o cierra sesión)"
     echo "para que el agente de mint-macos sea el único; hasta entonces el de Cinnamon sigue en pie."
     exit 0 ;;
