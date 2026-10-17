@@ -20,7 +20,8 @@
 # en su entorno, y se comprueba que el dconf de José no cambió.
 #
 # Resultados (registro de cada caso y capturas) en ~/.cache/mint-macos/pruebas/
-# resultados, o en --resultados DIR. Sale con 1 si algún caso falla.
+# resultados, o en --resultados DIR. Sale con 1 si algún caso falla, y con 2 si
+# el dconf de José cambió (después de cada caso se mira, y la corrida se para).
 set -euo pipefail
 
 AQUI="$(cd "$(dirname "$0")" && pwd)"
@@ -70,7 +71,8 @@ rm -f "$RES"/*.log "$RES"/*.png "$RES"/resumen.txt
 MARCA="mmp-$$-$RANDOM"
 
 # El dconf de José, para comprobar al final que nadie lo tocó.
-DCONF_JOSE="$HOME/.config/dconf/user"
+# PRUEBAS_DCONF_JOSE: otro archivo en su lugar, para probar este mismo chequeo.
+DCONF_JOSE="${PRUEBAS_DCONF_JOSE:-$HOME/.config/dconf/user}"
 DCONF_ANTES="$(sha256sum "$DCONF_JOSE" 2>/dev/null | cut -d' ' -f1 || true)"
 
 XPID=""
@@ -120,6 +122,7 @@ HOME_REAL="$HOME"
 ARCH="$(dpkg-architecture -qDEB_HOST_MULTIARCH 2>/dev/null || echo x86_64-linux-gnu)"
 export MINT_MACOS_PRUEBA="$MARCA" MINT_MACOS_REPO="$(dirname "$AQUI")" PRUEBAS_RES="$RES" PRUEBAS_REAL="$REAL"
 export PRUEBAS_PREFIJO="$PREFIJO" PRUEBAS_LIB="$AQUI/lib.sh"
+export PRUEBAS_DCONF_JOSE="$DCONF_JOSE" PRUEBAS_DCONF_ANTES="$DCONF_ANTES"
 export DISPLAY="$PANT" HOME="$H" XDG_CONFIG_HOME="$H/config" XDG_DATA_HOME="$H/data" \
   XDG_CACHE_HOME="$H/cache" XDG_RUNTIME_DIR="$H/run" GSETTINGS_SCHEMA_DIR="$H/esquemas" \
   XDG_DATA_DIRS="$PREFIJO/share:/usr/local/share:/usr/share" PATH="$PREFIJO/bin:$PATH" \
@@ -136,9 +139,12 @@ ESTADO=0
 # bus.log; por la terminal, solo el resumen.
 dbus-run-session -- bash "$AQUI/sesion.sh" "${CASOS[@]}" 2> "$RES/bus.log" || ESTADO=$?
 
+# sesion.sh ya lo mira después de cada caso; esto cubre lo que pase al cerrar.
 DCONF_DESPUES="$(sha256sum "$DCONF_JOSE" 2>/dev/null | cut -d' ' -f1 || true)"
 if [ "$DCONF_ANTES" != "$DCONF_DESPUES" ]; then
-  echo "  ⚠ el dconf de José cambió durante las pruebas (puede ser su propia sesión; revisar)" | tee -a "$RES/resumen.txt"
+  echo "  ✗ el dconf de José ($DCONF_JOSE) cambió durante las pruebas: la corrida no vale." | tee -a "$RES/resumen.txt"
+  echo "    Si fue una prueba, revisar con dconf dump / y reponer; si fue José usando su sesión, repetir." | tee -a "$RES/resumen.txt"
+  ESTADO=2
 fi
 echo "  resultados: $RES"
 exit "$ESTADO"

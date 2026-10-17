@@ -38,6 +38,11 @@ for c in "$@"; do
   r=$?
   cerrar_caso "$n"
   seg=$(( $(date +%s) - inicio ))
+  # El dconf de José, después de cada caso: si cambió, no sigue nada más.
+  if [ "$(sha256sum "$PRUEBAS_DCONF_JOSE" 2>/dev/null | cut -d' ' -f1 || true)" != "$PRUEBAS_DCONF_ANTES" ]; then
+    printf '  ✗ %-28s el dconf de José cambió: paro la corrida\n' "$n"
+    exit 2
+  fi
   case $r in
     0) printf '  ✓ %-28s %3ss\n' "$n" "$seg" ;;
     77) printf '  – %-28s saltado: %s\n' "$n" "$(tail -1 "$RES/$n.log")" ;;
