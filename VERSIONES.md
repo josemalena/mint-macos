@@ -7,9 +7,9 @@ Cada fork, el commit que se compila y los parches que lleva encima de su upstrea
 
 - Fork: https://github.com/josemalena/fynder.git
 - Upstream: https://github.com/linuxmint/nemo.git, rama `master`
-- Commit: `5c8d1df289e2aa90da782b486620bcaf4f2fd3b4` (2026-10-17, feat(menus): el menú View del Finder de Catalina)
+- Commit: `223db0b133193be35bf26015db22a3f79c3763d2` (2026-10-17, feat(appimage): el ícono del lanzador de mint-macos (Icon=))
 - Base: `66eabf459bc86d03c24797274d0e3f60b9b7a7d8` (master.lmde7), 2026-10-06, nemo-icon-dnd.c: Fix reporting a successful drag result.
-- Parches: 193
+- Parches: 195
 
 | Commit | Fecha | Asunto |
 |---|---|---|
@@ -206,6 +206,8 @@ Cada fork, el commit que se compila y los parches que lleva encima de su upstrea
 | `0079bbae` | 2026-10-17 | feat: ⌥⌘V mueve lo copiado, iCloud Drive entra en This Mac, glifo de Connect y build reproducible |
 | `5c06e8f4` | 2026-10-17 | feat(tags): Control-1…7 ponen o quitan las etiquetas favoritas y Control-0 las quita todas |
 | `5c8d1df2` | 2026-10-17 | feat(menus): el menú View del Finder de Catalina |
+| `552a50b6` | 2026-10-17 | feat(appimage): una AppImage con su lanzador de mint-macos se ve con el nombre de la app y «.app» |
+| `223db0b1` | 2026-10-17 | feat(appimage): el ícono del lanzador de mint-macos (Icon=) |
 
 ## mint-macos-dock
 
