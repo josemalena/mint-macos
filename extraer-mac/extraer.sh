@@ -49,6 +49,17 @@ log() { echo "$(date +%H:%M:%S) $*" >> "$LOG"; }
 aviso() { log "$*"; osascript -e "display notification \"$*\" with title \"Extraer Mac\"" 2>/dev/null; }
 osa() { osascript "$@" 2>>"$LOG"; }
 
+# Cierra una app por su nombre: quit por AppleScript (solo si está abierta, para
+# no lanzarla) y, de respaldo, pkill -f por la ruta del .app. No pkill -x: macOS
+# compara contra p_comm, que se corta a 16 caracteres, y con «System Information»
+# (18) lo más probable es que nunca coincidiera (17-10-2026; SIN PROBAR en Mac hasta la próxima corrida).
+cerrar_app() {
+  osa -e "if application \"$1\" is running then tell application \"$1\" to quit"
+  sleep 1
+  pkill -f "/$1.app/" 2>/dev/null
+  return 0
+}
+
 # Ancho, alto, escala, barra y Dock en puntos. En Catalina el puente de JXA se
 # cae al leer un NSRect (NSGetSizeAndAlignment, 15-10-2026) y todo salía vacío:
 # las capturas por región y las ventanas de Finder quedaron mal. Respaldo: lo
@@ -522,7 +533,7 @@ tanda() { # claro | oscuro
   fi
   # 08 System Preferences: la cuadrícula, cada panel y cada pestaña (anchor)
   if bloque 08; then
-  osa -e 'tell application "System Preferences" to quit'; sleep 2; pkill -x "System Preferences" 2>/dev/null; sleep 1
+  cerrar_app "System Preferences"; sleep 1
   osa -e 'tell application "System Preferences" to activate' -e 'tell application "System Preferences" to set show all of it to true' ; sleep 2.5; raton_fuera
   # En Monterey «show all» no bastó (la captura salió con un panel): ⌘L es View ▸ Show All Preferences.
   tecla "System Preferences" 'keystroke "l" using command down'; sleep 2
@@ -624,7 +635,7 @@ tanda() { # claro | oscuro
       || osa -e "tell application \"System Events\" to tell process \"System Information\" to click button \"$tab\" of toolbar 1 of window 1" || continue
     sleep 2; cap_win 12-about-this-mac-$(echo $tab | tr A-Z a-z)-$M "$(ventana_de 'System Information')"
   done
-  pkill -x "System Information" 2>/dev/null; sleep 1
+  cerrar_app "System Information"; sleep 1
 
   fi
   # 15 Force Quit (⌥⌘Esc) y la barra de ⇧⌘5
@@ -649,7 +660,7 @@ tanda() { # claro | oscuro
   #    final: Continue pide la clave y cierra todas las apps, Terminal incluido.
   open -a "Migration Assistant"; sleep 3; raton_fuera
   cap_win 14-migration-assistant-inicio-$M "$(ventana_de 'Migration Assistant')"
-  pkill -x "Migration Assistant" 2>/dev/null; sleep 1
+  cerrar_app "Migration Assistant"; sleep 1
   fi
   # 16 Lo que faltaba de la lista de Catalina (lista-capturas-catalina-20261015):
   # menús de estado, Recent Items, Go to Folder, búsqueda, pestañas, menús del
@@ -737,10 +748,10 @@ tanda() { # claro | oscuro
   for tab in Displays Storage Support Service; do
     ui_log clic "System Information" "$tab" && { sleep 2; cap_win "16-about-$(echo $tab | tr A-Z a-z)-$M" "$(ventana_de 'System Information')"; }
     if [ "$tab" = Storage ] && ui_log clic "System Information" "Manage"; then
-      sleep 3; cap_full "16-about-storage-manage-$M"; pkill -x "Storage Management" 2>/dev/null; sleep 1
+      sleep 3; cap_full "16-about-storage-manage-$M"; cerrar_app "Storage Management"; sleep 1
     fi
   done
-  pkill -x "System Information" 2>/dev/null; sleep 1
+  cerrar_app "System Information"; sleep 1
 
   # --- System Preferences
   osa -e 'tell application "System Preferences" to quit'; sleep 2
