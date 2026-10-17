@@ -42,7 +42,7 @@ necesita_teclado() {
 
 lanzar() {
   local log="$PRUEBAS_RES/$PRUEBAS_CASO-$(basename "$1").log"
-  paso "lanzo: $*"
+  paso "lanzo: $* ($(command -v "$1"))"
   setsid "$@" >> "$log" 2>&1 < /dev/null &
 }
 
