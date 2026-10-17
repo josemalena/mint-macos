@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
-# Vía rápida: con el ayudante residente (mint-macos-ayudante) vivo, se le pide la ventana
+# Con el binario en Vala instalado (nativo/instalar.sh) se usa ese; quitarlo (nativo/volver.sh) o MAC_FORCEQUIT_PYTHON=1
+# devuelve esta ventana. Si no, la vía rápida: con el ayudante residente (mint-macos-ayudante) vivo, se le pide la ventana
 # por D-Bus (gdbus) y este proceso termina sin cargar GTK. Si no está, sigue de largo.
+import os as _os
 import subprocess as _sp
 import sys as _sys
 if __name__ == "__main__":
+    _bin = _os.path.expanduser("~/.local/bin/mac-forcequit")
+    if not _os.environ.get("MAC_FORCEQUIT_PYTHON") and _os.access(_bin, _os.X_OK):
+        _os.execv(_bin, [_bin])
     try:
         if _sp.run(["gdbus", "call", "--session", "--dest", "io.github.josemalena.MintMacosAyudante",
                     "--object-path", "/io/github/josemalena/MintMacosAyudante",

@@ -17,6 +17,11 @@ ayudantes de root y los servicios en Rust, en un solo proyecto con meson.
   `libpolkit-agent-1-dev` para compilar; sin ella se compila todo lo demás. El supervisor `mint-macos-polkit` usa el binario
   si está en `~/.local/bin`; `instalar.sh --python` lo quita y vuelve al de Python. En la Mac el botón genérico es «OK».
 
+- `forcequit/`: `mac-forcequit`, la ventana «Force Quit Applications» con las medidas de la captura de Catalina
+  (`15-force-quit-oscuro`): lista de 298 × 168 con filas de 22 px, botón «Force Quit» o «Relaunch» (con Fynder, el Finder de
+  aquí), flechas y Enter, y la lista se actualiza sola al abrirse o cerrarse ventanas (libwnck). `--prueba` no mata nada.
+  `applets/applemenu@macos/forcekill.py` lo usa si está instalado (⌥⌘⎋ y Apple ▸ Force Quit…); `instalar.sh --python` lo quita.
+
 ## Construir
 
     meson setup build && ninja -C build      # el binario queda en build/sesion/mac-sesion
@@ -41,6 +46,13 @@ Los píxeles de los cuatro diálogos (Log Out, Restart, Shut Down e invitado) sa
 | pkexec hasta la ventana  | 109 ms  | 134 ms  |
 
 El tiempo lo domina `pkexec` y polkitd, no el agente: sin ganancia. Lo que se gana es memoria, en un proceso que vive siempre.
+
+## Medido: Force Quit (:0, mediana de 5, arranque en frío; Python = forcekill.py sin el residente)
+
+|                                  | Python  | Vala    |
+|----------------------------------|---------|---------|
+| tiempo hasta que se ve la ventana| 1080 ms | 616 ms  |
+| RSS con la ventana puesta        | 62.7 MB | 40.7 MB |
 
 ## Notas
 
