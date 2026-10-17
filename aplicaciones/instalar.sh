@@ -24,11 +24,13 @@ PYTHON=false
 [ "${1:-}" = "--python" ] && PYTHON=true
 
 if [ "${1:-}" = "--quitar" ]; then
-  systemctl --user disable --now aplicaciones.path aplicaciones.service 2>/dev/null || true
+  systemctl --user disable --now aplicaciones.path aplicaciones.service appimages.path appimages.service 2>/dev/null || true
+  [ ! -x "$LIB/mint-macos-appimages" ] || "$LIB/mint-macos-appimages" --quitar
   if [ -x "$LIB/aplicaciones.py" ] && [ -d "$DESTINO" ]; then
     python3 "$LIB/aplicaciones.py" --destino "$DESTINO" --quitar
   fi
-  rm -f "$UNIDADES/aplicaciones.path" "$UNIDADES/aplicaciones.service" "$LIB/aplicaciones.py" "$LIB/mint-macos-aplicaciones"
+  rm -f "$UNIDADES/aplicaciones.path" "$UNIDADES/aplicaciones.service" "$LIB/aplicaciones.py" "$LIB/mint-macos-aplicaciones" \
+    "$UNIDADES/appimages.path" "$UNIDADES/appimages.service" "$LIB/mint-macos-appimages"
   systemctl --user daemon-reload
   echo "Listo. La carpeta $DESTINO no se borra (es del sistema); si ya no la quieres: sudo rmdir $DESTINO"
   exit 0
@@ -92,9 +94,54 @@ EOF
   echo "WantedBy=default.target"
 } > "$UNIDADES/aplicaciones.path"
 
+# Las AppImages soltadas en /Applications (y en ~/Applications si existe):
+# mint-macos-appimages, solo en Rust. Ver APPIMAGE.md.
+APPIMAGES="$AQUI/../rust/target/release/mint-macos-appimages"
+if [ -x "$APPIMAGES" ]; then
+  install -m 755 "$APPIMAGES" "$LIB/mint-macos-appimages"
+  PROPIA=""; [ -d "$HOME/Applications" ] && PROPIA=" --destino %h/Applications"
+  cat > "$UNIDADES/appimages.service" <<EOF
+[Unit]
+Description=Integra las AppImages de $DESTINO, sin ejecutarlas (mint-macos)
+StartLimitIntervalSec=0
+
+[Service]
+Type=oneshot
+# Una AppImage grande tarda en copiarse: el .path salta al cerrarse el archivo,
+# y esto deja pasar la ráfaga de la copia.
+ExecStartPre=/bin/sleep 2
+ExecStart=%h/.local/lib/mint-macos/mint-macos-appimages --destino $DESTINO$PROPIA
+
+[Install]
+WantedBy=default.target
+EOF
+  {
+    echo "[Unit]"
+    echo "Description=Vigila las AppImages de $DESTINO"
+    echo
+    echo "[Path]"
+    for d in "$DESTINO" "$DESTINO"/*/ "$HOME/Applications" "$HOME"/Applications/*/; do
+      d="${d%/}"
+      [ -d "$d" ] && echo "PathChanged=${d/#$HOME/%h}"
+    done
+    echo "Unit=appimages.service"
+    echo
+    echo "[Install]"
+    echo "WantedBy=default.target"
+  } > "$UNIDADES/appimages.path"
+  echo "  AppImages: se integran solas"
+else
+  echo "  AppImages: sin integrar (falta compilar rust/appimages)"
+fi
+
 systemctl --user daemon-reload
 systemctl --user enable aplicaciones.service >/dev/null 2>&1
 systemctl --user enable --now aplicaciones.path >/dev/null
 systemctl --user start aplicaciones.service
+if [ -f "$UNIDADES/appimages.path" ]; then
+  systemctl --user enable appimages.service >/dev/null 2>&1
+  systemctl --user enable --now appimages.path >/dev/null
+  systemctl --user start appimages.service
+fi
 echo "$DESTINO armada ($(find "$DESTINO" -maxdepth 2 -name '*.desktop' | wc -l) apps). Se mantiene sola."
 echo "Vuelta atrás al Python: $AQUI/instalar.sh --python.  Para deshacerlo: $AQUI/instalar.sh --quitar"

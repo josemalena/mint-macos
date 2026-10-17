@@ -1,7 +1,9 @@
-# Una AppImage en /Applications: propuesta
+# Una AppImage en /Applications
 
-**Estado: propuesta aprobada por José el 17-10-2026, sin código todavía.** Sus
-decisiones están en «Decisiones», al final. En la Mac, arrastrar una `.app`
+**Estado: hecho el 17-10-2026** en `rust/appimages` (`mint-macos-appimages`),
+lo instala `aplicaciones/instalar.sh`. La propuesta la aprobó José ese mismo día;
+sus decisiones están en «Decisiones», al final, y lo que cambió al hacerlo, en
+«Cómo quedó». En la Mac, arrastrar una `.app`
 a Applications ya la deja instalada, y arrastrarla a la Trash la quita. Aquí la
 pieza equivalente es la AppImage: un solo archivo, una app entera. La propuesta
 es que soltar una AppImage en `/Applications` (o en `~/Applications`, si
@@ -117,8 +119,8 @@ y el que usan appimaged y libappimage [V]. Reglas del lanzador:
 - después se corre `update-desktop-database ~/.local/share/applications` para
   que aparezca en «Open With».
 
-**El ícono.** Va en
-`~/.local/share/icons/hicolor/<tamaño>/apps/mint-macos-appimage-<md5>.<ext>`.
+**El ícono.** Va en `~/.local/share/mint-macos/appimages/<md5>.png|svg`, y el
+lanzador lo nombra por su ruta absoluta.
 
 **Quién la ve:**
 
@@ -140,9 +142,9 @@ y el que usan appimaged y libappimage [V]. Reglas del lanzador:
   trae, puede salir un ícono genérico. Se mira caso por caso en la prueba [I].
 
 **Mover y borrar.** Cada corrida vuelve a calcular qué AppImages hay y lo
-compara con la lista de lo que ella creó, guardada en
-`~/.local/share/mint-macos/appimages.json`. Igual que el generador, nunca
-toca un archivo que no creó.
+compara con los lanzadores que ella creó: los reconoce por el prefijo y por la
+línea `X-mint-macos-AppImage=true`. Igual que el generador, nunca toca un
+archivo que no creó.
 
 - **Botarla a la Trash**: su ruta ya no está, así que se borran el lanzador y
   el ícono. Si después se recupera de la Trash, vuelve a integrarse sola.
@@ -216,6 +218,45 @@ En el marco de `pruebas/`, en el Xephyr, con su HOME y su bus:
   no vuelve a preguntar.
 - Antes de dar un caso por bueno se rompe a propósito y se mira que falle, como
   en el resto del marco.
+
+## Cómo quedó (17-10-2026)
+
+- **Lo que cambió respecto a la propuesta.** El ícono no va en hicolor sino en
+  una carpeta propia, `~/.local/share/mint-macos/appimages/`, porque el
+  lanzador lo nombra por su ruta. Tampoco hay `appimages.json`: lo que es
+  nuestro lo marca el propio lanzador. Y una AppImage sin cambios (mismo
+  tamaño, fecha e inodo, guardados en `X-mint-macos-Sello`) no se vuelve a
+  leer: una corrida sin cambios tarda unos 15 ms.
+- **La pregunta de la primera vez** es `mint-macos-appimages abrir RUTA`. Si
+  está `mac-gatekeeper` en el PATH, muestra la ventana con él (Vala, la cara
+  de Catalina; interfaz `--app NOMBRE --ruta RUTA [--origen URL] [--icono
+  RUTA]`, y sale con 0 si José dice Open). Si no está, usa zenity con el mismo
+  texto. Lo aprobado queda en `$XDG_STATE_HOME/mint-macos/appimages-aprobadas`
+  (sha256 y ruta): si el archivo cambia, vuelve a preguntar.
+- **Avisos**: una AppImage que no se puede leer avisa una sola vez por versión
+  del archivo (`appimages-avisos`).
+- **El generador de `/Applications`** (el Python y el Rust, que siguen dando
+  lo mismo byte a byte) se salta los `mint-macos-appimage-*`.
+- **`backhand` 0.25.5**: gzip, xz, zstd y lz4, sin rayon. `cargo audit` no
+  marca nada suyo.
+- **Pruebas**: los casos 50-54 del marco, con
+  `pruebas/fabricar-appimage.sh`, que fabrica AppImages de mentira cuyo
+  runtime deja una marca si alguien lo ejecuta. Cada caso se rompió a propósito
+  y falló.
+  - 50: KeePassXC real, con su lanzador, su ícono SVG, GIO y «Open With» para
+    `.kdbx`.
+  - 51: integrarla no la ejecuta.
+  - 52: moverla a Utilities con espacios y `%` en el nombre, botarla y
+    sacarla de la Trash.
+  - 53: seis archivos malos, con 5 avisos y ninguno repetido.
+  - 54: la pregunta con el nombre de la app; Cancel no la abre, Open sí, y la
+    segunda vez no pregunta.
+- **Falta**:
+  - Fynder: el nombre «KeePassXC.app» y su ícono (hoy sale con un engranaje
+    genérico). Es de Dev.
+  - El Launchpad (Dev-Dock, `271b0ca`), con un lanzador real.
+  - `mac-gatekeeper` en Vala.
+  - Instalarlo en la sesión de José, que pide su sí.
 
 ## Decisiones (José, 17-10-2026)
 

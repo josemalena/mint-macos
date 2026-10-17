@@ -1,0 +1,13 @@
+[package]
+name = "mint-macos-appimages"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+description = "Integra las AppImages soltadas en /Applications sin ejecutarlas (servicio de usuario appimages.service)"
+
+[dependencies]
+# backhand 0.25.5 (26-09-2026, MIT o Apache-2.0): lee el squashfs de la AppImage
+# desde su offset, a memoria. Sin las features por defecto: fuera rayon y
+# tracing; quedan gzip, xz, zstd y lz4, las compresiones que usan las AppImages.
+# Revisado con cargo audit antes de agregarlo.
+backhand = { version = "0.25.5", default-features = false, features = ["gzip", "xz", "zstd", "lz4"] }

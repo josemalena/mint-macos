@@ -603,6 +603,11 @@ fn aplicaciones(cfg: &Config, todas: &[App]) -> Vec<(T, usize, String, &'static 
         if es_panel(&id) && !cfg.mostrar.contains(&id) {
             continue;
         }
+        // Las AppImages (mint-macos-appimages): el archivo mismo ya está en
+        // /Applications; una copia de su lanzador sería un duplicado.
+        if a_utf8(&id).map(|s| s.starts_with("mint-macos-appimage-")).unwrap_or(false) {
+            continue;
+        }
         if app.terminal {
             continue;
         }

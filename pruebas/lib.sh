@@ -18,6 +18,11 @@
 #   captura NOMBRE                     la pantalla a resultados/<caso>-NOMBRE.png
 #   comprobar DESCRIPCIÓN CMD…         corre CMD; si falla, falla con DESCRIPCIÓN
 #   paso TEXTO                         una línea en el registro del caso
+#   md5_uri RUTA                       el md5 de la URI file:// (spec de miniaturas;
+#                                      el nombre de los lanzadores de AppImage)
+#   binario_rust NOMBRE                la ruta de un binario de rust/ (el de
+#                                      PRUEBAS_RUST, el compilado en el repo o el del
+#                                      PATH); salta si no hay
 #
 # Cabecera del caso: «# caso: …», «# límite: SEG» y, si hace falta Cinnamon
 # entero (extensiones como cmdtab@macos), «# gestor: cinnamon» (sesion.sh).
@@ -101,6 +106,20 @@ captura() {
   done
   [ -n "$antes" ] || falla "la captura $f salió vacía"
   paso "captura: $f (la pantalla seguía cambiando a los 5 s)"
+}
+
+md5_uri() {
+  python3 -I -c 'import hashlib, sys
+from gi.repository import Gio
+print(hashlib.md5(Gio.File.new_for_path(sys.argv[1]).get_uri().encode()).hexdigest())' "$1"
+}
+
+binario_rust() {
+  local d
+  for d in "${PRUEBAS_RUST:-}" "$MINT_MACOS_REPO/rust/target/release"; do
+    [ -n "$d" ] && [ -x "$d/$1" ] && { echo "$d/$1"; return 0; }
+  done
+  command -v "$1" || saltar "falta $1 (cd rust && cargo build --release)"
 }
 
 comprobar() {

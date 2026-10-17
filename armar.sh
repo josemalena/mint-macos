@@ -156,6 +156,8 @@ echo "  cuadra"
 
 paso "Pruebas: rust (cargo test)"
 ( cd "$M/rust" && CARGO_TARGET_DIR="$T/build/rust" callado cargo test --locked --quiet )
+# Los binarios también, para las pruebas de tareas reales (las AppImages).
+( cd "$M/rust" && CARGO_TARGET_DIR="$T/build/rust" callado cargo build --locked --quiet )
 echo "  $(grep -Eo '[0-9]+ passed' "$T/ultimo.log" | awk '{s += $1} END {print s + 0}') pruebas pasan"
 
 # meson test de Fynder y del Dock en un X, bus y XDG propios: nada de lo de
@@ -208,7 +210,7 @@ kill $XPID 2>/dev/null || true
 # Las tareas reales (pruebas/), con lo recién compilado: los programas de
 # $RAIZ$PREFIJO/bin antes que los instalados.
 paso "Pruebas: tareas reales (pruebas/correr.sh, en Xephyr)"
-"$M/pruebas/correr.sh" --prefijo "$RAIZ$PREFIJO" --resultados "$T/pruebas" \
+PRUEBAS_RUST="$T/build/rust/debug" "$M/pruebas/correr.sh" --prefijo "$RAIZ$PREFIJO" --resultados "$T/pruebas" \
   || { echo "  ✗ fallan pruebas de tareas reales (registros en $T/pruebas; ARMAR_GUARDAR=1 los deja)"; exit 1; }
 
 $SIN_PAQUETE && { paso "Listo (sin paquete)"; exit 0; }

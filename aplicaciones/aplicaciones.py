@@ -162,6 +162,10 @@ def aplicaciones(cfg):
             continue
         if RE_PANEL.match(id_) and id_ not in cfg["mostrar"]:
             continue
+        # Las AppImages (mint-macos-appimages): el archivo mismo ya está en
+        # /Applications; una copia de su lanzador sería un duplicado.
+        if id_.startswith("mint-macos-appimage-"):
+            continue
         if app.get_boolean("Terminal"):        # programas de terminal
             continue
         if "ConsoleOnly" in (app.get_categories() or ""):

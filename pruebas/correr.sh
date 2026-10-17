@@ -119,7 +119,7 @@ fi
 
 # Los esquemas de GSettings: los del sistema y, encima, los del prefijo.
 H="$TRABAJO/home"
-mkdir -p "$H"/{config,data,cache,esquemas} "$H/run"; chmod 700 "$H/run"
+mkdir -p "$H"/{config,data,cache,state,esquemas} "$H/run"; chmod 700 "$H/run"
 cp /usr/share/glib-2.0/schemas/*.xml "$H/esquemas/"
 [ -d "$PREFIJO/share/glib-2.0/schemas" ] && cp -f "$PREFIJO"/share/glib-2.0/schemas/*.xml "$H/esquemas/" 2>/dev/null || true
 glib-compile-schemas "$H/esquemas"
@@ -127,10 +127,13 @@ glib-compile-schemas "$H/esquemas"
 HOME_REAL="$HOME"
 ARCH="$(dpkg-architecture -qDEB_HOST_MULTIARCH 2>/dev/null || echo x86_64-linux-gnu)"
 export MINT_MACOS_PRUEBA="$MARCA" MINT_MACOS_REPO="$(dirname "$AQUI")" PRUEBAS_RES="$RES" PRUEBAS_REAL="$REAL"
-export PRUEBAS_PREFIJO="$PREFIJO" PRUEBAS_LIB="$AQUI/lib.sh"
+export PRUEBAS_PREFIJO="$PREFIJO" PRUEBAS_LIB="$AQUI/lib.sh" PRUEBAS_CACHE_REAL="$CACHE"
+# PRUEBAS_RUST: la carpeta de los binarios de rust/ que se prueban (armar.sh la
+# pasa con lo recién compilado); si no, los de rust/target/release.
+export PRUEBAS_RUST="${PRUEBAS_RUST:-}"
 export PRUEBAS_DCONF_JOSE="$DCONF_JOSE" PRUEBAS_DCONF_ANTES="$DCONF_ANTES"
 export DISPLAY="$PANT" HOME="$H" XDG_CONFIG_HOME="$H/config" XDG_DATA_HOME="$H/data" \
-  XDG_CACHE_HOME="$H/cache" XDG_RUNTIME_DIR="$H/run" GSETTINGS_SCHEMA_DIR="$H/esquemas" \
+  XDG_CACHE_HOME="$H/cache" XDG_STATE_HOME="$H/state" XDG_RUNTIME_DIR="$H/run" GSETTINGS_SCHEMA_DIR="$H/esquemas" \
   XDG_DATA_DIRS="$PREFIJO/share:/usr/local/share:/usr/share" PATH="$PREFIJO/bin:$PATH" \
   GTK_IM_MODULE=gtk-im-context-simple QT_IM_MODULE=simple XMODIFIERS=
 # Un prefijo que no es el ~/.local de verdad: sus librerías (libplank) primero.
