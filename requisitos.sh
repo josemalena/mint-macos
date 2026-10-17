@@ -31,7 +31,6 @@ esac
 # Para probar los enlaces sin tocar «/»: MINT_MACOS_RAIZ=/tmp/raiz ./requisitos.sh …
 RAIZ="${MINT_MACOS_RAIZ:-}"
 USUARIO="${SUDO_USER:-${USER:-$(id -un)}}"
-KEYD_VERSION=v2.6.0
 
 paso() { printf '\n▸ %s\n' "$*"; }
 
@@ -69,53 +68,9 @@ if $QUITAR_RUTAS; then
   exit 0
 fi
 
-# Fynder: lista explícita de nemo-mac-e1 (build-dep nemo pide deb-src y trae
-# de más). mint-macos-dock (fork de plank-reloaded): lista de la sesión de Plank.
-COMPILAR=(
-  build-essential pkg-config git meson ninja-build gettext
-  gobject-introspection libgirepository1.0-dev libglib2.0-dev libglib2.0-dev-bin
-  libgtk-3-dev libatk1.0-dev libpango1.0-dev libjson-glib-dev libcinnamon-desktop-dev
-  libgail-3-dev libx11-dev libxapp-dev libexif-dev libexempi-dev
-  valac libgdk-pixbuf-2.0-dev libgee-0.8-dev libbamf3-dev libcairo2-dev libwnck-3-dev
-  libgnome-menu-3-dev libcanberra-dev libdbusmenu-glib-dev libdbusmenu-gtk3-dev
-  libxi-dev libxfixes-dev
-  # nativo/: el agente de polkit en Vala (mac-polkit); sin ella se compila el resto
-  libpolkit-agent-1-dev
-  # la pantalla de inicio (slick-greeter-mac, login/instalar.sh)
-  liblightdm-gobject-1-dev libpixman-1-dev
-  # keyd y libfsapfs
-  python3-xlib autoconf automake autopoint libtool libssl-dev libfuse3-dev fuse3 curl
-)
-EJECUCION=(
-  # Fynder y el dock
-  nemo-preview gvfs shared-mime-info bamfdaemon
-  # menú global (lado apps; appmenu-registrar ya no hace falta)
-  appmenu-gtk2-module appmenu-gtk3-module libdbusmenu-glib4 libdbusmenu-gtk3-4
-  # tema Constanza y lo que se saca de la Mac
-  sassc imagemagick libheif1 libheif-plugin-libde265 fontconfig
-  python3 python3-gi gir1.2-gtk-3.0 python3-pil python3-fonttools
-  # applets del menú Apple y Force Quit
-  wmctrl xdotool cinnamon-screensaver
-  # agente de polkit: el binario enlaza la librería; el de Python usa el typelib
-  libpolkit-agent-1-0 gir1.2-polkit-1.0
-  # System Preferences en Vala (nativo/preferencias): json-glib para pactl e iso-codes; ipptool para Printers & Scanners
-  libjson-glib-1.0-0 cups-ipp-utils iso-codes
-  # migrar-datos.sh
-  rsync
-  # capturas/ (⇧⌘3, ⇧⌘4…, la grabación de ⇧⌘5) y la carpeta del escritorio
-  gnome-screenshot xdg-user-dirs ffmpeg
-  # zsh, el shell de la Mac desde Catalina
-  zsh
-  # Spotlyte (el fork de Ulauncher): lo que pide el paquete ulauncher
-  libkeybinder-3.0-0 gir1.2-keybinder-3.0 gir1.2-webkit2-4.1 gir1.2-notify-0.7
-  gir1.2-gdkpixbuf-2.0 python3-gi-cairo python3-dbus python3-levenshtein
-  python3-pyinotify python3-websocket python3-xdg gir1.2-ayatanaappindicator3-0.1
-  # icloud/icloud.sh: la clave de rclone.conf cifrado en el llavero; unzip
-  libsecret-tools unzip
-  # tema/iconos/car.py: los íconos que vienen en Assets.car (LZFSE) y los
-  # glifos del Finder, que se dibujan de su PDF
-  liblzfse1 poppler-utils
-)
+# Los paquetes de apt (COMPILAR y EJECUCION) y las versiones de keyd y
+# libfsapfs están en el manifiesto.
+source "$REPO/versiones.sh"
 
 paso "Paquetes de apt (${#COMPILAR[@]} para compilar, ${#EJECUCION[@]} en ejecución)"
 if $SIMULAR; then

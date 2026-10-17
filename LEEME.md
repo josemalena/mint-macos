@@ -68,7 +68,7 @@ parámetros: `--disco /dev/sdb2 --volumen-sistema 5 --volumen-datos 1
 En orden:
 
 1. `construir.sh`: compila **Fynder** y **mint-macos-dock** (el Dock) en `~/.local`, cada
-   uno en un hash fijo de su repo.
+   uno en el hash de su repo que fija `versiones.sh`.
 2. `desde-mac.sh`: saca de la Mac las fuentes San Francisco, la manzana, los
    íconos del Finder y del Dock, y el fondo de Catalina (`--cuadro 7`, el
    atardecer; `--cuadro 1`, la noche).
@@ -200,6 +200,22 @@ hay ni uno en el repo** (`.gitignore` bloquea `.icns`, `.png`, `.ttf`, `.otf`,
 | Íconos del Finder y del Dock | `~/.local/share/icons/Constanza/` |
 | Glifos de la barra | `~/.local/share/constanza/glifos-finder/` |
 | Fondo de Catalina | `~/.local/share/backgrounds/constanza/` |
+
+## Las versiones: `versiones.sh`
+
+Todo lo de afuera va en una versión fija, y todas están en un solo archivo,
+`versiones.sh`, que los scripts cargan con `source`: el commit de cada fork
+(Fynder, mint-macos-dock, slick-greeter-mac; Spotlyte, todavía sin fijar) con su upstream y su
+base, lo que se baja en una versión fija (keyd, libfsapfs, Magic Lamp,
+Mojave-gtk-theme, rclone) y los paquetes de apt de `requisitos.sh`. Ningún otro
+script fija un hash.
+
+    ./verificar-versiones.sh             # comprueba el manifiesto contra los repos
+    ./verificar-versiones.sh --escribir  # y reescribe VERSIONES.md
+
+`VERSIONES.md` es la lista de parches de cada fork sobre su upstream, generada;
+el verificador falla si quedó vieja o si un script volvió a fijar un hash por
+su cuenta.
 
 ## Las piezas
 

@@ -19,7 +19,7 @@
 #   fynder-ajustes.dconf  los ajustes de Fynder del usuario (etiquetas, menú global…)
 #   nativo-binarios.tar.gz  mac-sesion y su lanzador (nativo/, Vala), a ~/.local/bin
 #   rust-binarios.tar.gz  los ayudantes de root en Rust (rust/target/release)
-#   greeter.tar.gz      el fork de la pantalla de inicio, en el hash de login/instalar.sh
+#   greeter.tar.gz      el fork de la pantalla de inicio, en el hash de versiones.sh
 #   instalar-aqui.sh    el que se corre en la otra computadora
 #   asistente-root.sh   la parte de root del asistente gráfico (pkexec, una clave)
 #
@@ -32,6 +32,7 @@
 set -euo pipefail
 
 REPO="$(cd "$(dirname "$0")" && pwd)"
+source "$REPO/versiones.sh"
 DEST="${1:-$HOME/.local/share/mint-macos/paquetes/$(date +%Y%m%d)}"
 # Los builds de meson de donde salen los binarios instalados.
 BUILD_FYNDER="${BUILD_FYNDER:-$HOME/.cache/mint-macos/build/fynder}"
@@ -48,13 +49,13 @@ git -C "$REPO" archive --prefix=mint-macos/ HEAD | gzip > "$DEST/mint-macos.tar.
 echo "  $(du -h "$DEST/mint-macos.tar.gz" | cut -f1)"
 
 # La pantalla de inicio se compila en la otra computadora, del fork en el hash
-# que fija login/instalar.sh. Va en el paquete porque ese hash puede no estar
+# que fija versiones.sh. Va en el paquete porque ese hash puede no estar
 # en GitHub todavía (en la iMac, 15-10-2026, «not our ref»), y así no hace
 # falta internet para eso.
 paso "La pantalla de inicio (mint-macos-greeter)"
-GH="$(sed -n 's/^GREETER_HASH=//p' "$REPO/login/instalar.sh")"
+GH="$GREETER_HASH"
 GF=""
-for g in "${GREETER_FUENTE:-}" "$(dirname "$REPO")/slick-greeter" "$HOME/.cache/mint-macos/src/mint-macos-greeter"; do
+for g in "${GREETER_FUENTE:-}" "$(dirname "$REPO")/$GREETER_LOCAL" "$HOME/.cache/mint-macos/src/mint-macos-greeter"; do
   [ -n "$g" ] && git -C "$g" cat-file -e "$GH^{commit}" 2>/dev/null && { GF="$g"; break; }
 done
 [ -n "$GF" ] || { echo "  ✗ ningún repo local tiene $GH (GREETER_FUENTE=<repo del fork>)"; exit 1; }
@@ -79,13 +80,17 @@ fi
 # Spotlyte, el Spotlight (fork de Ulauncher en ../spotlyte): el código tal
 # como está commiteado y su configuración (atajo ⌘Espacio y el tema).
 paso "Spotlyte"
-SPOT="${SPOTLYTE_REPO:-$(dirname "$REPO")/spotlyte}"
-[ -d "$SPOT/.git" ] || { echo "  ✗ no está el repo de Spotlyte en $SPOT (SPOTLYTE_REPO)"; exit 1; }
-git -C "$SPOT" archive --prefix=app/ HEAD | gzip > "$DEST/spotlyte.tar.gz"
+# SPOTLYTE_FUENTE: dónde está el repo, si no es ../spotlyte. Sin SPOTLYTE_HASH
+# en el manifiesto va el HEAD, y se avisa.
+SPOT="${SPOTLYTE_FUENTE:-$(dirname "$REPO")/$SPOTLYTE_LOCAL}"
+[ -d "$SPOT/.git" ] || { echo "  ✗ no está el repo de Spotlyte en $SPOT (SPOTLYTE_FUENTE)"; exit 1; }
+SPOT_REV="${SPOTLYTE_HASH:-HEAD}"
+[ -n "$SPOTLYTE_HASH" ] || echo "  ⚠ Spotlyte no tiene hash en versiones.sh: va su HEAD"
+git -C "$SPOT" archive --prefix=app/ "$SPOT_REV" | gzip > "$DEST/spotlyte.tar.gz"
 UL_CONF=()
 for f in .config/ulauncher/settings.json .config/ulauncher/user-themes; do [ -e "$HOME/$f" ] && UL_CONF+=("$f"); done
 [ ${#UL_CONF[@]} -gt 0 ] && tar -czf "$DEST/spotlyte-config.tar.gz" -C "$HOME" "${UL_CONF[@]}"
-echo "  $(git -C "$SPOT" rev-parse --short HEAD), $(du -h "$DEST/spotlyte.tar.gz" | cut -f1)"
+echo "  $(git -C "$SPOT" rev-parse --short "$SPOT_REV"), $(du -h "$DEST/spotlyte.tar.gz" | cut -f1)"
 
 # Los ajustes de Fynder de este usuario (las etiquetas, la barra de ruta, dónde
 # abre una ventana nueva, la letra del escritorio, el menú global), sin

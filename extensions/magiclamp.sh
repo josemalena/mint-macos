@@ -15,9 +15,11 @@
 set -euo pipefail
 
 UUID=CinnamonMagicLamp@klangman
-REPO_SPICES=https://github.com/linuxmint/cinnamon-spices-extensions.git
-COMMIT=a4ca07fa03eaff12b6ad300b80305b9d1a913583     # versión 1.1.0 (20-10-2025)
-ARBOL=4e7bbdacb993a3b58e99ad989c488c810569a468      # git tree de la carpeta
+# El repo, el commit y el git tree de la carpeta: el manifiesto.
+source "$(cd "$(dirname "$0")/.." && pwd)/versiones.sh"
+REPO_SPICES="$MAGICLAMP_REPO"
+COMMIT="$MAGICLAMP_COMMIT"
+ARBOL="$MAGICLAMP_ARBOL"
 RUTA="$UUID/files/$UUID"
 DESTINO="$HOME/.local/share/cinnamon/extensions/$UUID"
 AJUSTES="$HOME/.config/cinnamon/spices/$UUID/$UUID.json"

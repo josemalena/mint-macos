@@ -4,8 +4,11 @@
 # repositorios de Mint: se compila desde la versión publicada.
 set -euo pipefail
 
-VERSION="${LIBFSAPFS_VERSION:-20260921}"
 REPO="$(cd "$(dirname "$0")" && pwd)"
+# La versión sale del manifiesto; LIBFSAPFS_VERSION=… la cambia para una prueba.
+PEDIDA="${LIBFSAPFS_VERSION:-}"
+source "$(dirname "$REPO")/versiones.sh"
+VERSION="${PEDIDA:-$LIBFSAPFS_VERSION}"
 TMP="$(mktemp -d)"
 
 echo "▸ Requisitos de compilación y FUSE 3"

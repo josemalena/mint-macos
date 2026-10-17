@@ -3,8 +3,8 @@
 #   - Fynder: el administrador de archivos con la cara del Finder (fork de Nemo)
 #   - mint-macos-dock: el Dock de Catalina (fork de zquestz/plank-reloaded;
 #     se instala como plank, igual que el original)
-# Cada uno se clona de su repo público en un hash fijo: lo que se instala es
-# exactamente lo que se probó. Necesita los paquetes de requisitos.sh.
+# Cada uno se clona de su repo público en el hash fijado en versiones.sh: lo
+# que se instala es exactamente lo que se probó. Necesita los paquetes de requisitos.sh.
 #
 #   ./construir.sh               los dos
 #   ./construir.sh fynder        solo uno (fynder | plank)
@@ -13,10 +13,8 @@
 # ~/.cache/mint-macos/build (fuera de /tmp: un reinicio no los borra).
 set -euo pipefail
 
-FYNDER_REPO=https://github.com/josemalena/fynder.git
-FYNDER_HASH=6df603c9598d92bef95cc13bc781a65abe53a043
-PLANK_REPO=https://github.com/josemalena/mint-macos-dock.git
-PLANK_HASH=461786b42a3f4236f38c1f8fb237fa54a6a69076
+# FYNDER_REPO/_HASH y PLANK_REPO/_HASH: el manifiesto.
+source "$(cd "$(dirname "$0")" && pwd)/versiones.sh"
 
 CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/mint-macos"
 PREFIJO="$HOME/.local"

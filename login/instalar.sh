@@ -24,8 +24,8 @@ set -euo pipefail
 
 AQUI="$(cd "$(dirname "$0")" && pwd)"
 MINT_MACOS="$(dirname "$AQUI")"
-GREETER_REPO=https://github.com/josemalena/mint-macos-greeter.git
-GREETER_HASH=13ae3286979c42de30b6f30e884ce8eec25a7c6d
+# GREETER_REPO y GREETER_HASH: el manifiesto.
+source "$MINT_MACOS/versiones.sh"
 FUENTE=""
 ACCION=instalar
 while [ $# -gt 0 ]; do

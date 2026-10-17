@@ -7,7 +7,8 @@
 # son los de Catalina (controles.py).
 set -euo pipefail
 AQUI="$(cd "$(dirname "$0")" && pwd)"
-MOJAVE_COMMIT=eff1025
+# MOJAVE_REPO y MOJAVE_COMMIT: el manifiesto.
+source "$(dirname "$(dirname "$AQUI")")/versiones.sh"
 NOMBRE=Constanza-Oscuro
 DEST="${CONSTANZA_TEMAS:-$HOME/.themes}"        # CONSTANZA_TEMAS y CONSTANZA_PLANK: para probar sin tocar los activos
 TMP="$(mktemp -d)"
@@ -17,8 +18,8 @@ for p in sassc glib-compile-resources; do
   command -v "$p" >/dev/null || sudo apt install -y sassc libglib2.0-dev-bin
 done
 
-echo "  Mojave-gtk-theme $MOJAVE_COMMIT"
-git clone -q https://github.com/vinceliuice/Mojave-gtk-theme.git "$TMP/mojave"
+echo "  Mojave-gtk-theme ${MOJAVE_COMMIT:0:7}"
+git clone -q "$MOJAVE_REPO" "$TMP/mojave"
 git -C "$TMP/mojave" checkout -q "$MOJAVE_COMMIT"
 mkdir -p "$TMP/salida"
 "$TMP/mojave/install.sh" -d "$TMP/salida" -n Constanza -c dark -o standard -a standard -s standard >/dev/null 2>&1

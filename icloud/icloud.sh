@@ -25,11 +25,8 @@
 # ICLOUD_SIN_FYNDER=1 para no tocar el lateral de Fynder.
 set -euo pipefail
 
-RCLONE_VERSION=v1.75.1                     # 04-09-2026; iclouddrive desde v1.69
-declare -A RCLONE_SHA256=(
-  [amd64]=982b5aa772841168f8e380f139e9e787b2a105403e32b94da8676a0e1c0a13ab
-  [arm64]=03f2504174034b6d004152ed7369251c9a9ec1f7e0836eda420f5c7a5ec0dff9
-)
+# RCLONE_VERSION y RCLONE_SHA256 (por arquitectura): el manifiesto.
+source "$(cd "$(dirname "$0")/.." && pwd)/versiones.sh"
 YO="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
 BIN="$HOME/.local/bin/rclone"
 REMOTO="${ICLOUD_REMOTO:-icloud}"
