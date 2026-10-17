@@ -51,6 +51,15 @@ prueba() {
   teclas super+Tab; sleep 1
   [ "$(xdotool getactivewindow)" = "$c" ] || falla "⌘Tab no volvió a la calculadora"
 
+  paso "⌘ sostenido + Tab: sale el panel de cmdtab (el selector de fábrica de Cinnamon no tiene esa clase)"
+  xdotool keydown super; xdotool key Tab; sleep 1.5
+  local panel
+  panel="$(gdbus call --session --dest org.Cinnamon --object-path /org/Cinnamon --method org.Cinnamon.Eval \
+    "let hay=false; let rec=a=>{ if (a.style_class && a.style_class.indexOf('cmdtab-panel')>=0) hay=true; a.get_children().forEach(rec); }; rec(imports.ui.main.uiGroup); hay ? 'PANEL' : 'nada'" 2>&1)"
+  captura cmdtab-panel
+  xdotool key Escape; xdotool keyup super; sleep 1
+  case "$panel" in *PANEL*) paso "el panel de cmdtab está en pantalla" ;; *) falla "no salió el panel de cmdtab con ⌘Tab sostenido ($panel)" ;; esac
+
   paso "dos ventanas de xed: ⌘\` rota entre ellas"
   teclas super+Tab; sleep 1      # a xed, como lo haría José; nada de windowactivate (timestamp 0 que Muffin desconfía)
   [ "$(xdotool getactivewindow)" = "$x1" ] || falla "⌘Tab no pasó a xed antes de abrir la segunda ventana"
