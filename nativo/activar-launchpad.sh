@@ -25,7 +25,7 @@ case "${1:-}" in
   "")
     [ -x "$NATIVO" ] || { echo "✗ falta $NATIVO (nativo/instalar.sh)" >&2; exit 1; }
     mkdir -p "$(dirname "$MARCA")"; : > "$MARCA"
-    cerrar_python; sleep 1
+    cerrar_python; cerrar_vala; sleep 1          # también uno de Vala ya corriendo: sirve para reiniciarlo tras actualizar
     setsid "$BIN" --residente >/dev/null 2>&1 < /dev/null &
     echo "Launchpad de Vala activo (residente). Vuelta atrás: $0 --quitar" ;;
   *) echo "uso: $0 [--quitar]" >&2; exit 2 ;;
