@@ -82,7 +82,9 @@ else
 fi
 
 # Sin pantalla doble: el demonio de cinnamon-screensaver se va.
-P="$(pgrep -u "$USER" -x cinnamon-screensaver || true)"
+# Por la línea de comandos: «pgrep -x cinnamon-screensaver» (20 caracteres) nunca coincide, el nombre se trunca a 15.
+# El demonio es el script que lanza /usr/bin/cinnamon-screensaver.
+P="$(pgrep -u "$USER" -f 'cinnamon-screensaver-main\.py' || true)"
 if [ -n "$P" ]; then kill $P || true; fi
 echo "  cinnamon-screensaver cerrado (no vuelve mientras haya comando propio)"
 echo "  Para volver: $0 --deshacer"
