@@ -173,8 +173,17 @@ Cada fork, el commit que se compila y los parches que lleva encima de su upstrea
 
 ## Spotlyte
 
-- Fork: sin repo publicado
+- Fork: https://github.com/josemalena/spotlyte.git
 - Upstream: https://github.com/Ulauncher/Ulauncher.git, rama `v5`
-- Commit: **sin fijar** (el paquete toma el HEAD del repo local)
+- Commit: `a62cdb91edc803f042ee654e60f0e9d56186d655` (2026-10-14, tema: esquinas de 12, lupa de 28, cabeceras tenues y tabla de datos en la vista previa)
 - Base: `5ba6eb1ec507d0c90cae80a8b4c33df473ade7be` (5.16.2), 2026-09-17, fix(settings): convert v6 setting names back when returning from v6
 - Parches: 6
+
+| Commit | Fecha | Asunto |
+|---|---|---|
+| `a364b3ea` | 2026-10-14 | ui: ventana de dos paneles como el Spotlight de Catalina |
+| `da69c758` | 2026-10-14 | feat: índice de archivos por nombre, secciones de resultados e ícono de barra apagado |
+| `abbcb1ae` | 2026-10-14 | fix: un aviso que no se puede mostrar no tumba el arranque |
+| `b87bab62` | 2026-10-14 | perf: un índice por fuente (home, discos montados, iCloud) y sin stat por archivo |
+| `6159e16a` | 2026-10-14 | perf: el indexado corre con E/S en clase idle |
+| `a62cdb91` | 2026-10-14 | tema: esquinas de 12, lupa de 28, cabeceras tenues y tabla de datos en la vista previa |
