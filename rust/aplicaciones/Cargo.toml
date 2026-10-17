@@ -1,0 +1,10 @@
+[package]
+name = "mint-macos-aplicaciones"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+description = "Arma /Applications con las apps instaladas (servicio de usuario aplicaciones.service)"
+
+# Sin dependencias de crates: la biblioteca estándar y la GIO del sistema
+# (libgio-2.0.so.0, que Cinnamon ya trae), la misma que usaba el Python.
+[dependencies]

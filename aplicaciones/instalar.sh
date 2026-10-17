@@ -4,6 +4,8 @@
 # app, systemd lo ve y la vuelve a armar.
 #
 #   ./instalar.sh            instala el generador y el servicio que lo vigila
+#   ./instalar.sh --python   el generador de Python aunque esté compilado el de
+#                            Rust: la vuelta atrás
 #   ./instalar.sh --quitar   deja todo como estaba: para el servicio, borra lo
 #                            generado en /Applications y quita los archivos
 #
@@ -18,13 +20,15 @@ AQUI="$(cd "$(dirname "$0")" && pwd)"
 LIB="$HOME/.local/lib/mint-macos"
 UNIDADES="$HOME/.config/systemd/user"
 DESTINO="${APLICACIONES_DESTINO:-/Applications}"
+PYTHON=false
+[ "${1:-}" = "--python" ] && PYTHON=true
 
 if [ "${1:-}" = "--quitar" ]; then
   systemctl --user disable --now aplicaciones.path aplicaciones.service 2>/dev/null || true
   if [ -x "$LIB/aplicaciones.py" ] && [ -d "$DESTINO" ]; then
     python3 "$LIB/aplicaciones.py" --destino "$DESTINO" --quitar
   fi
-  rm -f "$UNIDADES/aplicaciones.path" "$UNIDADES/aplicaciones.service" "$LIB/aplicaciones.py"
+  rm -f "$UNIDADES/aplicaciones.path" "$UNIDADES/aplicaciones.service" "$LIB/aplicaciones.py" "$LIB/mint-macos-aplicaciones"
   systemctl --user daemon-reload
   echo "Listo. La carpeta $DESTINO no se borra (es del sistema); si ya no la quieres: sudo rmdir $DESTINO"
   exit 0
@@ -39,6 +43,16 @@ fi
 
 mkdir -p "$LIB" "$UNIDADES"
 install -m 755 "$AQUI/aplicaciones.py" "$LIB/aplicaciones.py"
+# El de Rust (rust/aplicaciones, mismo comportamiento, 17-10-2026) si está
+# compilado: cd rust && cargo build --release. Se copia junto al Python, que se
+# queda instalado para volver con --python.
+RUST="$AQUI/../rust/target/release/mint-macos-aplicaciones"
+if ! $PYTHON && [ -x "$RUST" ]; then
+  install -m 755 "$RUST" "$LIB/mint-macos-aplicaciones"
+  EJECUTAR="%h/.local/lib/mint-macos/mint-macos-aplicaciones"; echo "  generador: Rust"
+else
+  EJECUTAR="/usr/bin/python3 %h/.local/lib/mint-macos/aplicaciones.py"; echo "  generador: Python"
+fi
 
 cat > "$UNIDADES/aplicaciones.service" <<EOF
 [Unit]
@@ -52,7 +66,7 @@ StartLimitIntervalSec=0
 Type=oneshot
 # Deja que termine la ráfaga: lo que llegue mientras tanto entra en esta corrida.
 ExecStartPre=/bin/sleep 2
-ExecStart=/usr/bin/python3 %h/.local/lib/mint-macos/aplicaciones.py --destino $DESTINO
+ExecStart=$EJECUTAR --destino $DESTINO
 
 [Install]
 WantedBy=default.target
@@ -83,4 +97,4 @@ systemctl --user enable aplicaciones.service >/dev/null 2>&1
 systemctl --user enable --now aplicaciones.path >/dev/null
 systemctl --user start aplicaciones.service
 echo "$DESTINO armada ($(find "$DESTINO" -maxdepth 2 -name '*.desktop' | wc -l) apps). Se mantiene sola."
-echo "Para deshacerlo: $AQUI/instalar.sh --quitar"
+echo "Vuelta atrás al Python: $AQUI/instalar.sh --python.  Para deshacerlo: $AQUI/instalar.sh --quitar"

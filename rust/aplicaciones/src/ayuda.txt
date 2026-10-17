@@ -1,0 +1,35 @@
+Arma /Applications como la de macOS.
+
+En la Mac, /Applications es una carpeta con una entrada por aplicación y una
+subcarpeta, Utilities, con las herramientas del sistema. Aquí se genera lo mismo
+a partir de los lanzadores (.desktop) que Linux ya tiene instalados:
+
+  /Applications/Firefox.app            (un lanzador ejecutable, con su ícono)
+  /Applications/Utilities/Terminal…    (las herramientas del sistema)
+
+Cada entrada es una COPIA del .desktop, no un enlace: Fynder solo muestra el
+nombre y el ícono de un lanzador si el archivo es ejecutable o está en una
+carpeta del sistema, y un enlace a /usr/share/applications sale como un archivo
+cualquiera con candado. Lo único que cambia en la copia es Name=, que lleva el
+nombre corto y el sufijo «.app» (la Mac de José muestra todas las extensiones).
+
+Lo que no es una aplicación de escritorio no entra: los paneles de configuración
+de Cinnamon (Fynder tendrá un solo «System Preferences»), los programas de
+terminal y las piezas internas (Plank, Rofi).
+
+Solo se toca lo que este programa creó: la lista va en .mint-macos-aplicaciones
+dentro de la carpeta. Un archivo del usuario nunca se pisa ni se borra.
+
+Ajustes en ~/.config/mint-macos/aplicaciones.conf, una orden por línea:
+    ocultar   algo.desktop          no entra
+    mostrar   algo.desktop          entra aunque la regla lo deje fuera
+    arriba    algo.desktop          va en /Applications, no en Utilities
+    utilities algo.desktop          va en Utilities
+    nombre    algo.desktop  Nombre  el nombre que se ve (sin el .app)
+
+Uso:
+    aplicaciones.py                  sincroniza /Applications
+    aplicaciones.py --destino DIR    otra carpeta (para probar)
+    aplicaciones.py --simular        dice qué haría, sin escribir nada
+    aplicaciones.py --quitar         borra lo generado y deja la carpeta como estaba
+    aplicaciones.py --sin-sufijo     sin «.app» en los nombres

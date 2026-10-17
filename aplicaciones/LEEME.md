@@ -31,6 +31,15 @@ Dos corridas seguidas no cambian nada. Lo único que el programa toca es lo que 
 creó: la lista va en `.mint-macos-aplicaciones` dentro de la carpeta, y un archivo
 del usuario nunca se pisa ni se borra.
 
+Desde el 17-10-2026 el servicio corre `mint-macos-aplicaciones`, el mismo programa
+en Rust (`rust/aplicaciones`), si está compilado (`cd rust && cargo build
+--release`). Lee las apps con la misma GIO del sistema, así que el orden, los
+nombres traducidos, OnlyShowIn y TryExec salen igual. Se comparó contra este
+Python en 194 casos (lanzadores raros, configuraciones, listas dañadas, las
+opciones de argparse y el sistema de verdad): mismos archivos byte a byte, con la
+misma fecha y los mismos permisos, la misma salida y el mismo código. El Python se
+queda instalado al lado; `./instalar.sh --python` vuelve a él.
+
 ## Qué entra
 
 Entran las apps que Cinnamon mostraría en su menú (`should_show`: sin
