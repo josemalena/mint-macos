@@ -11,6 +11,8 @@
 #                            los dos caminos (DBusMenu y GMenuModel): las apps
 #                            esconden su barra al publicar, y sin barra arriba
 #                            José se queda sin menús. Pide cerrar sesión.
+#   ./instalar.sh --python   (con o sin --sesion) el registrador de Python aunque
+#                            esté compilado el de Rust: la vuelta atrás.
 #
 # Cada corrida respalda primero en ~/.local/share/respaldos/menu-global-<fecha>/
 # y deja ahí volver.sh, que deja todo como estaba.
@@ -20,7 +22,13 @@ set -euo pipefail
 
 AQUI="$(cd "$(dirname "$0")" && pwd)"
 SESION=false
-[ "${1:-}" = "--sesion" ] && SESION=true
+PYTHON=false
+for a in "$@"; do
+  case "$a" in
+    --sesion) SESION=true ;;
+    --python) PYTHON=true ;;
+  esac
+done
 
 LIB="$HOME/.local/lib/menu-global"
 UNIDADES="$HOME/.config/systemd/user"
@@ -85,6 +93,16 @@ chmod +x "$RESPALDO/volver.sh"
 # (los servicios de ~/.local/share/dbus-1 mandan sobre los de /usr/share).
 mkdir -p "$LIB" "$UNIDADES" "$DBUS_SERVICIOS"
 install -m 755 "$AQUI/registrador.py" "$LIB/registrador.py"
+# El de Rust (rust/registrador, mismo comportamiento, 17-10-2026; 3 MB contra 21 del
+# Python) si está compilado: cd rust && cargo build --release. Se copia junto al
+# Python, que se queda instalado para volver con --python.
+RUST="$AQUI/../rust/target/release/mint-macos-registrador"
+if ! $PYTHON && [ -x "$RUST" ]; then
+  install -m 755 "$RUST" "$LIB/mint-macos-registrador"
+  EJECUTAR="$LIB/mint-macos-registrador"; echo "  registrador: Rust"
+else
+  EJECUTAR="/usr/bin/python3 $LIB/registrador.py"; echo "  registrador: Python"
+fi
 cat > "$UNIDADES/appmenu-registrador.service" <<EOF
 [Unit]
 Description=Registrador del menú global (com.canonical.AppMenu.Registrar)
@@ -92,7 +110,7 @@ Description=Registrador del menú global (com.canonical.AppMenu.Registrar)
 [Service]
 Type=dbus
 BusName=com.canonical.AppMenu.Registrar
-ExecStart=/usr/bin/python3 $LIB/registrador.py
+ExecStart=$EJECUTAR
 Restart=on-failure
 
 [Install]
@@ -101,7 +119,7 @@ EOF
 cat > "$DBUS_SERVICIOS/com.canonical.AppMenu.Registrar.service" <<EOF
 [D-BUS Service]
 Name=com.canonical.AppMenu.Registrar
-Exec=/usr/bin/python3 $LIB/registrador.py
+Exec=$EJECUTAR
 SystemdService=appmenu-registrador.service
 EOF
 systemctl --user daemon-reload

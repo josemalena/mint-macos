@@ -1,0 +1,16 @@
+[package]
+name = "mint-macos-registrador"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+description = "Registrador del menú global (com.canonical.AppMenu.Registrar), servicio de usuario"
+
+[dependencies]
+# zbus 5.19 (09-08-2026, MIT), no la 6.0 que salió el 16-10-2026: una versión
+# con semanas de uso. Las features por defecto (async-io y la API bloqueante);
+# sin tokio. Revisado con cargo audit antes de agregarlo.
+zbus = "5.19"
+# Ya viene con zbus (la misma versión): para juntar las señales del bus en un flujo.
+futures-lite = "2.6"
+# También viene ya con zbus (por async-process): SIGTERM sin libc ni bloques unsafe.
+async-signal = "0.2"
