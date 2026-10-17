@@ -158,14 +158,17 @@ paso "Pruebas: rust (cargo test)"
 echo "  $(grep -Eo '[0-9]+ passed' "$T/ultimo.log" | awk '{s += $1} END {print s + 0}') pruebas pasan"
 
 # meson test de Fynder y del Dock en un X, bus y XDG propios: nada de lo de
-# José (pantalla :0, dconf, ~/.config) entra en las pruebas.
+# José (pantalla :0, dconf, ~/.config) entra en las pruebas. GIO_USE_VFS=local:
+# sin gvfs, que montaba su FUSE en el XDG_RUNTIME_DIR de la prueba y lo dejaba
+# colgado (17-10-2026).
 paso "Pruebas: Fynder y el Dock (meson test, en Xephyr)"
 PX="$T/px"; mkdir -p "$PX"/{config,data,cache,runtime}; chmod 700 "$PX/runtime"
 PANT=":$(( 90 + RANDOM % 9 ))"
 while [ -e "/tmp/.X11-unix/X${PANT#:}" ]; do PANT=":$(( ${PANT#:} + 1 ))"; done
 Xephyr "$PANT" -screen 1280x800 -nolisten tcp > "$PX/xephyr.log" 2>&1 &
 XPID=$!
-trap 'kill $XPID 2>/dev/null || true; [ "${ARMAR_GUARDAR:-0}" = 1 ] || rm -rf "${T:?}"' EXIT
+trap 'kill $XPID 2>/dev/null || true; fusermount -uz "$PX/runtime/gvfs" 2>/dev/null || true
+      [ "${ARMAR_GUARDAR:-0}" = 1 ] || rm -rf "${T:?}"' EXIT
 for _ in $(seq 50); do [ -e "/tmp/.X11-unix/X${PANT#:}" ] && break; sleep 0.1; done
 [ -e "/tmp/.X11-unix/X${PANT#:}" ] || { echo "  ✗ Xephyr no arrancó"; tail "$PX/xephyr.log"; exit 1; }
 # Los esquemas de GSettings de lo compilado (sin instalar no hay ninguno) y los
@@ -178,7 +181,8 @@ glib-compile-schemas "$PX/esquemas"
 aparte() {
   env -u DBUS_SESSION_BUS_ADDRESS DISPLAY="$PANT" HOME="$PX" XDG_CONFIG_HOME="$PX/config" \
     XDG_DATA_HOME="$PX/data" XDG_CACHE_HOME="$PX/cache" XDG_RUNTIME_DIR="$PX/runtime" \
-    GSETTINGS_BACKEND=memory GSETTINGS_SCHEMA_DIR="$PX/esquemas" dbus-run-session -- "$@"
+    GSETTINGS_BACKEND=memory GSETTINGS_SCHEMA_DIR="$PX/esquemas" GIO_USE_VFS=local \
+    dbus-run-session -- "$@"
 }
 # Tres pruebas de Nemo (upstream, sin tocar en el fork) no terminan solas, por
 # cómo están escritas: «Copy test» pide archivos por argumento y sin ellos sale
