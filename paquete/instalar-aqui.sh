@@ -132,11 +132,11 @@ export MAC_SISTEMA="$MAC"
 "$REPO/settings/instalar.sh"
 "$REPO/launchpad/instalar.sh"
 "$REPO/ayudante/instalar.sh"
-# El agente de polkit estilo Catalina (mac-polkit si vino en nativo-binarios, o el de Python). Esto solo lo
-# instala: mientras polkit-gnome o el de Cinnamon sigan siendo el agente, el nuestro sale sin hacer nada.
-# Para que lo reemplace: «polkit/instalar.sh --activar» y cerrar sesión (oculta polkit-gnome en el
-# autoarranque de este usuario); «polkit/instalar.sh --quitar» lo deja todo como estaba.
+# El agente de polkit estilo Catalina (mac-polkit si vino en nativo-binarios, o el de Python), ACTIVO: --activar
+# apaga el de Cinnamon y oculta polkit-gnome en el autoarranque de este usuario (si no, compiten por la sesión).
+# Surte efecto al volver a entrar. Vuelta atrás: polkit/instalar.sh --quitar.
 "$REPO/polkit/instalar.sh"
+"$REPO/polkit/instalar.sh" --activar
 "$REPO/icloud/apps-web.sh"
 # rclone en ~/.local/bin (versión fija, con checksum): lo usan el panel Apple ID
 # de System Preferences y iCloud Drive. El alta de la cuenta la hace José.
@@ -164,6 +164,8 @@ paso "Lo que queda"
 echo "  - Si la pantalla de inicio no saliera: Ctrl+Alt+F2, entra y  sudo login-mac-revertir"
 echo "  - iCloud Drive como carpeta:  $REPO/icloud/icloud.sh instalar, y luego «alta» y «montar»"
 echo "    (pide el Apple ID y el código; lo escribes tú)."
+echo "  - El agente de polkit (el diálogo de clave estilo Catalina) queda activo al volver a entrar."
+echo "    Si diera problemas:  $REPO/polkit/instalar.sh --quitar   (devuelve el de Cinnamon y polkit-gnome)."
 echo "  - Cierra sesión y vuelve a entrar."
 echo "  - $MAC se puede borrar al terminar; solo hace falta para volver a generar el tema."
 }
