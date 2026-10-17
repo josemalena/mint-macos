@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Cambia los menús de estado de la barra entre los applets de Cinnamon y los de Catalina (applets/*@macos).
-#   ./estado-barra.sh --activar [--wifi]   reloj@macos, sonido@macos y bluetooth@macos en lugar de calendar@, sound@ y (el ícono de
-#                                          blueman); con --wifi también red@macos en lugar de network@ (solo si hay tarjeta Wi-Fi)
+#   ./estado-barra.sh --activar            reloj@macos, sonido@macos y bluetooth@macos en lugar de calendar@, sound@ y (el ícono de
+#                                          blueman); red@macos en lugar de network@ SOLO si nmcli ve una tarjeta Wi-Fi (sin ella
+#                                          se queda network@cinnamon.org, que es el indicador de Ethernet/VLAN)
 #   ./estado-barra.sh --quitar             vuelta atrás: restaura la lista de applets que había (el respaldo)
 #   ./estado-barra.sh --estado             enseña qué hay puesto
 # Solo toca la lista org.cinnamon enabled-applets (Cinnamon la aplica al momento, sin reiniciar). No borra la configuración
@@ -22,7 +23,7 @@ case "${1:-}" in
       [ -d "$HOME/.local/share/cinnamon/applets/$a@macos" ] || { echo "✗ falta el applet $a@macos (corre install.sh)" >&2; exit 1; }
     done
     [ -f "$RESPALDO" ] || { mkdir -p "$(dirname "$RESPALDO")"; printf '%s' "$LISTA" > "$RESPALDO"; }
-    WIFI=0; [ "${2:-}" = "--wifi" ] && WIFI=1
+    WIFI=0; nmcli -t -f TYPE device 2>/dev/null | grep -qx wifi && WIFI=1
     nueva="$(LISTA="$LISTA" WIFI="$WIFI" python3 - <<'PY'
 import ast, os
 entradas = ast.literal_eval(os.environ["LISTA"].replace("@as ", ""))
@@ -54,5 +55,5 @@ PY
     gsettings set org.cinnamon enabled-applets "$nueva"
     echo "Menús de estado de Catalina puestos. Vuelta atrás: $0 --quitar"
     echo "El ícono de Bluetooth de blueman (xapp-status) puede quedar duplicado: ver applets/LEEME o el aviso al activar." ;;
-  *) echo "uso: $0 --activar [--wifi] | --quitar | --estado" >&2; exit 2 ;;
+  *) echo "uso: $0 --activar | --quitar | --estado" >&2; exit 2 ;;
 esac
