@@ -132,6 +132,11 @@ export MAC_SISTEMA="$MAC"
 "$REPO/settings/instalar.sh"
 "$REPO/launchpad/instalar.sh"
 "$REPO/ayudante/instalar.sh"
+# El agente de polkit estilo Catalina (mac-polkit si vino en nativo-binarios, o el de Python). Esto solo lo
+# instala: mientras polkit-gnome o el de Cinnamon sigan siendo el agente, el nuestro sale sin hacer nada.
+# Para que lo reemplace: «polkit/instalar.sh --activar» y cerrar sesión (oculta polkit-gnome en el
+# autoarranque de este usuario); «polkit/instalar.sh --quitar» lo deja todo como estaba.
+"$REPO/polkit/instalar.sh"
 "$REPO/icloud/apps-web.sh"
 # rclone en ~/.local/bin (versión fija, con checksum): lo usan el panel Apple ID
 # de System Preferences y iCloud Drive. El alta de la cuenta la hace José.

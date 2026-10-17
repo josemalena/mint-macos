@@ -79,6 +79,8 @@ COMPILAR=(
   valac libgdk-pixbuf-2.0-dev libgee-0.8-dev libbamf3-dev libcairo2-dev libwnck-3-dev
   libgnome-menu-3-dev libcanberra-dev libdbusmenu-glib-dev libdbusmenu-gtk3-dev
   libxi-dev libxfixes-dev
+  # nativo/: el agente de polkit en Vala (mac-polkit); sin ella se compila el resto
+  libpolkit-agent-1-dev
   # la pantalla de inicio (slick-greeter-mac, login/instalar.sh)
   liblightdm-gobject-1-dev libpixman-1-dev
   # keyd y libfsapfs
@@ -94,6 +96,8 @@ EJECUCION=(
   python3 python3-gi gir1.2-gtk-3.0 python3-pil python3-fonttools
   # applets del menú Apple y Force Quit
   wmctrl xdotool cinnamon-screensaver
+  # agente de polkit: el binario enlaza la librería; el de Python usa el typelib
+  libpolkit-agent-1-0 gir1.2-polkit-1.0
   # migrar-datos.sh
   rsync
   # capturas/ (⇧⌘3, ⇧⌘4…, la grabación de ⇧⌘5) y la carpeta del escritorio
