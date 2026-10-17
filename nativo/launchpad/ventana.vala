@@ -106,20 +106,19 @@ namespace Launchpad {
                 // El gestor de ventanas escoge el monitor de un fullscreen() a secas (con dos pantallas salía en la otra,
                 // recortado): se pide el principal por su número.
                 var geo = pantalla.get_geometry ();
-                // Muffin no hace caso de fullscreen_on_monitor: se coloca la ventana sobre el monitor principal y luego se
-                // pide pantalla completa, que el gestor da en el monitor donde está.
-                move (geo.x, geo.y);
-                set_default_size (geo.width, geo.height);
-                // _NET_WM_FULLSCREEN_MONITORS lleva el número de monitor del gestor, que cuenta de izquierda a derecha y no
-                // en el orden de GDK (el principal va primero): con dos pantallas el 0 de GDK caía en la otra.
-                int orden = 0;
+                // Muffin solo hace caso del monitor (fullscreen_on_monitor) si la ventana ya está mapeada: se pide al mapearse,
+                // con el número de GDK del monitor principal (comprobado con dos pantallas). Sin esto caía en la otra.
+                int principal = 0;
                 for (int i = 0; i < display.get_n_monitors (); i++) {
-                    var g2 = display.get_monitor (i).get_geometry ();
-                    if (g2.x < geo.x || (g2.x == geo.x && g2.y < geo.y)) {
-                        orden++;
+                    if (display.get_monitor (i) == pantalla) {
+                        principal = i;
                     }
                 }
-                fullscreen_on_monitor (get_screen (), orden);
+                map_event.connect ((ev) => {
+                    fullscreen_on_monitor (get_screen (), principal);
+                    fullscreen ();
+                    return false;
+                });
                 fullscreen ();
                 adaptable = true;
                 W = geo.width;
@@ -218,17 +217,6 @@ namespace Launchpad {
             scroll_acum = 0.0;
             scroll_hasta = 0.0;
             t0 = ahora ();
-            if (adaptable) {
-                // El gestor pone el fullscreen en el monitor del puntero: se calcula para ese.
-                var m = monitor_del_puntero ();
-                if (m != null) {
-                    var g = m.get_geometry ();
-                    move (g.x, g.y);
-                    if (g.width != W || g.height != H) {
-                        aplicar_geometria (g.width, g.height);
-                    }
-                }
-            }
             show_all ();
             present_with_time (Gdk.CURRENT_TIME);
             if (adaptable) {
@@ -242,14 +230,6 @@ namespace Launchpad {
                     return false;
                 });
             }
-        }
-
-        Gdk.Monitor? monitor_del_puntero () {
-            var display = Gdk.Display.get_default ();
-            var puntero = display.get_default_seat ().get_pointer ();
-            int x, y;
-            puntero.get_position (null, out x, out y);
-            return display.get_monitor_at_point (x, y);
         }
 
         /** Rehace lo que depende del tamaño de la pantalla: la escala, el centrado y el fondo desenfocado (de caché). */
