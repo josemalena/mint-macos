@@ -15,3 +15,12 @@ m_dep = meson.get_compiler('c').find_library('m', required: false)
 
 subdir('libmacos')
 subdir('sesion')
+
+# El agente de polkit necesita los headers de desarrollo (libpolkit-agent-1-dev); sin ellos se compila lo demás.
+polkit_agent_dep = dependency('polkit-agent-1', required: false)
+polkit_dep = dependency('polkit-gobject-1', required: false)
+if polkit_agent_dep.found() and polkit_dep.found()
+  subdir('polkit')
+else
+  message('sin libpolkit-agent-1-dev: no se compila mac-polkit')
+endif

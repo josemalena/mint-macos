@@ -12,4 +12,10 @@ meson setup "$T/nativo/build" "$T/nativo" --buildtype=release --prefix=/usr >/de
 ninja -C "$T/nativo/build" >/dev/null
 install -d "$RAIZ/.local/bin"
 install -m 755 "$T/nativo/build/sesion/mac-sesion" "$T/nativo/mac-sesion-lanzar" "$RAIZ/.local/bin/"
+# El agente de polkit solo sale si hay libpolkit-agent-1-dev; sin él se compila lo demás.
+if [ -x "$T/nativo/build/polkit/mac-polkit" ]; then
+  install -m 755 "$T/nativo/build/polkit/mac-polkit" "$RAIZ/.local/bin/"
+else
+  echo "sin libpolkit-agent-1-dev: no se compiló mac-polkit (el agente sigue siendo el de Python)"
+fi
 echo "compilado del HEAD $(git -C "$REPO" rev-parse --short HEAD)"

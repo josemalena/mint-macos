@@ -1,7 +1,7 @@
 # Agente de polkit estilo Catalina
 
 El diálogo de «Enter your password to allow this» de la Mac, para todo lo que pide permiso con
-`pkexec`: Startup Disk, Modifier Keys, Sharing, y lo ajeno (Mint, el sistema) con el botón «Authorize».
+`pkexec`: Startup Disk, Modifier Keys, Sharing, y lo ajeno (Mint, el sistema) con el botón «OK» (en la Mac es OK, dicho por José 16-10).
 Capturas de Catalina: 1.11.51 PM, 1.16.09 PM, 1.33.32 PM y 12.21.58 AM.
 
 - **User Name** siempre editable y preescrito con el nombre completo (el GECOS de `passwd`). Se acepta el
@@ -10,7 +10,7 @@ Capturas de Catalina: 1.11.51 PM, 1.16.09 PM, 1.33.32 PM y 12.21.58 AM.
 - **Clave mala** (o usuario que no es nadie): la ventana solo se sacude, sin mensaje, y se vuelve a intentar.
 - **El botón y el ícono** salen de dos anotaciones de la acción en su `.policy`:
   `org.mintmacos.boton` (el texto) y `org.mintmacos.icono` (el id del panel de System Preferences, cuyo
-  ícono va como insignia del candado). Sin ellas, «Authorize» y solo el candado.
+  ícono va como insignia del candado). Sin ellas, «OK» y solo el candado.
 - **La clave** solo la toca `PolkitAgent.Session` (`.response()`) y su ayudante setuid. Este código la deja en
   el campo mientras se teclea, la borra al terminar y no la guarda, escribe ni imprime.
 
@@ -46,7 +46,7 @@ autenticar. Login (lightdm) y `sudo` en terminal no dependen de polkit.
 
 Las anotaciones viven en los `.policy` de `settings/` y se instalan con sus `instalar-root.sh` (hay que
 volver a correrlos para que el agente lea el botón y el ícono nuevos). Date & Time usa una acción del
-sistema (timedated), que no se puede anotar: sale como «Authorize».
+sistema (timedated), que no se puede anotar: sale como «OK» (en la Mac es OK, dicho por José 16-10).
 
 ## Cómo se probó sin tocar la sesión de José
 

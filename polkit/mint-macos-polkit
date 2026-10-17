@@ -7,6 +7,8 @@
 #   nadie se queda sin poder autenticar. MINT_POLKIT_RESPALDO cambia ese comando (para las pruebas).
 AQUI="$(dirname "$(readlink -f "$0")")"
 AGENTE="${MINT_POLKIT_AGENTE:-$AQUI/agente.py}"
+# Con el binario en Vala instalado (nativo/instalar.sh) se usa ese; quitarlo (nativo/volver.sh) devuelve el de Python.
+BINARIO="$HOME/.local/bin/mac-polkit"
 RESPALDO="${MINT_POLKIT_RESPALDO:-gdbus call --session --dest org.Cinnamon --object-path /org/Cinnamon --method org.Cinnamon.Eval imports.ui.polkitAuthenticationAgent.init()}"
 hijo=""
 trap '[ -n "$hijo" ] && kill "$hijo" 2>/dev/null; exit 0' TERM INT
@@ -14,7 +16,11 @@ trap '[ -n "$hijo" ] && kill "$hijo" 2>/dev/null; exit 0' TERM INT
 fallos=0
 desde=$(date +%s)
 while true; do
-  python3 "$AGENTE" &
+  if [ -z "$MINT_POLKIT_AGENTE" ] && [ -z "$MINT_POLKIT_PYTHON" ] && [ -x "$BINARIO" ]; then
+    "$BINARIO" &
+  else
+    python3 "$AGENTE" &
+  fi
   hijo=$!
   wait "$hijo"
   rc=$?

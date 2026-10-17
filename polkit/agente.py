@@ -9,7 +9,7 @@ Capturas de Catalina: 1.11.51 PM y 1.16.09 PM (Startup Disk), 1.33.32 PM (Restar
     siempre que polkit lo autorice; se resuelve antes de autenticar.
   - Con la clave mala la ventana solo se sacude, sin mensaje, y se puede volver a intentar.
   - El botón por defecto y el ícono salen de dos anotaciones de la acción en su .policy
-    (org.mintmacos.boton y org.mintmacos.icono); las acciones ajenas dicen «Authorize».
+    (org.mintmacos.boton y org.mintmacos.icono); las acciones ajenas dicen «OK».
   - La clave solo la toca PolkitAgent.Session (.response()): vive en el campo mientras se teclea, se borra
     al terminar y este código nunca la guarda, la escribe ni la imprime.
 
@@ -34,7 +34,7 @@ RUTA_OBJETO = "/org/mintmacos/PolkitAgent"
 APPS = os.path.expanduser("~/.local/share/mint-macos/settings")
 ICONOS = os.path.join(APPS, "iconos")
 CANDADO = os.path.join(APPS, "glifos", "LockLocked@2x.png")      # el candado naranja de la Mac (66 px)
-BOTON_AJENO = "Authorize"
+BOTON_AJENO = "OK"
 ANOTACION_BOTON = "org.mintmacos.boton"
 ANOTACION_ICONO = "org.mintmacos.icono"
 VERBOSO = bool(os.environ.get("MINT_POLKIT_VERBOSO"))
@@ -134,7 +134,7 @@ def nombre_por_defecto(autorizados, como_login=False):
 
 # ── lo que dice la acción: el botón y el ícono salen de sus anotaciones ─────────────────
 def anotaciones(action_id):
-    """(texto del botón, id del panel para el ícono): de la .policy de la acción, o («Authorize», None)."""
+    """(texto del botón, id del panel para el ícono): de la .policy de la acción, o («OK», None)."""
     boton, icono = BOTON_AJENO, None
     try:
         autoridad = Polkit.Authority.get_sync(None)

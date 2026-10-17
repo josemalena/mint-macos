@@ -12,6 +12,11 @@ ayudantes de root y los servicios en Rust, en un solo proyecto con meson.
 
   `--prueba` enseña el diálogo y no ejecuta nada. Force Quit sigue en Python.
 
+- `polkit/`: `mac-polkit`, el agente de polkit estilo Catalina (hereda `PolkitAgent.Listener`; el de Python no podía). Mismo
+  aspecto que `polkit/agente.py` (0 píxeles distintos en el diálogo genérico y en la variante de Restart). Necesita
+  `libpolkit-agent-1-dev` para compilar; sin ella se compila todo lo demás. El supervisor `mint-macos-polkit` usa el binario
+  si está en `~/.local/bin`; `instalar.sh --python` lo quita y vuelve al de Python. En la Mac el botón genérico es «OK».
+
 ## Construir
 
     meson setup build && ninja -C build      # el binario queda en build/sesion/mac-sesion
@@ -27,6 +32,15 @@ Hace falta `valac`, `meson`, `ninja` y los paquetes de desarrollo de GTK 3 (`lib
 
 Los píxeles de los cuatro diálogos (Log Out, Restart, Shut Down e invitado) salen idénticos a los de la versión en Python
 (0 píxeles distintos al comparar las capturas).
+
+## Medido: agente de polkit (Xephyr, sesión de logind aparte; 5 corridas, mediana)
+
+|                          | Python  | Vala    |
+|--------------------------|---------|---------|
+| RSS en reposo (residente)| 48.7 MB | 31.6 MB |
+| pkexec hasta la ventana  | 109 ms  | 134 ms  |
+
+El tiempo lo domina `pkexec` y polkitd, no el agente: sin ganancia. Lo que se gana es memoria, en un proceso que vive siempre.
 
 ## Notas
 

@@ -7,10 +7,10 @@ set -euo pipefail
 AQUI="$(cd "$(dirname "$0")" && pwd)"
 case "${1:-}" in
   --python)
-    rm -f "$HOME/.local/bin/mac-sesion"
-    echo "mac-sesion quitado: los diálogos de sesión vuelven a applemenu.py" ;;
+    rm -f "$HOME/.local/bin/mac-sesion" "$HOME/.local/bin/mac-polkit"
+    echo "mac-sesion y mac-polkit quitados: los diálogos de sesión vuelven a applemenu.py y el agente a agente.py" ;;
   "")
     "$AQUI/compilar-desde-head.sh" "$HOME"
-    echo "instalado en ~/.local/bin (mac-sesion y mac-sesion-lanzar)" ;;
+    echo "instalado en ~/.local/bin (mac-sesion, mac-sesion-lanzar y, si hay headers de polkit, mac-polkit)" ;;
   *) echo "uso: $0 [--python]" >&2; exit 2 ;;
 esac
