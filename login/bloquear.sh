@@ -43,6 +43,8 @@ fi
 trap 'anota "TERM recibido (Unlock de logind): sigo hasta la calma"' TERM
 
 anota "bloqueo — pedido por: $padre"
+# El greeter enseña el fondo de escritorio de quien bloquea: se deja al día antes de cambiar de pantalla.
+[ -x "$HOME/.local/bin/mint-macos-fondo-login" ] && timeout 5 "$HOME/.local/bin/mint-macos-fondo-login" --exportar >/dev/null 2>&1 || true
 dm-tool lock
 
 [ -n "$SESION" ] || { sleep "$CALMA"; exit 0; }

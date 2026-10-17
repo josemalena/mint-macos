@@ -30,6 +30,26 @@ cambiar `/etc/lightdm/slick-greeter-mac.conf`) hay que reiniciar para verlo.
   de la Mac, sin desenfocar; si el escritorio del sistema no es el de Catalina,
   `instalar.sh` usa el del sistema.
 
+## El fondo es el tuyo (no el de Catalina)
+
+Como la Mac, el login y el bloqueo enseñan el **fondo de escritorio de la persona**: en la lista, el de la última que
+entró; al elegir a alguien o al bloquear, el de esa persona. Si no hay uno exportado (o el escritorio es un color liso),
+sale el de Catalina de siempre (claro en la lista, oscuro según el estilo de la cuenta).
+
+El greeter corre como `lightdm` y no lee tu `$HOME`, así que cada sesión deja una copia en
+`/var/lib/mint-macos/login-fondos/<usuario>.jpg`:
+
+```
+sudo login/instalar.sh        # crea la carpeta (de root, sin escritura) y un archivo vacío por cuenta, que solo su dueño escribe
+login/fondo.sh                # (sin sudo) instala el exportador y un servicio de usuario: copia el fondo al entrar y al salir
+login/fondo.sh --quitar       # vuelta atrás para esa cuenta (el greeter vuelve a Catalina)
+login/bloqueo.sh              # (sin sudo, otra vez) para que cada bloqueo deje el fondo al día antes de cambiar de pantalla
+```
+
+La copia es un JPEG de a lo sumo 3840 px y sin metadatos; solo se rehace si cambia la foto. «Último usuario» sale del
+estado que el propio greeter ya guarda (`last-user`); no hay otra lista. Sin la carpeta, `fondo.sh` no hace nada.
+Cambiar la foto del escritorio se nota en el login desde el siguiente bloqueo o cierre de sesión.
+
 ## Vuelta atrás: que nadie se quede sin entrar
 
 La activación es **un archivo**, `/etc/lightdm/lightdm.conf.d/90-mint-macos-login.conf`,

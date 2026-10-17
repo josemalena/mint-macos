@@ -25,7 +25,7 @@ set -euo pipefail
 AQUI="$(cd "$(dirname "$0")" && pwd)"
 MINT_MACOS="$(dirname "$AQUI")"
 GREETER_REPO=https://github.com/josemalena/mint-macos-greeter.git
-GREETER_HASH=5254f6093010aab16c20611fb6c5fd892a8355b5
+GREETER_HASH=13ae3286979c42de30b6f30e884ce8eec25a7c6d
 FUENTE=""
 ACCION=instalar
 while [ $# -gt 0 ]; do
@@ -49,6 +49,7 @@ DATOS=/usr/local/share/slick-greeter-mac
 CONF=/etc/lightdm/slick-greeter-mac.conf
 ACTIVA=/etc/lightdm/lightdm.conf.d/90-mint-macos-login.conf
 REVERTIR=/usr/local/sbin/login-mac-revertir
+FONDOS=/var/lib/mint-macos/login-fondos
 FUENTES=/usr/local/share/fonts/mint-macos
 CURSORES_SIS=/usr/share/icons/Constanza-cursors
 
@@ -57,7 +58,8 @@ paso() { printf '\n== %s\n' "$1"; }
 if [ "$ACCION" = deshacer ]; then
   paso "Quitar slick-greeter-mac"
   rm -f "$ACTIVA" "$BINARIO" "$DESKTOP" "$CONF" "$REVERTIR"
-  rm -rf "$DATOS" "$FUENTES"
+  rm -rf "$DATOS" "$FUENTES" "$FONDOS"
+  rmdir /var/lib/mint-macos 2>/dev/null || true
   if [ -d "$CURSORES_SIS" ]; then
     update-alternatives --remove x-cursor-theme "$CURSORES_SIS/cursor.theme" >/dev/null 2>&1 || true
     rm -rf "$CURSORES_SIS"
@@ -192,6 +194,16 @@ else
   echo "  sin Constanza en $HOGAR/.local/share/icons (corre antes tema/instalar.sh): se queda McMojave"
 fi
 
+# El fondo de escritorio de cada persona, para el login y el bloqueo. El greeter corre como lightdm y no lee el
+# $HOME: cada sesión deja ahí una copia (login/fondo.sh). La carpeta es de root y no se puede escribir; por cada cuenta
+# de personas se crea un archivo vacío que solo su dueño puede escribir, así nadie más pone el fondo de otro.
+paso "Fondos de usuario: $FONDOS"
+install -d -m 0755 /var/lib/mint-macos "$FONDOS"
+for u in $(getent passwd | awk -F: '$3 >= 1000 && $3 < 60000 && $7 !~ /(nologin|false)$/ {print $1}'); do
+  [ -e "$FONDOS/$u.jpg" ] || install -m 0644 -o "$u" -g "$(id -gn "$u")" /dev/null "$FONDOS/$u.jpg"
+  echo "  $FONDOS/$u.jpg"
+done
+
 paso "Configuración: $CONF"
 cat > "$CONF" <<CONF
 # slick-greeter-mac (mint-macos, login/instalar.sh). La del slick-greeter de
@@ -201,6 +213,7 @@ background=$FONDO_CLARO
 background-claro=$FONDO_CLARO
 background-oscuro=$FONDO_OSCURO
 usuarios-oscuros=$OSCUROS
+fondos-usuario=$FONDOS
 background-color=#000000
 draw-user-backgrounds=false
 draw-grid=false
