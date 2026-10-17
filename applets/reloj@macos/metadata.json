@@ -1,0 +1,7 @@
+{
+  "uuid": "reloj@macos",
+  "name": "Clock (macOS)",
+  "description": "El reloj de la barra de Catalina y su menú: la fecha, View as Analog / View as Digital y Open Date & Time Preferences…. Toma el formato de Date & Time (el mismo que escribe calendar@cinnamon.org).",
+  "max-instances": 1,
+  "cinnamon-version": ["6.0", "6.2", "6.4", "6.6"]
+}

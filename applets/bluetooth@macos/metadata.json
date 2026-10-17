@@ -1,0 +1,7 @@
+{
+  "uuid": "bluetooth@macos",
+  "name": "Bluetooth (macOS)",
+  "description": "El menú de Bluetooth de Catalina: estado, Turn Bluetooth On/Off, Devices con Connect/Disconnect y Open Bluetooth Preferences….",
+  "max-instances": 1,
+  "cinnamon-version": ["6.0", "6.2", "6.4", "6.6"]
+}

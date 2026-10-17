@@ -1,0 +1,7 @@
+{
+  "uuid": "sonido@macos",
+  "name": "Volume (macOS)",
+  "description": "El menú de volumen de Catalina: control Volume, Output Device con la marca en el activo y Sound Preferences….",
+  "max-instances": 1,
+  "cinnamon-version": ["6.0", "6.2", "6.4", "6.6"]
+}
