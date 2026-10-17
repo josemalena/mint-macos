@@ -9,3 +9,7 @@ version = "0.1.0"
 [[package]]
 name = "mint-macos-sharing"
 version = "0.1.0"
+
+[[package]]
+name = "mint-macos-startup-disk"
+version = "0.1.0"
