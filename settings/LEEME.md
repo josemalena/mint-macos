@@ -148,6 +148,27 @@ Antes de instalar o quitar guarda lo que hay en `/var/backups/mint-macos/ayudant
 computadora lo corre `paquete/instalar-aqui.sh` en el paso de sudo, con los de Rust ya compilados que trae
 el paquete. Cada panel sigue teniendo su `instalar-root.sh` para instalarlo solo.
 
+## El equipo (About This Mac/PC)
+
+`settings/equipo/` no es un panel con ventana. Instala `mint-macos-equipo` (`rust/equipo`, solo en Rust) en
+`/usr/libexec/mint-macos/equipo` y el servicio `mint-macos-equipo.service`, que al arrancar escribe
+`/run/mint-macos/equipo.json`. Lleva si el equipo es una Mac o un PC, su modelo y el sistema operativo real
+con su logo. Lo leen libmacos y el applet; los campos están en la cabecera de `rust/equipo/src/main.rs`.
+
+El nombre comercial (Macmini6,1 → «Mac mini (Late 2012)») sale de `rust/equipo/src/modelos.rs`.
+`generar-modelos.py` lo arma a partir de las páginas de Apple que identifican cada modelo, y cada fila
+lleva su página. Apple usa algunos identificadores para varios modelos (iMac15,1: Mid 2015 y Late 2014).
+En esos casos `nombre` es el identificador y `nombres` trae los candidatos.
+
+```
+sudo settings/equipo/instalar-root.sh          # o con todos: sudo settings/instalar-root.sh
+sudo settings/equipo/instalar-root.sh --quitar
+rust/target/release/mint-macos-equipo --imprimir   # sin root: lo que escribiría
+```
+
+Si el binario no está (quitado, o un `--volver` a antes de instalarlo), el servicio no corre y no falla:
+lo condiciona `ConditionPathExists`.
+
 ## Startup Disk
 
 La lista son las entradas de arranque EFI (`efibootmgr`, que se lee sin root: Ubuntu

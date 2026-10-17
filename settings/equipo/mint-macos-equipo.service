@@ -1,0 +1,24 @@
+[Unit]
+Description=Datos del equipo para About This Mac (mint-macos)
+# Sin el binario (quitado o vuelto atrás) no corre ni falla.
+ConditionPathExists=/usr/libexec/mint-macos/equipo
+After=local-fs.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/libexec/mint-macos/equipo
+# /run/mint-macos, 0755: el JSON lo lee cualquiera; se queda mientras corra el equipo.
+RuntimeDirectory=mint-macos
+RuntimeDirectoryMode=0755
+RuntimeDirectoryPreserve=yes
+# Solo lee /sys, /etc y /usr y escribe en /run/mint-macos.
+ProtectSystem=strict
+ReadWritePaths=/run/mint-macos
+ProtectHome=yes
+PrivateTmp=yes
+PrivateNetwork=yes
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=multi-user.target

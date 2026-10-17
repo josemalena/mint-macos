@@ -1,6 +1,6 @@
 #!/bin/bash
 # Instala de una vez todos los ayudantes de root de System Preferences: corre el
-# instalar-root.sh de cada panel que lo tenga (hoy modifier-keys, sharing y
+# instalar-root.sh de cada panel que lo tenga (hoy equipo, modifier-keys, sharing y
 # startup-disk; uno nuevo entra solo). Cada uno copia su ayudante a
 # /usr/libexec/mint-macos con dueño root y pone su acción de polkit.
 #
