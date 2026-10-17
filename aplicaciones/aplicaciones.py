@@ -166,11 +166,10 @@ def aplicaciones(cfg):
             continue
         if "ConsoleOnly" in (app.get_categories() or ""):
             continue
+        completo = (app.get_display_name() or "").strip()
         nombre = cfg["nombre"].get(id_) or nombre_corto(app)
-        # Dos lanzadores con el mismo nombre (VS Code instalado dos veces): el
-        # primero que devuelve GIO, que es el de más prioridad, y el otro no.
-        if nombre.lower() in vistas:
-            continue
+        # El nombre es el propio del lanzador (o uno puesto a mano) y no uno acortado: «KiCad» a secas.
+        exacto = id_ in cfg["nombre"] or nombre == completo
         cats = set((app.get_categories() or "").split(";"))
         if id_ in cfg["arriba"]:
             sub = ""
@@ -178,8 +177,19 @@ def aplicaciones(cfg):
             sub = UTILITIES
         else:
             sub = ""
-        vistas[nombre.lower()] = (id_, app, nombre, sub)
-    return sorted(vistas.values(), key=lambda t: (t[3] != "", t[2].lower()))
+        previo = vistas.get(nombre.lower())
+        if previo is not None:
+            # Dos lanzadores con el mismo nombre. Si es el mismo programa instalado dos veces (VS Code), gana el primero
+            # que devuelve GIO, que es el de más prioridad. Pero «KiCad PCB Calculator» se acorta a «KiCad» y chocaba con
+            # el KiCad de verdad: el que se acortó se queda con su nombre completo y el exacto con el corto.
+            if exacto and not previo[4] and previo[5] and previo[5].lower() not in vistas:
+                vistas[previo[5].lower()] = (previo[0], previo[1], previo[5], previo[3], True, previo[5])
+                vistas[nombre.lower()] = (id_, app, nombre, sub, exacto, completo)
+            elif not exacto and previo[4] and completo and completo.lower() not in vistas:
+                vistas[completo.lower()] = (id_, app, completo, sub, True, completo)
+            continue
+        vistas[nombre.lower()] = (id_, app, nombre, sub, exacto, completo)
+    return sorted(((v[0], v[1], v[2], v[3]) for v in vistas.values()), key=lambda t: (t[3] != "", t[2].lower()))
 
 
 def contenido(ruta_origen, nombre_visible):
