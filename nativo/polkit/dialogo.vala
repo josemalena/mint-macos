@@ -87,7 +87,7 @@ window.mp-polkit { background-color: #2f2f2f; border: 1px solid #1a1a1a; color: 
             window_position = Gtk.WindowPosition.CENTER;
             skip_taskbar_hint = true;
             skip_pager_hint = true;
-            type_hint = Gdk.WindowTypeHint.DIALOG;
+            type_hint = Gdk.WindowTypeHint.SPLASHSCREEN;
             title = "Authentication";
             get_style_context ().add_class ("mp-polkit");
             cargar_css ();

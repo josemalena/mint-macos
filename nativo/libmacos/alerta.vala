@@ -30,9 +30,10 @@ namespace MacOS {
             decorated = false;
             resizable = false;
             set_keep_above (true);
+            // Muffin descarta skip_taskbar en ventanas tipo DIALOG (salían en el Dock y en ⌘Tab): SPLASHSCREEN sí lo respeta y conserva el foco.
             skip_taskbar_hint = true;
             skip_pager_hint = true;
-            type_hint = Gdk.WindowTypeHint.DIALOG;
+            type_hint = Gdk.WindowTypeHint.SPLASHSCREEN;
             window_position = Gtk.WindowPosition.CENTER;
 
             int margen = 0;
