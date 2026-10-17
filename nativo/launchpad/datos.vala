@@ -1,6 +1,8 @@
 /*
- * Lo que muestra el Launchpad: las apps de /Applications (los lanzadores que arma aplicaciones.py) y, al final, la
- * carpeta «Other» con las de Utilities; la búsqueda por palabras que empiezan con lo escrito.
+ * Lo que muestra el Launchpad: las apps de /Applications (los lanzadores que arma aplicaciones.py), las AppImages que hay
+ * soltadas en /Applications o ~/Applications (con el lanzador que les escribe el servicio de aplicaciones, ver
+ * aplicaciones/APPIMAGE.md) y, al final, la carpeta «Other» con las de Utilities; la búsqueda por palabras que empiezan
+ * con lo escrito.
  */
 namespace Launchpad {
     public const string DESTINO_POR_DEFECTO = "/Applications";
@@ -95,6 +97,59 @@ namespace Launchpad {
         return apps;
     }
 
+    bool es_appimage (string nombre) {
+        string m = nombre.down ();
+        return m.has_suffix (".appimage");
+    }
+
+    /** El lanzador que el servicio escribe para una AppImage: el md5 es el de la URI file:// de su ruta. */
+    string lanzador_de_appimage (string ruta) {
+        string uri = File.new_for_path (ruta).get_uri ();
+        string md5 = Checksum.compute_for_string (ChecksumType.MD5, uri);
+        return Path.build_filename (Environment.get_user_data_dir (), "applications", "mint-macos-appimage-%s.desktop".printf (md5));
+    }
+
+    /** Las AppImages de una carpeta que ya tienen su lanzador; sin él (el servicio aún no pasó, o no la integró) no salen. */
+    List<App> leer_appimages (string ruta) {
+        var apps = new List<App> ();
+        var nombres = new GenericArray<string> ();
+        try {
+            var dir = Dir.open (ruta);
+            string? n;
+            while ((n = dir.read_name ()) != null) {
+                if (es_appimage (n)) {
+                    nombres.add (n);
+                }
+            }
+        } catch (FileError e) {
+            return apps;
+        }
+        nombres.sort ((a, b) => strcmp (a, b));
+        foreach (var n in nombres.data) {
+            string archivo = Path.build_filename (ruta, n);
+            string lanzador = lanzador_de_appimage (archivo);
+            if (!FileUtils.test (lanzador, FileTest.EXISTS) || !FileUtils.test (archivo, FileTest.IS_REGULAR)) {
+                continue;
+            }
+            var info = new DesktopAppInfo.from_filename (lanzador);
+            if (info == null || info.get_nodisplay ()) {
+                continue;
+            }
+            apps.append (new App (info, archivo));
+        }
+        return apps;
+    }
+
+    /** Las carpetas donde se buscan AppImages: la de destino y ~/Applications si existe. */
+    string[] carpetas_de_appimages () {
+        string[] r = { destino () };
+        string casa = Path.build_filename (Environment.get_home_dir (), "Applications");
+        if (casa != destino () && FileUtils.test (casa, FileTest.IS_DIR)) {
+            r += casa;
+        }
+        return r;
+    }
+
     public string destino () {
         return Environment.get_variable ("LAUNCHPAD_DESTINO") ?? DESTINO_POR_DEFECTO;
     }
@@ -102,6 +157,12 @@ namespace Launchpad {
     /** Los elementos de la rejilla y todas las apps (para buscar). */
     public void leer_aplicaciones (out List<Elemento> elementos, out List<App> todas) {
         var arriba = leer_carpeta (destino ());
+        foreach (var d in carpetas_de_appimages ()) {
+            foreach (var a in leer_appimages (d)) {
+                arriba.append (a);
+            }
+        }
+        arriba.sort ((a, b) => strcmp (a.clave, b.clave));
         var util = leer_carpeta (Path.build_filename (destino (), "Utilities"));
         elementos = new List<Elemento> ();
         todas = new List<App> ();
@@ -151,6 +212,22 @@ namespace Launchpad {
     /** Qué hay hoy en /Applications y en Utilities (nombre y fecha de cada lanzador): para saber si cambió. */
     public string sello_apps () {
         var sb = new StringBuilder ();
+        // Las AppImages: el archivo y su lanzador (aparece o se quita sin que cambie ningún .desktop de /Applications).
+        foreach (var d in carpetas_de_appimages ()) {
+            try {
+                var dir = Dir.open (d);
+                string? n;
+                while ((n = dir.read_name ()) != null) {
+                    if (!es_appimage (n)) {
+                        continue;
+                    }
+                    Posix.Stat st;
+                    string l = lanzador_de_appimage (Path.build_filename (d, n));
+                    sb.append ("%s|%s;".printf (n, Posix.stat (l, out st) == 0 ? "%ld|%ld".printf ((long) st.st_mtim.tv_sec, (long) st.st_mtim.tv_nsec) : "-"));
+                }
+            } catch (FileError e) {
+            }
+        }
         foreach (var d in new string[] { destino (), Path.build_filename (destino (), "Utilities") }) {
             try {
                 var dir = Dir.open (d);
