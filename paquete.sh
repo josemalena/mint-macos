@@ -126,7 +126,12 @@ if command -v cargo >/dev/null && [ -f "$REPO/rust/Cargo.toml" ]; then
   RT="$(mktemp -d)"
   git -C "$REPO" archive HEAD rust | tar -x -C "$RT"
   ( cd "$RT/rust" && CARGO_TARGET_DIR="$RT/rust/target" cargo build --release --locked --quiet )
-  ( cd "$RT" && tar_fijo -cf - $(cd "$RT" && find rust/target/release -maxdepth 1 -type f -name 'mint-macos-*' -perm -u+x) | gzip -n > "$DEST/rust-binarios.tar.gz" )
+  # El registrador del menú global en Rust va solo con REGISTRADOR_RUST=1: hasta
+  # que José lo pruebe en pantalla (Chrome, VS Code), la otra computadora se
+  # queda con el de Python. Sin el binario, menu-global/instalar.sh usa el Python.
+  SIN_REG=(); [ "${REGISTRADOR_RUST:-0}" = 1 ] || SIN_REG=(-not -name mint-macos-registrador)
+  ( cd "$RT" && tar_fijo -cf - $(cd "$RT" && find rust/target/release -maxdepth 1 -type f -name 'mint-macos-*' "${SIN_REG[@]}" -perm -u+x) | gzip -n > "$DEST/rust-binarios.tar.gz" )
+  [ ${#SIN_REG[@]} -eq 0 ] || echo "  registrador del menú global: el de Python (REGISTRADOR_RUST=1 lleva el de Rust)"
   echo "  $(tar -tzf "$DEST/rust-binarios.tar.gz" | xargs -n1 basename | tr '\n' ' ')"
   rm -rf "$RT"
 else
