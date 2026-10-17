@@ -11,6 +11,7 @@
 #
 # Pasos (lista cerrada; cualquier otra línea se rechaza sin correr nada):
 #   requisitos   requisitos.sh
+#   ayudantes    settings/instalar-root.sh (los ayudantes de root de System Preferences)
 #   arranque     tema/arranque/instalar.sh
 #   login        login/instalar.sh --activar
 #   vigilante    apfs/vigilar.sh --instalar, solo si /etc/fstab tiene fsapfs
@@ -56,6 +57,7 @@ correr() { # paso comando…
 while IFS= read -r -t 3600 PASO; do
   case "$PASO" in
     requisitos) correr requisitos "$REPO/requisitos.sh" ;;
+    ayudantes)  correr ayudantes "$REPO/settings/instalar-root.sh" ;;
     arranque)   correr arranque "$REPO/tema/arranque/instalar.sh" ;;
     login)
       # El fork que desempacó instalar-aqui.sh (p_greeter), si es del usuario.

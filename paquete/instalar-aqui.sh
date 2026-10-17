@@ -20,7 +20,9 @@
 #   4. lo de Apple a ~/.cache/mint-macos/mac-sistema, que hace de disco de la Mac
 #   5. instalar.sh --sin-compilar, Settings.app, Launchpad, el ayudante
 #      (Force Quit y ⇧⌘5) y las apps web de Apple
-#   6. con la misma clave: el arranque (Plymouth) y la pantalla de inicio de
+#   6. con la misma clave: los ayudantes de root de System Preferences
+#      (settings/instalar-root.sh: Modifier Keys, Sharing, Startup Disk; los de
+#      Rust que trae rust-binarios.tar.gz), el arranque (Plymouth) y la pantalla de inicio de
 #      Catalina, y bloquear con ella; y si hay discos APFS en fstab, el
 #      vigilante que rehace su montaje cuando el FUSE muere (apfs/vigilar.sh)
 #   7. dice lo que queda: iCloud Drive y cerrar sesión
@@ -61,7 +63,7 @@ if [ -e "$REPO" ]; then
   echo "  el que había quedó al lado, con fecha"
 fi
 tar -xzf "$AQUI/mint-macos.tar.gz" -C "$HOME"
-# Los ayudantes de root en Rust, ya compilados (los instala cada instalar-root.sh).
+# Los ayudantes de root en Rust, ya compilados (los instala settings/instalar-root.sh, en el paso 6).
 [ -f "$AQUI/rust-binarios.tar.gz" ] && tar -xzf "$AQUI/rust-binarios.tar.gz" -C "$REPO"
 }
 
@@ -172,7 +174,7 @@ echo "  - $MAC se puede borrar al terminar; solo hace falta para volver a genera
 
 # Los pasos en orden. Los de root los corre asistente-root.sh en el asistente,
 # y sudo aquí.
-PASOS="verificar repo root:requisitos binarios apple spotlyte mint-macos root:arranque greeter root:login bloqueo root:vigilante lo-que-queda"
+PASOS="verificar repo root:requisitos binarios apple spotlyte mint-macos root:ayudantes root:arranque greeter root:login bloqueo root:vigilante lo-que-queda"
 
 case "${1:-}" in
   --lista) for p in $PASOS; do echo "$p" | sed 's/^root:/root /'; done; exit 0 ;;
@@ -201,7 +203,10 @@ p_binarios
 p_apple
 p_spotlyte
 p_mint_macos
-paso "6. El arranque y la pantalla de inicio (sudo, con la misma clave)"
+paso "6. Los ayudantes de root, el arranque y la pantalla de inicio (sudo, con la misma clave)"
+# Sin ellos los paneles de System Preferences que cambian el sistema (Modifier
+# Keys, Sharing, Startup Disk) solo miran: no hay candado ni clave.
+sudo "$REPO/settings/instalar-root.sh"
 sudo "$REPO/tema/arranque/instalar.sh"
 p_greeter
 if [ -d "$GREETER_DIR" ]; then sudo "$REPO/login/instalar.sh" --activar --fuente "$GREETER_DIR"

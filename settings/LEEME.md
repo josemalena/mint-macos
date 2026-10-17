@@ -129,6 +129,25 @@ Sign Out desmonta iCloud Drive y quita ese bloque de Thunderbird; los archivos e
 iCloud no se tocan. `MINT_APPLEID_PRUEBA=1` prueba todo con datos falsos (clave
 «password», código «123456») sin tocar rclone, Thunderbird ni la red.
 
+## Los ayudantes de root, de una vez
+
+Los paneles que cambian el sistema (Startup Disk, Modifier Keys, Sharing) piden la clave por `pkexec` a un
+ayudante de root en `/usr/libexec/mint-macos/`. Se instalan todos con un solo comando, que corre el
+`instalar-root.sh` de cada panel (uno nuevo entra solo):
+
+```
+cd rust && cargo build --release                 # como tu usuario, NO con sudo: los de Rust
+sudo settings/instalar-root.sh                   # todos (el de Rust donde esté compilado, si no el de Python)
+sudo settings/instalar-root.sh --python          # todos con el de Python
+sudo settings/instalar-root.sh --volver          # lo que había antes de la última corrida
+sudo settings/instalar-root.sh --quitar
+settings/instalar-root.sh --probar               # sin root: cuál instalaría cada panel
+```
+
+Antes de instalar o quitar guarda lo que hay en `/var/backups/mint-macos/ayudantes-<fecha>/`. En otra
+computadora lo corre `paquete/instalar-aqui.sh` en el paso de sudo, con los de Rust ya compilados que trae
+el paquete. Cada panel sigue teniendo su `instalar-root.sh` para instalarlo solo.
+
 ## Startup Disk
 
 La lista son las entradas de arranque EFI (`efibootmgr`, que se lee sin root: Ubuntu

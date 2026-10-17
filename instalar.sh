@@ -173,6 +173,11 @@ if $LOGIN; then
   fi
 fi
 
+paso "Los ayudantes de root de System Preferences (sudo)"
+"$REPO/settings/instalar-root.sh" --probar | sed 's/^/  /' || true
+echo "  Sin ellos Modifier Keys, Sharing y Startup Disk solo miran. Córrelo tú:"
+echo "    sudo $REPO/settings/instalar-root.sh        (vuelta atrás: --volver o --python)"
+
 paso "El arranque como el de macOS (sudo)"
 "$REPO/tema/arranque/instalar.sh" --vista | sed 's/^/  /' || true
 echo "  Cambia el arranque y rehace el initramfs. Córrelo tú:"
