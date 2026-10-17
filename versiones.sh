@@ -124,4 +124,7 @@ EJECUCION=(
   # tema/iconos/car.py: los íconos que vienen en Assets.car (LZFSE) y los
   # glifos del Finder, que se dibujan de su PDF
   liblzfse1 poppler-utils
+  # AppImages: las del runtime viejo montan con libfuse2 (en Mint 22 / Ubuntu
+  # 24.04 se llama libfuse2t64); ver aplicaciones/APPIMAGE.md
+  libfuse2t64
 )
