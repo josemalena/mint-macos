@@ -171,3 +171,103 @@ namespace Preferencias {
 
     public delegate void Hacer ();
 }
+
+namespace Preferencias {
+    /** El texto de un JSON como lo escribe Python: json.dump(…, indent=4, sort_keys=True), con ensure_ascii (los no ASCII, como \uXXXX). */
+    public string json_a_texto (Json.Node nodo, int nivel = 0) {
+        var sb = new StringBuilder ();
+        escribir_nodo (sb, nodo, nivel);
+        return sb.str;
+    }
+
+    void escribir_cadena (StringBuilder sb, string s) {
+        sb.append_c ('"');
+        unichar c;
+        int i = 0;
+        while (s.get_next_char (ref i, out c)) {
+            switch (c) {
+            case '"': sb.append ("\\\""); break;
+            case '\\': sb.append ("\\\\"); break;
+            case '\n': sb.append ("\\n"); break;
+            case '\r': sb.append ("\\r"); break;
+            case '\t': sb.append ("\\t"); break;
+            case '\b': sb.append ("\\b"); break;
+            case '\f': sb.append ("\\f"); break;
+            default:
+                if (c < 0x20 || c > 0x7e) {
+                    if (c > 0xFFFF) {
+                        uint32 v = c - 0x10000;
+                        sb.append ("\\u%04x\\u%04x".printf (0xD800 + (v >> 10), 0xDC00 + (v & 0x3FF)));
+                    } else {
+                        sb.append ("\\u%04x".printf (c));
+                    }
+                } else {
+                    sb.append_unichar (c);
+                }
+                break;
+            }
+        }
+        sb.append_c ('"');
+    }
+
+    void escribir_nodo (StringBuilder sb, Json.Node n, int nivel) {
+        var sangria = string.nfill ((nivel + 1) * 4, ' ');
+        var cierre = string.nfill (nivel * 4, ' ');
+        switch (n.get_node_type ()) {
+        case Json.NodeType.OBJECT:
+            var o = n.get_object ();
+            var miembros = o.get_members ();
+            if (miembros.length () == 0) {
+                sb.append ("{}");
+                return;
+            }
+            var claves = new GenericArray<string> ();
+            foreach (var k in miembros) {
+                claves.add (k);
+            }
+            claves.sort ((a, b) => strcmp (a, b));
+            sb.append ("{\n");
+            for (int i = 0; i < claves.length; i++) {
+                sb.append (sangria);
+                escribir_cadena (sb, claves[i]);
+                sb.append (": ");
+                escribir_nodo (sb, o.get_member (claves[i]), nivel + 1);
+                sb.append (i + 1 < claves.length ? ",\n" : "\n");
+            }
+            sb.append (cierre);
+            sb.append_c ('}');
+            break;
+        case Json.NodeType.ARRAY:
+            var a = n.get_array ();
+            if (a.get_length () == 0) {
+                sb.append ("[]");
+                return;
+            }
+            sb.append ("[\n");
+            for (uint i = 0; i < a.get_length (); i++) {
+                sb.append (sangria);
+                escribir_nodo (sb, a.get_element (i), nivel + 1);
+                sb.append (i + 1 < a.get_length () ? ",\n" : "\n");
+            }
+            sb.append (cierre);
+            sb.append_c (']');
+            break;
+        case Json.NodeType.VALUE:
+            var t = n.get_value_type ();
+            if (t == typeof (string)) {
+                escribir_cadena (sb, n.get_string ());
+            } else if (t == typeof (bool)) {
+                sb.append (n.get_boolean () ? "true" : "false");
+            } else if (t == typeof (int64)) {
+                sb.append (n.get_int ().to_string ());
+            } else {
+                var d = n.get_double ();
+                sb.append (d == Math.floor (d) && Math.fabs (d) < 1e15 ? "%.1f".printf (d) : d.to_string ());
+            }
+            break;
+        default:
+            sb.append ("null");
+            break;
+        }
+    }
+}

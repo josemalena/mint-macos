@@ -13,6 +13,9 @@ namespace Preferencias {
     Panel? crear_panel (string ident) {
         switch (ident) {
         case "com.apple.preference.dock": return new PanelDock ();
+        case "com.apple.preference.startupdisk": return new PanelStartupDisk ();
+        case "com.apple.preference.expose": return new PanelMissionControl ();
+        case "com.apple.preference.spotlight": return new PanelSpotlight ();
         case "com.apple.preference.sound": return new PanelSound ();
         case "com.apple.preference.network": return new PanelNetwork ();
         case "com.apple.preference.general": return new PanelGeneral ();

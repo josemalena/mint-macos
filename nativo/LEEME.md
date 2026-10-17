@@ -10,7 +10,7 @@ ayudantes de root y los servicios en Rust, en un solo proyecto con meson.
 
       mac-sesion --mode restart [--seconds 60] [--print-json] [--prueba]
 
-  `--prueba` enseña el diálogo y no ejecuta nada. Force Quit sigue en Python.
+  `--prueba` enseña el diálogo y no ejecuta nada. Force Quit tiene su propio binario (`forcequit/`) y los dos viven también en el residente `mac-ventanas`.
 
 - `polkit/`: `mac-polkit`, el agente de polkit estilo Catalina (hereda `PolkitAgent.Listener`; el de Python no podía). Mismo
   aspecto que `polkit/agente.py` (0 píxeles distintos en el diálogo genérico y en la variante de Restart). Necesita
