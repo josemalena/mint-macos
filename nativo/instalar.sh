@@ -7,7 +7,7 @@ set -euo pipefail
 AQUI="$(cd "$(dirname "$0")" && pwd)"
 case "${1:-}" in
   --python)
-    rm -f "$HOME/.local/bin/mac-sesion" "$HOME/.local/bin/mac-polkit" "$HOME/.local/bin/mac-forcequit" "$HOME/.local/bin/mac-launchpad-vala"
+    rm -f "$HOME/.local/bin/mac-sesion" "$HOME/.local/bin/mac-polkit" "$HOME/.local/bin/mac-forcequit" "$HOME/.local/bin/mac-launchpad-vala" "$HOME/.config/mint-macos/launchpad-vala.activo"
     echo "mac-sesion, mac-forcequit, mac-launchpad-vala y mac-polkit quitados: los diálogos de sesión vuelven a applemenu.py, Force Quit a forcekill.py y el agente a agente.py" ;;
   "")
     "$AQUI/compilar-desde-head.sh" "$HOME"

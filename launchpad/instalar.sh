@@ -80,10 +80,11 @@ if [ "\$#" -eq 0 ]; then
   gdbus call --session --dest $APP_ID --object-path $RUTA_DBUS \\
     --method org.freedesktop.Application.Activate '{}' >/dev/null 2>&1 && exit 0
 fi
-# Con el binario en Vala instalado (nativo/instalar.sh) se usa ese; quitarlo (nativo/volver.sh) o
-# MAC_LAUNCHPAD_PYTHON=1 devuelve el de Python. Los dos comparten el id de aplicación: solo uno es el residente.
+# El de Vala solo se usa si José lo activó (nativo/activar-launchpad.sh deja el marcador) y el binario está instalado;
+# nativo/activar-launchpad.sh --quitar, quitar el binario o MAC_LAUNCHPAD_PYTHON=1 devuelven el de Python.
+# Los dos comparten el id de aplicación: solo uno es el residente.
 NATIVO="\$HOME/.local/bin/mac-launchpad-vala"
-if [ -z "\$MAC_LAUNCHPAD_PYTHON" ] && [ -x "\$NATIVO" ]; then exec "\$NATIVO" "\$@"; fi
+if [ -z "\$MAC_LAUNCHPAD_PYTHON" ] && [ -f "\$HOME/.config/mint-macos/launchpad-vala.activo" ] && [ -x "\$NATIVO" ]; then exec "\$NATIVO" "\$@"; fi
 exec python3 "$LIB/launchpad.py" "\$@"
 LANZ
 chmod +x "$BIN"

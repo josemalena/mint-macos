@@ -25,7 +25,9 @@ ayudantes de root y los servicios en Rust, en un solo proyecto con meson.
 - `launchpad/`: `mac-launchpad-vala`, el Launchpad de Catalina residente (mismo id de aplicación que el de Python: solo uno
   de los dos es el residente). Port fiel de `launchpad/launchpad.py`, con las medidas de las capturas de Catalina del 14-10-2026.
   `--png ARCHIVO [--pagina N] [--consulta T] [--carpeta]` pinta un cuadro sin tocar el bus de sesión; `--lista` imprime lo que
-  mostraría. `launchpad/instalar.sh` deja el comando `mac-launchpad` eligiendo el binario si existe; `instalar.sh --python` lo quita.
+  mostraría. `launchpad/instalar.sh` deja el comando `mac-launchpad`, que solo usa el binario si José lo activó:
+  `activar-launchpad.sh` deja el marcador `~/.config/mint-macos/launchpad-vala.activo` y cambia el residente; `--quitar` (o
+  `instalar.sh --python`) lo devuelve a Python.
 
 ### Launchpad: lo que NO tiene fuente (se portó igual que en Python, anotado en vez de dado por bueno)
 - «No Results» (texto, tamaño 26, 50 % de opacidad, a 300 px): ninguna captura de Catalina de una búsqueda sin resultados.
