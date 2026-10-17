@@ -7,9 +7,9 @@ Cada fork, el commit que se compila y los parches que lleva encima de su upstrea
 
 - Fork: https://github.com/josemalena/fynder.git
 - Upstream: https://github.com/linuxmint/nemo.git, rama `master`
-- Commit: `0079bbae4d2ab412b287af06ebf76daa0f05a8d7` (2026-10-17, feat: ⌥⌘V mueve lo copiado, iCloud Drive entra en This Mac, glifo de Connect y build reproducible)
+- Commit: `5c8d1df289e2aa90da782b486620bcaf4f2fd3b4` (2026-10-17, feat(menus): el menú View del Finder de Catalina)
 - Base: `66eabf459bc86d03c24797274d0e3f60b9b7a7d8` (master.lmde7), 2026-10-06, nemo-icon-dnd.c: Fix reporting a successful drag result.
-- Parches: 191
+- Parches: 193
 
 | Commit | Fecha | Asunto |
 |---|---|---|
@@ -204,6 +204,8 @@ Cada fork, el commit que se compila y los parches que lleva encima de su upstrea
 | `78f3415c` | 2026-10-17 | feat(search): la búsqueda del Finder: alcance This Mac \| carpeta, criterio Kind, sugerencia y columnas Name/Size/Kind |
 | `cadf1399` | 2026-10-17 | feat(toolbar): Customize Toolbar del Finder: la barra sale de una lista que se edita arrastrando |
 | `0079bbae` | 2026-10-17 | feat: ⌥⌘V mueve lo copiado, iCloud Drive entra en This Mac, glifo de Connect y build reproducible |
+| `5c06e8f4` | 2026-10-17 | feat(tags): Control-1…7 ponen o quitan las etiquetas favoritas y Control-0 las quita todas |
+| `5c8d1df2` | 2026-10-17 | feat(menus): el menú View del Finder de Catalina |
 
 ## mint-macos-dock
 
