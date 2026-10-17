@@ -19,6 +19,9 @@
 #   comprobar DESCRIPCIÓN CMD…         corre CMD; si falla, falla con DESCRIPCIÓN
 #   paso TEXTO                         una línea en el registro del caso
 #
+# Cabecera del caso: «# caso: …», «# límite: SEG» y, si hace falta Cinnamon
+# entero (extensiones como cmdtab@macos), «# gestor: cinnamon» (sesion.sh).
+#
 # Variables: PRUEBAS_CASO (el nombre), PRUEBAS_RES (resultados), PRUEBAS_REAL,
 # PRUEBAS_PREFIJO, MINT_MACOS_REPO, y HOME/XDG_* de prueba (se pueden ensuciar).
 
@@ -83,15 +86,21 @@ teclas() {
 }
 
 captura() {
-  local f="$PRUEBAS_RES/$PRUEBAS_CASO-$1.png"
-  # Una ventana recién mapeada tarda en pintarse: se repite hasta que la
-  # captura deje de ser de un solo color (o 5 s).
+  local f="$PRUEBAS_RES/$PRUEBAS_CASO-$1.png" antes="" ahora
+  # Una ventana recién mapeada tarda en pintarse, y con Cinnamon el panel ya da
+  # colores antes de que la ventana salga: se repite hasta que dos capturas
+  # seguidas, con contenido, den los mismos píxeles (o 5 s).
   for _ in $(seq 25); do
     import -display "$DISPLAY" -window root "$f" 2>/dev/null || true
-    [ "$(identify -format '%k' "$f" 2>/dev/null || echo 0)" -gt 2 ] && { paso "captura: $f"; return 0; }
+    if [ "$(identify -format '%k' "$f" 2>/dev/null || echo 0)" -gt 2 ]; then
+      ahora="$(identify -format '%#' "$f" 2>/dev/null || true)"
+      [ -n "$ahora" ] && [ "$ahora" = "$antes" ] && { paso "captura: $f"; return 0; }
+      antes="$ahora"
+    fi
     sleep 0.2
   done
-  falla "la captura $f salió vacía"
+  [ -n "$antes" ] || falla "la captura $f salió vacía"
+  paso "captura: $f (la pantalla seguía cambiando a los 5 s)"
 }
 
 comprobar() {

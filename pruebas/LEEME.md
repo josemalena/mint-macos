@@ -34,7 +34,8 @@ teclas.
 ## Escribir un caso
 
 Un archivo `casos/NN-nombre.sh` que define `prueba()`. El número da el orden.
-Las dos primeras líneas dicen qué prueba y cuánto puede tardar:
+Las dos primeras líneas dicen qué prueba y cuánto puede tardar; una tercera,
+opcional, el gestor de ventanas:
 
 ```bash
 # caso: mandar un archivo a la Trash y verlo en la ventana Trash de Fynder
@@ -53,6 +54,13 @@ prueba() {
   esperar_sin_ventana "$v" 10
 }
 ```
+
+Sin `# gestor:` el caso corre con Muffin solo. Con `# gestor: cinnamon` corre
+dentro de Cinnamon entero, con el panel y las extensiones `*@macos` del repo
+(habilitada `cmdtab@macos`) y sin animaciones: es para lo que vive dentro del
+shell, como ⌘Tab. Arrancarlo tarda unos segundos, y solo se cambia de gestor
+cuando el caso siguiente pide otro, así que conviene numerar juntos los de
+Cinnamon. En `--pantalla-real` la línea no cuenta: ahí está el Cinnamon de José.
 
 Las ayudas están en `lib.sh`, con su uso al principio: `requiere`, `saltar`,
 `falla`, `comprobar`, `lanzar`, `esperar_ventana`, `esperar_sin_ventana`,

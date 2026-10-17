@@ -13,13 +13,48 @@ if [ ! -s "$XDG_CONFIG_HOME/dconf/user" ]; then
   exit 1
 fi
 
-# En Xephyr no hay gestor de ventanas: Muffin, el de Cinnamon (foco, decoración,
-# _NET_ACTIVE_WINDOW para wmctrl). En :0 ya está el de José.
-if [ "$PRUEBAS_REAL" != true ]; then
-  muffin --replace --sm-disable > "$RES/muffin.log" 2>&1 &
-  for _ in $(seq 50); do wmctrl -m >/dev/null 2>&1 && break; sleep 0.1; done
-  wmctrl -m >/dev/null 2>&1 || { echo "  ✗ Muffin no arrancó"; tail "$RES/muffin.log"; exit 1; }
-fi
+# En Xephyr no hay gestor de ventanas. Cada caso dice cuál necesita en su
+# cabecera («# gestor: cinnamon»); si no dice nada, Muffin, el de Cinnamon a
+# secas (foco, decoración, _NET_ACTIVE_WINDOW para wmctrl). Cinnamon entero es
+# para lo que corre dentro del shell (extensiones como cmdtab@macos), y se
+# cambia de uno a otro solo cuando el caso siguiente pide otro. En :0 ya está
+# el de José.
+GESTOR=""
+GPID=""
+# Listo es cuando el shell dice que arrancó y cargó cmdtab@macos (lo dice en
+# su log; el nombre org.Cinnamon sale en el bus mucho antes).
+cinnamon_listo() {
+  wmctrl -m >/dev/null 2>&1 \
+    && grep -q 'Cinnamon started at' "$RES/cinnamon.log" \
+    && grep -q 'Loaded extension cmdtab@macos' "$RES/cinnamon.log"
+}
+poner_gestor() {
+  [ "$PRUEBAS_REAL" != true ] || return 0
+  [ "$1" != "$GESTOR" ] || return 0
+  if [ -n "$GPID" ]; then kill "$GPID" 2>/dev/null; wait "$GPID" 2>/dev/null; fi
+  GESTOR=""
+  case "$1" in
+    muffin)
+      muffin --replace --sm-disable > "$RES/muffin.log" 2>&1 &
+      GPID=$!
+      for _ in $(seq 50); do wmctrl -m >/dev/null 2>&1 && break; sleep 0.1; done
+      wmctrl -m >/dev/null 2>&1 || { echo "Muffin no arrancó (muffin.log)"; return 1; } ;;
+    cinnamon)
+      # Las extensiones del repo (las que se están probando), no las de José.
+      mkdir -p "$XDG_DATA_HOME/cinnamon/extensions" "$XDG_CONFIG_HOME/autostart"
+      cp -r "$MINT_MACOS_REPO"/extensions/*@macos "$XDG_DATA_HOME/cinnamon/extensions/"
+      gsettings set org.cinnamon enabled-extensions "['cmdtab@macos']"
+      # Sin animaciones: una ventana recién abierta se ve (y se captura) al mapearse.
+      gsettings set org.cinnamon desktop-effects false
+      gsettings set org.cinnamon startup-animation false
+      cinnamon --replace > "$RES/cinnamon.log" 2>&1 &
+      GPID=$!
+      for _ in $(seq 600); do cinnamon_listo && break; sleep 0.1; done
+      cinnamon_listo || { echo "Cinnamon no arrancó en 60s (cinnamon.log)"; return 1; } ;;
+    *) echo "gestor desconocido: $1"; return 1 ;;
+  esac
+  GESTOR="$1"
+}
 
 # cerrar_caso NOMBRE: lo que lanzó el caso y siga vivo.
 cerrar_caso() {
@@ -32,6 +67,12 @@ cerrar_caso() {
 for c in "$@"; do
   n="$(basename "$c" .sh)"
   limite="$(sed -n 's/^# límite: *//p' "$c" | head -1)"
+  gestor="$(sed -n 's/^# gestor: *//p' "$c" | head -1)"
+  # Sin $(…): el gestor tiene que quedar en este shell (GESTOR, GPID).
+  if ! poner_gestor "${gestor:-muffin}" > "$RES/gestor.err" 2>&1; then
+    printf '  ✗ %-28s %s\n' "$n" "$(tail -1 "$RES/gestor.err")"
+    continue
+  fi
   inicio=$(date +%s)
   PRUEBAS_CASO="$n" timeout "${limite:-120}" bash -c 'source "$PRUEBAS_LIB"; source "$1"; prueba' _ "$c" \
     > "$RES/$n.log" 2>&1
