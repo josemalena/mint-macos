@@ -125,6 +125,7 @@ BARRA = [
     ('QuickLook',        ['view-reveal-symbolic']),
     ('Sidebar',          ['view-sidebar-symbolic', 'sidebar-show-symbolic']),
     ('ToolbarArrangeBy', ['view-sort-ascending-symbolic']),
+    ('ToolbarEjectMedia', ['media-eject-symbolic']),
     ('Path',             ['view-path-symbolic']),
     ('PulldownArrowSmall', ['pan-down-symbolic']),
     ('Refresh',          ['view-refresh-symbolic']),

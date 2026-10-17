@@ -76,6 +76,12 @@ if montar_mac_sistema; then
       [ -n "$g" ] && [ -f "$g/GoBack@1x.png" ] && { export GLIFOS_FINDER="$g"; break; }
     done
   fi
+  # Connect de la barra del Finder (ToolbarConnectTemplate) está en el catálogo del propio Finder.app, no en SystemAppearance.
+  CAR_FINDER="$MAC_SISTEMA/System/Library/CoreServices/Finder.app/Contents/Resources/Assets.car"
+  if [ "${GLIFOS_FINDER:-}" = "$TMP/glifos" ] && [ -f "$CAR_FINDER" ] && command -v pdftocairo >/dev/null; then
+    python3 "$AQUI/car.py" glifos "$CAR_FINDER" "$TMP/glifos" ToolbarConnectTemplate --oscuro \
+      || echo "  ⚠ sin el glifo Connect del Finder"
+  fi
   python3 "$AQUI/finder.py" "$MAC_SISTEMA" "$TEMA" "#98999b" "#eaebed"   # lateral y barra
   # Las apps de Linux con equivalente en macOS (Terminal, Preview, Disk
   # Utility…) y los paneles de Ajustes, con el ícono de la Mac.
