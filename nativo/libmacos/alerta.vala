@@ -31,6 +31,7 @@ namespace MacOS {
             resizable = false;
             set_keep_above (true);
             skip_taskbar_hint = true;
+            skip_pager_hint = true;
             type_hint = Gdk.WindowTypeHint.DIALOG;
             window_position = Gtk.WindowPosition.CENTER;
 
