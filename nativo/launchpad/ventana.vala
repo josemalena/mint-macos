@@ -100,8 +100,15 @@ namespace Launchpad {
             set_keep_above (true);
             role = "launchpad";
             if (ancho == 0) {
-                fullscreen ();
-                var pantalla = Gdk.Display.get_default ().get_primary_monitor () ?? Gdk.Display.get_default ().get_monitor (0);
+                var display = Gdk.Display.get_default ();
+                var pantalla = display.get_primary_monitor () ?? display.get_monitor (0);
+                // El gestor de ventanas escoge el monitor de un fullscreen() a secas (con dos pantallas salía en la otra,
+                // recortado): se pide el principal por su número.
+                for (int i = 0; i < display.get_n_monitors (); i++) {
+                    if (display.get_monitor (i) == pantalla) {
+                        fullscreen_on_monitor (get_screen (), i);
+                    }
+                }
                 var geo = pantalla.get_geometry ();
                 W = geo.width;
                 H = geo.height;
