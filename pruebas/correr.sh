@@ -4,7 +4,8 @@
 # pruebas/LEEME.md para escribir uno).
 #
 #   pruebas/correr.sh                    todos los casos, en un Xephyr aparte
-#   pruebas/correr.sh 10 trash           solo esos (por número o parte del nombre)
+#   pruebas/correr.sh 10 trash           solo esos (por el principio del número o
+#                                        parte del nombre: «7» son los 7x)
 #   pruebas/correr.sh --pantalla-real    en :0, con gui-lock y SIN mandar teclas:
 #                                        los casos que necesitan teclado se saltan
 #   pruebas/correr.sh --prefijo DIR      los programas de DIR/bin (y DIR/lib, DIR/share)
@@ -48,7 +49,12 @@ for c in "$AQUI"/casos/*.sh; do
   n="$(basename "$c" .sh)"
   if [ ${#FILTROS[@]} -gt 0 ]; then
     ok=false
-    for f in "${FILTROS[@]}"; do case "$n" in "$f"-*|*"$f"*) ok=true ;; esac; done
+    # Un número casa con el principio («7» son los 7x, no el 37); un texto, con
+    # cualquier parte del nombre.
+    for f in "${FILTROS[@]}"; do
+      if [[ "$f" =~ ^[0-9]+$ ]]; then [[ "$n" == "$f"* ]] && ok=true
+      else [[ "$n" == *"$f"* ]] && ok=true; fi
+    done
     $ok || continue
   fi
   CASOS+=("$c")

@@ -6,7 +6,7 @@ preferencias. `armar.sh` las corre con lo recién compilado; a mano:
 
 ```
 pruebas/correr.sh                  # todos los casos, en un Xephyr aparte
-pruebas/correr.sh 20 captura       # solo esos (número o parte del nombre)
+pruebas/correr.sh 20 captura       # solo esos (el principio del número, o parte del nombre)
 pruebas/correr.sh --lista          # qué casos hay
 pruebas/correr.sh --pantalla-real  # en :0, con gui-lock y sin mandar teclas
 ```
