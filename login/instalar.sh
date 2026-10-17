@@ -196,10 +196,10 @@ fi
 
 # El fondo de escritorio de cada persona, para el login y el bloqueo. El greeter corre como lightdm y no lee el
 # $HOME: cada sesión deja ahí una copia (login/fondo.sh). La carpeta es de root y no se puede escribir; por cada cuenta
-# de personas se crea un archivo vacío que solo su dueño puede escribir, así nadie más pone el fondo de otro.
+# de personas (UID desde 500: el de José es 501) se crea un archivo vacío que solo su dueño puede escribir, así nadie más pone el fondo de otro.
 paso "Fondos de usuario: $FONDOS"
 install -d -m 0755 /var/lib/mint-macos "$FONDOS"
-for u in $(getent passwd | awk -F: '$3 >= 1000 && $3 < 60000 && $7 !~ /(nologin|false)$/ {print $1}'); do
+for u in $(getent passwd | awk -F: '$3 >= 500 && $3 < 60000 && $7 !~ /(nologin|false)$/ {print $1}'); do
   [ -e "$FONDOS/$u.jpg" ] || install -m 0644 -o "$u" -g "$(id -gn "$u")" /dev/null "$FONDOS/$u.jpg"
   echo "  $FONDOS/$u.jpg"
 done
