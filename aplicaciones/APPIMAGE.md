@@ -1,6 +1,7 @@
 # Una AppImage en /Applications: propuesta
 
-**Estado: propuesta, sin código (17-10-2026).** En la Mac, arrastrar una `.app`
+**Estado: propuesta aprobada por José el 17-10-2026, sin código todavía.** Sus
+decisiones están en «Decisiones», al final. En la Mac, arrastrar una `.app`
 a Applications ya la deja instalada, y arrastrarla a la Trash la quita. Aquí la
 pieza equivalente es la AppImage: un solo archivo, una app entera. La propuesta
 es que soltar una AppImage en `/Applications` (o en `~/Applications`, si
@@ -216,7 +217,21 @@ En el marco de `pruebas/`, en el Xephyr, con su HOME y su bus:
 - Antes de dar un caso por bueno se rompe a propósito y se mira que falle, como
   en el resto del marco.
 
-## Preguntas para José
+## Decisiones (José, 17-10-2026)
+
+1. **`~/Applications`**: se vigila solo si ya existe. El servicio no la crea.
+2. **El nombre en Fynder**: el archivo no se toca y Fynder enseña el nombre de
+   la app, «KeePassXC.app», como con los demás lanzadores. Es trabajo de Dev:
+   que Fynder lea el `Name` del lanzador `mint-macos-appimage-<md5>` de esa ruta.
+3. **La confirmación de la primera vez**: sí, como Gatekeeper.
+4. **La AppImage de prueba**: KeePassXC 2.7.12, bajada el 17-10 a
+   `~/.cache/mint-macos/pruebas-appimage/`. El sha256 coincide con el DIGEST
+   oficial (`564fe8b7…13ae49`) y llegó sin `+x`, como se esperaba. Sin
+   ejecutarla se comprobó que es tipo 2 (`AI\x02`), que el squashfs es gzip
+   en el offset 193,728 (`hsqs`), y que la raíz trae
+   `org.keepassxc.KeePassXC.desktop`, `keepassxc.svg` y `.DirIcon`.
+
+## Las preguntas que se le hicieron
 
 1. **¿Cuenta `~/Applications`?** En la Mac existe para las apps de un solo
    usuario. Propongo vigilarla solo si ya existe, sin crearla.
