@@ -29,6 +29,13 @@ ayudantes de root y los servicios en Rust, en un solo proyecto con meson.
   `activar-launchpad.sh` deja el marcador `~/.config/mint-macos/launchpad-vala.activo` y cambia el residente; `--quitar` (o
   `instalar.sh --python`) lo devuelve a Python.
 
+- `captura/`: `mac-captura-herramienta-vala`, la barra de ⇧⌘5 (port fiel de `capturas/herramienta.py`: barra, marco de porción
+  con asas, cursor de cámara que resalta la ventana, menú Options, temporizador, micrófono, miniatura, píldora Stop Recording).
+  Misma configuración (`~/.config/mac-captura/config.json`, mismo formato). Captura con GDK en lugar de `import` y toma el
+  `_GTK_FRAME_EXTENTS` directo de X (el de Python lanzaba `xprop` por cada ventana). Un solo proceso a la vez (id
+  `io.github.josemalena.MintMacosCaptura`). `capturas/captura.sh` lo usa solo si José lo activó: `activar-captura.sh` deja el
+  marcador `~/.config/mint-macos/captura-vala.activo`; `--quitar` (o `instalar.sh --python`) devuelve ⇧⌘5 a Python.
+
 ### Launchpad: lo que NO tiene fuente (se portó igual que en Python, anotado en vez de dado por bueno)
 - «No Results» (texto, tamaño 26, 50 % de opacidad, a 300 px): ninguna captura de Catalina de una búsqueda sin resultados.
 - El fundido de entrada de 0.18 s y la animación de las páginas (aproximación 0.22 por cuadro): las capturas son estáticas.
@@ -86,7 +93,22 @@ resultados y carpeta Other); diferencia media 0.3 %, que viene del fondo (se des
 comparó el diseño lado a lado (rejilla, buscador, resaltado, panel de la carpeta); el contenido de las apps es el de aquí.
 Un arranque en frío cuesta más de 0.5 s (GTK 130-200 ms, datos y fondo 70-110 ms, íconos y texto 250-375 ms): por eso es residente.
 
+## Medido: ⇧⌘5 (Xephyr 1280×800, bus propio, mediana de 5; Python = herramienta.py suelto, sin el residente)
+
+|                                  | Python  | Vala    |
+|----------------------------------|---------|---------|
+| tiempo hasta que se ve la barra  | 365 ms  | 225 ms  |
+| PSS con la barra puesta          | 42.4 MB | 25.8 MB |
+| PSS anónima                      | 26.8 MB | 15.1 MB |
+| binario / fuente                 | 40.8 kB (py) | 119 kB |
+
+Los píxeles contra Python: 0 distintos en la barra con cada uno de los cuatro modos (pantalla, porción con su marco, grabar
+pantalla, grabar porción), con el menú Options abierto, y en las capturas reales (pantalla entera, porción y ventana con la
+sombra de la Mac): mismo tamaño y 0 píxeles distintos. La grabación (ffmpeg) sale válida con los dos.
+Sin probar: Mail y Preview como destino, el temporizador de 5 y 10 s, el micrófono, Other Location… y la miniatura en pantalla
+real (:0): en Xephyr no hay con qué abrirlos.
+
 ## Notas
 
-- Los estilos van por clases CSS (`.mac-caja`), no por id (`#mac-caja`): en Vala el nombre del widget no llegaba al selector.
+- Los estilos van por clases CSS (`.mac-caja`), no por id (`#mac-caja`): en Vala `widget.set_name(…)` llama al de `Gtk.Buildable` y no al del widget: si hace falta un id, `widget.name = \"x\"`.
 - Nada de Apple en el repo: la fuente «.SF NS» y los íconos se generan en local.

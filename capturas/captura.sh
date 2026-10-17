@@ -37,8 +37,12 @@ case "$modo" in
   area)     args=(-a) ;;
   ventana)  args=(-w) ;;
   herramienta)
-    # La barra de Catalina (herramienta.py); sin ella, la de gnome-screenshot.
-    # Con el ayudante residente vivo (mint-macos-ayudante) se le pide por D-Bus y no arranca Python.
+    # La barra de Catalina; sin ella, la de gnome-screenshot.
+    # En Vala (mac-captura-herramienta-vala) si está instalado y activado con nativo/activar-captura.sh (marcador).
+    if [ -f "$HOME/.config/mint-macos/captura-vala.activo" ] && [ -x "$HOME/.local/bin/mac-captura-herramienta-vala" ]; then
+      exec "$HOME/.local/bin/mac-captura-herramienta-vala"
+    fi
+    # La de Python (herramienta.py): con el ayudante residente vivo (mint-macos-ayudante) se le pide por D-Bus y no arranca Python.
     gdbus call --session --dest io.github.josemalena.MintMacosAyudante \
       --object-path /io/github/josemalena/MintMacosAyudante \
       --method org.gtk.Actions.Activate captura '[]' '{}' >/dev/null 2>&1 && exit 0
