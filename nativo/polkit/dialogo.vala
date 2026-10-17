@@ -166,7 +166,16 @@ window.mp-polkit { background-color: #2f2f2f; border: 1px solid #1a1a1a; color: 
             usuario.select_region (0, 0);
             clave.grab_focus ();
             // Lo abre un proceso en segundo plano: sin esto Muffin no le da el foco y no se puede teclear la clave.
-            present_with_time (Gdk.CURRENT_TIME);
+            // Muffin le niega el foco a una ventana sin hora de usuario reciente: se le pone la del servidor X.
+            var x = get_window () as Gdk.X11.Window;
+            if (x != null) {
+                uint32 ahora = Gdk.X11.get_server_time (x);
+                x.set_user_time (ahora);
+                present_with_time (ahora);
+            } else {
+                present_with_time (Gdk.CURRENT_TIME);
+            }
+            clave.grab_focus ();
         }
 
         Gtk.Widget icono (string? panel) {

@@ -9,6 +9,7 @@ project('mint-macos-nativo', ['c', 'vala'],
 gtk_dep = dependency('gtk+-3.0', version: '>= 3.22')
 glib_dep = dependency('glib-2.0')
 gio_dep = dependency('gio-2.0')
+gtk_x11_dep = dependency('gdk-x11-3.0')
 gobject_dep = dependency('gobject-2.0')
 posix_dep = meson.get_compiler('vala').find_library('posix')
 m_dep = meson.get_compiler('c').find_library('m', required: false)
