@@ -115,10 +115,22 @@ S_SPOTLYTE="$(traer SPOTLYTE)"
 
 RAIZ="$T/raiz"     # el «/» de montaje: los binarios quedan en $RAIZ$HOME/.local
 paso "Compilar Fynder"
+# Fynder lleva en el binario un número de build que sube con cada compilación,
+# de un contador en ~/.local/state/fynder (src/gen-build-number.sh). Aquí va un
+# contador propio que arranca en el número de parches del fork sobre Nemo (los
+# de VERSIONES.md) y sube cada vez que meson corre el generador (dos: build e
+# install): así el armado no mueve el de José y dos corridas dan el mismo
+# número. SOURCE_DATE_EPOCH (la fecha del commit) es para la fecha de build,
+# cuando el generador lo respete.
+N_FYNDER="$(git -C "$S_FYNDER" rev-list --count --no-merges "$FYNDER_BASE..HEAD")"
+echo "$N_FYNDER" > "$T/fynder-build-number"
+export FYNDER_BUILD_COUNTER="$T/fynder-build-number"
+export SOURCE_DATE_EPOCH="$(git -C "$S_FYNDER" log -1 --format=%ct HEAD)"
 callado meson setup "$T/build/fynder" "$S_FYNDER" --prefix="$PREFIJO"
 callado ninja -C "$T/build/fynder"
 callado meson install -C "$T/build/fynder" --destdir "$RAIZ"
-echo "  $(du -h "$T/build/fynder/src/fynder" | cut -f1) src/fynder"
+echo "  $(du -h "$T/build/fynder/src/fynder" | cut -f1) src/fynder, build $(cat "$T/fynder-build-number")"
+unset SOURCE_DATE_EPOCH
 
 paso "Compilar mint-macos-dock"
 # Sin el rpath el binario carga la libplank del sistema y no la del fork.
