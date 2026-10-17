@@ -81,6 +81,11 @@ case "\${1:-}" in
          --method org.gtk.Actions.Activate abrir "[<'\${1:-}'>]" '{}' >/dev/null 2>&1 && exit 0
      fi ;;
 esac
+# Con el System Preferences en Vala activado (nativo/activar-preferencias.sh) se usa ese binario; los paneles que
+# todavía no son suyos los abre con este mismo programa de Python (otro id de aplicación).
+if [ -f "\$HOME/.config/mint-macos/preferencias-vala.activo" ] && [ -x "\$HOME/.local/bin/mac-preferencias" ]; then
+  exec "\$HOME/.local/bin/mac-preferencias" "\$@"
+fi
 exec python3 "$LIB/preferencias.py" "\$@"
 EOF
 chmod +x "$BIN"
@@ -90,7 +95,7 @@ cat > "$AUTOARRANQUE" <<EOF
 Type=Application
 Name=System Preferences (residente)
 Comment=Deja System Preferences armada y escondida para que se abra al instante
-Exec=python3 $LIB/preferencias.py --residente
+Exec=$BIN --residente
 Terminal=false
 X-GNOME-Autostart-enabled=true
 EOF
