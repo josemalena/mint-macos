@@ -49,8 +49,24 @@ no sabe de nadie. Medido el 10-10-2026.
 | Thunderbird 153 (Mint) | Sí, DBusMenu | `widget.gtk.global-menu.enabled` en `user.js` |
 | Firefox 157 (Mint) | Sí, DBusMenu | Lo mismo |
 | OBS Studio 32.2.2 (Flatpak, Qt 6.11) | Sí, DBusMenu | `./flatpak-qt.sh` (permiso para hablar con el registrador, abajo); **verificado por José el 14-10-2026** |
-| VS Code | Solo con `"window.titleBarStyle": "native"` | Pendiente del sí de José: pierde la barra de título propia |
+| VS Code 1.141 (Electron 43) | Sí, DBusMenu, solo con `"window.titleBarStyle": "native"` | Esa línea en `~/.config/Code/User/settings.json` (puesta el 17-10-2026 con el sí de José; vuelta atrás: borrarla). Pierde la barra de título propia (command center, botones de layout). Sin probar en pantalla todavía. Ver «VS Code» abajo |
 | kitty, GTK4/libadwaita | No tienen menú | La barra pone el menú genérico |
+
+## VS Code
+
+El menú global sin parchear VS Code solo sale con la barra de título nativa. Es una decisión de VS Code,
+no un faltante de Electron (leído en el código el 17-10-2026):
+
+- **Electron** exporta el menú por DBusMenu y lo registra en `com.canonical.AppMenu.Registrar`. Lo hace en
+  X11, con libdbusmenu-glib y al mapear la ventana. Si el registrador está, quita la barra de menú de
+  dentro de la ventana. Está en `shell/browser/native_window_views.cc` (`SetMenu`) y
+  `shell/browser/ui/views/global_menu_bar_x11.cc` (ruta `/com/canonical/menu/<XID>`).
+- **VS Code** le da a Electron un menú nativo solo si la barra de título es la nativa.
+  - En `src/vs/platform/window/common/window.ts`, `getTitleBarStyle()` devuelve `custom` por defecto
+    («default to custom on all OS»).
+  - En Linux, `hasNativeMenu()` da false con barra propia, aunque `window.menuStyle` sea `native`
+    («Do not support native menu with custom title bar»).
+  - Sin eso, `menubar.ts` hace `Menu.setApplicationMenu(null)` y no queda nada que exportar.
 
 ## Exclusiones
 
