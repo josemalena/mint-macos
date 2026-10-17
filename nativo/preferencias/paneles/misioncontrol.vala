@@ -187,7 +187,7 @@ namespace Preferencias {
             }
         }
 
-        void hoja () {
+        public void hoja () {
             var d = new Gtk.Dialog ();
             d.transient_for = ventana;
             d.modal = true;

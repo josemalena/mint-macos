@@ -12,6 +12,10 @@ namespace Preferencias {
     /** El panel en Vala de ese identificador, o null si todavía lo sirve Python. */
     Panel? crear_panel (string ident) {
         switch (ident) {
+        case "com.apple.preference.desktopscreeneffect": return new PanelDesktopScreenSaver ();
+        case "com.apple.preference.security": return new PanelSecurity ();
+        case "com.apple.preference.datetime": return new PanelDateTime ();
+        case "com.apple.preference.displays": return new PanelDisplays ();
         case "com.apple.preference.dock": return new PanelDock ();
         case "com.apple.preference.startupdisk": return new PanelStartupDisk ();
         case "com.apple.preference.expose": return new PanelMissionControl ();

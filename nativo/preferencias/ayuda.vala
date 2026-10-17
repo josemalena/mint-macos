@@ -174,9 +174,9 @@ namespace Preferencias {
 
 namespace Preferencias {
     /** El texto de un JSON como lo escribe Python: json.dump(…, indent=4, sort_keys=True), con ensure_ascii (los no ASCII, como \uXXXX). */
-    public string json_a_texto (Json.Node nodo, int nivel = 0) {
+    public string json_a_texto (Json.Node nodo, bool ordenar = true) {
         var sb = new StringBuilder ();
-        escribir_nodo (sb, nodo, nivel);
+        escribir_nodo (sb, nodo, 0, ordenar);
         return sb.str;
     }
 
@@ -210,7 +210,7 @@ namespace Preferencias {
         sb.append_c ('"');
     }
 
-    void escribir_nodo (StringBuilder sb, Json.Node n, int nivel) {
+    void escribir_nodo (StringBuilder sb, Json.Node n, int nivel, bool ordenar) {
         var sangria = string.nfill ((nivel + 1) * 4, ' ');
         var cierre = string.nfill (nivel * 4, ' ');
         switch (n.get_node_type ()) {
@@ -225,13 +225,15 @@ namespace Preferencias {
             foreach (var k in miembros) {
                 claves.add (k);
             }
-            claves.sort ((a, b) => strcmp (a, b));
+            if (ordenar) {
+                claves.sort ((a, b) => strcmp (a, b));
+            }
             sb.append ("{\n");
             for (int i = 0; i < claves.length; i++) {
                 sb.append (sangria);
                 escribir_cadena (sb, claves[i]);
                 sb.append (": ");
-                escribir_nodo (sb, o.get_member (claves[i]), nivel + 1);
+                escribir_nodo (sb, o.get_member (claves[i]), nivel + 1, ordenar);
                 sb.append (i + 1 < claves.length ? ",\n" : "\n");
             }
             sb.append (cierre);
@@ -246,7 +248,7 @@ namespace Preferencias {
             sb.append ("[\n");
             for (uint i = 0; i < a.get_length (); i++) {
                 sb.append (sangria);
-                escribir_nodo (sb, a.get_element (i), nivel + 1);
+                escribir_nodo (sb, a.get_element (i), nivel + 1, ordenar);
                 sb.append (i + 1 < a.get_length () ? ",\n" : "\n");
             }
             sb.append (cierre);
