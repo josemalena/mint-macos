@@ -124,9 +124,9 @@ Cada fork, el commit que se compila y los parches que lleva encima de su upstrea
 
 - Fork: https://github.com/josemalena/mint-macos-dock.git
 - Upstream: https://github.com/zquestz/plank-reloaded.git, rama `master`
-- Commit: `461786b42a3f4236f38c1f8fb237fa54a6a69076` (2026-10-10, fix(macos): el genio entra en el ícono, no en un punto del borde)
+- Commit: `12d51dd5c95a1cc4f8b900e0b81c8c9c08323100` (2026-10-16, macos: los dos separadores con la misma holgura, y sin apps recientes no sale el segundo)
 - Base: `e8e2b1fe2e9b13664b1402e2e68246a974ea1a4b` (0.11.176), 2026-10-09, Bump version to 0.11.176
-- Parches: 11
+- Parches: 20
 
 | Commit | Fecha | Asunto |
 |---|---|---|
@@ -141,6 +141,15 @@ Cada fork, el commit que se compila y los parches que lleva encima de su upstrea
 | `32ef2eae6` | 2026-10-10 | feat(macos): «Options ▸ Keep in Dock / Remove from Dock», como en macOS |
 | `4cf5ae489` | 2026-10-10 | fix(macos): el humo al quitar un ícono sale donde se suelta, no en la esquina |
 | `461786b42` | 2026-10-10 | fix(macos): el genio entra en el ícono, no en un punto del borde |
+| `92c981e55` | 2026-10-12 | LEEME: de dónde viene el fork y para qué es (mint-macos-dock) |
+| `d377f7d1d` | 2026-10-14 | macos: «minimize-into-icon»; apagada, las ventanas minimizadas van al final del dock |
+| `76a095c55` | 2026-10-14 | macos: apps recientes (show-recent-apps), nuevas apps tras el separador y fijadas a su izquierda |
+| `ce71e842d` | 2026-10-14 | macos: la pila con las medidas de Catalina (abanico más abierto y rejilla de 126 pt con íconos de 90) |
+| `4727955e8` | 2026-10-14 | macos: con dos separadores, las apps sin fijar van entre los dos |
+| `36745a176` | 2026-10-15 | macos: con dos separadores, el segundo solo sale si hay una app abierta sin fijar entre los dos |
+| `8400c8442` | 2026-10-15 | macos: soltar un ícono del dock sobre la Papelera lo quita del dock |
+| `a8ce1db1e` | 2026-10-15 | macos: la Papelera del dock cuenta y vacía la de macOS de los discos externos (<volumen>/.Trashes/<uid>) |
+| `12d51dd5c` | 2026-10-16 | macos: los dos separadores con la misma holgura, y sin apps recientes no sale el segundo |
 
 ## slick-greeter-mac
 
