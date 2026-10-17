@@ -63,6 +63,7 @@ if [ "${1:-}" = "--quitar" ]; then
   quitar_atajo
   rm -f "$AUTOARRANQUE"
   pkill -f "$LIB/launchpad.py" 2>/dev/null || true      # el residente de esta sesión
+  pkill -x mac-launchpad-vala 2>/dev/null || true
   rm -f "$BIN"; rm -rf "$LIB"
   echo "Listo. mac-launchpad ya no está instalado."
   exit 0
@@ -79,6 +80,10 @@ if [ "\$#" -eq 0 ]; then
   gdbus call --session --dest $APP_ID --object-path $RUTA_DBUS \\
     --method org.freedesktop.Application.Activate '{}' >/dev/null 2>&1 && exit 0
 fi
+# Con el binario en Vala instalado (nativo/instalar.sh) se usa ese; quitarlo (nativo/volver.sh) o
+# MAC_LAUNCHPAD_PYTHON=1 devuelve el de Python. Los dos comparten el id de aplicación: solo uno es el residente.
+NATIVO="\$HOME/.local/bin/mac-launchpad-vala"
+if [ -z "\$MAC_LAUNCHPAD_PYTHON" ] && [ -x "\$NATIVO" ]; then exec "\$NATIVO" "\$@"; fi
 exec python3 "$LIB/launchpad.py" "\$@"
 LANZ
 chmod +x "$BIN"
@@ -88,7 +93,7 @@ cat > "$AUTOARRANQUE" <<AUTO
 Type=Application
 Name=Launchpad (residente)
 Comment=Deja el Launchpad armado y oculto para que el atajo lo muestre al instante
-Exec=python3 $LIB/launchpad.py --residente
+Exec=$BIN --residente
 Terminal=false
 X-GNOME-Autostart-enabled=true
 $MARCA

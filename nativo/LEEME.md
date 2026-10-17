@@ -22,6 +22,20 @@ ayudantes de root y los servicios en Rust, en un solo proyecto con meson.
   aquí), flechas y Enter, y la lista se actualiza sola al abrirse o cerrarse ventanas (libwnck). `--prueba` no mata nada.
   `applets/applemenu@macos/forcekill.py` lo usa si está instalado (⌥⌘⎋ y Apple ▸ Force Quit…); `instalar.sh --python` lo quita.
 
+- `launchpad/`: `mac-launchpad-vala`, el Launchpad de Catalina residente (mismo id de aplicación que el de Python: solo uno
+  de los dos es el residente). Port fiel de `launchpad/launchpad.py`, con las medidas de las capturas de Catalina del 14-10-2026.
+  `--png ARCHIVO [--pagina N] [--consulta T] [--carpeta]` pinta un cuadro sin tocar el bus de sesión; `--lista` imprime lo que
+  mostraría. `launchpad/instalar.sh` deja el comando `mac-launchpad` eligiendo el binario si existe; `instalar.sh --python` lo quita.
+
+### Launchpad: lo que NO tiene fuente (se portó igual que en Python, anotado en vez de dado por bueno)
+- «No Results» (texto, tamaño 26, 50 % de opacidad, a 300 px): ninguna captura de Catalina de una búsqueda sin resultados.
+- El fundido de entrada de 0.18 s y la animación de las páginas (aproximación 0.22 por cuadro): las capturas son estáticas.
+- El cursor de texto del buscador: no se dibuja; la captura de la búsqueda «s» (1.06.12) deja ver uno, y no se sabe si parpadea.
+- El Dock (Plank) queda tapado por el Launchpad a pantalla completa; en las capturas de Catalina el Dock se ve encima.
+- Tab no hace nada, arrastrar y la rueda de dos dedos cambian de página, el clic en el vacío esconde: sin captura que lo confirme.
+- Modo de edición (íconos que tiemblan, borrar, crear carpetas arrastrando, nombre de carpeta editable): hay captura
+  (`16-launchpad-edicion-oscuro`) pero ninguna del movimiento; no se implementó.
+
 ## Construir
 
     meson setup build && ninja -C build      # el binario queda en build/sesion/mac-sesion
@@ -53,6 +67,22 @@ El tiempo lo domina `pkexec` y polkitd, no el agente: sin ganancia. Lo que se ga
 |----------------------------------|---------|---------|
 | tiempo hasta que se ve la ventana| 1080 ms | 616 ms  |
 | RSS con la ventana puesta        | 62.7 MB | 40.7 MB |
+
+## Medido: Launchpad (Xephyr 1920×1200, bus propio, residente armado y oculto; Python = launchpad.py --residente)
+
+Mediana de las corridas estables (3 de Python, 4 de Vala; 1 de Vala salió atípica a 103 MB de RSS tras reconstruirse el fondo).
+
+|                                    | Python  | Vala    |
+|------------------------------------|---------|---------|
+| RSS en reposo (oculto)             | 76.8 MB | 54.5 MB |
+| PSS en reposo (lo que cuesta de verdad) | 36.1 MB | 23.0 MB |
+| PSS con el Launchpad mostrado      | 50.3 MB | 37.2 MB |
+| Atajo (Activate) hasta que se ve   | ~25 ms  | ~25 ms  |
+
+Los píxeles contra Python: 0 distintos (tolerancia 2 %) en las seis vistas probadas (página 1 y 2, búsqueda «s» y «safari», sin
+resultados y carpeta Other); diferencia media 0.3 %, que viene del fondo (se desenfoca con otra librería). Contra Catalina se
+comparó el diseño lado a lado (rejilla, buscador, resaltado, panel de la carpeta); el contenido de las apps es el de aquí.
+Un arranque en frío cuesta más de 0.5 s (GTK 130-200 ms, datos y fondo 70-110 ms, íconos y texto 250-375 ms): por eso es residente.
 
 ## Notas
 
