@@ -13,7 +13,8 @@ LIB="$HOME/.local/lib/mint-macos/launchpad/launchpad.py"
 [ -x "$BIN" ] || { echo "✗ falta $BIN (launchpad/instalar.sh)" >&2; exit 1; }
 
 cerrar_python() { for p in $(pgrep -f "^/usr/bin/python3 $LIB --residente" 2>/dev/null || true); do kill "$p" 2>/dev/null || true; done; }
-cerrar_vala()   { for p in $(pgrep -x mac-launchpad-vala 2>/dev/null || true); do kill "$p" 2>/dev/null || true; done; }
+# Por la ruta exacta del ejecutable: el nombre del proceso se trunca a 15 caracteres y «pgrep -x» no lo encontraría.
+cerrar_vala()   { for p in $(pgrep -f "^$NATIVO( |\$)" 2>/dev/null || true); do kill "$p" 2>/dev/null || true; done; }
 
 case "${1:-}" in
   --quitar)

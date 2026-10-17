@@ -57,6 +57,13 @@ namespace Launchpad {
     [CCode (cname = "malloc_trim", cheader_filename = "malloc.h")]
     extern int malloc_trim (size_t pad);
 
+    /** LAUNCHPAD_DEBUG=1: anota en stderr lo que pasa al mostrarse (para depurar el monitor y el foco). */
+    void depurar (string m) {
+        if (Environment.get_variable ("LAUNCHPAD_DEBUG") != null) {
+            stderr.printf ("[launchpad %.3f] %s\n", GLib.get_monotonic_time () / 1000000.0, m);
+        }
+    }
+
     double ahora () {
         return GLib.get_monotonic_time () / 1000000.0;
     }
@@ -115,6 +122,7 @@ namespace Launchpad {
                     }
                 }
                 map_event.connect ((ev) => {
+                    depurar ("map_event: pido el monitor %d".printf (principal));
                     fullscreen_on_monitor (get_screen (), principal);
                     fullscreen ();
                     return false;
@@ -196,6 +204,7 @@ namespace Launchpad {
 
         /** Lo deja como recién abierto (página 1, sin búsqueda, sin carpeta) y lo enseña. */
         public void mostrar () {
+            depurar ("mostrar (W=%d H=%d)".printf (W, H));
             string nuevo = sello_apps ();
             if (nuevo != sello) {                       // se instaló o quitó una app
                 sello = nuevo;
@@ -223,6 +232,7 @@ namespace Launchpad {
                 // Y si aun así cayó en otro, se corrige con el tamaño real de la ventana.
                 Timeout.add (150, () => {
                     int w = get_allocated_width (), h = get_allocated_height ();
+                    depurar ("a los 150 ms: ventana %dx%d, esperaba %dx%d, visible=%s".printf (w, h, W, H, visible.to_string ()));
                     if (visible && w > 1 && h > 1 && (w != W || h != H)) {
                         aplicar_geometria (w, h);
                         queue_draw ();

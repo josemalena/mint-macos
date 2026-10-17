@@ -19,7 +19,7 @@ GNOME_OCULTO="$HOME/.config/autostart/polkit-gnome-authentication-agent-1.deskto
 case "${1:-}" in
   --quitar)
     rm -f "$AUTOARRANQUE" "$GNOME_OCULTO"
-    for p in $(pgrep -x mint-macos-polkit 2>/dev/null || true); do kill "$p" 2>/dev/null || true; done   # el supervisor
+    for p in $(pgrep -f "^/bin/sh .*/mint-macos-polkit$" 2>/dev/null || true); do kill "$p" 2>/dev/null || true; done   # el supervisor (por ruta: pgrep -x trunca a 15 caracteres)
     for p in $(pgrep -x mac-polkit 2>/dev/null || true); do kill "$p" 2>/dev/null || true; done
     for p in $(pgrep -f "^python3 $LIB/agente.py" 2>/dev/null || true); do kill "$p" 2>/dev/null || true; done
     gsettings set org.cinnamon enable-polkit-agent true

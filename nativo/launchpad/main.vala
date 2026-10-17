@@ -21,6 +21,10 @@ public class Aplicacion : Gtk.Application {
     }
 
     protected override void activate () {
+        if (Environment.get_variable ("LAUNCHPAD_DEBUG") != null) {
+            stderr.printf ("[launchpad] activate: ventana=%s visible=%s\n", (ventana != null).to_string (),
+                           (ventana != null && ventana.get_visible ()).to_string ());
+        }
         // Pedirlo estando abierto lo esconde (F4 abre y cierra); si no existe, se arma.
         if (ventana == null) {
             ventana = new Launchpad.Ventana (this);

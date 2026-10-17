@@ -63,7 +63,7 @@ if [ "${1:-}" = "--quitar" ]; then
   quitar_atajo
   rm -f "$AUTOARRANQUE"
   pkill -f "$LIB/launchpad.py" 2>/dev/null || true      # el residente de esta sesión
-  pkill -x mac-launchpad-vala 2>/dev/null || true
+  pkill -f "^$HOME/.local/bin/mac-launchpad-vala( |\$)" 2>/dev/null || true     # por ruta: pkill -x trunca a 15 caracteres
   rm -f "$BIN"; rm -rf "$LIB"
   echo "Listo. mac-launchpad ya no está instalado."
   exit 0
