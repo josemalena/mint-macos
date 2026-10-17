@@ -10,8 +10,9 @@
 #   2. trae cada fork en el hash de versiones.sh: de su repo publicado y, si el
 #      hash no está ahí, del repo local, con aviso
 #   3. compila Fynder, el Dock y la pantalla de inicio (meson) y rust/ (cargo)
-#   4. corre las pruebas: verificar-versiones.sh, cargo test, y las de meson de
-#      Fynder y del Dock (en un Xephyr aparte, con su propio bus y XDG)
+#   4. corre las pruebas: verificar-versiones.sh, cargo test, las de meson de
+#      Fynder y del Dock (en un Xephyr aparte, con su propio bus y XDG) y las de
+#      tareas reales (pruebas/correr.sh) con lo recién compilado
 #   5. arma el paquete con paquete.sh, sobre lo compilado en 3 (nativo/ y los
 #      binarios de rust los compila paquete.sh del mismo HEAD)
 #   6. deja en la carpeta SUMAS.sha256: el sha256 de cada archivo del paquete y
@@ -203,6 +204,12 @@ for b in fynder plank; do
 done
 echo "  sin correr (no terminan solas, ver arriba): $(printf '%s, ' "${SIN_FIN_FYNDER[@]}" | sed 's/, $//')"
 kill $XPID 2>/dev/null || true
+
+# Las tareas reales (pruebas/), con lo recién compilado: los programas de
+# $RAIZ$PREFIJO/bin antes que los instalados.
+paso "Pruebas: tareas reales (pruebas/correr.sh, en Xephyr)"
+"$M/pruebas/correr.sh" --prefijo "$RAIZ$PREFIJO" --resultados "$T/pruebas" \
+  || { echo "  ✗ fallan pruebas de tareas reales (registros en $T/pruebas; ARMAR_GUARDAR=1 los deja)"; exit 1; }
 
 $SIN_PAQUETE && { paso "Listo (sin paquete)"; exit 0; }
 

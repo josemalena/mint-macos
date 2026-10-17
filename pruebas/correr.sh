@@ -1,0 +1,144 @@
+#!/usr/bin/env bash
+# Pruebas de tareas reales: abrir apps, archivos y la Trash, capturas, ⌘Tab,
+# Force Quit, preferencias… Cada caso es un archivo en pruebas/casos/ (ver
+# pruebas/LEEME.md para escribir uno).
+#
+#   pruebas/correr.sh                    todos los casos, en un Xephyr aparte
+#   pruebas/correr.sh 10 trash           solo esos (por número o parte del nombre)
+#   pruebas/correr.sh --pantalla-real    en :0, con gui-lock y SIN mandar teclas:
+#                                        los casos que necesitan teclado se saltan
+#   pruebas/correr.sh --prefijo DIR      los programas de DIR/bin (y DIR/lib, DIR/share)
+#                                        en vez de ~/.local: armar.sh lo usa para
+#                                        probar lo recién compilado
+#   pruebas/correr.sh --lista            los casos, sin correr nada
+#
+# Nada de la sesión de José entra en las pruebas: su propio X (una copia de
+# Xephyr con otro nombre, para que un «pkill Xephyr» ajeno no la mate), su
+# propio bus de D-Bus, y HOME y XDG_* propios exportados ANTES de arrancar el
+# bus (si no, el dconf-service del bus de prueba escribe en el dconf de José).
+# Al terminar se cierran todos los procesos que llevan la marca de esta corrida
+# en su entorno, y se comprueba que el dconf de José no cambió.
+#
+# Resultados (registro de cada caso y capturas) en ~/.cache/mint-macos/pruebas/
+# resultados, o en --resultados DIR. Sale con 1 si algún caso falla.
+set -euo pipefail
+
+AQUI="$(cd "$(dirname "$0")" && pwd)"
+REAL=false
+PREFIJO="$HOME/.local"
+RES=""
+LISTA=false
+FILTROS=()
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --pantalla-real) REAL=true; shift ;;
+    --prefijo) PREFIJO="$(cd "$2" && pwd)"; shift 2 ;;
+    --resultados) RES="$2"; shift 2 ;;
+    --lista) LISTA=true; shift ;;
+    -h|--help) sed -n '2,23p' "$0"; exit 0 ;;
+    -*) echo "opción desconocida: $1" >&2; exit 2 ;;
+    *) FILTROS+=("$1"); shift ;;
+  esac
+done
+
+# Los casos, en orden de nombre; con filtros, los que casan con alguno.
+CASOS=()
+for c in "$AQUI"/casos/*.sh; do
+  n="$(basename "$c" .sh)"
+  if [ ${#FILTROS[@]} -gt 0 ]; then
+    ok=false
+    for f in "${FILTROS[@]}"; do case "$n" in "$f"-*|*"$f"*) ok=true ;; esac; done
+    $ok || continue
+  fi
+  CASOS+=("$c")
+done
+if $LISTA; then
+  for c in "${CASOS[@]}"; do printf '%-28s %s\n' "$(basename "$c" .sh)" "$(sed -n 's/^# caso: //p' "$c" | head -1)"; done
+  exit 0
+fi
+[ ${#CASOS[@]} -gt 0 ] || { echo "ningún caso casa con: ${FILTROS[*]}"; exit 2; }
+
+CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/mint-macos"
+mkdir -p "$CACHE"
+exec 8> "$CACHE/pruebas.lock"
+flock -n 8 || { echo "  ✗ ya hay otra corrida de pruebas"; exit 1; }
+TRABAJO="$CACHE/pruebas"
+RES="${RES:-$TRABAJO/resultados}"
+rm -rf "${TRABAJO:?}/home" "${TRABAJO:?}/x"
+mkdir -p "$TRABAJO/home" "$TRABAJO/x" "$RES"
+rm -f "$RES"/*.log "$RES"/*.png "$RES"/resumen.txt
+MARCA="mmp-$$-$RANDOM"
+
+# El dconf de José, para comprobar al final que nadie lo tocó.
+DCONF_JOSE="$HOME/.config/dconf/user"
+DCONF_ANTES="$(sha256sum "$DCONF_JOSE" 2>/dev/null | cut -d' ' -f1 || true)"
+
+XPID=""
+LOCK=false
+limpiar() {
+  local p
+  # Todo lo que lleva la marca de esta corrida (lo lanzado por los casos, el bus,
+  # lo que el bus activó: gvfs, dconf-service…), sin pgrep -f de una ruta que
+  # está en el propio comando.
+  for _ in 1 2; do
+    for p in $(grep -lzx "MINT_MACOS_PRUEBA=$MARCA" /proc/[0-9]*/environ 2>/dev/null | cut -d/ -f3); do
+      [ "$p" = "$$" ] || kill "$p" 2>/dev/null || true
+    done
+    sleep 0.5
+  done
+  [ -n "$XPID" ] && kill "$XPID" 2>/dev/null || true
+  fusermount -uz "$TRABAJO/home/run/gvfs" 2>/dev/null || true
+  $LOCK && gui-lock soltar >/dev/null 2>&1 || true
+}
+trap limpiar EXIT
+
+if $REAL; then
+  PANT=":0"
+  gui-lock tomar Pruebas 900 || { echo "  ✗ la pantalla la tiene otra sesión"; exit 1; }
+  LOCK=true
+else
+  # Una copia de Xephyr con otro nombre, en el primer display libre desde :70.
+  cp /usr/bin/Xephyr "$TRABAJO/x/xpruebas"
+  n=70
+  while [ -e "/tmp/.X11-unix/X$n" ] || [ -e "/tmp/.X$n-lock" ]; do n=$((n + 1)); done
+  PANT=":$n"
+  MINT_MACOS_PRUEBA="$MARCA" "$TRABAJO/x/xpruebas" "$PANT" -screen 1600x1200 -nolisten tcp -br \
+    > "$RES/xephyr.log" 2>&1 &
+  XPID=$!
+  for _ in $(seq 50); do [ -e "/tmp/.X11-unix/X$n" ] && break; sleep 0.1; done
+  [ -e "/tmp/.X11-unix/X$n" ] || { echo "  ✗ Xephyr no arrancó"; cat "$RES/xephyr.log"; exit 1; }
+fi
+
+# Los esquemas de GSettings: los del sistema y, encima, los del prefijo.
+H="$TRABAJO/home"
+mkdir -p "$H"/{config,data,cache,esquemas} "$H/run"; chmod 700 "$H/run"
+cp /usr/share/glib-2.0/schemas/*.xml "$H/esquemas/"
+[ -d "$PREFIJO/share/glib-2.0/schemas" ] && cp -f "$PREFIJO"/share/glib-2.0/schemas/*.xml "$H/esquemas/" 2>/dev/null || true
+glib-compile-schemas "$H/esquemas"
+
+HOME_REAL="$HOME"
+ARCH="$(dpkg-architecture -qDEB_HOST_MULTIARCH 2>/dev/null || echo x86_64-linux-gnu)"
+export MINT_MACOS_PRUEBA="$MARCA" MINT_MACOS_REPO="$(dirname "$AQUI")" PRUEBAS_RES="$RES" PRUEBAS_REAL="$REAL"
+export PRUEBAS_PREFIJO="$PREFIJO" PRUEBAS_LIB="$AQUI/lib.sh"
+export DISPLAY="$PANT" HOME="$H" XDG_CONFIG_HOME="$H/config" XDG_DATA_HOME="$H/data" \
+  XDG_CACHE_HOME="$H/cache" XDG_RUNTIME_DIR="$H/run" GSETTINGS_SCHEMA_DIR="$H/esquemas" \
+  XDG_DATA_DIRS="$PREFIJO/share:/usr/local/share:/usr/share" PATH="$PREFIJO/bin:$PATH" \
+  GTK_IM_MODULE=gtk-im-context-simple QT_IM_MODULE=simple XMODIFIERS=
+# Un prefijo que no es el ~/.local de verdad: sus librerías (libplank) primero.
+if [ "$PREFIJO" != "$HOME_REAL/.local" ]; then
+  export LD_LIBRARY_PATH="$PREFIJO/lib/$ARCH${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+fi
+unset DBUS_SESSION_BUS_ADDRESS SESSION_MANAGER
+
+printf '▸ Pruebas en %s (%s), %s casos\n' "$PANT" "$($REAL && echo 'la pantalla de José, sin teclas' || echo Xephyr)" "${#CASOS[@]}"
+ESTADO=0
+# Lo que escriben el bus y los servicios que activa (gvfs, portales…) va a
+# bus.log; por la terminal, solo el resumen.
+dbus-run-session -- bash "$AQUI/sesion.sh" "${CASOS[@]}" 2> "$RES/bus.log" || ESTADO=$?
+
+DCONF_DESPUES="$(sha256sum "$DCONF_JOSE" 2>/dev/null | cut -d' ' -f1 || true)"
+if [ "$DCONF_ANTES" != "$DCONF_DESPUES" ]; then
+  echo "  ⚠ el dconf de José cambió durante las pruebas (puede ser su propia sesión; revisar)" | tee -a "$RES/resumen.txt"
+fi
+echo "  resultados: $RES"
+exit "$ESTADO"

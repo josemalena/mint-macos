@@ -1,0 +1,100 @@
+# shellcheck shell=bash
+# Lo que un caso tiene a mano (sesion.sh lo carga antes del caso). Un caso
+# define prueba(); si una comprobación no se cumple, falla y el caso termina.
+#
+#   saltar MOTIVO                      el caso no aplica aquí (sale con 77)
+#   falla MOTIVO                       el caso falla
+#   requiere PROGRAMA…                 salta si falta alguno
+#   necesita_teclado                   salta en --pantalla-real: a :0 no se mandan teclas
+#   lanzar PROGRAMA ARG…               lo arranca aparte (sesion.sh lo cierra al final)
+#   esperar_ventana CLASE [SEG]        espera una ventana visible de esa clase
+#                                      (expresión regular de WM_CLASS); imprime su id
+#   esperar_sin_ventana ID [SEG]       espera a que esa ventana se cierre
+#   titulo ID                          el título de la ventana
+#   esperar_texto ID TEXTO [SEG]       espera a que la app de esa ventana muestre un
+#                                      elemento con ese nombre (accesibilidad, AT-SPI)
+#   cerrar_ventana ID                  la cierra como el botón rojo (sin teclas)
+#   teclas TECLA…                      xdotool key (solo en Xephyr)
+#   captura NOMBRE                     la pantalla a resultados/<caso>-NOMBRE.png
+#   comprobar DESCRIPCIÓN CMD…         corre CMD; si falla, falla con DESCRIPCIÓN
+#   paso TEXTO                         una línea en el registro del caso
+#
+# Variables: PRUEBAS_CASO (el nombre), PRUEBAS_RES (resultados), PRUEBAS_REAL,
+# PRUEBAS_PREFIJO, MINT_MACOS_REPO, y HOME/XDG_* de prueba (se pueden ensuciar).
+
+set -euo pipefail
+
+# Todo lo que se escribe va a stderr: stdout queda para lo que devuelve una
+# función (el id de esperar_ventana). Un falla o saltar dentro de $(…) termina
+# el caso igual, por set -e.
+saltar() { echo "$*" >&2; exit 77; }
+falla() { echo "✗ $*" >&2; exit 1; }
+paso() { echo "· $*" >&2; }
+
+requiere() {
+  local p
+  for p in "$@"; do command -v "$p" >/dev/null || saltar "falta $p"; done
+}
+
+necesita_teclado() {
+  [ "$PRUEBAS_REAL" != true ] || saltar "necesita teclado, y en la pantalla de José no se mandan teclas"
+}
+
+lanzar() {
+  local log="$PRUEBAS_RES/$PRUEBAS_CASO-$(basename "$1").log"
+  paso "lanzo: $*"
+  setsid "$@" >> "$log" 2>&1 < /dev/null &
+}
+
+esperar_ventana() {
+  local clase="$1" seg="${2:-15}" id=""
+  for _ in $(seq $((seg * 5))); do
+    id="$(xdotool search --onlyvisible --class "$clase" 2>/dev/null | tail -1 || true)"
+    [ -n "$id" ] && { paso "ventana $clase: $id «$(titulo "$id")»"; echo "$id"; return 0; }
+    sleep 0.2
+  done
+  falla "no salió ninguna ventana de clase $clase en ${seg}s"
+}
+
+esperar_sin_ventana() {
+  local id="$1" seg="${2:-10}"
+  for _ in $(seq $((seg * 5))); do
+    xdotool getwindowname "$id" >/dev/null 2>&1 || return 0
+    sleep 0.2
+  done
+  falla "la ventana $id sigue abierta después de ${seg}s"
+}
+
+titulo() { xdotool getwindowname "$1" 2>/dev/null || true; }
+
+esperar_texto() {
+  local pid; pid="$(xdotool getwindowpid "$1")"
+  python3 "$(dirname "$PRUEBAS_LIB")/atspi.py" --pid "$pid" --texto "$2" --segundos "${3:-15}" >&2 \
+    || falla "la ventana $1 no muestra «$2»"
+  paso "se ve «$2»"
+}
+
+cerrar_ventana() { paso "cierro $1"; wmctrl -i -c "$1"; }
+
+teclas() {
+  necesita_teclado
+  paso "teclas: $*"
+  xdotool key --clearmodifiers "$@"
+}
+
+captura() {
+  local f="$PRUEBAS_RES/$PRUEBAS_CASO-$1.png"
+  # Una ventana recién mapeada tarda en pintarse: se repite hasta que la
+  # captura deje de ser de un solo color (o 5 s).
+  for _ in $(seq 25); do
+    import -display "$DISPLAY" -window root "$f" 2>/dev/null || true
+    [ "$(identify -format '%k' "$f" 2>/dev/null || echo 0)" -gt 2 ] && { paso "captura: $f"; return 0; }
+    sleep 0.2
+  done
+  falla "la captura $f salió vacía"
+}
+
+comprobar() {
+  local desc="$1"; shift
+  if "$@"; then paso "bien: $desc"; else falla "$desc"; fi
+}
