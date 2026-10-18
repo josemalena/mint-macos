@@ -80,6 +80,18 @@ MARCA="mmp-$$-$RANDOM"
 # PRUEBAS_DCONF_JOSE: otro archivo en su lugar, para probar este mismo chequeo.
 DCONF_JOSE="${PRUEBAS_DCONF_JOSE:-$HOME/.config/dconf/user}"
 DCONF_ANTES="$(sha256sum "$DCONF_JOSE" 2>/dev/null | cut -d' ' -f1 || true)"
+# Y una copia, para poder decir qué clave cambió si cambia. Lleva los ajustes
+# de José: va aparte de los resultados y solo la lee él.
+DCOPIA="${XDG_DATA_HOME:-$HOME/.local/share}/mint-macos/pruebas-dconf"
+rm -rf "$DCOPIA"
+(umask 077; mkdir -p "$DCOPIA/dconf-antes/dconf")
+install -m 600 "$DCONF_JOSE" "$DCOPIA/dconf-antes/dconf/user" 2>/dev/null || true
+# dconf dump de una copia: lee el archivo directo (sin dconf-service) con un
+# perfil que solo tiene esa base.
+volcar_dconf() {
+  printf 'user-db:user\n' > "$1/perfil"
+  XDG_CONFIG_HOME="$1" DCONF_PROFILE="$1/perfil" dconf dump / 2>/dev/null
+}
 
 XPID=""
 LOCK=false
@@ -152,6 +164,10 @@ dbus-run-session -- bash "$AQUI/sesion.sh" "${CASOS[@]}" 2> "$RES/bus.log" || ES
 DCONF_DESPUES="$(sha256sum "$DCONF_JOSE" 2>/dev/null | cut -d' ' -f1 || true)"
 if [ "$DCONF_ANTES" != "$DCONF_DESPUES" ]; then
   echo "  ✗ el dconf de José ($DCONF_JOSE) cambió durante las pruebas: la corrida no vale." | tee -a "$RES/resumen.txt"
+  (umask 077; mkdir -p "$DCOPIA/dconf-despues/dconf")
+  install -m 600 "$DCONF_JOSE" "$DCOPIA/dconf-despues/dconf/user" 2>/dev/null || true
+  (umask 077; diff <(volcar_dconf "$DCOPIA/dconf-antes") <(volcar_dconf "$DCOPIA/dconf-despues") > "$DCOPIA/dconf.diff")
+  echo "    lo que cambió: $DCOPIA/dconf.diff ($(grep -c '^[<>]' "$DCOPIA/dconf.diff") líneas)" | tee -a "$RES/resumen.txt"
   echo "    Si fue una prueba, revisar con dconf dump / y reponer; si fue José usando su sesión, repetir." | tee -a "$RES/resumen.txt"
   ESTADO=2
 fi
