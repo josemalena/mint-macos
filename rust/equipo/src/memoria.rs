@@ -27,7 +27,18 @@ pub struct Ranura {
     pub bytes: Option<u64>,
     pub tipo: Option<&'static str>,
     pub velocidad: Option<u32>,
+    /// El nombre del fabricante cuando el BIOS da un nombre.
     pub fabricante: Option<String>,
+    /// Cuando el BIOS da el código JEDEC crudo («0x859B»), va aquí y no en fabricante.
+    pub fabricante_codigo: Option<String>,
+    /// El Bank Locator tal cual («BANK 0»).
+    pub banco: Option<String>,
+}
+
+/// «0x859B»: el código JEP106 de JEDEC (banco y fabricante), no un nombre.
+fn es_codigo_jedec(s: &str) -> bool {
+    let h = s.strip_prefix("0x").or_else(|| s.strip_prefix("0X")).unwrap_or("");
+    !h.is_empty() && h.len() <= 8 && h.chars().all(|c| c.is_ascii_hexdigit())
 }
 
 #[derive(Debug, PartialEq)]
@@ -46,7 +57,7 @@ fn cadena(cadenas: &[u8], n: u8) -> Option<String> {
     }
     let s = cadenas.split(|b| *b == 0).nth(n as usize - 1)?;
     let s = String::from_utf8_lossy(s).trim().to_string();
-    // Lo que ponen los BIOS cuando no saben.
+    // Lo que ponen los BIOS cuando no saben (y un código JEDEC en ceros).
     let relleno = ["", "unknown", "not specified", "to be filled by o.e.m.", "undefined", "none", "n/a"];
     if relleno.contains(&s.to_ascii_lowercase().as_str()) || s.chars().all(|c| c == '0' || c == 'x' || c == 'X') {
         None
@@ -60,6 +71,8 @@ pub fn ranuras(tabla: &[u8]) -> Vec<Ranura> {
     let mut out = Vec::new();
     recorrer(tabla, |d, cadenas| {
         let m = modulo(d);
+        // Fabricante (2.3+, 0x17); de un zócalo vacío no se dice.
+        let fab = if m.is_some() && d.len() > 0x17 { cadena(cadenas, d[0x17]) } else { None };
         out.push(Ranura {
             // Como la Mac en System Information: «BANK 0/DIMM0». La Mac mini pone
             // DIMM0 en las dos ranuras; lo que las distingue es el banco.
@@ -74,8 +87,9 @@ pub fn ranuras(tabla: &[u8]) -> Vec<Ranura> {
             bytes: m.as_ref().map(|m| m.bytes),
             tipo: m.as_ref().and_then(|m| m.tipo),
             velocidad: m.as_ref().and_then(|m| m.velocidad),
-            // Fabricante (2.3+, 0x17); de un zócalo vacío no se dice.
-            fabricante: if m.is_some() && d.len() > 0x17 { cadena(cadenas, d[0x17]) } else { None },
+            fabricante: fab.clone().filter(|f| !es_codigo_jedec(f)),
+            fabricante_codigo: fab.filter(|f| es_codigo_jedec(f)),
+            banco: d.get(0x11).and_then(|n| cadena(cadenas, *n)),
         });
     });
     out
@@ -235,6 +249,8 @@ mod pruebas {
         assert_eq!(m.ranuras[0].etiqueta.as_deref(), Some("BANK 0/DIMM0"));
         assert_eq!(m.ranuras[0].bytes, Some(8 << 30));
         assert_eq!(m.ranuras[1].fabricante.as_deref(), Some("Samsung"));
+        assert_eq!(m.ranuras[1].banco.as_deref(), Some("BANK 0"));
+        assert!(es_codigo_jedec("0x859B") && !es_codigo_jedec("Samsung") && !es_codigo_jedec("0x"));
         assert_eq!(texto(&m), "16 GB 1333 MHz DDR3");
     }
 

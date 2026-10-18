@@ -29,8 +29,9 @@
 //!     memoria           total (bytes), tipo, velocidad (MT/s, que la Mac llama MHz),
 //!                       modulos, texto («16 GB 1333 MHz DDR3») y fuente: «smbios» (la
 //!                       tabla DMI, solo root) o, si no se lee, «meminfo» con solo el total;
-//!                       ranuras: [{etiqueta, tamano (null = vacía), tipo, velocidad,
-//!                       fabricante}] en el orden de la tabla, las vacías incluidas
+//!                       ranuras: [{etiqueta («BANK 0/DIMM0»), banco, tamano (null =
+//!                       vacía), tipo, velocidad, fabricante (un nombre), fabricante_codigo
+//!                       (el código JEDEC crudo, «0x859B»)}] en el orden de la tabla
 //!     graficos          [{pci, fabricante, modelo, texto, fuente, vram}]: el nombre de
 //!                       mercado de Mesa (Intel, src/gpus.rs) o de amdgpu.ids (AMD), si
 //!                       no el de pci.ids; vram solo si el driver la da (src/graficos.rs)
@@ -313,7 +314,7 @@ fn json_ranuras(r: &[memoria::Ranura]) -> String {
     }
     let filas: Vec<String> = r
         .iter()
-        .map(|x| format!("\n      {{\"etiqueta\": {}, \"tamano\": {}, \"tipo\": {}, \"velocidad\": {}, \"fabricante\": {}}}", opcional(&x.etiqueta), numero(x.bytes), opcional(&x.tipo.map(String::from)), numero(x.velocidad), opcional(&x.fabricante)))
+        .map(|x| format!("\n      {{\"etiqueta\": {}, \"banco\": {}, \"tamano\": {}, \"tipo\": {}, \"velocidad\": {}, \"fabricante\": {}, \"fabricante_codigo\": {}}}", opcional(&x.etiqueta), opcional(&x.banco), numero(x.bytes), opcional(&x.tipo.map(String::from)), numero(x.velocidad), opcional(&x.fabricante), opcional(&x.fabricante_codigo)))
         .collect();
     format!("[{}\n    ]", filas.join(","))
 }
