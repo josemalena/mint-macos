@@ -4,6 +4,8 @@
 prueba() {
   requiere fynder-desktop gdbus xdotool
   gsettings set io.github.josemalena.fynder.preferences global-menu true
+  # El servicio del menú, si está (el applet cae a leer por su cuenta si no).
+  command -v mac-menu >/dev/null && lanzar mac-menu
   # Como al entrar: nada con foco y el escritorio de Fynder saliendo después de la barra.
   lanzar fynder-desktop
   sleep 6
