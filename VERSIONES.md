@@ -7,9 +7,9 @@ Cada fork, el commit que se compila y los parches que lleva encima de su upstrea
 
 - Fork: https://github.com/josemalena/fynder.git
 - Upstream: https://github.com/linuxmint/nemo.git, rama `master`
-- Commit: `c662f8f88d4005729b5f379c30f8da76a96765b2` (2026-10-18, fix(selector): el módulo de GTK pasa la carpeta y el archivo que puso el programa)
+- Commit: `0169a65540407067be97c690b720569163ab2c20` (2026-10-18, feat(apps de la Mac): abrir un .app muestra su interfaz con mac-visor-nib)
 - Base: `66eabf459bc86d03c24797274d0e3f60b9b7a7d8` (master.lmde7), 2026-10-06, nemo-icon-dnd.c: Fix reporting a successful drag result.
-- Parches: 207
+- Parches: 208
 
 | Commit | Fecha | Asunto |
 |---|---|---|
@@ -220,6 +220,7 @@ Cada fork, el commit que se compila y los parches que lleva encima de su upstrea
 | `550aae8c` | 2026-10-18 | fix(selector): la hoja vuelve a su sitio al aparecer y sin barra de ruta |
 | `364c37e5` | 2026-10-18 | feat(selector): módulo de GTK 3 para los programas que arman su propio diálogo |
 | `c662f8f8` | 2026-10-18 | fix(selector): el módulo de GTK pasa la carpeta y el archivo que puso el programa |
+| `0169a655` | 2026-10-18 | feat(apps de la Mac): abrir un .app muestra su interfaz con mac-visor-nib |
 
 ## mint-macos-dock
 
