@@ -9,7 +9,7 @@ prueba() {
  "sistema":{"id":"linuxmint","nombre":"Linux Mint","version":"22.3 (Zena)","texto":"Linux Mint 22.3"},
  "logo":"/usr/share/icons/hicolor/scalable/apps/linuxmint-logo.svg",
  "procesador":{"modelo":"x","ghz":2.5,"nucleos":2,"texto":"2.5 GHz Dual-Core Intel Core i5"},
- "memoria":{"total":17179869184,"tipo":"DDR3","velocidad":1600,"modulos":2,"texto":"16 GB 1600 MHz DDR3","fuente":"smbios"},
+ "memoria":{"total":17179869184,"tipo":"DDR3","velocidad":1600,"modulos":2,"texto":"16 GB 1600 MHz DDR3","fuente":"smbios","ranuras":[{"etiqueta":"DIMM0","tamano":8589934592},{"etiqueta":"DIMM1","tamano":8589934592}]},
  "graficos":[{"pci":"00:02.0","fabricante":"Intel","modelo":"HD Graphics 4000","texto":"Intel HD Graphics 4000 1536 MB"}]}
 JSON
   local txt; txt="$(mac-acerca --texto 2>/dev/null)"
@@ -17,6 +17,7 @@ JSON
   case "$txt" in *"menu: About This Mac"*|*"menu: About This PC"*) paso "la etiqueta del menú sale del equipo" ;; *) falla "sin etiqueta de menú" ;; esac
   case "$txt" in *"procesador: 2.5 GHz Dual-Core Intel Core i5"*) paso "el procesador sale del json" ;; *) falla "no leyó el procesador del json" ;; esac
   case "$txt" in *"memoria: 16 GB 1600 MHz DDR3"*) paso "la memoria sale del json" ;; *) falla "no leyó la memoria del json" ;; esac
+  case "$txt" in *"ranuras: 8 GB,8 GB"*) paso "las ranuras salen del json" ;; *) falla "no leyó las ranuras del json" ;; esac
   case "$txt" in *"serie: C0FAKE000000"*) paso "la serie sale del json" ;; *) falla "no leyó la serie del json" ;; esac
   case "$txt" in *"volumen: "?*) paso "hay volúmenes" ;; *) falla "no leyó ningún volumen" ;; esac
   lanzar mac-acerca
@@ -38,6 +39,9 @@ JSON
   captura acerca-storage-calculando
   sleep 25
   captura acerca-storage
+  mac-acerca --pestana memory >/dev/null 2>&1
+  sleep 1
+  captura acerca-memory
   mac-acerca --pestana support >/dev/null 2>&1
   sleep 1
   captura acerca-support

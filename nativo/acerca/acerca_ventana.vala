@@ -43,6 +43,7 @@ button.acerca-enlace label { font-family: ".SF NS"; font-size: 10px; opacity: 0.
             pila.add_titled (overview (), "overview", "Overview");
             pila.add_titled (displays (), "displays", "Displays");
             pila.add_titled (storage (), "storage", "Storage");
+            if (equipo.ranuras.length > 0) pila.add_titled (memoria (), "memory", "Memory");
             pila.add_titled (soporte (), "support", "Support");
             pila.add_titled (servicio (), "service", "Service");
 
@@ -269,7 +270,9 @@ button.acerca-enlace label { font-family: ".SF NS"; font-size: 10px; opacity: 0.
             var cabecera = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 0);
             var textos = new Gtk.Box (Gtk.Orientation.VERTICAL, 3);
             textos.pack_start (etiqueta (esc (v.nombre), "acerca-volumen"), false, false, 0);
-            textos.pack_start (etiqueta (esc ("%s available of %s".printf (tamano_legible (v.libre), tamano_legible (v.tamano))), "acerca-libre"), false, false, 0);
+            // Un volumen sin statfs (APFS por FUSE) solo tiene su tamaño: sin «available of» ni barra.
+            textos.pack_start (etiqueta (esc (v.libre < 0 ? tamano_legible (v.tamano)
+                                                          : "%s available of %s".printf (tamano_legible (v.libre), tamano_legible (v.tamano))), "acerca-libre"), false, false, 0);
             cabecera.pack_start (textos, true, true, 0);
             if (v.montaje == "/") {          // Manage… (el volumen del sistema): el analizador de disco de Mint
                 var manejar = new Gtk.Button.with_label ("Manage…");
@@ -283,7 +286,7 @@ button.acerca-enlace label { font-family: ".SF NS"; font-size: 10px; opacity: 0.
             barra.margin_top = 3;
             barra.draw.connect ((cr) => { dibujar_barra (cr, barra, v, categorias_vivas); return true; });
             barras += barra;
-            col.pack_start (barra, false, false, 0);
+            if (v.libre >= 0) col.pack_start (barra, false, false, 0);
             fila.pack_start (col, true, true, 0);
             return fila;
         }
@@ -336,6 +339,50 @@ button.acerca-enlace label { font-family: ".SF NS"; font-size: 10px; opacity: 0.
             cr.set_source_rgb (1, 1, 1);
             cr.move_to (x, h / 2.0 + 4);
             cr.show_text (t);
+        }
+
+        // ── Memory ──────────────────────────────────────────────────────
+        // La forma de la captura de High Sierra: el total instalado a la izquierda y un recuadro por ranura con su módulo.
+        // Sin los textos largos («Your Mac contains…», «Installed», el enlace de Apple): no hay fuente en inglés y no se
+        // inventan. Los tamaños salen de memoria.ranuras (SMBIOS, vía mint-macos-equipo).
+        Gtk.Widget memoria () {
+            var caja = new Gtk.Box (Gtk.Orientation.VERTICAL, 24);
+            caja.set_size_request (586, 221);
+            caja.margin_start = 40;
+            caja.margin_end = 40;
+            caja.margin_top = 24;
+            int64 total = 0;
+            foreach (var b in equipo.ranuras) total += b;
+            var fila_total = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 0);
+            fila_total.pack_start (recuadro_memoria ("%d GB".printf ((int) Math.round (total / 1073741824.0)), true), false, false, 0);
+            caja.pack_start (fila_total, false, false, 0);
+            var ranuras = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 18);
+            ranuras.homogeneous = true;
+            foreach (var t in ranuras_texto (equipo.ranuras)) ranuras.pack_start (recuadro_memoria (t, false), true, true, 0);
+            caja.pack_start (ranuras, false, false, 0);
+            return caja;
+        }
+
+        static Gtk.Widget recuadro_memoria (string texto, bool total) {
+            var a = new Gtk.DrawingArea ();
+            a.set_size_request (total ? 100 : -1, total ? 58 : 40);
+            a.draw.connect ((cr) => {
+                int w = a.get_allocated_width (), h = a.get_allocated_height ();
+                cr.rectangle (0.5, 0.5, w - 1, h - 1);
+                if (total) cr.set_source_rgb (0.1, 0.55, 0.85); else cr.set_source_rgb (0.55, 0.55, 0.56);
+                cr.fill_preserve ();
+                if (total) { cr.set_source_rgb (0.2, 0.75, 1.0); cr.set_line_width (2); cr.stroke (); }
+                else cr.new_path ();
+                cr.select_font_face (".SF NS", Cairo.FontSlant.NORMAL, Cairo.FontWeight.NORMAL);
+                cr.set_font_size (total ? 16 : 15);
+                Cairo.TextExtents te;
+                cr.text_extents (texto, out te);
+                cr.set_source_rgb (1, 1, 1);
+                cr.move_to ((w - te.width) / 2 - te.x_bearing, (h + te.height) / 2);
+                cr.show_text (texto);
+                return true;
+            });
+            return a;
         }
 
         // ── Support y Service ───────────────────────────────────────────

@@ -23,7 +23,8 @@ namespace Acerca {
         public string serie = "";
         public string procesador = "";             // «2.5 GHz Dual-Core Intel Core i5»
         public string memoria = "";                // «16 GB 1333 MHz DDR3»
-        public string graficos = "";               // «Intel HD Graphics 4000 1536 MB»
+        public string graficos = "";               // «Intel HD Graphics 4000»
+        public int64[] ranuras = {};               // bytes de cada ranura de memoria, en el orden de SMBIOS; 0 = vacía
 
         /** «About This Mac» o «About This PC», según el equipo. */
         public string etiqueta_menu () {
@@ -45,6 +46,18 @@ namespace Acerca {
                 if (o.has_member ("serie") && !o.get_null_member ("serie")) e.serie = o.get_string_member ("serie");
                 e.procesador = texto_de (o, "procesador");
                 e.memoria = texto_de (o, "memoria");
+                if (o.has_member ("memoria") && o.get_member ("memoria").get_node_type () == Json.NodeType.OBJECT) {
+                    var m = o.get_object_member ("memoria");
+                    if (m.has_member ("ranuras") && m.get_member ("ranuras").get_node_type () == Json.NodeType.ARRAY) {
+                        var r = m.get_array_member ("ranuras");
+                        int64[] lista = {};
+                        for (uint i = 0; i < r.get_length (); i++) {
+                            var el = r.get_object_element (i);
+                            lista += (el.has_member ("tamano") && !el.get_null_member ("tamano")) ? el.get_int_member ("tamano") : 0;
+                        }
+                        e.ranuras = lista;
+                    }
+                }
                 if (o.has_member ("graficos") && o.get_member ("graficos").get_node_type () == Json.NodeType.ARRAY) {
                     var g = o.get_array_member ("graficos");
                     if (g.get_length () > 0) e.graficos = g.get_object_element (0).get_string_member_with_default ("texto", "");
@@ -200,6 +213,10 @@ namespace Acerca {
         return modelo.has_prefix (id) ? "%s Display".printf (modelo) : "%s %s Display".printf (id, modelo);
     }
 
+    int64 tamano_de_dispositivo (string dispositivo) {
+        return int64.parse (ejecutar ({ "lsblk", "-bdno", "SIZE", dispositivo }).strip ());
+    }
+
     /** «24-inch» o «17.1-inch»: un decimal solo si hace falta, como la Mac. */
     public string pulgadas_texto (double p) {
         var t = "%.1f".printf (p).replace (",", ".");
@@ -222,17 +239,47 @@ namespace Acerca {
         public bool removible = false;      // un pendrive, una tarjeta (RM=1)
     }
 
+    /** El nombre que fstab le da a un montaje (x-gvfs-name=MacMini), para los volúmenes sin etiqueta. */
+    HashTable<string, string>? nombres_fstab = null;
+
+    /**
+     * Los APFS de fstab (fsapfs, montados por FUSE con fsapfsmount): en /proc/self/mounts salen como /dev/fuse. Se resuelven
+     * por su disco físico: el UUID de fstab → /dev/disk/by-uuid/<uuid> → /dev/sdb2. Así el disco sale como interno o externo
+     * según el bus del disco, igual que Fynder.
+     */
+    void sumar_apfs_de_fstab (HashTable<string, string> h, string[] montados_fuse) {
+        foreach (var l in leer ("/etc/fstab").split ("\n")) {
+            var t = l.strip ();
+            if (t.has_prefix ("#") || !t.contains ("fsapfs")) continue;
+            string[] c = {};
+            foreach (var x in t.split_set (" \t")) if (x != "") c += x;
+            if (c.length < 4 || c[2] != "fsapfs" || !c[0].has_prefix ("UUID=")) continue;
+            var mp = c[1];
+            bool montado = false;
+            foreach (var m in montados_fuse) if (m == mp) montado = true;
+            if (!montado) continue;
+            var dev = Posix.realpath ("/dev/disk/by-uuid/" + c[0].substring (5));
+            if (dev == null) continue;
+            h[mp] = dev;
+            foreach (var o in c[3].split (",")) if (o.has_prefix ("x-gvfs-name=")) nombres_fstab[mp] = o.substring (12);
+        }
+    }
+
     /** punto de montaje → dispositivo, de los discos reales (nada de loop, tmpfs ni /boot/efi). */
     HashTable<string, string> montajes_de_discos () {
         var h = new HashTable<string, string> (str_hash, str_equal);
+        nombres_fstab = new HashTable<string, string> (str_hash, str_equal);
+        string[] fuse = {};
         foreach (var l in leer ("/proc/self/mounts").split ("\n")) {
             var c = l.split (" ");
+            if (c.length >= 3 && c[0] == "/dev/fuse") fuse += c[1].replace ("\\040", " ");
             // solo discos de verdad: nada de loop, de FUSE (las imágenes montadas) ni de tmpfs
             if (c.length < 3 || !Regex.match_simple ("^/dev/(sd[a-z]+|nvme[0-9]+n[0-9]+p|mmcblk[0-9]+p|vd[a-z]+|dm-)[0-9]*$", c[0])) continue;
             var mp = c[1].replace ("\\040", " ");
             if (mp.has_prefix ("/boot") || mp.has_prefix ("/var/snap") || mp.has_prefix ("/snap")) continue;
             h[mp] = c[0];
         }
+        sumar_apfs_de_fstab (h, fuse);
         return h;
     }
 
@@ -296,12 +343,17 @@ namespace Acerca {
             v.montaje = mp;
             var et = etiqueta_de (dev);
             if (et != "") v.nombre = et;
+            else if (nombres_fstab != null && nombres_fstab.contains (mp)) v.nombre = nombres_fstab[mp];
             else if (mp == "/") v.nombre = nombre_sistema;
             else v.nombre = Path.get_basename (mp);
             try {
                 var info = File.new_for_path (mp).query_filesystem_info ("filesystem::size,filesystem::free", null);
                 v.tamano = (int64) info.get_attribute_uint64 ("filesystem::size");
                 v.libre = (int64) info.get_attribute_uint64 ("filesystem::free");
+                if (v.tamano == 0) {         // los APFS por FUSE no dan statfs: solo se sabe lo que mide la partición
+                    v.tamano = tamano_de_dispositivo (dev);
+                    v.libre = -1;
+                }
             } catch (Error e) {
                 continue;
             }
@@ -426,6 +478,13 @@ namespace Acerca {
 }
 
 namespace Acerca {
+    /** «8 GB» por ranura («» si está vacía). */
+    public string[] ranuras_texto (int64[] r) {
+        string[] s = {};
+        foreach (var b in r) s += b > 0 ? "%d GB".printf ((int) Math.round (b / 1073741824.0)) : "";
+        return s;
+    }
+
     /** Lo leído del equipo, en texto: lo usan las pruebas (mac-acerca --texto). */
     public string resumen () {
         var e = Equipo.cargar ();
@@ -433,11 +492,12 @@ namespace Acerca {
         sb.append ("menu: %s\n".printf (e.etiqueta_menu ()));
         sb.append ("sistema: %s | versión %s | nombre %s\n".printf (e.sistema, e.version_numero (), e.version_nombre ()));
         sb.append ("equipo: %s\n".printf (e.nombre));
+        sb.append ("ranuras: %s\n".printf (string.joinv (",", ranuras_texto (e.ranuras))));
         sb.append ("procesador: %s\nmemoria: %s\ndisco de arranque: %s\ngráficos: %s\nserie: %s\n".printf (
             e.procesador, e.memoria, disco_de_arranque (e.sistema), e.graficos, e.serie));
         foreach (var p in pantallas ()) sb.append ("pantalla: %s | %s | %d x %d\n".printf (p.nombre, pulgadas_texto (p.pulgadas), p.ancho, p.alto));
         foreach (var v in volumenes (e.sistema)) {
-            sb.append ("volumen: %s | %s de %s | %s\n".printf (v.nombre, tamano_legible (v.libre), tamano_legible (v.tamano), v.descripcion.replace ("\n", " / ")));
+            sb.append ("volumen: %s | %s de %s | %s\n".printf (v.nombre, v.libre < 0 ? "?" : tamano_legible (v.libre), tamano_legible (v.tamano), v.descripcion.replace ("\n", " / ")));
         }
         return sb.str;
     }
