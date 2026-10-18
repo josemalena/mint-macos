@@ -65,11 +65,12 @@ def ruta_nib(p):
 
 def carpetas_de_recursos(app):
     """(prefijo, Resources) de la app y de lo que trae dentro: los plugins (el teclado de
-    Calculator está en PlugIns/BasicAndSci.calcview) y los frameworks. Las extensiones
+    Calculator está en PlugIns/BasicAndSci.calcview), los frameworks y los servicios XPC (los
+    nib del Dock están ahí). Las extensiones
     (.appex) son otros programas y no cuentan."""
     c = os.path.join(app, 'Contents')
     out = [('', os.path.join(c, 'Resources'))]
-    for sub in ('PlugIns', 'Frameworks'):
+    for sub in ('PlugIns', 'Frameworks', 'XPCServices'):
         for b in sorted(glob.glob(os.path.join(glob.escape(c), sub, '*'))):
             if b.endswith('.appex'):
                 continue
@@ -191,10 +192,11 @@ class AppMac:
 
     def __init__(self, ruta):
         ruta = ruta.rstrip('/')
-        if ruta.endswith('.app') and os.path.isdir(ruta):
+        # Una .app o cualquier bundle con Info.plist (los .prefPane de System Preferences).
+        if os.path.isdir(ruta) and os.path.exists(os.path.join(ruta, 'Contents', 'Info.plist')):
             self.ruta = ruta
             info = info_de(ruta)
-            self.nombre = info.get('CFBundleName') or os.path.basename(ruta)[:-4]
+            self.nombre = info.get('CFBundleName') or os.path.splitext(os.path.basename(ruta))[0]
             self.principal = info.get('NSMainNibFile') or info.get('NSMainStoryboardFile')
             self.nibs = nibs_del_bundle(ruta)
             icono = info.get('CFBundleIconFile')
