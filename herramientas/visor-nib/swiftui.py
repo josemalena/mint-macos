@@ -457,22 +457,27 @@ class Pila:
             self.pila.append(n)
             self.sub('opaco', n)
         elif c == 'A':
-            # Sustituciones: «A» + minúsculas (repetidas) + una mayúscula, o «A» + número + «_».
-            if isinstance(self.ver(), str) and (self.ver().isdigit() or self.ver() == '_') and not self.ver(1) or (isinstance(self.ver(), str) and self.ver().isdigit() and self.ver(1) == '_') or self.ver() == '_':
-                k = self.indice()
-                self.pila.append(self.subs[k + 26])
-                return
+            # Sustituciones, como demangleMultiSubstitutions de Swift: minúsculas (índice < 26, siguen
+            # más), una mayúscula (la última), o un número y «_» (índice número + 27); un número
+            # delante de una letra es cuántas veces se repite.
+            rep = -1
             while True:
-                rep = self.numero()
-                letra = self.p[self.i]
+                x = self.p[self.i]
                 self.i += 1
-                if letra.islower():
-                    for _ in range(int(rep) if rep else 1):
-                        self.pila.append(self.subs[ord(letra) - 97])
+                if x.islower():
+                    for _ in range(max(rep, 1)):
+                        self.pila.append(self.subs[ord(x) - 97])
+                    rep = -1
                     continue
-                for _ in range(int(rep) if rep else 1):
-                    self.pila.append(self.subs[ord(letra) - 65])
-                break
+                if x.isupper():
+                    for _ in range(max(rep, 1)):
+                        self.pila.append(self.subs[ord(x) - 65])
+                    break
+                if x == '_':
+                    self.pila.append(self.subs[rep + 27])
+                    break
+                self.i -= 1
+                rep = int(self.numero())
         elif c == 'x':
             self.pila.append(Nodo('T'))  # el parámetro genérico de una vista genérica
         elif c == 'p':
@@ -512,6 +517,147 @@ class Pila:
             self.sub('ref', ident)
         else:
             raise ValueError('no sé leer %r' % c)
+
+
+# --- del tipo a un árbol de interfaz -----------------------------------------------
+
+# Lo que no se pinta: envoltorios cuyo contenido es el primer argumento.
+ENVOLTORIOS = {'ModifiedContent', 'Group', 'AnyView', '_ConditionalContent', 'Optional', '_VariadicView.Tree',
+               'TupleView', 'IDView', 'StaticIf', '_ViewModifier_Content', 'EquatableView', 'Optional'}
+# Contenedores: sus hijos son todos los argumentos que son vistas.
+CONTENEDORES = {'VStack', 'HStack', 'ZStack', 'LazyVStack', 'LazyHStack', 'LazyVGrid', 'LazyHGrid', 'Grid',
+                'GridRow', 'Form', 'List', 'Section', 'ScrollView', 'NavigationStack', 'NavigationView',
+                'NavigationSplitView', 'GroupBox', 'DisclosureGroup', 'ViewThatFits', 'FormFooterContent',
+                'LabeledContent', 'TabView', 'Menu', 'ControlGroup', 'GeometryReader', 'ScrollViewReader'}
+# Controles: una hoja con nombre propio (sus argumentos son su etiqueta).
+CONTROLES = {'Text', 'Toggle', 'Picker', 'Button', 'Image', 'Spacer', 'Divider', 'Slider', 'Stepper', 'TextField',
+             'SecureField', 'Link', 'HelpLink', 'ProgressView', 'Label', 'Color', 'Circle', 'Rectangle',
+             'RoundedRectangle', 'Capsule', 'DatePicker', 'ColorPicker', 'EmptyView', 'Toggle', 'Gauge', 'TextEditor'}
+# Tipos que no son vistas (datos, estilos, colecciones) y no se pintan como hijos.
+NO_VISTAS = {'Int', 'String', 'Bool', 'Double', 'Float', 'Array', 'Dictionary', 'Set', 'Void', 'T', '…',
+             'Binding', 'State', 'Range', 'UInt'}
+
+
+def corto(nombre):
+    """«SwiftUI.VStack» → «VStack»; las de la app quedan con su nombre sin módulo."""
+    return nombre.split('.', 1)[1] if '.' in nombre and not nombre.startswith('_VariadicView') else nombre
+
+
+def es_estilo(n):
+    return n.nombre.endswith('Style') or n.nombre.endswith('Modifier') or n.nombre.startswith('_') and n.nombre not in ENVOLTORIOS
+
+
+def a_ui(n, vistas, modulo, prof=0, mods=None):
+    """Un Nodo de tipo → {'clase', 'props', 'hijos'} para el visor, con las vistas del módulo
+    expandidas a su body y los modificadores juntados en la vista que modifican."""
+    mods = list(mods or [])
+    if prof > 60:
+        return {'clase': '…', 'props': {}, 'hijos': []}
+    nom = n.nombre
+    if n.clase == 'incompleto':
+        hijos = [a_ui(a, vistas, modulo, prof + 1) for a in n.args]
+        return {'clase': 'Incompleto', 'props': {'aviso': nom}, 'hijos': hijos}
+    if n.clase == 'tupla':
+        return {'clase': 'Tupla', 'props': {}, 'hijos': [a_ui(a, vistas, modulo, prof + 1) for a in n.args if es_vista(a)]}
+    if n.clase == 'opcional':
+        # Un «if» sin else: la vista sale solo a veces (el aviso de un perfil que administra el ajuste).
+        r = a_ui(n.args[0], vistas, modulo, prof + 1, mods)
+        r['props'] = dict(r['props'], condicional=True)
+        return r
+    if n.clase == 'modificador':
+        if not n.args:
+            return {'clase': 'Vista', 'props': {'modificadores': mods + [nom]}, 'hijos': []}
+        resto = [a.nombre for a in n.args[1:] if a.nombre]
+        return a_ui(n.args[0], vistas, modulo, prof + 1, mods + [nom + ('(%s)' % ', '.join(map(corto, resto)) if resto else '')])
+    base = corto(nom)
+    # Una vista de la app: se expande a su body.
+    if nom in vistas and prof < 40:
+        sub = a_ui(vistas[nom], vistas, modulo, prof + 1, mods)
+        sub['props'] = dict(sub['props'], vista=nom)
+        return sub
+    if base == 'ModifiedContent' and n.args:
+        return a_ui(n.args[0], vistas, modulo, prof + 1, mods + [corto(n.args[1].nombre) if len(n.args) > 1 else ''])
+    if base in ENVOLTORIOS or base.startswith('_ConditionalContent'):
+        hijos = [a_ui(a, vistas, modulo, prof + 1) for a in n.args if es_vista(a)]
+        if base == '_ConditionalContent' and hijos:
+            # Las dos ramas del if: se pinta la primera; la otra queda anotada.
+            h = hijos[0]
+            h['props'] = dict(h['props'], otra_rama=len(hijos) > 1)
+            if mods:
+                h['props']['modificadores'] = mods + h['props'].get('modificadores', [])
+            return h
+        if len(hijos) == 1:
+            h = hijos[0]
+            if mods:
+                h['props'] = dict(h['props'], modificadores=mods + h['props'].get('modificadores', []))
+            return h
+        return {'clase': 'Tupla', 'props': {'modificadores': mods} if mods else {}, 'hijos': hijos}
+    props = {'tipo': repr(n)[:400]}
+    if mods:
+        props['modificadores'] = mods
+    if base == 'ForEach' and len(n.args) >= 3:
+        # ForEach<Datos, Id, Contenido>: el contenido, que se repite.
+        h = a_ui(n.args[2], vistas, modulo, prof + 1)
+        return {'clase': 'ForEach', 'props': props, 'hijos': [h]}
+    if base in CONTENEDORES or base not in CONTROLES:
+        hijos = [a_ui(a, vistas, modulo, prof + 1) for a in n.args if es_vista(a)]
+        return {'clase': base, 'props': props, 'hijos': hijos}
+    # Un control: sus argumentos de vista son su etiqueta.
+    hijos = [a_ui(a, vistas, modulo, prof + 1) for a in n.args if es_vista(a)]
+    return {'clase': base, 'props': props, 'hijos': hijos}
+
+
+def es_vista(n):
+    if n.clase in ('tupla', 'modificador', 'opcional', 'incompleto', 'opaco-local'):
+        return True
+    b = corto(n.nombre)
+    return b not in NO_VISTAS and not es_estilo(n) and not b[:1].islower()
+
+
+def app_swiftui(ejecutable):
+    """Las vistas de un ejecutable: {nombre: Nodo del body} y las raíces (las que ninguna otra
+    usa), de la más grande a la más chica."""
+    lec = Lector(ejecutable)
+    vistas = {}
+    for conf, body in lec.vistas():
+        try:
+            nombre = lec.nombre_de(('local', conf[0][1])) if len(conf) == 1 and not isinstance(conf[0], str) else None
+        except (ValueError, struct.error):
+            nombre = None
+        if not nombre:
+            continue
+        try:
+            vistas[nombre] = Pila(lec, body).leer()
+        except ValueError:
+            continue
+
+    usadas = set()
+
+    def marcar(n):
+        if n.nombre in vistas:
+            usadas.add(n.nombre)
+        for a in n.args:
+            marcar(a)
+    for v in vistas.values():
+        marcar(v)
+
+    memo = {}
+
+    def tam(nombre, camino=()):
+        """Cuántos nodos tiene la vista ya expandida (con memoria: sin ella, crece exponencial)."""
+        if nombre in memo:
+            return memo[nombre]
+        if nombre in camino:
+            return 1
+
+        def nodos(n):
+            if n.nombre in vistas:
+                return tam(n.nombre, camino + (nombre,))
+            return 1 + sum(nodos(a) for a in n.args)
+        memo[nombre] = r = nodos(vistas[nombre])
+        return r
+    raices = sorted((v for v in vistas if v not in usadas), key=lambda v: -tam(v))
+    return vistas, raices
 
 
 def demangle(nombres):

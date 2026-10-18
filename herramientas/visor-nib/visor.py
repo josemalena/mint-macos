@@ -12,6 +12,11 @@ su tamaño en puntos, para comparar mint-macos con la Mac sin depender de captur
                                                              un nib, cada ventana; una .app, la
                                                              principal
 
+Una app o extensión SwiftUI (los paneles de System Settings de Sequoia) no trae nib: sus
+vistas salen de la metadata de tipos de Swift del ejecutable (swiftui.py) y se pintan como un
+panel de Settings. Los textos no están en esa metadata: los controles dicen «Text», y el
+Inspector trae los textos del panel. Lo que depende de un if sale atenuado.
+
 Lo que la app arma al correr (la ventana de Mail, el teclado de Calculator) no está en
 ningún nib: el visor lo compone con una receta, ~/.local/share/mint-macos/visor-nib/
 recetas/<App>.json, que dice qué vistas de qué nib van en qué sitio:
@@ -33,6 +38,7 @@ import plistlib
 import re
 import subprocess
 import sys
+from struct import error as struct_error
 
 AQUI = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, AQUI)
@@ -187,6 +193,25 @@ def raices_con_cache(ruta):
         return [{'id': None, 'clase': 'error', 'props': {'mensaje': str(e)}, 'hijos': []}]
 
 
+class VistaSwiftUI(dict):
+    """Una vista SwiftUI como raíz del visor; sus hijos (el árbol de swiftui.a_ui) se arman al
+    pedirlos la primera vez."""
+
+    def __init__(self, nombre, vistas, titulo, textos):
+        super().__init__(id=None, clase='SwiftUI', props={'titulo': titulo, 'vista': nombre,
+                                                          'clase_propia': nombre, 'textos': textos})
+        self._vistas, self._nombre = vistas, nombre
+
+    def __getitem__(self, k):
+        if k == 'hijos' and not dict.__contains__(self, 'hijos'):
+            import swiftui  # pylint: disable=import-outside-toplevel
+            dict.__setitem__(self, 'hijos', [swiftui.a_ui(self._vistas[self._nombre], self._vistas, self._nombre.split('.')[0])])
+        return dict.__getitem__(self, k)
+
+    def get(self, k, d=None):
+        return self[k] if k == 'hijos' or k in self else d
+
+
 class AppMac:
     """Una .app (o un nib suelto): sus nib, su menú principal, sus ventanas y la receta."""
 
@@ -210,8 +235,19 @@ class AppMac:
             self.principal = self.nombre
             self.nibs = [(self.nombre, ruta_nib(ruta))]
             self.icono = None
-        if not self.nibs:
-            raise SystemExit('%s no tiene ningún nib' % ruta)
+        # SwiftUI: las vistas salen de la metadata de tipos del ejecutable (swiftui.py).
+        self.swiftui = None
+        exe = os.path.join(ruta, 'Contents', 'MacOS', info_de(ruta).get('CFBundleExecutable', '')) if self.ruta else None
+        if exe and os.path.isfile(exe):
+            try:
+                import swiftui  # pylint: disable=import-outside-toplevel
+                vistas, raices = swiftui.app_swiftui(exe)
+                if vistas:
+                    self.swiftui = (vistas, raices, exe)
+            except (ValueError, KeyError, OSError, struct_error):
+                pass
+        if not self.nibs and not self.swiftui:
+            raise SystemExit('%s no tiene ningún nib ni vistas SwiftUI' % ruta)
         self._raices = {}
         self._imgs = {}
         self.receta = None
@@ -235,6 +271,8 @@ class AppMac:
 
     def menu_principal(self):
         """El menú de la barra: el NSMenu más grande del nib principal."""
+        if not self.nibs:
+            return None  # una extensión SwiftUI sin nib: sin barra de menús propia
         nombre = self.principal if self.ruta_de(self.principal) else self.nibs[0][0]
         menus = [r for r in self.raices(nombre) if r['clase'] == 'NSMenu']
         if not menus:
@@ -252,6 +290,19 @@ class AppMac:
         if self.receta:
             out.append(self.componer())
         sueltas = []
+        if self.swiftui:
+            import swiftui  # pylint: disable=import-outside-toplevel
+            vistas, raices, _exe = self.swiftui
+            titulo, textos = self.titulo_swiftui(), self.textos_swiftui()
+            for nombre in list(raices) + [v for v in sorted(vistas) if v not in raices]:
+                # El árbol se arma al abrir la vista (VistaSwiftUI.hijos): armar todas al empezar
+                # tardaba en las extensiones grandes.
+                raiz = VistaSwiftUI(nombre, vistas, titulo, textos)
+                e = {'etiqueta': 'SwiftUI: %s' % nombre.split('.', 1)[-1], 'nib': None, 'raiz': raiz, 'imgs': None}
+                if nombre in raices:
+                    out.append(e)
+                else:
+                    sueltas.append(dict(e, vista=True))
         for nombre, _ in self.nibs:
             for r in self.raices(nombre):
                 p = r['props']
@@ -268,6 +319,10 @@ class AppMac:
         más grande de todas."""
         if self.receta:
             return 0
+        nib = [i for i, v in enumerate(ventanas) if not v.get('vista') and v['raiz']['clase'] != 'SwiftUI']
+        if not nib and self.swiftui:
+            # Sin ventanas en los nib: la vista SwiftUI raíz más grande (la primera).
+            return next((i for i, v in enumerate(ventanas) if v['raiz']['clase'] == 'SwiftUI'), None)
         solo = [i for i, v in enumerate(ventanas) if not v.get('vista')]
         del_principal = [i for i in solo if ventanas[i]['nib'] == self.principal]
         grande = (lambda i: (ventanas[i]['raiz']['props'].get('marco') or [0, 0, 0, 0])[2]
@@ -276,6 +331,27 @@ class AppMac:
             if grupo:
                 return max(grupo, key=grande)
         return None
+
+    def textos_swiftui(self):
+        """Los textos en inglés del bundle (Localizable.loctable o .strings), sin los de deshacer
+        ni las ayudas: en SwiftUI no se sabe qué Text lleva cuál, así que van al Inspector."""
+        rec = os.path.join(self.ruta, 'Contents', 'Resources')
+        en = {}
+        try:
+            en = plistlib.load(open(os.path.join(rec, 'Localizable.loctable'), 'rb')).get('en', {})
+        except (OSError, ValueError):
+            en = nib.cadenas_de(os.path.join(rec, 'en.lproj', 'Localizable.strings'))
+        return sorted({v for k, v in en.items() if isinstance(v, str) and not re.search(r'_(UNDO|TOOLTIP|HELP|AX)\b', k)})
+
+    def titulo_swiftui(self):
+        """El nombre visible: CFBundleDisplayName, de InfoPlist.loctable en inglés si está."""
+        info = info_de(self.ruta)
+        lt = os.path.join(self.ruta, 'Contents', 'Resources', 'InfoPlist.loctable')
+        try:
+            en = plistlib.load(open(lt, 'rb')).get('en', {})
+        except (OSError, ValueError):
+            en = {}
+        return en.get('CFBundleDisplayName') or info.get('CFBundleDisplayName') or en.get('CFBundleName') or self.nombre
 
     def componer(self):
         """La ventana de la receta: las piezas de cada nib en su sitio y a su tamaño."""
@@ -538,6 +614,8 @@ def barra_de_herramientas(tb, imgs):
 
 def lienzo(raiz, imgs, marcar=None):
     """Una ventana del nib como widget: toolbar arriba y su vista de contenido a tamaño."""
+    if raiz['clase'] == 'SwiftUI':
+        return lienzo_swiftui(raiz, marcar)
     caja = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
     tb = next((h for h in raiz['hijos'] if h['clase'] == 'NSToolbar'), None)
     if tb:
@@ -552,6 +630,185 @@ def lienzo(raiz, imgs, marcar=None):
     else:
         pintar(dict(raiz, props=dict(raiz['props'], marco=[0, 0, m[2], m[3]])), imgs, fijo, 0, 0, marcar)
     caja.pack_start(fijo, False, False, 0)
+    return caja
+
+
+# --- SwiftUI ----------------------------------------------------------------------
+
+def hijos_planos(n):
+    """Los hijos de una vista, con las tuplas (TupleView) abiertas en el mismo nivel."""
+    out = []
+    for h in n['hijos']:
+        if h['clase'] in ('Tupla', 'FormFooterContent'):
+            out.extend(hijos_planos(h))
+        elif h['clase'] != 'EmptyView':
+            out.append(h)
+    return out
+
+
+def texto_de(n):
+    """La etiqueta de un control: no hay cadenas en la metadata, así que dice qué es."""
+    for h in hijos_planos(n):
+        if h['clase'] == 'Text':
+            return 'Text'
+        if h['clase'] == 'Label':
+            return 'Label'
+    return n['clase']
+
+
+def fila(etiqueta, control):
+    caja = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+    if etiqueta is not None:
+        caja.pack_start(etiqueta, True, True, 0)
+    if control is not None:
+        caja.pack_end(control, False, False, 0)
+    return caja
+
+
+def etiqueta(texto, clase='visor-swiftui-texto'):
+    w = Gtk.Label(label=texto)
+    w.set_xalign(0)
+    w.get_style_context().add_class(clase)
+    return w
+
+
+def ui_gtk(n, marcar, horizontal=False):
+    """Un nodo de swiftui.a_ui como widget de GTK, con el aspecto de un panel de System Settings
+    (Form agrupado: secciones redondeadas y una fila por control)."""
+    c = n['clase']
+    mods = ' '.join(n['props'].get('modificadores', []))
+    hijos = hijos_planos(n)
+    w = None
+    if c in ('Form', 'List', 'ScrollView'):
+        w = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=14)
+        w.set_border_width(20)
+        for h in hijos:
+            w.pack_start(ui_gtk(h, marcar), False, False, 0)
+    elif c == 'Section':
+        # Section<cabecera, contenido, pie>
+        w = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        partes = [h for h in n['hijos']]
+        cab = partes[0] if len(partes) == 3 else None
+        cont = partes[1] if len(partes) == 3 else n
+        pie = partes[2] if len(partes) == 3 else None
+        if cab and cab['clase'] != 'EmptyView':
+            w.pack_start(etiqueta('Section header', 'visor-swiftui-cabecera'), False, False, 0)
+        caja = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        caja.get_style_context().add_class('visor-swiftui-seccion')
+        filas = hijos_planos(cont) if cont is not n else hijos
+        for i, h in enumerate(filas):
+            if i:
+                caja.pack_start(Gtk.Separator(), False, False, 0)
+            f = ui_gtk(h, marcar, True)
+            f.set_margin_start(10)
+            f.set_margin_end(10)
+            f.set_margin_top(7)
+            f.set_margin_bottom(7)
+            caja.pack_start(f, False, False, 0)
+        w.pack_start(caja, False, False, 0)
+        if pie and pie['clase'] != 'EmptyView':
+            w.pack_start(etiqueta('Section footer', 'visor-swiftui-pie'), False, False, 0)
+    elif c in ('VStack', 'LazyVStack', 'ForEach', 'Grid', 'GroupBox', 'DisclosureGroup', 'NavigationStack', 'Vista',
+               'Incompleto', 'ZStack', 'GeometryReader'):
+        w = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        for h in hijos:
+            w.pack_start(ui_gtk(h, marcar), False, False, 0)
+        if c == 'ForEach':
+            w.get_style_context().add_class('visor-swiftui-foreach')
+    elif c in ('HStack', 'LazyHStack', 'GridRow', 'ControlGroup'):
+        w = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        for h in hijos:
+            x = ui_gtk(h, marcar, True)
+            w.pack_start(x, h['clase'] == 'Spacer', h['clase'] == 'Spacer', 0)
+    elif c == 'LabeledContent':
+        partes = hijos
+        izq = ui_gtk(partes[0], marcar) if partes else None
+        der = ui_gtk(partes[1], marcar, True) if len(partes) > 1 else None
+        w = fila(izq, der)
+    elif c == 'Toggle':
+        sw = Gtk.Switch()
+        sw.set_valign(Gtk.Align.CENTER)
+        w = fila(etiqueta(texto_de(n)), sw) if 'checkbox' not in mods.lower() else Gtk.CheckButton(label=texto_de(n))
+    elif c == 'Picker':
+        if 'InlinePickerStyle' in mods or 'RadioGroup' in mods:
+            w = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+            w.pack_start(etiqueta(texto_de(n)), False, False, 0)
+            g = None
+            for k in range(2):
+                r = Gtk.RadioButton.new_with_label_from_widget(g, 'Option %d' % (k + 1))
+                g = g or r
+                w.pack_start(r, False, False, 0)
+        else:
+            combo = Gtk.ComboBoxText()
+            combo.append_text('Option')
+            combo.set_active(0)
+            w = fila(etiqueta(texto_de(n)), combo)
+    elif c == 'Button':
+        dentro = hijos
+        if dentro and dentro[0]['clase'] not in ('Text', 'Label'):
+            w = Gtk.Button()
+            w.add(ui_gtk(dentro[0], marcar))
+            w.set_relief(Gtk.ReliefStyle.NONE if 'Plain' in mods else Gtk.ReliefStyle.NORMAL)
+        else:
+            w = Gtk.Button(label='Button')
+        w.set_halign(Gtk.Align.START if not horizontal else Gtk.Align.CENTER)
+    elif c == 'HelpLink':
+        w = Gtk.Button(label='?')
+        w.get_style_context().add_class('visor-swiftui-ayuda')
+        w.set_halign(Gtk.Align.END)
+    elif c == 'Text':
+        w = etiqueta('Text')
+    elif c == 'Label':
+        w = Gtk.Box(spacing=6)
+        w.pack_start(Gtk.Image.new_from_icon_name('image-x-generic-symbolic', Gtk.IconSize.MENU), False, False, 0)
+        w.pack_start(etiqueta('Label'), False, False, 0)
+    elif c == 'Image':
+        w = Gtk.Image.new_from_icon_name('image-x-generic-symbolic', Gtk.IconSize.LARGE_TOOLBAR)
+    elif c == 'Spacer':
+        w = Gtk.Box()
+    elif c == 'Divider':
+        w = Gtk.Separator()
+    elif c == 'Slider':
+        w = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0, 1, 0.1)
+        w.set_draw_value(False)
+        w.set_size_request(180, -1)
+    elif c == 'Stepper':
+        w = Gtk.SpinButton.new_with_range(0, 100, 1)
+    elif c in ('TextField', 'SecureField', 'TextEditor'):
+        w = Gtk.Entry()
+        w.set_visibility(c != 'SecureField')
+    elif c in ('ProgressView', 'Gauge'):
+        w = Gtk.ProgressBar()
+    elif c in ('Color', 'Circle', 'Rectangle', 'RoundedRectangle', 'Capsule'):
+        w = Gtk.Box()
+        w.set_size_request(16, 16)
+        w.get_style_context().add_class('visor-swiftui-forma')
+    elif c in ('DatePicker', 'ColorPicker'):
+        w = Gtk.Button(label=c)
+    else:
+        # Una vista de SwiftUI que no conozco: sus hijos, en columna, con el nombre al pasar el ratón.
+        w = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL if horizontal else Gtk.Orientation.VERTICAL, spacing=6)
+        for h in hijos:
+            w.pack_start(ui_gtk(h, marcar, horizontal), False, False, 0)
+        if not hijos:
+            w.pack_start(etiqueta(c, 'visor-swiftui-desconocido'), False, False, 0)
+    if n['props'].get('condicional'):
+        # Sale solo a veces (un if sin else): atenuada, para no confundirla con lo de siempre.
+        w.set_opacity(0.35)
+        mods = ('solo a veces (if) ' + mods).strip()
+    w.set_tooltip_text('%s%s%s' % (n['props'].get('vista', '') + ' — ' if n['props'].get('vista') else '', c,
+                                     ('\n' + mods) if mods else ''))
+    if marcar is not None:
+        marcar[id(n)] = w
+    return w
+
+
+def lienzo_swiftui(raiz, marcar=None):
+    caja = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+    caja.get_style_context().add_class('visor-swiftui-fondo')
+    caja.set_size_request(520, -1)
+    for h in raiz['hijos']:
+        caja.pack_start(ui_gtk(h, marcar), False, False, 0)
     return caja
 
 
@@ -755,7 +1012,11 @@ class Inspector(Gtk.Window):
         if self.combo.get_active() != i:
             self.combo.set_active(i)
         r = v['raiz']['props']
-        if r.get('receta'):
+        if v['raiz']['clase'] == 'SwiftUI':
+            textos = r.get('textos') or []
+            self.nib.set_text('SwiftUI, desde la metadata de tipos de %s.\nTextos del panel (%d): %s' % (
+                os.path.basename(self.principal.app.swiftui[2]), len(textos), ' · '.join(textos)[:1500]))
+        elif r.get('receta'):
             self.nib.set_text('Compuesta con %s:\n%s' % (r['receta'], '\n'.join(r.get('piezas', []))))
         else:
             self.nib.set_text('Nib: %s' % self.principal.app.ruta_de(v['nib']))
@@ -784,6 +1045,13 @@ CSS = b'''
 .visor-nib-recuadro { border: 1px dashed alpha(#888, 0.35); }
 .visor-nib-recuadro > label { font-size: 8pt; color: #888; }
 .visor-nib-elegido { box-shadow: inset 0 0 0 2px #3478f6; }
+.visor-swiftui-seccion { border-radius: 8px; background: alpha(@theme_fg_color, 0.04); border: 1px solid alpha(@theme_fg_color, 0.09); }
+.visor-swiftui-cabecera { font-weight: bold; margin-left: 4px; }
+.visor-swiftui-pie, .visor-swiftui-desconocido { font-size: 9pt; color: alpha(@theme_fg_color, 0.55); }
+.visor-swiftui-texto { color: alpha(@theme_fg_color, 0.85); }
+.visor-swiftui-ayuda { border-radius: 50%; min-width: 22px; min-height: 22px; padding: 0; }
+.visor-swiftui-forma { border-radius: 50%; background: alpha(@theme_selected_bg_color, 0.8); }
+.visor-swiftui-foreach { border-left: 2px dotted alpha(@theme_fg_color, 0.15); padding-left: 4px; }
 '''
 
 
