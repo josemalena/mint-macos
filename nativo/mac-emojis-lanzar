@@ -1,0 +1,14 @@
+#!/bin/sh
+# ⌃⌘Espacio: el selector de emojis. Se anota la ventana al frente ANTES de abrir nada (es donde se escribe el emoji).
+# Con el residente (nativo/activar-ventanas.sh) se le pide a mac-ventanas; si no, el binario suelto; y sin ninguno, el
+# guion de Python de siempre (instalado en ~/.local/share/mint-macos/emojis.py).
+destino="$(xdotool getactivewindow 2>/dev/null)"
+ventanas="$HOME/.local/bin/mac-ventanas"
+if [ -f "$HOME/.config/mint-macos/ventanas.activo" ] && [ -x "$ventanas" ]; then
+  exec "$ventanas" emojis --destino "$destino"
+fi
+bin="$HOME/.local/bin/mac-emojis-vala"
+if [ -x "$bin" ]; then
+  exec "$bin" --destino "$destino"
+fi
+exec python3 "$HOME/.local/share/mint-macos/emojis.py"

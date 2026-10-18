@@ -11,11 +11,15 @@ case "${1:-}" in
     rm -f "$HOME/.local/bin/mac-sesion" "$HOME/.local/bin/mac-gatekeeper" "$HOME/.local/bin/mac-polkit" "$HOME/.local/bin/mac-forcequit" "$HOME/.local/bin/mac-launchpad-vala" "$HOME/.config/mint-macos/launchpad-vala.activo" \
       "$HOME/.local/bin/mac-captura-herramienta-vala" "$HOME/.config/mint-macos/captura-vala.activo" \
       "$HOME/.local/bin/mac-ventanas" "$HOME/.config/mint-macos/ventanas.activo" \
-      "$HOME/.local/bin/mac-preferencias" "$HOME/.local/bin/mac-acerca" "$HOME/.local/bin/mac-acerca-lanzar" "$HOME/.config/mint-macos/preferencias-vala.activo" "$HOME/.config/autostart/mint-macos-ventanas.desktop"
+      "$HOME/.local/bin/mac-preferencias" "$HOME/.local/bin/mac-acerca" "$HOME/.local/bin/mac-acerca-lanzar" "$HOME/.local/bin/mac-emojis-vala" "$HOME/.local/bin/mac-emojis-lanzar" "$HOME/.config/mint-macos/preferencias-vala.activo" "$HOME/.config/autostart/mint-macos-ventanas.desktop"
+    install -m 755 "$AQUI/../capturas/emojis.py" "$HOME/.local/bin/mac-emojis"       # ⌃⌘Espacio vuelve al guion de Python
     echo "mac-sesion, mac-forcequit, mac-launchpad-vala, mac-captura-herramienta-vala, mac-ventanas, mac-preferencias y mac-polkit quitados (cierra antes el residente con activar-preferencias.sh --quitar) (si había un residente mac-ventanas, ciérralo con activar-ventanas.sh --quitar antes): los diálogos de sesión vuelven a applemenu.py, Force Quit a forcekill.py y el agente a agente.py, ⇧⌘5 a herramienta.py" ;;
   ""|--reiniciar)
     "$AQUI/compilar-desde-head.sh" "$HOME"
     echo "instalado en ~/.local/bin (mac-sesion, mac-forcequit, mac-launchpad-vala, mac-captura-herramienta-vala, mac-ventanas, mac-preferencias, mac-sesion-lanzar y, si hay headers de polkit, mac-polkit)"
+    # ⌃⌘Espacio llama a ~/.local/bin/mac-emojis: pasa a ser el lanzador (residente → binario → Python, que queda copiado).
+    install -D -m 755 "$AQUI/../capturas/emojis.py" "$HOME/.local/share/mint-macos/emojis.py"
+    install -m 755 "$HOME/.local/bin/mac-emojis-lanzar" "$HOME/.local/bin/mac-emojis"
     # Un residente sigue con el código viejo en memoria y es el que atiende los atajos (⇧⌘5, Force Quit, los
     # diálogos de sesión, System Preferences): con el binario nuevo en disco no basta. Se compara la hora de
     # arranque del proceso con la del binario, y se avisa o, con --reiniciar, se reinicia.

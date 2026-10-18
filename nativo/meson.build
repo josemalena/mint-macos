@@ -22,6 +22,7 @@ subdir('forcequit')
 subdir('launchpad')
 subdir('captura')
 subdir('acerca')
+subdir('emojis')
 subdir('ventanas')
 subdir('preferencias')
 
