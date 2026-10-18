@@ -62,10 +62,12 @@ COLOR = [
     (f'{CT}/GenericApplicationIcon.icns', ['application-default-icon']),
     (f'{CT}/GenericFontIcon.icns',        ['font-x-generic']),
     (f'{CT}/GenericNetworkIcon.icns',     ['network-workgroup']),
+    # iCloud Drive (el que usa el Finder de Catalina para su carpeta): para el montaje de rclone de iCloud.
+    ('System/Library/PrivateFrameworks/CloudDocsDaemon.framework/Versions/A/Resources/iCloudDrive.icns', ['icloud-drive', 'folder-icloud', 'icloud']),
     (f'{CT}/TrashIcon.icns',              ['user-trash']),
     (f'{CT}/FullTrashIcon.icns',          ['user-trash-full']),
     (f'{CT}/com.apple.macmini-unibody-no-optical.icns', ['computer']),
-    (f'{EXT}/IOStorageFamily.kext/Contents/Resources/Internal.icns',  ['drive-harddisk', 'drive-harddisk-system']),
+    (f'{EXT}/IOStorageFamily.kext/Contents/Resources/Internal.icns',  ['drive-harddisk', 'drive-harddisk-system', 'drive-harddisk-solidstate']),   # solidstate: lo que GIO da a los discos SATA internos
     (f'{EXT}/IOStorageFamily.kext/Contents/Resources/External.icns',  ['drive-harddisk-usb', 'drive-harddisk-ieee1394']),
     (f'{EXT}/IOStorageFamily.kext/Contents/Resources/Removable.icns', ['drive-removable-media', 'drive-removable-media-usb', 'media-flash']),
     (f'{EXT}/IOCDStorageFamily.kext/Contents/Resources/CD.icns',      ['media-optical', 'media-optical-cd', 'drive-optical']),
@@ -85,7 +87,7 @@ SIMBOLICOS = [
     (f'{CT}/SidebarApplicationsFolder.icns', ['folder-applications-symbolic']),
     (f'{CT}/SidebarUtilitiesFolder.icns',    ['folder-utilities-symbolic']),
     (f'{CT}/SidebariCloud.icns',          ['weather-overcast-symbolic']),
-    (f'{CT}/SidebarInternalDisk.icns',    ['drive-harddisk-symbolic']),
+    (f'{CT}/SidebarInternalDisk.icns',    ['drive-harddisk-symbolic', 'drive-harddisk-solidstate-symbolic']),
     (f'{CT}/SidebarExternalDisk.icns',    ['drive-harddisk-usb-symbolic']),
     (f'{CT}/SidebarRemovableDisk.icns',   ['drive-removable-media-symbolic', 'drive-removable-media-usb-symbolic']),
     (f'{CT}/SidebarOpticalDisk.icns',     ['drive-optical-symbolic', 'media-optical-symbolic']),
