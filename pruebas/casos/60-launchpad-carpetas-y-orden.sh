@@ -12,6 +12,11 @@ prueba() {
   export LAUNCHPAD_DESTINO="$apps" LAUNCHPAD_DISENO="$diseno" LAUNCHPAD_TAM=1920x1200
   lanzar mac-launchpad-vala
   local w; w="$(esperar_ventana '[Ll]aunchpad' 30)"
+  # Sin gestor de ventanas el foco no es de nadie: se le da, y se sube y se pone en el origen (en un armado completo hay ventanas
+  # de casos anteriores, y el teclado y el ratón iban a parar a otra).
+  xdotool windowmove "$w" 0 0 2>/dev/null || true
+  xdotool windowraise "$w" 2>/dev/null || true
+  xdotool windowfocus --sync "$w" 2>/dev/null || true
   sleep 2
   captura launchpad-inicial
   # Rejilla de 1920×1200: la primera celda en (312, 98+56), paso 215; Alfa, Beta, Delta, Epsilon, Gamma por orden alfabético.
@@ -20,7 +25,7 @@ prueba() {
   arrastrar() {   # de la celda $1 a la celda $2, manteniendo pulsado
     mover "$((x0 + $1 * paso))" "$y0"
     xdotool mousedown 1
-    sleep 0.7
+    sleep 1.0
     mover "$((x0 + $1 * paso + 20))" "$y0"
     sleep 0.2
     mover "$((x0 + $2 * paso))" "$y0"
@@ -34,12 +39,14 @@ prueba() {
   [ -f "$diseno" ] || falla "no se guardó el diseño"
   grep -q '"Untitled"' "$diseno" || falla "la carpeta Untitled no está en el diseño: $(cat "$diseno")"
   # 2. Se renombra: se escribe y Enter.
+  xdotool windowfocus --sync "$w" 2>/dev/null || true
   xdotool type --delay 80 "Trabajo"
   xdotool key Return
-  sleep 0.5
+  for _ in $(seq 20); do grep -q '"Trabajo"' "$diseno" && break; sleep 0.25; done
   grep -q '"Trabajo"' "$diseno" || falla "el nombre no se guardó: $(cat "$diseno")"
   captura launchpad-carpeta-renombrada
   # 3. Se cierra la carpeta (Esc) y se reordena: Epsilon (celda 2 ahora: Trabajo, Gamma?…) se lleva a la primera celda.
+  xdotool windowfocus --sync "$w" 2>/dev/null || true
   xdotool key Escape
   sleep 0.5
   local antes; antes="$(python3 -c "import json;print(json.load(open('$diseno'))['orden'])")"
