@@ -9,7 +9,10 @@ for c in meson ninja valac; do command -v "$c" >/dev/null || { echo "falta $c" >
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 git -C "$REPO" archive HEAD nativo | tar -x -C "$T"
 meson setup "$T/nativo/build" "$T/nativo" --buildtype=release --prefix=/usr >/dev/null
-ninja -C "$T/nativo/build" >/dev/null
+# Regla de José (18-10-2026, «cpu al 100%»): una compilación a la vez, con la menor prioridad y dos hilos. Si ya hay otro
+# ninja corriendo (el armado de Infra, otra sesión), se espera a que termine.
+while pgrep -x ninja >/dev/null; do sleep 5; done
+nice -n 19 ionice -c3 ninja -j2 -C "$T/nativo/build" >/dev/null
 install -d "$RAIZ/.local/bin"
 install -m 755 "$T/nativo/build/sesion/mac-sesion" "$T/nativo/build/gatekeeper/mac-gatekeeper" "$T/nativo/build/forcequit/mac-forcequit" "$T/nativo/build/launchpad/mac-launchpad-vala" "$T/nativo/build/captura/mac-captura-herramienta-vala" "$T/nativo/build/ventanas/mac-ventanas" "$T/nativo/build/preferencias/mac-preferencias" "$T/nativo/build/acerca/mac-acerca" "$T/nativo/mac-acerca-lanzar" "$T/nativo/build/emojis/mac-emojis-vala" "$T/nativo/mac-emojis-lanzar" "$T/nativo/mac-sesion-lanzar" "$T/nativo/mac-forcequit-lanzar" "$RAIZ/.local/bin/"
 # El agente de polkit solo sale si hay libpolkit-agent-1-dev; sin él se compila lo demás.
