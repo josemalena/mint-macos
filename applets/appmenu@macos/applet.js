@@ -581,6 +581,15 @@ class AppMenuApplet extends Applet.TextApplet {
     // 13-10-2026): es el nombre de la app, y así lo dicen About/Hide/Quit.
     if (norm === "nemo-desktop") return "Fynder";
 
+    // Los programas internos de mint-macos (About, Force Quit, los diálogos de sesión, Gatekeeper, ⇧⌘5) corren dentro
+    // de un residente que no es una app con nombre: un nombre interno («Mac-ventanas») nunca sale en la barra. Se usa
+    // el título de su ventana. Qué dice la Mac con estas ventanas al frente está por verificar (pantallas-con-captura-pendientes).
+    if (/^mac-(ventanas|acerca|gatekeeper|sesion|forcequit|captura-herramienta)/.test(norm)) {
+      let t = "";
+      try { t = w.get_title() || ""; } catch (e) {}
+      return t || fallback;
+    }
+
     // El nombre de la app como lo conoce Cinnamon (su .desktop): «Microsoft
     // Edge», no la clase de la ventana, que en Chromium con otro perfil trae
     // la ruta del perfil («microsoft-edge (/tmp/…)»).

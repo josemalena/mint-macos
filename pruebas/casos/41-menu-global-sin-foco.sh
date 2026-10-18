@@ -23,4 +23,15 @@ prueba() {
   captura menu-global-sin-foco
   case "$r" in *"|Fynder|"*) paso "la barra dice Fynder" ;; *) falla "la barra no dice Fynder: $r" ;; esac
   case "$r" in *"|0'"*|*"|-1'"*) falla "la barra de menús está vacía: $r" ;; *) paso "hay menús" ;; esac
+
+  # Un programa interno de mint-macos al frente no pone su nombre interno en la barra: pone el título de su ventana.
+  if command -v mac-acerca >/dev/null; then
+    lanzar mac-acerca
+    local w; w="$(esperar_ventana '[Mm]ac-acerca' 30)"
+    xdotool windowfocus "$w" 2>/dev/null || true
+    sleep 2
+    r="$(consulta)"
+    paso "con About al frente: $r"
+    case "$r" in *"|About This"*) paso "la barra dice el título de la ventana" ;; *) falla "con About al frente la barra no dice su título: $r" ;; esac
+  fi
 }
