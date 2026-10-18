@@ -37,3 +37,42 @@ nueva sobre su pantalla (`:0`):
 Lo que se pueda probar en una pantalla aislada (Xephyr o Xvfb) va ahí y no necesita
 turno. Caso que la originó: un `xdotool` de prueba mandó dos Ctrl+C a la terminal de
 otra sesión.
+
+## Los datos del arranque: un programa y un archivo
+
+Regla de José (18-10-2026): lo que no cambia con el sistema corriendo (modelo,
+número de serie, procesador, memoria, gráficos, sistema) lo lee **solo**
+`mint-macos-equipo` al arrancar, y lo escribe en `/run/mint-macos/equipo.json`
+(0640 root:users, porque lleva la serie). Nadie más vuelve a leer
+`/sys/class/dmi`, `/proc/cpuinfo` ni `lspci`. Si el archivo no está, esas filas
+no salen; no se adivinan. Las pantallas y los discos se leen al usarse, porque
+cambian. Campos: cabecera de `rust/equipo/src/main.rs`.
+
+## Instalar no es activar
+
+Un residente (mac-ventanas, mac-preferencias…) atiende con el código que tiene
+en memoria. Después de instalar un binario nuevo, `nativo/instalar.sh` avisa de
+los residentes que arrancaron antes que él, y `--reiniciar` los reinicia. Una
+prueba sobre la sesión de José sin ese paso prueba el código viejo (18-10-2026:
+⇧⌘5 seguía sin arrastre).
+
+## Pruebas: Xvfb, y Xephyr solo dentro del Dell
+
+Regla de José (18-10-2026): nada se abre en el monitor LEN (HDMI-3), donde él
+trabaja. `pruebas/correr.sh` usa Xvfb (1600×1200, no se ve); `--ver` abre Xephyr
+a 1280×1000 en +0+0, dentro del Dell (HDMI-1). Cualquier otro Xephyr de prueba,
+igual: en el Dell y de un tamaño que quepa.
+
+## Lo que se cambió en la sesión de José (con su vuelta atrás)
+
+- **Flathub de usuario** (`flatpak remote-add --user flathub`, 18-10-2026): «Get»
+  del App Store instala Flatpak sin clave. El de sistema sigue.
+- **Actualizaciones partidas como en Catalina**: las apps (Flatpak y los paquetes
+  de APT con ficha de app) van en Updates del App Store; lo demás de APT, en
+  Software Update; los núcleos y Timeshift, en Update Manager (Advanced…). El
+  salto de versión de Mint se detecta y se hace con las herramientas de Mint.
+  Detalle: `rust/tienda/DBUS.md`.
+- **Sin el escudo de mintupdate** y **System Reports por notificaciones** en vez de
+  mintreport-tray (`avisos/instalar.sh`): vuelta atrás en `settings/LEEME.md`.
+- **Solaar sin ícono** en la barra; sigue corriendo para reponer sus ajustes
+  (`tema/solaar-barra.sh`, `--con-icono` es la vuelta atrás).
