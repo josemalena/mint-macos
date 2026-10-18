@@ -218,6 +218,7 @@ class NotificationCenter extends Applet.Applet {
         try { clima = con.call_finish(res).recursiveUnpack()[0]; } catch (e) {}
         this._pintarWidgets(clima);
       });
+    this._pedirCalendario();
     // El clima tarda un momento la primera vez: se vuelve a pedir si estaba vacío.
     if (!this._climaListo && !this._reintento) {
       this._reintento = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 2500, () => {
@@ -228,8 +229,77 @@ class NotificationCenter extends Applet.Applet {
     }
   }
 
+  // Los eventos de hoy, del calendario de Thunderbird, por org.mintmacos.Calendario1 (de Infra). Sin servicio no se pinta.
+  _pedirCalendario() {
+    let hoy = new Date();
+    let desde = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate()).getTime();
+    Gio.DBus.session.call("org.mintmacos.Calendario1", "/org/mintmacos/Calendario1", "org.mintmacos.Calendario1", "Eventos",
+      new GLib.Variant("(xx)", [desde, desde + 86400000]), new GLib.VariantType("(aa{sv})"), Gio.DBusCallFlags.NONE, 6000, null,
+      (con, res) => {
+        let eventos = null;
+        try { eventos = con.call_finish(res).recursiveUnpack()[0]; } catch (e) {}
+        this._eventos = eventos || [];
+        this._pintarWidgets(this._clima || null);
+      });
+  }
+
+  // El widget Calendar (captura 1.33.53 PM): horas a la izquierda y cada evento como un bloque con la barra de su color.
+  _tarjetaCalendario(eventos, desde) {
+    let tarjeta = new St.BoxLayout({ vertical: true, style: "background-color: rgba(60,60,62,0.8); border-radius: 8px; padding: 0;" });
+    tarjeta.add_child(new St.Label({ text: "CALENDAR", style: FUENTE + " font-size: 8.5pt; font-weight: bold; color: rgba(255,255,255,0.5); padding: 6px 10px; background-color: rgba(40,40,42,0.8);" }));
+    let dia = eventos.filter(e => e.todo_el_dia);
+    let con_hora = eventos.filter(e => !e.todo_el_dia);
+    for (let e of dia) {
+      let fila = new St.BoxLayout({ style: "padding: 5px 10px 5px 10px; spacing: 8px;" });
+      fila.add_child(new St.Widget({ style: "background-color: " + (e.color || "#ff2d55") + ";", width: 3, height: 16 }));
+      fila.add_child(new St.Label({ text: e.titulo, y_align: Clutter.ActorAlign.CENTER, style: FUENTE + " font-size: 10pt; color: #ffffff;" }));
+      tarjeta.add_child(fila);
+    }
+    if (con_hora.length) {
+      let h0 = new Date(Math.min(...con_hora.map(e => e.inicio))).getHours();
+      let h1 = new Date(Math.max(...con_hora.map(e => e.fin))).getHours() + 1;
+      h0 = Math.max(0, Math.min(h0, 22));
+      h1 = Math.max(h0 + 4, Math.min(h1, 24));
+      const ALTO_HORA = 44, ANCHO = ANCHO_PANEL - 48 - 28, X0 = 44;
+      let area = new St.Widget({ layout_manager: new Clutter.FixedLayout(), style: "padding: 4px 0;" });
+      area.set_size(ANCHO + X0, (h1 - h0) * ALTO_HORA + 8);
+      for (let h = h0; h < h1; h++) {
+        let y = 4 + (h - h0) * ALTO_HORA;
+        let etiqueta = (h % 12 === 0 ? 12 : h % 12) + (h < 12 ? " AM" : " PM");
+        let l = new St.Label({ text: etiqueta, style: FUENTE + " font-size: 8.5pt; color: rgba(255,255,255,0.5);" });
+        l.set_position(8, y - 2);
+        area.add_actor(l);
+        let linea = new St.Widget({ style: "background-color: rgba(255,255,255,0.14);" });
+        linea.set_position(X0, y + 6);
+        linea.set_size(ANCHO, 1);
+        area.add_actor(linea);
+      }
+      for (let e of con_hora) {
+        let i = new Date(e.inicio), f = new Date(e.fin);
+        let y = 4 + ((i.getHours() + i.getMinutes() / 60) - h0) * ALTO_HORA + 6;
+        let alto = Math.max(22, ((f - i) / 3600000) * ALTO_HORA);
+        let color = e.color || "#ff2d55";
+        let bloque = new St.BoxLayout({ vertical: true, style: "background-color: rgba(255,255,255,0.10); padding: 2px 6px 2px 10px;" });
+        bloque.add_child(new St.Label({ text: e.titulo, style: FUENTE + " font-size: 9.5pt; color: #ffffff;" }));
+        if (e.lugar) bloque.add_child(new St.Label({ text: e.lugar, style: FUENTE + " font-size: 8.5pt; color: rgba(255,255,255,0.6);" }));
+        bloque.set_position(X0 + 2, y);
+        bloque.set_size(ANCHO - 4, alto);
+        area.add_actor(bloque);
+        // La barra del color del calendario, a la izquierda del bloque.
+        let barra = new St.Widget({ style: "background-color: " + color + ";" });
+        barra.set_position(X0 + 2, y);
+        barra.set_size(3, alto);
+        area.add_actor(barra);
+      }
+      tarjeta.add_child(area);
+    }
+    return tarjeta;
+  }
+
   _pintarWidgets(clima) {
+    this._clima = clima;
     for (let c of this._widgets.get_children()) this._widgets.remove_child(c);
+    if (this._eventos && this._eventos.length) this._widgets.add_child(this._tarjetaCalendario(this._eventos));
     this._climaListo = !!(clima && clima.ciudad);
     if (!this._climaListo) return;
     let tarjeta = new St.BoxLayout({ vertical: true, style: "background-color: rgba(60,60,62,0.8); border-radius: 8px; padding: 0;" });

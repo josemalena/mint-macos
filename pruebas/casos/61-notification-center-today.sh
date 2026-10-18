@@ -5,6 +5,7 @@
 prueba() {
   requiere mac-hoy gdbus
   lanzar mac-hoy
+  lanzar python3 "$MINT_MACOS_REPO/pruebas/ayudantes/calendario-falso.py"
   sleep 1
   ev() { gdbus call --session --dest org.Cinnamon --object-path /org/Cinnamon --method org.Cinnamon.Eval "$1" 2>&1; }
   local a="imports.ui.appletManager.getRunningInstancesForUuid('notificaciones@macos')[0]"
@@ -22,7 +23,7 @@ prueba() {
   paso "fecha: $(ev "$a._fecha.get_text()")"
   [ -n "$clima" ] || falla "no llegó el clima por org.mintmacos.Hoy1 (¿sin red?): $r"
   r="$(ev "$a._widgets.get_n_children()")"
-  case "$r" in *"1"*) paso "widget de clima en Today" ;; *) falla "Today no trae el widget de clima: $r" ;; esac
+  case "$r" in *"2"*) paso "widgets de Calendar y clima en Today" ;; *) falla "Today no trae Calendar y el clima (2 widgets): $r" ;; esac
   # El panel abierto, para mirarlo.
   ev "$a._ajustarAlto(); $a.menu.open(false); 'ok'" >/dev/null
   sleep 1
