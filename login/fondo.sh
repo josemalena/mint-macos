@@ -24,7 +24,12 @@ exportar() {
   local uri
   uri="$(dconf read /org/cinnamon/desktop/background/picture-uri 2>/dev/null | sed "s/^'//; s/'\$//")"
   local ruta
-  ruta="$(python3 -c 'import sys, urllib.parse as u; p = u.urlparse(sys.argv[1]); print(u.unquote(p.path) if p.scheme == "file" else "")' "$uri" 2>/dev/null || true)"
+  case "$uri" in
+    file://*)       # sin Python: se quita el esquema y se deshacen los %XX
+      ruta="$(printf '%s' "${uri#file://}" | sed 's/\\/\\\\/g; s/%\([0-9A-Fa-f][0-9A-Fa-f]\)/\\x\1/g')"
+      ruta="$(printf '%b' "$ruta")" ;;
+    *) ruta="" ;;
+  esac
   if [ -z "$ruta" ] || [ ! -f "$ruta" ]; then : > "$destino"; exit 0; fi   # sin foto (color liso): vuelve el de Catalina
   # Solo se rehace si cambió la foto.
   local sello
