@@ -19,6 +19,7 @@ const Main = imports.ui.main;
 const PopupMenu = imports.ui.popupMenu;
 const MessageTray = imports.ui.messageTray;
 const { Gio, GLib, St, Clutter } = imports.gi;
+const Util = imports.misc.util;
 
 const ANCHO_ICONO = 18;
 const ANCHO_PANEL = 345;
@@ -28,7 +29,10 @@ const FUENTE = 'font-family: ".SF NS", sans-serif;';
 function dibujarIcono(area, alto) {
   let cr = area.get_context();
   let y0 = Math.round((alto - 22) / 2) + 6; // y 6 en la barra de 22
-  cr.setSourceRGBA(1, 1, 1, 1);
+  // Con No molestar encendido el ícono se ve apagado.
+  let activas = true;
+  try { activas = new Gio.Settings({ schema_id: "org.cinnamon.desktop.notifications" }).get_boolean("display-notifications"); } catch (e) {}
+  cr.setSourceRGBA(1, 1, 1, activas ? 1 : 0.4);
   for (let [i, largo] of [[0, 14], [1, 11], [2, 14]]) {
     let y = y0 + i * 4;
     cr.rectangle(0, y, 2, 2);
@@ -106,7 +110,12 @@ class NotificationCenter extends Applet.Applet {
     this._armarMenu();
   }
 
-  on_applet_clicked() {
+  on_applet_clicked(event) {
+    // ⌥ + clic: No molestar, sin abrir el panel.
+    try {
+      let estado = Clutter.get_current_event().get_state();
+      if (estado & Clutter.ModifierType.MOD1_MASK) { this._alternarNoMolestar(); return; }
+    } catch (e) {}
     if (!this.menu.isOpen) this._ajustarAlto();
     this._actualizarHoras();
     this.menu.toggle();
@@ -122,6 +131,17 @@ class NotificationCenter extends Applet.Applet {
     // Translúcido: detrás va el vidrio de vidrio.js, como en todos los menús.
     this.menu.box.set_style(`width: ${ANCHO_PANEL}px; padding: 8px 0; background-color: rgba(30, 30, 32, ${FONDO_PANEL});` +
                             " border: 1px solid #45474a; border-radius: 0;");
+
+    // Today | Notifications arriba (captura 1.33.53 PM): el segmento activo en gris claro.
+    this._pestanas = new St.BoxLayout({ style: "padding: 6px 24px 8px 24px;" });
+    this._segmentos = {};
+    for (let [clave, texto] of [["today", "Today"], ["notifications", "Notifications"]]) {
+      let b = new St.Button({ label: texto, reactive: true, track_hover: true, x_expand: true, can_focus: true });
+      b.connect("clicked", () => this._mostrarPestana(clave));
+      this._segmentos[clave] = b;
+      this._pestanas.add(b, { expand: true });
+    }
+    this.menu.addActor(this._pestanas);
 
     // «Clear All» arriba, alineado con las tarjetas, solo cuando hay algo que
     // borrar. A la izquierda: el menú de un applet pegado a la esquina queda
@@ -142,9 +162,15 @@ class NotificationCenter extends Applet.Applet {
     this._scroll.set_policy(St.PolicyType.NEVER, St.PolicyType.AUTOMATIC);
     this._scroll.add_actor(this._lista);
     this._contenido = new St.BoxLayout({ vertical: true, y_expand: true });
-    this._contenido.add(this._scroll, { expand: true });
-    this._contenido.add(this._vacio, { expand: true });
+    this._notifs = new St.BoxLayout({ vertical: true, y_expand: true });
+    this._notifs.add(this._scroll, { expand: true });
+    this._notifs.add(this._vacio, { expand: true });
+    this._contenido.add(this._notifs, { expand: true });
+    this._hoy = this._armarHoy();
+    this._contenido.add(this._hoy, { expand: true });
     this.menu.addActor(this._contenido);
+    this._armarPie();
+    this._mostrarPestana(this._pestana || "notifications");
 
     // Re-hospedar las que ya había (al cambiar de orientación).
     for (let n of this.notificaciones) {
@@ -155,10 +181,110 @@ class NotificationCenter extends Applet.Applet {
     this._actualizar();
   }
 
+  // ── Today y el pie ───────────────────────────────────────────────────────────────────────────────────────────────────
+  _mostrarPestana(clave) {
+    this._pestana = clave;
+    for (let k in this._segmentos) {
+      let activo = k === clave;
+      this._segmentos[k].set_style(FUENTE + " font-size: 9.5pt; padding: 2px 0; text-align: center; border: 1px solid #5a5b5e;" +
+        (k === "today" ? " border-radius: 4px 0 0 4px;" : " border-radius: 0 4px 4px 0;") +
+        (activo ? " background-color: #8d8e91; color: #1c1c1e;" : " background-color: #3a3b3d; color: rgba(255,255,255,0.85);"));
+    }
+    this._hoy.visible = clave === "today";
+    this._notifs.visible = clave === "notifications";
+    this._botonBorrar.visible = clave === "notifications" && this.notificaciones.length > 0;
+    this._cabecera.visible = clave === "notifications";
+    if (clave === "today") this._pedirHoy();
+    if (this._boton_edit) this._boton_edit.visible = clave === "today";
+  }
+
+  // La fecha y el clima. El clima lo da el servicio org.mintmacos.Hoy1 (mac-ventanas); sin servicio no se pinta nada.
+  _armarHoy() {
+    let caja = new St.BoxLayout({ vertical: true, y_expand: true, style: "padding: 18px 24px 8px 24px; spacing: 14px;" });
+    this._fecha = new St.Label({ style: FUENTE + " font-size: 24pt; font-weight: 200; color: rgba(255,255,255,0.7);" });
+    this._fecha.clutter_text.line_wrap = true;
+    caja.add_child(this._fecha);
+    this._widgets = new St.BoxLayout({ vertical: true, style: "spacing: 10px;" });
+    caja.add_child(this._widgets);
+    return caja;
+  }
+
+  _pedirHoy() {
+    let f = new Date();
+    this._fecha.set_text(f.toLocaleFormat("%A,\n%B %-d"));
+    Gio.DBus.session.call("org.mintmacos.Hoy1", "/org/mintmacos/Hoy1", "org.mintmacos.Hoy1", "Clima", null,
+      new GLib.VariantType("(a{sv})"), Gio.DBusCallFlags.NONE, 4000, null, (con, res) => {
+        let clima = null;
+        try { clima = con.call_finish(res).recursiveUnpack()[0]; } catch (e) {}
+        this._pintarWidgets(clima);
+      });
+    // El clima tarda un momento la primera vez: se vuelve a pedir si estaba vacío.
+    if (!this._climaListo && !this._reintento) {
+      this._reintento = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 2500, () => {
+        this._reintento = 0;
+        if (this.menu.isOpen && this._pestana === "today") this._pedirHoy();
+        return GLib.SOURCE_REMOVE;
+      });
+    }
+  }
+
+  _pintarWidgets(clima) {
+    for (let c of this._widgets.get_children()) this._widgets.remove_child(c);
+    this._climaListo = !!(clima && clima.ciudad);
+    if (!this._climaListo) return;
+    let tarjeta = new St.BoxLayout({ vertical: true, style: "background-color: rgba(60,60,62,0.8); border-radius: 8px; padding: 0;" });
+    let titulo = new St.Label({ text: "WEATHER", style: FUENTE + " font-size: 8.5pt; font-weight: bold; color: rgba(255,255,255,0.5); padding: 6px 10px; background-color: rgba(40,40,42,0.8);" });
+    tarjeta.add_child(titulo);
+    let cuerpo = new St.BoxLayout({ style: "padding: 14px 14px; spacing: 14px;" });
+    cuerpo.add_child(new St.Icon({ icon_name: clima.icono, icon_size: 44, style: "color: #ffffff;" }));
+    let datos = new St.BoxLayout({ vertical: true, style: "spacing: 2px;" });
+    datos.add_child(new St.Label({ text: clima.ciudad, style: FUENTE + " font-size: 13pt; font-weight: bold; color: #ffffff;" }));
+    datos.add_child(new St.Label({ text: clima.descripcion, style: FUENTE + " font-size: 10pt; color: rgba(255,255,255,0.7);" }));
+    datos.add_child(new St.Label({ text: `H:${Math.round(clima.maxima)}°  L:${Math.round(clima.minima)}°`, style: FUENTE + " font-size: 10pt; color: rgba(255,255,255,0.7);" }));
+    cuerpo.add(datos, { expand: true });
+    cuerpo.add_child(new St.Label({ text: `${Math.round(clima.temperatura)}°`, y_align: Clutter.ActorAlign.CENTER,
+                                    style: FUENTE + " font-size: 30pt; font-weight: 200; color: #ffffff;" }));
+    tarjeta.add_child(cuerpo);
+    this._widgets.add_child(tarjeta);
+  }
+
+  // Abajo: Edit (solo en Today) y el engranaje, que abre System Preferences ▸ Notifications (captura 1.33.53 PM).
+  _armarPie() {
+    this._pie = new St.BoxLayout({ style: "padding: 8px 24px 6px 24px; border-top: 1px solid #45474a;" });
+    this._boton_edit = new St.Button({ label: "Edit", reactive: true, track_hover: true, can_focus: true, x_expand: true,
+      style: FUENTE + " font-size: 9.5pt; color: rgba(255,255,255,0.85); background-color: #3a3b3d; border-radius: 3px; padding: 1px 28px;" });
+    // Sin captura del modo Edit: el botón queda a la vista y sin acción hasta tenerla.
+    this._boton_edit.reactive = false;
+    this._boton_edit.opacity = 140;
+    this._pie.add(this._boton_edit, { expand: true, x_align: St.Align.MIDDLE });
+    this._engranaje = new St.Button({ reactive: true, track_hover: true, can_focus: true, style: "padding: 0 0 0 10px;" });
+    this._engranaje.set_child(new St.Icon({ icon_name: "emblem-system-symbolic", icon_size: 16, style: "color: rgba(255,255,255,0.6);" }));
+    this._engranaje.connect("clicked", () => {
+      this.menu.close();
+      try { Util.spawnCommandLine("mac-preferencias notifications"); } catch (e) {}
+    });
+    this._pie.add_child(this._engranaje);
+    this.menu.addActor(this._pie);
+  }
+
+  // No molestar: la pantalla de notificaciones de Cinnamon. ⌥ + clic en el ícono lo cambia, como en la Mac.
+  _alternarNoMolestar() {
+    let c = new Gio.Settings({ schema_id: "org.cinnamon.desktop.notifications" });
+    c.set_boolean("display-notifications", !c.get_boolean("display-notifications"));
+    Gio.Settings.sync();
+    this._icono.queue_repaint();
+  }
+
   // El panel ocupa todo el alto bajo la barra, como en la Mac.
   _ajustarAlto() {
     let m = Main.layoutManager.findMonitorForActor(this.actor) || Main.layoutManager.primaryMonitor;
-    this._contenido.set_height(m.height - this._alto - 16 - 30);
+    // Las pestañas, la cabecera «Clear All» y el pie también ocupan alto: si no se descuentan, el panel queda más alto que la
+    // pantalla y Cinnamon lo sube por encima de la barra (las pestañas quedaban tapadas).
+    let extra = 0;
+    for (let a of [this._pestanas, this._cabecera, this._pie]) {
+      if (a && a.visible) extra += a.get_preferred_height(-1)[1];
+    }
+    this._contenido.set_height(m.height - this._alto - 16 - 30 - extra);
   }
 
   _agregar(notificacion) {
@@ -197,7 +323,7 @@ class NotificationCenter extends Applet.Applet {
     let hay = this.notificaciones.length > 0;
     this._scroll.visible = hay;
     this._vacio.visible = !hay;
-    this._botonBorrar.visible = hay;
+    this._botonBorrar.visible = hay && this._pestana !== "today";
   }
 
   _actualizarHoras() {

@@ -38,6 +38,7 @@ public class Ventanas : Gtk.Application {
                 residente = true;
                 hold ();                    // sigue vivo sin ventanas
                 Menu.Anfitrion.iniciar ();   // org.mintmacos.Menu1: el menú de la app al frente para el applet
+                Hoy.Anfitrion.iniciar ();    // org.mintmacos.Hoy1: lo de la vista Today del Notification Center (el clima)
                 Idle.add (precalentar);
             }
             return 0;
