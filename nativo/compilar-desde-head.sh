@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Compila nativo/ del HEAD commiteado (no del árbol de trabajo, que puede estar a medias) y
-# deja mac-sesion, mac-gatekeeper, mac-forcequit, mac-launchpad-vala, mac-captura-herramienta-vala, mac-ventanas, mac-preferencias, mac-acerca, mac-acerca-lanzar, mac-sesion-lanzar y mac-forcequit-lanzar en RAIZ/.local/bin. Lo usan instalar.sh y paquete.sh.
+# deja mac-sesion, mac-gatekeeper, mac-forcequit, mac-launchpad-vala, mac-captura-herramienta-vala, mac-ventanas, mac-preferencias, mac-acerca, mac-acerca-lanzar, mac-tienda, mac-sesion-lanzar y mac-forcequit-lanzar en RAIZ/.local/bin. Lo usan instalar.sh y paquete.sh.
 #   compilar-desde-head.sh RAIZ
 set -euo pipefail
 RAIZ="${1:?uso: compilar-desde-head.sh RAIZ}"
@@ -14,7 +14,7 @@ meson setup "$T/nativo/build" "$T/nativo" --buildtype=release --prefix=/usr >/de
 while pgrep -x ninja >/dev/null; do sleep 5; done
 nice -n 19 ionice -c3 ninja -j2 -C "$T/nativo/build" >/dev/null
 install -d "$RAIZ/.local/bin"
-install -m 755 "$T/nativo/build/sesion/mac-sesion" "$T/nativo/build/gatekeeper/mac-gatekeeper" "$T/nativo/build/forcequit/mac-forcequit" "$T/nativo/build/launchpad/mac-launchpad-vala" "$T/nativo/build/captura/mac-captura-herramienta-vala" "$T/nativo/build/ventanas/mac-ventanas" "$T/nativo/build/preferencias/mac-preferencias" "$T/nativo/build/acerca/mac-acerca" "$T/nativo/mac-acerca-lanzar" "$T/nativo/build/emojis/mac-emojis-vala" "$T/nativo/mac-emojis-lanzar" "$T/nativo/mac-sesion-lanzar" "$T/nativo/mac-forcequit-lanzar" "$RAIZ/.local/bin/"
+install -m 755 "$T/nativo/build/sesion/mac-sesion" "$T/nativo/build/gatekeeper/mac-gatekeeper" "$T/nativo/build/forcequit/mac-forcequit" "$T/nativo/build/launchpad/mac-launchpad-vala" "$T/nativo/build/captura/mac-captura-herramienta-vala" "$T/nativo/build/ventanas/mac-ventanas" "$T/nativo/build/preferencias/mac-preferencias" "$T/nativo/build/acerca/mac-acerca" "$T/nativo/mac-acerca-lanzar" "$T/nativo/build/emojis/mac-emojis-vala" "$T/nativo/build/tienda/mac-tienda" "$T/nativo/mac-emojis-lanzar" "$T/nativo/mac-sesion-lanzar" "$T/nativo/mac-forcequit-lanzar" "$RAIZ/.local/bin/"
 # El agente de polkit solo sale si hay libpolkit-agent-1-dev; sin él se compila lo demás.
 if [ -x "$T/nativo/build/polkit/mac-polkit" ]; then
   install -m 755 "$T/nativo/build/polkit/mac-polkit" "$RAIZ/.local/bin/"

@@ -23,6 +23,7 @@ subdir('launchpad')
 subdir('captura')
 subdir('acerca')
 subdir('emojis')
+subdir('tienda')
 subdir('ventanas')
 subdir('preferencias')
 
