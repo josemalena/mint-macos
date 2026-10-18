@@ -20,7 +20,8 @@ pub struct Modulo {
 /// About This Mac enseña una por ranura.
 #[derive(Debug, PartialEq)]
 pub struct Ranura {
-    /// Device Locator («DIMM0», «ChannelA-DIMM0»); None si el BIOS no lo trae.
+    /// Bank Locator y Device Locator, como la Mac («BANK 0/DIMM0»); uno solo si el BIOS
+    /// trae uno; None si ninguno.
     pub etiqueta: Option<String>,
     /// None = vacía.
     pub bytes: Option<u64>,
@@ -60,7 +61,16 @@ pub fn ranuras(tabla: &[u8]) -> Vec<Ranura> {
     recorrer(tabla, |d, cadenas| {
         let m = modulo(d);
         out.push(Ranura {
-            etiqueta: d.get(0x10).and_then(|n| cadena(cadenas, *n)),
+            // Como la Mac en System Information: «BANK 0/DIMM0». La Mac mini pone
+            // DIMM0 en las dos ranuras; lo que las distingue es el banco.
+            etiqueta: {
+                let dev = d.get(0x10).and_then(|n| cadena(cadenas, *n));
+                let banco = d.get(0x11).and_then(|n| cadena(cadenas, *n));
+                match (banco, dev) {
+                    (Some(b), Some(x)) => Some(format!("{b}/{x}")),
+                    (b, x) => x.or(b),
+                }
+            },
             bytes: m.as_ref().map(|m| m.bytes),
             tipo: m.as_ref().and_then(|m| m.tipo),
             velocidad: m.as_ref().and_then(|m| m.velocidad),
@@ -222,7 +232,7 @@ mod pruebas {
         let m = resumir(&modulos(&t), ranuras(&t)).unwrap();
         assert_eq!((m.total, m.tipo, m.velocidad, m.modulos), (16 << 30, Some("DDR3"), Some(1333), 2));
         assert_eq!(m.ranuras.len(), 2);
-        assert_eq!(m.ranuras[0].etiqueta.as_deref(), Some("DIMM0"));
+        assert_eq!(m.ranuras[0].etiqueta.as_deref(), Some("BANK 0/DIMM0"));
         assert_eq!(m.ranuras[0].bytes, Some(8 << 30));
         assert_eq!(m.ranuras[1].fabricante.as_deref(), Some("Samsung"));
         assert_eq!(texto(&m), "16 GB 1333 MHz DDR3");
