@@ -1,6 +1,7 @@
 //! mint-macos-tienda: el motor del App Store (ver DBUS.md).
 
 mod catalogo;
+mod flatpak;
 mod indice;
 
 fn main() {
