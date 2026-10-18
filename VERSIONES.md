@@ -7,9 +7,9 @@ Cada fork, el commit que se compila y los parches que lleva encima de su upstrea
 
 - Fork: https://github.com/josemalena/fynder.git
 - Upstream: https://github.com/linuxmint/nemo.git, rama `master`
-- Commit: `7a3a01194002129197f3776ad94a496c00067a90` (2026-10-18, feat(menú global): íconos del menú Go y atajos con ^ del menú File)
+- Commit: `c44e4e7f5fbbc29555c001bd207cdab90513190e` (2026-10-18, test: reproducción de la caída de kitty por BadWindow (portapapeles))
 - Base: `66eabf459bc86d03c24797274d0e3f60b9b7a7d8` (master.lmde7), 2026-10-06, nemo-icon-dnd.c: Fix reporting a successful drag result.
-- Parches: 198
+- Parches: 200
 
 | Commit | Fecha | Asunto |
 |---|---|---|
@@ -211,6 +211,8 @@ Cada fork, el commit que se compila y los parches que lleva encima de su upstrea
 | `236f91b3` | 2026-10-18 | fix(escritorio): miniaturas de videos y capturas, y que quepan en el recuadro |
 | `1482cbfc` | 2026-10-18 | feat(menús): File y Go como en el Finder de Catalina |
 | `7a3a0119` | 2026-10-18 | feat(menú global): íconos del menú Go y atajos con ^ del menú File |
+| `b4d0b912` | 2026-10-18 | fix(portapapeles): un solo pedido de TARGETS en vuelo |
+| `c44e4e7f` | 2026-10-18 | test: reproducción de la caída de kitty por BadWindow (portapapeles) |
 
 ## mint-macos-dock
 
