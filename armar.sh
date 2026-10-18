@@ -11,10 +11,11 @@
 #      hash no está ahí, del repo local, con aviso
 #   3. compila Fynder, el Dock y la pantalla de inicio (meson) y rust/ (cargo)
 #   4. corre las pruebas: verificar-versiones.sh, cargo test, las de meson de
-#      Fynder y del Dock (en un Xephyr aparte, con su propio bus y XDG) y las de
+#      Fynder y del Dock (en un Xvfb aparte, con su propio bus y XDG) y las de
 #      tareas reales (pruebas/correr.sh) con lo recién compilado
-#   5. arma el paquete con paquete.sh, sobre lo compilado en 3 (nativo/ y los
-#      binarios de rust los compila paquete.sh del mismo HEAD)
+#   5. arma el paquete con paquete.sh, sobre lo compilado en 3 (nativo/ se compila
+#      aquí también, para las pruebas; el del paquete y los binarios de rust los
+#      compila paquete.sh del mismo HEAD)
 #   6. deja en la carpeta SUMAS.sha256: el sha256 de cada archivo del paquete y
 #      de cada archivo dentro de sus .tar.gz, para comparar dos corridas
 #
@@ -163,15 +164,31 @@ echo "  $(grep -Eo '[0-9]+ passed' "$T/ultimo.log" | awk '{s += $1} END {print s
 # de contar: callado deja su salida en el mismo ultimo.log.
 ( cd "$M/rust" && CARGO_TARGET_DIR="$T/build/rust" callado cargo build --locked --quiet )
 
+# nativo/ (Vala) del mismo commit, en la raíz: sin esto los casos usaban lo que
+# hubiera en ~/.local/bin (18-10-2026: 42 y 45 fallaban con el About viejo).
+paso "Compilando nativo/ (Vala)"
+callado meson setup "$T/build/nativo" "$M/nativo" --buildtype=release --prefix=/usr
+callado ninja -C "$T/build/nativo"
+install -d "$RAIZ$PREFIJO/bin"
+find "$T/build/nativo" -mindepth 2 -maxdepth 2 -type f -executable -name 'mac-*' -exec install -m 755 {} "$RAIZ$PREFIJO/bin/" \;
+install -m 755 "$M"/nativo/mac-*-lanzar "$RAIZ$PREFIJO/bin/"
+echo "  $(ls "$RAIZ$PREFIJO/bin" | grep -c '^mac-') programas de nativo/"
+
 # meson test de Fynder y del Dock en un X, bus y XDG propios: nada de lo de
 # José (pantalla :0, dconf, ~/.config) entra en las pruebas. GIO_USE_VFS=local:
 # sin gvfs, que montaba su FUSE en el XDG_RUNTIME_DIR de la prueba y lo dejaba
 # colgado (17-10-2026).
-paso "Pruebas: Fynder y el Dock (meson test, en Xephyr)"
+paso "Pruebas: Fynder y el Dock (meson test, en un X que no se ve)"
 PX="$T/px"; mkdir -p "$PX"/{config,data,cache,runtime}; chmod 700 "$PX/runtime"
 PANT=":$(( 90 + RANDOM % 9 ))"
 while [ -e "/tmp/.X11-unix/X${PANT#:}" ]; do PANT=":$(( ${PANT#:} + 1 ))"; done
-Xephyr "$PANT" -screen 1280x800 -nolisten tcp > "$PX/xephyr.log" 2>&1 &
+# Xvfb, que no se ve (regla de José, 18-10-2026: nada en el LEN); sin Xvfb, Xephyr
+# en +0+0, dentro del Dell.
+if [ -x /usr/bin/Xvfb ]; then
+  Xvfb "$PANT" -screen 0 1280x800x24 -nolisten tcp > "$PX/xephyr.log" 2>&1 &
+else
+  Xephyr "$PANT" -screen 1280x800+0+0 -nolisten tcp > "$PX/xephyr.log" 2>&1 &
+fi
 XPID=$!
 trap 'kill $XPID 2>/dev/null || true; fusermount -uz "$PX/runtime/gvfs" 2>/dev/null || true
       [ "${ARMAR_GUARDAR:-0}" = 1 ] || rm -rf "${T:?}"' EXIT
@@ -212,7 +229,7 @@ kill $XPID 2>/dev/null || true
 
 # Las tareas reales (pruebas/), con lo recién compilado: los programas de
 # $RAIZ$PREFIJO/bin antes que los instalados.
-paso "Pruebas: tareas reales (pruebas/correr.sh, en Xephyr)"
+paso "Pruebas: tareas reales (pruebas/correr.sh, en Xvfb)"
 PRUEBAS_RUST="$T/build/rust/debug" "$M/pruebas/correr.sh" --prefijo "$RAIZ$PREFIJO" --resultados "$T/pruebas" \
   || { echo "  ✗ fallan pruebas de tareas reales (registros en $T/pruebas; ARMAR_GUARDAR=1 los deja)"; exit 1; }
 
