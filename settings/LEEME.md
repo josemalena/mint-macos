@@ -96,6 +96,10 @@ Escriben directo en la configuración del programa, en vez de traer su interfaz:
 - **Date & Time** (`fecha.py`): timedatectl con el candado por polkit y el formato del reloj de la barra.
 - **Energy Saver** (`energia.py`): Computer sleep y Display sleep (`...plugins.power`); lo demás en gris.
 - **Software Update** (`actualizaciones.py`): estado de `apt` y de Update Manager, con Advanced….
+  - **Sin el escudo de mintupdate en la barra** (José, 18-10-2026): `~/.config/autostart/mintupdate.desktop`
+    con `Hidden=true` tapa el de `/etc/xdg/autostart` sin tocarlo. Hasta que Software Update tenga su
+    aviso, no hay aviso de actualizaciones. **Vuelta atrás:** `rm ~/.config/autostart/mintupdate.desktop`
+    y `mintupdate-launcher &` (o cerrar sesión y entrar).
 - **Bluetooth** (`bt.py`): BlueZ por D-Bus (encender, apagar, conectar los dispositivos emparejados).
 - **Sharing** (`compartir.py`): Remote Login (ssh), File Sharing (smbd) y Printer Sharing (cupsctl) por un
   ayudante de root con polkit (abajo).
