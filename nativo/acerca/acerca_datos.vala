@@ -241,6 +241,7 @@ namespace Acerca {
 
     /** El nombre que fstab le da a un montaje (x-gvfs-name=MacMini), para los volúmenes sin etiqueta. */
     HashTable<string, string>? nombres_fstab = null;
+    HashTable<string, string>? uuids_fstab = null;
 
     /**
      * Los APFS de fstab (fsapfs, montados por FUSE con fsapfsmount): en /proc/self/mounts salen como /dev/fuse. Se resuelven
@@ -261,7 +262,25 @@ namespace Acerca {
             var dev = Posix.realpath ("/dev/disk/by-uuid/" + c[0].substring (5));
             if (dev == null) continue;
             h[mp] = dev;
+            uuids_fstab[mp] = c[0].substring (5);
             foreach (var o in c[3].split (",")) if (o.has_prefix ("x-gvfs-name=")) nombres_fstab[mp] = o.substring (12);
+        }
+    }
+
+    /** {"version":1,"uuid","total","libre",…} de /run/mint-macos/apfs/<uuid>.json. */
+    bool medida_apfs (string uuid, out int64 total, out int64 libre) {
+        total = 0;
+        libre = 0;
+        try {
+            var p = new Json.Parser ();
+            p.load_from_file ("%s/%s.json".printf (Environment.get_variable ("MINT_MACOS_APFS") ?? "/run/mint-macos/apfs", uuid));
+            var o = p.get_root ().get_object ();
+            if (!o.has_member ("total") || !o.has_member ("libre")) return false;
+            total = o.get_int_member ("total");
+            libre = o.get_int_member ("libre");
+            return total > 0 && libre >= 0 && libre <= total;
+        } catch (Error e) {
+            return false;
         }
     }
 
@@ -269,6 +288,7 @@ namespace Acerca {
     HashTable<string, string> montajes_de_discos () {
         var h = new HashTable<string, string> (str_hash, str_equal);
         nombres_fstab = new HashTable<string, string> (str_hash, str_equal);
+        uuids_fstab = new HashTable<string, string> (str_hash, str_equal);
         string[] fuse = {};
         foreach (var l in leer ("/proc/self/mounts").split ("\n")) {
             var c = l.split (" ");
@@ -353,6 +373,13 @@ namespace Acerca {
                 if (v.tamano == 0) {         // los APFS por FUSE no dan statfs: solo se sabe lo que mide la partición
                     v.tamano = tamano_de_dispositivo (dev);
                     v.libre = -1;
+                    // …salvo que el lector de discos de Infra haya medido el contenedor (/run/mint-macos/apfs/<uuid>.json, en
+                    // bytes). El libre es del contenedor entero, como «available» en la Mac. Sin el archivo no hay barra.
+                    int64 total_c = 0, libre_c = 0;
+                    if (uuids_fstab != null && uuids_fstab.contains (mp) && medida_apfs (uuids_fstab[mp], out total_c, out libre_c)) {
+                        v.tamano = total_c;
+                        v.libre = libre_c;
+                    }
                 }
             } catch (Error e) {
                 continue;
