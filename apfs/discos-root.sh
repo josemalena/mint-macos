@@ -11,8 +11,9 @@
 #      Sin ella sale un «1000 GB Volume» y un clic monta otra copia encima del
 #      montaje de fstab (pasó el 18-10-2026 a las 14:06 con MacMiniHDD).
 #   2. En /etc/fstab, cada disco fsapfs lleva x-gvfs-show, x-gvfs-name (el nombre
-#      de su punto de montaje) y x-gvfs-icon según el bus real (lsblk TRAN): usb →
-#      drive-harddisk-usb; lo demás → drive-harddisk. Sin eso GIO no sabe de qué
+#      de su punto de montaje) y x-gvfs-icon según el bus real (lsblk TRAN y ROTA),
+#      como GIO con un disco que conoce: usb → drive-harddisk-usb; SSD interno →
+#      drive-harddisk-solidstate; de platos → drive-harddisk. Sin eso GIO no sabe de qué
 #      disco es un FUSE y le pone drive-removable-media.
 #   3. Instala apfs/mount.fsapfs (el de ahora pone el dueño del montaje: uid/gid).
 #   4. Suelta los montajes fsapfs de fstab que no estén en uso, para que el
@@ -68,7 +69,11 @@ for d in "${DISCOS[@]}"; do
   uuid="${d%% *}"; punto="${d#* }"
   dev="$(readlink -f "/dev/disk/by-uuid/$uuid" 2>/dev/null || true)"
   tran="$( [ -n "$dev" ] && lsblk -ndo TRAN "/dev/$(lsblk -ndo PKNAME "$dev")" 2>/dev/null || true)"
-  icono=drive-harddisk; [ "$tran" = usb ] && icono=drive-harddisk-usb
+  rota="$( [ -n "$dev" ] && lsblk -ndo ROTA "/dev/$(lsblk -ndo PKNAME "$dev")" 2>/dev/null | tr -d ' ' || true)"
+  # Lo mismo que hace GIO con un disco que conoce: USB, SSD interno o disco de platos.
+  if [ "$tran" = usb ]; then icono=drive-harddisk-usb
+  elif [ "$rota" = 0 ]; then icono=drive-harddisk-solidstate
+  else icono=drive-harddisk; fi
   nombre="$(basename "$punto")"
   # Sin espacios en el nombre: x-gvfs-name los pide como \040.
   nombre="${nombre// /\\040}"
@@ -78,7 +83,7 @@ for d in "${DISCOS[@]}"; do
       for (k = 1; k <= m; k++) if (o[k] !~ /^x-gvfs-(show|name|icon)/) s = s (s == "" ? "" : ",") o[k]
       $4 = s ",x-gvfs-show,x-gvfs-name=" n ",x-gvfs-icon=" i
     } { print }' OFS='  ' "$TMP" > "$TMP.n" && mv "$TMP.n" "$TMP"
-  echo "  $punto: ${tran:-?} → $icono"
+  echo "  $punto: ${tran:-?}${rota:+, rota=$rota} → $icono"
 done
 # Se comprueba que fstab siga siendo válido antes de ponerlo.
 findmnt --verify --tab-file "$TMP" >/dev/null 2>&1 || { echo "✗ el fstab nuevo no pasa findmnt --verify; no lo pongo"; findmnt --verify --tab-file "$TMP"; exit 1; }
