@@ -13,6 +13,7 @@ namespace Launchpad {
     }
 
     public class App : Elemento {
+        public string id;                   // el archivo del lanzador: con él se guarda el orden y las carpetas
         public DesktopAppInfo info;
         public string[] palabras;
         public Cairo.ImageSurface? icono = null;
@@ -22,6 +23,7 @@ namespace Launchpad {
 
         public App (DesktopAppInfo info, string ruta) {
             this.info = info;
+            id = Path.get_basename (ruta);
             string n = info.get_name () ?? Path.get_basename (ruta);
             nombre = n.down ().has_suffix (".app") ? n.substring (0, n.length - 4) : n;
             clave = nombre.casefold ();
@@ -38,6 +40,8 @@ namespace Launchpad {
     }
 
     public class Carpeta : Elemento {
+        public string id = "";              // «otros» para la de Utilities; «c1», «c2»… las que arma la persona
+        public bool es_otros = false;       // la de Utilities no se edita
         public List<App> apps;
         public Carpeta (string nombre, owned List<App> apps) {
             this.nombre = nombre;
@@ -154,6 +158,98 @@ namespace Launchpad {
         return Environment.get_variable ("LAUNCHPAD_DESTINO") ?? DESTINO_POR_DEFECTO;
     }
 
+    // ── el orden y las carpetas que arma la persona ───────────────────────
+    // ~/.config/mint-macos/launchpad.json: {"orden": ["app:x.desktop", "carpeta:c1", "otros"],
+    //   "carpetas": [{"id": "c1", "nombre": "Untitled", "apps": ["a.desktop", "b.desktop"]}]}.
+    // Sin el archivo (o con apps nuevas que no están en él) sale como siempre: por orden alfabético y «Other» al final.
+    public string ruta_diseno () {
+        return Environment.get_variable ("LAUNCHPAD_DISENO")
+            ?? Path.build_filename (Environment.get_user_config_dir (), "mint-macos", "launchpad.json");
+    }
+
+    class DisenoCarpeta : Object {
+        public string id = "";
+        public string nombre = "";
+        public string[] apps = {};
+    }
+
+    class Diseno : Object {
+        public string[] orden = {};
+        public GenericArray<DisenoCarpeta> carpetas = new GenericArray<DisenoCarpeta> ();
+    }
+
+    Diseno leer_diseno () {
+        var d = new Diseno ();
+        try {
+            var p = new Json.Parser ();
+            p.load_from_file (ruta_diseno ());
+            var raiz = p.get_root ().get_object ();
+            if (raiz.has_member ("orden")) {
+                foreach (var e in raiz.get_array_member ("orden").get_elements ()) {
+                    d.orden += e.get_string ();
+                }
+            }
+            if (raiz.has_member ("carpetas")) {
+                foreach (var e in raiz.get_array_member ("carpetas").get_elements ()) {
+                    var o = e.get_object ();
+                    var c = new DisenoCarpeta ();
+                    c.id = o.get_string_member ("id");
+                    c.nombre = o.get_string_member ("nombre");
+                    foreach (var a in o.get_array_member ("apps").get_elements ()) {
+                        c.apps += a.get_string ();
+                    }
+                    d.carpetas.add (c);
+                }
+            }
+        } catch (Error e) {
+            // sin archivo o ilegible: el orden de siempre
+        }
+        return d;
+    }
+
+    /** Guarda el orden y las carpetas de lo que hay en la rejilla. */
+    public void guardar_diseno (List<Elemento> elementos) {
+        var b = new Json.Builder ();
+        b.begin_object ();
+        b.set_member_name ("version").add_int_value (1);
+        b.set_member_name ("orden").begin_array ();
+        foreach (var e in elementos) {
+            if (e is Carpeta) {
+                b.add_string_value (((Carpeta) e).es_otros ? "otros" : "carpeta:" + ((Carpeta) e).id);
+            } else {
+                b.add_string_value ("app:" + ((App) e).id);
+            }
+        }
+        b.end_array ();
+        b.set_member_name ("carpetas").begin_array ();
+        foreach (var e in elementos) {
+            if (!(e is Carpeta) || ((Carpeta) e).es_otros) {
+                continue;
+            }
+            var c = (Carpeta) e;
+            b.begin_object ();
+            b.set_member_name ("id").add_string_value (c.id);
+            b.set_member_name ("nombre").add_string_value (c.nombre);
+            b.set_member_name ("apps").begin_array ();
+            foreach (var a in c.apps) {
+                b.add_string_value (a.id);
+            }
+            b.end_array ();
+            b.end_object ();
+        }
+        b.end_array ();
+        b.end_object ();
+        var g = new Json.Generator ();
+        g.root = b.get_root ();
+        g.pretty = true;
+        try {
+            DirUtils.create_with_parents (Path.get_dirname (ruta_diseno ()), 0755);
+            FileUtils.set_contents (ruta_diseno (), g.to_data (null));
+        } catch (Error e) {
+            stderr.printf ("No se pudo guardar el orden del Launchpad: %s\n", e.message);
+        }
+    }
+
     /** Los elementos de la rejilla y todas las apps (para buscar). */
     public void leer_aplicaciones (out List<Elemento> elementos, out List<App> todas) {
         var arriba = leer_carpeta (destino ());
@@ -166,17 +262,77 @@ namespace Launchpad {
         var util = leer_carpeta (Path.build_filename (destino (), "Utilities"));
         elementos = new List<Elemento> ();
         todas = new List<App> ();
+        var por_id = new HashTable<string, App> (str_hash, str_equal);
         foreach (var a in arriba) {
-            elementos.append (a);
             todas.append (a);
+            por_id[a.id] = a;
         }
+        Carpeta? otros = null;
         if (util.length () > 0) {
             var copia = new List<App> ();
             foreach (var a in util) {
                 copia.append (a);
                 todas.append (a);
             }
-            elementos.append (new Carpeta ("Other", (owned) copia));
+            otros = new Carpeta ("Other", (owned) copia);
+            otros.id = "otros";
+            otros.es_otros = true;
+        }
+
+        // Las carpetas de la persona, con las apps que todavía existen; lo que está en una carpeta no sale suelto.
+        var diseno = leer_diseno ();
+        var carpetas = new HashTable<string, Carpeta> (str_hash, str_equal);
+        var en_carpeta = new HashTable<string, bool> (str_hash, str_equal);
+        foreach (var dc in diseno.carpetas.data) {
+            var apps = new List<App> ();
+            foreach (var aid in dc.apps) {
+                var a = por_id[aid];
+                if (a != null && !en_carpeta.contains (aid)) {
+                    apps.append (a);
+                    en_carpeta[aid] = true;
+                }
+            }
+            if (apps.length () == 0) {
+                continue;
+            }
+            var c = new Carpeta (dc.nombre, (owned) apps);
+            c.id = dc.id;
+            carpetas[dc.id] = c;
+        }
+        // En el orden guardado; lo que no está (apps nuevas) va al final, alfabético.
+        var puestos = new HashTable<string, bool> (str_hash, str_equal);
+        foreach (var clave in diseno.orden) {
+            if (clave == "otros" && otros != null && !puestos.contains ("otros")) {
+                elementos.append (otros);
+                puestos["otros"] = true;
+            } else if (clave.has_prefix ("carpeta:")) {
+                var c = carpetas[clave.substring (8)];
+                if (c != null && !puestos.contains (clave)) {
+                    elementos.append (c);
+                    puestos[clave] = true;
+                }
+            } else if (clave.has_prefix ("app:")) {
+                var aid = clave.substring (4);
+                var a = por_id[aid];
+                if (a != null && !en_carpeta.contains (aid) && !puestos.contains (clave)) {
+                    elementos.append (a);
+                    puestos[clave] = true;
+                }
+            }
+        }
+        foreach (var a in arriba) {
+            if (!en_carpeta.contains (a.id) && !puestos.contains ("app:" + a.id)) {
+                elementos.append (a);
+            }
+        }
+        foreach (var dc in diseno.carpetas.data) {
+            var c = carpetas[dc.id];
+            if (c != null && !puestos.contains ("carpeta:" + dc.id)) {
+                elementos.append (c);
+            }
+        }
+        if (otros != null && !puestos.contains ("otros")) {
+            elementos.append (otros);
         }
     }
 
