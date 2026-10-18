@@ -28,8 +28,12 @@ namespace Menu {
             var res = new GenericArray<Nodo> ();
             var b = yield barra (espera_ms);
             for (int i = 0; i < b.length; i++) {
-                var hijos = yield abrir (b[i].id, espera_ms);
-                recorrer (hijos, b[i].etiqueta, res);
+                try {
+                    var hijos = yield abrir (b[i].id, espera_ms);
+                    recorrer (hijos, b[i].etiqueta, res);
+                } catch (GLib.Error e) {
+                    // un menú que la app ya no tiene (Firefox da «ID no existe» si lo rehace a mitad): se sigue con los demás
+                }
             }
             return res;
         }
