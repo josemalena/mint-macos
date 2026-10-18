@@ -2,7 +2,10 @@
 """Exporta en lote los nib de varios bundles de la Mac a JSON y PNG, para revisar las
 piezas sin abrir el visor una por una.
 
-    exportar-lote.py BUNDLE…        cada .app o .prefPane: sus nib (los de sus plugins también)
+    exportar-lote.py [--version NOMBRE] BUNDLE…   cada .app o .prefPane: sus nib (los de sus
+                                                 plugins también); con --version, todo va a
+                                                 visor-nib/<NOMBRE>/ para no mezclar Catalina,
+                                                 Monterey, Sequoia y macOS 27
 
 Deja en ~/.local/share/mint-macos/visor-nib/<bundle>/ un json/<nib>.json por nib y un
 png/<nib>/NN-<título>.png por ventana o vista suelta, y en ~/.local/share/mint-macos/
@@ -85,9 +88,16 @@ def exportar(bundle):
 
 
 def main():
+    args = sys.argv[1:]
+    version = None
+    if args[:1] == ['--version']:
+        version, args = args[1], args[2:]
+        # Las imágenes, las recetas y el caché de cada versión, aparte: los nib cambian de una a otra.
+        visor.SALIDA = os.path.join(visor.SALIDA, version)
+        visor.RECETAS = os.path.join(visor.SALIDA, 'recetas')
     visor.estilo()
     secciones, totales = [], []
-    for bundle in sys.argv[1:]:
+    for bundle in args:
         t = time.time()
         try:
             app, filas, leidos, fallidos = exportar(bundle)
@@ -103,7 +113,7 @@ def main():
         for f in filas:
             lineas.append('| %s |' % ' | '.join(str(x).replace('|', '\\|') for x in f))
         secciones.append('\n'.join(lineas) + '\n')
-    cab = ['# Nib de la Mac exportados', '',
+    cab = ['# Nib de la Mac exportados' + (' — %s' % version if version else ''), '',
            'Generado por `herramientas/visor-nib/exportar-lote.py` el %s. Cada bundle tiene su carpeta '
            'aquí al lado, con `json/` y `png/`. Para verlos en el visor: `mac-visor-nib <bundle>`.' % time.strftime('%d-%m-%Y %H:%M'),
            '', '| Bundle | Leídos | Fallidos |', '|---|---|---|']
