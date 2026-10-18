@@ -3,8 +3,9 @@
  * settings/actualizaciones.py.
  *
  * Con todo al día dice «Your computer is up to date» con la versión de Linux Mint y cuándo se revisó (refresh-last-run de
- * com.linuxmint.updates). Con actualizaciones pendientes (`apt list --upgradable`) dice cuántas hay y ofrece Update Now, que abre
- * Update Manager de Mint. Catalina no tiene captura de ese estado: el texto es sobrio y no se adorna.
+ * com.linuxmint.updates). Con actualizaciones pendientes dice cuántas hay (las del grupo «sistema» del motor del App Store,
+ * org.mintmacos.Tienda1; sin motor, `apt list --upgradable`) y Update Now las instala ahí mismo, con barra de progreso y
+ * Stop; la clave la pide mac-polkit. Catalina no tiene captura de ese estado: el texto es sobrio y no se adorna.
  * La hoja Advanced…: «Check for updates» es refresh-schedule-enabled y «Install app updates» es auto-update-flatpaks; «Download new
  * updates», «Install macOS updates» y «Install system data files and security updates» no tienen una clave que podamos escribir
  * aquí y van en gris.
@@ -16,6 +17,14 @@ namespace Preferencias {
         // MINT_ACTUALIZACIONES_PRUEBA: no escribe en gsettings.
         bool prueba = Environment.get_variable ("MINT_ACTUALIZACIONES_PRUEBA") != null;
         Settings? cfg = null;
+        Gtk.Label? titulo_w = null;
+        Gtk.Label? detalle_w = null;
+        Gtk.Button? ir_w = null;
+        Gtk.Box? avance_w = null;
+        Gtk.ProgressBar? barra_w = null;
+        Gtk.Label? etapa_w = null;
+        string? trabajo = null;
+        int generacion = 0;
 
         public PanelSoftwareUpdate () {
             id = "com.apple.preferences.softwareupdate";
@@ -100,13 +109,8 @@ namespace Preferencias {
             var der = new Gtk.Box (Gtk.Orientation.VERTICAL, 8);
             der.margin_start = 40;
             der.margin_end = 20;
-            int n = pendientes ();
-            Gtk.Label titulo;
-            if (n > 0) {
-                titulo = new Gtk.Label ("%d update%s available.".printf (n, n == 1 ? "" : "s"));
-            } else {
-                titulo = new Gtk.Label ("Your computer is up to date — %s".printf (version ()));
-            }
+            titulo_w = new Gtk.Label ("Checking for updates…");
+            var titulo = titulo_w;
             titulo.xalign = 0;
             titulo.get_style_context ().add_class ("mp-titulo-negrita");
             der.pack_start (titulo, false, false, 0);
@@ -129,19 +133,30 @@ namespace Preferencias {
                 d.get_style_context ().add_class ("mp-sd-detalle");
                 der.pack_start (d, false, false, 0);
             }
-            if (n > 0) {
-                var ir = new Gtk.Button.with_label ("Update Now");
-                ir.halign = Gtk.Align.START;
-                ir.clicked.connect (() => {
-                    try {
-                        Process.spawn_async (null, { "mintupdate" }, null, SpawnFlags.SEARCH_PATH, () => { Posix.setsid (); }, null);
-                    } catch (Error e) {
-                    }
-                });
-                ir.margin_top = 12;
-                ir.margin_bottom = 12;
-                der.pack_start (ir, false, false, 0);
-            }
+            detalle_w = null;
+            ir_w = new Gtk.Button.with_label ("Update Now");
+            ir_w.halign = Gtk.Align.START;
+            ir_w.margin_top = 12;
+            ir_w.margin_bottom = 12;
+            ir_w.no_show_all = true;
+            ir_w.clicked.connect (instalar);
+            der.pack_start (ir_w, false, false, 0);
+
+            avance_w = new Gtk.Box (Gtk.Orientation.VERTICAL, 6);
+            avance_w.no_show_all = true;
+            avance_w.margin_top = 12;
+            barra_w = new Gtk.ProgressBar ();
+            avance_w.pack_start (barra_w, false, false, 0);
+            var fila_av = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 8);
+            etapa_w = new Gtk.Label ("");
+            etapa_w.xalign = 0;
+            etapa_w.get_style_context ().add_class ("mp-sd-detalle");
+            fila_av.pack_start (etapa_w, true, true, 0);
+            var parar = new Gtk.Button.with_label ("Stop");
+            parar.clicked.connect (cancelar);
+            fila_av.pack_end (parar, false, false, 0);
+            avance_w.pack_start (fila_av, false, false, 0);
+            der.pack_start (avance_w, false, false, 0);
             der.pack_start (new Gtk.Box (Gtk.Orientation.HORIZONTAL, 0), true, true, 0);
             var pie = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 8);
             var auto = new Gtk.CheckButton.with_label ("Automatically keep my computer up to date");
@@ -156,7 +171,110 @@ namespace Preferencias {
             caja.pack_start (der, true, true, 0);
             caja.set_size_request (-1, 190);
             caja.show_all ();
+            ir_w.hide ();
+            avance_w.hide ();
+
+            var motor = Tienda.Motor.instancia;
+            var h_progreso = motor.progreso.connect (al_progreso);
+            var h_terminado = motor.terminado.connect (al_terminar);
+            caja.destroy.connect (() => { motor.disconnect (h_progreso); motor.disconnect (h_terminado); });
+            refrescar.begin ();
             return caja;
+        }
+
+        /** Cuántas actualizaciones del sistema hay: el motor (grupo «sistema»), y sin motor `apt list`. */
+        async void refrescar () {
+            int gen = ++generacion;
+            int n;
+            string e;
+            if (Tienda.Motor.instancia.conectar (out e)) {
+                try {
+                    var lista = yield Tienda.Motor.instancia.actualizaciones ("sistema");
+                    n = (int) lista.length;
+                } catch (Error err) {
+                    n = pendientes ();
+                }
+            } else {
+                n = pendientes ();
+            }
+            if (gen != generacion || titulo_w == null) {
+                return;
+            }
+            if (n > 0) {
+                titulo_w.label = "%d update%s available.".printf (n, n == 1 ? "" : "s");
+            } else {
+                titulo_w.label = "Your computer is up to date — %s".printf (version ());
+            }
+            ir_w.visible = n > 0 && trabajo == null;
+        }
+
+        void instalar () {
+            if (prueba || trabajo != null) {
+                return;
+            }
+            ir_w.hide ();
+            avance_w.show_all ();
+            barra_w.pulse ();
+            etapa_w.label = "Waiting…";
+            Tienda.Motor.instancia.actualizar.begin ("sistema", new string[0], (o, res) => {
+                try {
+                    trabajo = Tienda.Motor.instancia.actualizar.end (res);
+                } catch (Error err) {
+                    fallo (err.message);
+                }
+            });
+        }
+
+        void cancelar () {
+            if (trabajo == null) {
+                return;
+            }
+            Tienda.Motor.instancia.cancelar.begin (trabajo, (o, res) => {
+                try { Tienda.Motor.instancia.cancelar.end (res); } catch (Error err) { }
+            });
+        }
+
+        void al_progreso (string t, uint pct, string etapa) {
+            if (trabajo == null) {
+                trabajo = t;     // la señal llegó antes que la respuesta de Actualizar
+            }
+            if (t != trabajo || avance_w == null) {
+                return;
+            }
+            if (pct <= 100) {
+                barra_w.fraction = pct / 100.0;
+            } else {
+                barra_w.pulse ();
+            }
+            switch (etapa) {
+            case "autorizando": etapa_w.label = "Waiting for authorization…"; break;
+            case "descargando": etapa_w.label = "Downloading…"; break;
+            case "instalando": etapa_w.label = "Installing…"; break;
+            case "limpiando": etapa_w.label = "Cleaning up…"; break;
+            default: etapa_w.label = "Waiting…"; break;
+            }
+        }
+
+        void al_terminar (string t, string id, string tipo, bool ok, string codigo, string mensaje) {
+            if (t != trabajo || avance_w == null) {
+                return;
+            }
+            trabajo = null;
+            avance_w.hide ();
+            if (!ok && codigo != "cancelado" && codigo != "sin-autorizacion") {
+                fallo (mensaje != "" ? mensaje : codigo);
+                return;
+            }
+            refrescar.begin ();
+        }
+
+        void fallo (string mensaje) {
+            trabajo = null;
+            avance_w.hide ();
+            titulo_w.label = "Couldn’t install the updates.";
+            ir_w.show ();
+            ir_w.label = "Try Again";
+            ir_w.set_tooltip_text (mensaje);
         }
 
         void hoja () {
@@ -187,6 +305,16 @@ namespace Preferencias {
                 }
                 c.pack_start (b, false, false, 0);
             }
+            var um = new Gtk.Button.with_label ("Open Update Manager…");
+            um.halign = Gtk.Align.START;
+            um.margin_top = 6;
+            um.clicked.connect (() => {
+                try {
+                    Process.spawn_async (null, { "mintupdate" }, null, SpawnFlags.SEARCH_PATH, () => { Posix.setsid (); }, null);
+                } catch (Error e) {
+                }
+            });
+            c.pack_start (um, false, false, 0);
             var ok = d.add_button ("OK", Gtk.ResponseType.OK);
             ok.get_style_context ().add_class ("suggested-action");
             d.set_default_response (Gtk.ResponseType.OK);
