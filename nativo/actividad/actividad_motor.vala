@@ -127,8 +127,9 @@ namespace Actividad {
             yield llamar ("Soltar");
         }
 
-        public async GenericArray<Fila> procesos () throws GLib.Error {
-            var r = yield llamar ("Procesos", new Variant.tuple ({ new Variant.strv (new string[0]) }));
+        /** Las columnas pedidas (vacío = todas): pedir solo las de la pestaña le ahorra a los dos lados armar y leer lo que no se ve. */
+        public async GenericArray<Fila> procesos (string[] columnas) throws GLib.Error {
+            var r = yield llamar ("Procesos", new Variant.tuple ({ new Variant.strv (columnas) }));
             var arr = r.get_child_value (0);
             var lista = new GenericArray<Fila> ();
             for (size_t i = 0; i < arr.n_children (); i++) lista.add (Fila.desde (arr.get_child_value (i)));

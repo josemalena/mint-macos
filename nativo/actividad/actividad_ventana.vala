@@ -9,24 +9,22 @@ namespace Actividad {
     const string CSS = """
 window.act-ventana label { font-family: ".SF NS"; }
 .act-barra { padding: 6px 10px; }
-.act-segmentos button { background-image: none; background-color: #ffffff; color: #262626; border: 1px solid #b8b8b8;
-  border-radius: 0; padding: 1px 14px; min-height: 0; box-shadow: none; text-shadow: none; }
+.act-segmentos button { background-image: none; background-color: @theme_bg_color; color: @theme_fg_color;
+  border: 1px solid alpha(@theme_fg_color, 0.30); border-radius: 0; padding: 1px 14px; min-height: 0; box-shadow: none; text-shadow: none; }
 .act-segmentos button:first-child { border-radius: 5px 0 0 5px; }
 .act-segmentos button:last-child { border-radius: 0 5px 5px 0; }
-.act-segmentos button:checked { background-color: #6b6b6b; color: #ffffff; }
+.act-segmentos button:checked { background-color: mix(@theme_fg_color, @theme_bg_color, 0.42); color: #ffffff; }
 .act-segmentos button label { font-size: 13px; }
-button.act-redondo { background-image: none; background-color: #f6f6f6; border: 1px solid #b8b8b8; border-radius: 10px;
-  padding: 0 6px; min-height: 18px; min-width: 22px; box-shadow: none; }
-.act-lista { background-color: #ffffff; }
-.act-lista header button { font-size: 11px; padding: 2px 6px; background-image: none; background-color: #ffffff;
-  border-width: 0 1px 1px 0; border-radius: 0; border-color: #d4d4d4; box-shadow: none; }
-.act-lista:selected, .act-lista row:selected { background-color: #1e62d0; color: #ffffff; }
-.act-panel { background-color: #f3f3f3; border-top: 1px solid #c9c9c9; padding: 12px; }
-.act-caja { background-color: #ffffff; border: 1px solid #b0b0b0; }
+button.act-redondo { background-image: none; background-color: @theme_bg_color; color: @theme_fg_color;
+  border: 1px solid alpha(@theme_fg_color, 0.30); border-radius: 10px; padding: 0 6px; min-height: 18px; min-width: 22px; box-shadow: none; }
+button.act-redondo:disabled { opacity: 0.55; }
+.act-lista header button { font-size: 11px; padding: 2px 6px; }
+.act-panel { background-color: @theme_bg_color; border-top: 1px solid alpha(@theme_fg_color, 0.20); padding: 12px; }
+.act-caja { background-color: @theme_base_color; border: 1px solid alpha(@theme_fg_color, 0.28); }
 .act-clave { font-size: 11px; }
 .act-valor { font-size: 11px; }
-.act-rojo { color: #e0201b; }
-.act-azul { color: #1f1fd0; }
+.act-rojo { color: #ff453a; }
+.act-azul { color: #4d8dff; }
 .act-titulo-grafica { font-size: 9px; font-weight: bold; opacity: 0.6; letter-spacing: 0.5px; }
 .act-seccion { font-size: 13px; font-weight: bold; }
 .act-leyenda { font-size: 11px; }
@@ -44,14 +42,17 @@ button.act-redondo { background-image: none; background-color: #f6f6f6; border: 
         Gtk.Stack cuerpo;
         Gtk.TreeView lista;
         Gtk.ListStore almacen;
-        Gtk.TreeModelFilter filtro;
-        Gtk.TreeModelSort orden;
+        GenericArray<Fila> todas = new GenericArray<Fila> ();         // la última muestra
+        GenericArray<Fila> en_tabla = new GenericArray<Fila> ();      // lo que enseña la tabla, en su orden
+        string clave_orden = "cpu";
+        bool descendente = true;
+        int pid_elegido = -1;
+        bool rearmando = false;
         Gtk.Stack paneles;
         Gtk.Button detener;
         Gtk.SearchEntry busqueda;
         Gtk.HeaderBar cabecera;
         HashTable<string, Gtk.ToggleButton> botones = new HashTable<string, Gtk.ToggleButton> (str_hash, str_equal);
-        HashTable<int, Gtk.TreeIter?> filas = new HashTable<int, Gtk.TreeIter?> (direct_hash, direct_equal);
         HashTable<string, Gtk.Label> valores = new HashTable<string, Gtk.Label> (str_hash, str_equal);
         HashTable<string, Area> graficas = new HashTable<string, Area> (str_hash, str_equal);
         HashTable<string, Gtk.Label> leyendas = new HashTable<string, Gtk.Label> (str_hash, str_equal);
@@ -139,7 +140,7 @@ button.act-redondo { background-image: none; background-color: #f6f6f6; border: 
             filtro_a.activate.connect ((p) => {
                 filtro_a.set_state (p);
                 filtro_proceso = p.get_string ();
-                filtro.refilter ();
+                reaplicar ();
             });
             add_action (filtro_a);
 
@@ -194,7 +195,7 @@ button.act-redondo { background-image: none; background-color: #f6f6f6; border: 
             busqueda.width_chars = 22;
             busqueda.placeholder_text = "Search";
             busqueda.tooltip_text = "Show only processes containing the string specified";
-            busqueda.search_changed.connect (() => { filtro.refilter (); });
+            busqueda.search_changed.connect (() => { reaplicar (); });
             caja.pack_end (busqueda, false, false, 0);
             return caja;
         }
@@ -203,10 +204,7 @@ button.act-redondo { background-image: none; background-color: #f6f6f6; border: 
 
         Gtk.Widget pagina_procesos () {
             almacen = new Gtk.ListStore (1, typeof (Fila));
-            filtro = new Gtk.TreeModelFilter (almacen, null);
-            filtro.set_visible_func (visible);
-            orden = new Gtk.TreeModelSort.with_model (filtro);
-            lista = new Gtk.TreeView.with_model (orden);
+            lista = new Gtk.TreeView.with_model (almacen);
             lista.get_style_context ().add_class ("act-lista");
             lista.headers_clickable = true;
             lista.rules_hint = true;
@@ -229,10 +227,7 @@ button.act-redondo { background-image: none; background-color: #f6f6f6; border: 
             return caja;
         }
 
-        bool visible (Gtk.TreeModel m, Gtk.TreeIter it) {
-            Fila? f;
-            m.get (it, 0, out f);
-            if (f == null) return false;
+        bool f_visible (Fila f) {
             // Energy lista aplicaciones, no procesos: las que tienen ícono (su .desktop).
             if (pestana == "energy" && f.icono == "") return false;
             if (!pasa_filtro (f)) return false;
@@ -328,6 +323,7 @@ button.act-redondo { background-image: none; background-color: #f6f6f6; border: 
         }
 
         void armar_columnas (string p) {
+            lista.fixed_height_mode = false;
             foreach (var c in lista.get_columns ()) lista.remove_column (c);
             var cols = columnas_de (p);
             for (int i = 0; i < cols.length; i++) {
@@ -335,8 +331,14 @@ button.act-redondo { background-image: none; background-color: #f6f6f6; border: 
                 var col = new Gtk.TreeViewColumn ();
                 col.title = spec.titulo;
                 col.resizable = true;
-                col.min_width = spec.ancho;
-                col.sort_column_id = i;
+                col.sizing = Gtk.TreeViewColumnSizing.FIXED;      // con altura fija el TreeView no vuelve a medir cada fila que cambia
+                col.fixed_width = spec.ancho;
+                col.expand = spec.clave == "nombre";
+                col.clickable = true;
+                col.sort_indicator = spec.clave == clave_orden;
+                col.sort_order = descendente ? Gtk.SortType.DESCENDING : Gtk.SortType.ASCENDING;
+                var clave_col = spec.clave;
+                col.clicked.connect ((c) => { ordenar_por (clave_col); });
                 col.alignment = spec.derecha ? 1.0f : 0.0f;
                 if (spec.clave == "nombre") {
                     var ic = new Gtk.CellRendererPixbuf ();
@@ -361,22 +363,55 @@ button.act-redondo { background-image: none; background-color: #f6f6f6; border: 
                     m.get (it, 0, out f);
                     ((Gtk.CellRendererText) cell).text = f != null ? texto_de (f, clave) : "";
                 });
-                orden.set_sort_func (i, (m, a, b) => {
-                    Fila? fa, fb;
-                    m.get (a, 0, out fa);
-                    m.get (b, 0, out fb);
-                    if (fa == null || fb == null) return 0;
-                    if (clave == "nombre" || clave == "usuario" || clave == "tipo")
-                        return strcmp (texto_de (fa, clave).down (), texto_de (fb, clave).down ());
-                    double x = valor_de (fa, clave), y = valor_de (fb, clave);
-                    return x < y ? -1 : (x > y ? 1 : 0);
-                });
                 lista.append_column (col);
             }
-            // El orden de cada pestaña, como en las capturas: % CPU, Memory, Avg Energy Impact, Bytes Written y Sent Bytes.
-            int orden_col = p == "memory" || p == "disk" || p == "network" || p == "energy" ? 1 : 1;
-            if (p == "energy") orden_col = 2;
-            orden.set_sort_column_id (orden_col, Gtk.SortType.DESCENDING);
+            lista.fixed_height_mode = true;
+        }
+
+        /** Clic en un encabezado: ordena por esa columna; otro clic en la misma invierte. */
+        void ordenar_por (string clave) {
+            if (clave == clave_orden) {
+                descendente = !descendente;
+            } else {
+                clave_orden = clave;
+                descendente = !(clave == "nombre" || clave == "usuario" || clave == "tipo");
+            }
+            foreach (var c in lista.get_columns ()) {
+                c.sort_indicator = false;
+            }
+            var cols = columnas_de (pestana);
+            for (int i = 0; i < cols.length; i++) {
+                if (cols[i].clave == clave_orden) {
+                    var c = lista.get_column (i);
+                    c.sort_indicator = true;
+                    c.sort_order = descendente ? Gtk.SortType.DESCENDING : Gtk.SortType.ASCENDING;
+                }
+            }
+            reaplicar ();
+        }
+
+        /** El orden de cada pestaña, como en las capturas: % CPU, Memory, Avg Energy Impact, Bytes Written y Sent Bytes. */
+        void orden_de_pestana (string p) {
+            descendente = true;
+            switch (p) {
+            case "memory": clave_orden = "memoria"; break;
+            case "disk": clave_orden = "escrito"; break;
+            case "network": clave_orden = "red_enviada"; break;
+            case "energy": clave_orden = "energia_promedio"; break;
+            default: clave_orden = "cpu"; break;
+            }
+        }
+
+        int comparar (Fila a, Fila b) {
+            int r;
+            if (clave_orden == "nombre" || clave_orden == "usuario" || clave_orden == "tipo") {
+                r = strcmp (texto_de (a, clave_orden).down (), texto_de (b, clave_orden).down ());
+            } else {
+                double x = valor_de (a, clave_orden), y = valor_de (b, clave_orden);
+                r = x < y ? -1 : (x > y ? 1 : 0);
+            }
+            if (descendente) r = -r;
+            return r != 0 ? r : (a.pid - b.pid);
         }
 
         Gdk.Pixbuf? pixbuf_vacio = null;
@@ -389,13 +424,16 @@ button.act-redondo { background-image: none; background-color: #f6f6f6; border: 
         }
 
         void al_elegir () {
+            if (rearmando) return;
             Gtk.TreeModel m;
             Gtk.TreeIter it;
             bool propio = false;
+            pid_elegido = -1;
             if (lista.get_selection ().get_selected (out m, out it)) {
                 Fila? f;
                 m.get (it, 0, out f);
                 propio = f != null && f.usuario == yo;
+                if (f != null) pid_elegido = f.pid;
             }
             detener.sensitive = propio;
             if (accion_salir != null) accion_salir.set_enabled (propio);
@@ -416,11 +454,12 @@ button.act-redondo { background-image: none; background-color: #f6f6f6; border: 
             } else {
                 cuerpo.visible_child_name = "procesos";
                 paneles.visible_child_name = p;
+                orden_de_pestana (p);
                 armar_columnas (p);
                 var t = p == "energy" ? "Activity Monitor (Applications)" : "Activity Monitor (All Processes)";
                 cabecera.title = t;
                 title = t;
-                filtro.refilter ();
+                reaplicar ();
             }
             al_muestrear ();
         }
@@ -429,13 +468,16 @@ button.act-redondo { background-image: none; background-color: #f6f6f6; border: 
 
         void al_muestrear () {
             if (pidiendo) return;
+            // Minimizada u oculta no hay nada que dibujar: se salta la muestra.
+            var gw = get_window ();
+            if (!visible || (gw != null && (gw.get_state () & Gdk.WindowState.ICONIFIED) != 0)) return;
             pidiendo = true;
             actualizar.begin ();
         }
 
         async void actualizar () {
             try {
-                var procs = yield motor.procesos ();
+                var procs = yield motor.procesos (columnas_pedidas ());
                 aplicar_procesos (procs);
                 var r = yield motor.resumen ();
                 aplicar_resumen (r);
@@ -446,28 +488,85 @@ button.act-redondo { background-image: none; background-color: #f6f6f6; border: 
             pidiendo = false;
         }
 
+        /** Lo que hace falta de cada proceso en la pestaña: siempre el nombre, el ícono, el usuario y el PID. */
+        string[] columnas_pedidas () {
+            switch (pestana) {
+            case "memory": return { "pid", "nombre", "icono", "usuario", "memoria", "comprimida", "hilos" };
+            case "disk": return { "pid", "nombre", "icono", "usuario", "escrito", "leido", "tipo" };
+            case "energy": case "network": return { "pid", "nombre", "icono", "usuario" };
+            }
+            return { "pid", "nombre", "icono", "usuario", "cpu", "tiempo_cpu", "hilos", "despertares" };
+        }
+
         void aplicar_procesos (GenericArray<Fila> procs) {
-            var vivos = new HashTable<int, bool> (direct_hash, direct_equal);
-            for (int i = 0; i < procs.length; i++) {
-                var f = procs[i];
-                vivos.replace (f.pid, true);
-                Gtk.TreeIter? it = filas.lookup (f.pid);
-                if (it == null) {
-                    Gtk.TreeIter nuevo;
-                    almacen.append (out nuevo);
-                    almacen.set (nuevo, 0, f, -1);
-                    filas.replace (f.pid, nuevo);
+            todas = procs;
+            reaplicar ();
+        }
+
+        /** Filtra, ordena y pone la lista en la tabla con los menos cambios posibles: quita las filas que se fueron, agrega las nuevas,
+         *  reordena de una vez (rows-reordered: la selección y el desplazamiento se quedan) y toca solo las filas que cambiaron.
+         *  Reordenar fila por fila con un TreeModelSort costaba el 35 % de un núcleo. */
+        void reaplicar () {
+            var nuevo = new GenericArray<Fila> ();
+            for (int i = 0; i < todas.length; i++) {
+                if (f_visible (todas[i])) nuevo.add (todas[i]);
+            }
+            nuevo.sort_with_data ((a, b) => comparar (a, b));
+            var viven = new HashTable<int, Fila> (direct_hash, direct_equal);
+            for (int i = 0; i < nuevo.length; i++) viven.replace (nuevo[i].pid, nuevo[i]);
+
+            // 1. fuera las que ya no están
+            rearmando = true;
+            var actual = new GenericArray<Fila> ();
+            Gtk.TreeIter it;
+            bool hay = almacen.get_iter_first (out it);
+            int k = 0;
+            while (hay && k < en_tabla.length) {
+                if (viven.contains (en_tabla[k].pid)) {
+                    actual.add (en_tabla[k]);
+                    hay = almacen.iter_next (ref it);
                 } else {
-                    almacen.set (it, 0, f, -1);
+                    hay = almacen.remove (ref it);
+                }
+                k++;
+            }
+            // 2. las nuevas, al final
+            var conocidas = new HashTable<int, int> (direct_hash, direct_equal);
+            for (int i = 0; i < actual.length; i++) conocidas.replace (actual[i].pid, i);
+            for (int i = 0; i < nuevo.length; i++) {
+                if (!conocidas.contains (nuevo[i].pid)) {
+                    Gtk.TreeIter n;
+                    almacen.append (out n);
+                    almacen.set (n, 0, nuevo[i], -1);
+                    conocidas.replace (nuevo[i].pid, (int) actual.length);
+                    actual.add (nuevo[i]);
                 }
             }
-            var fuera = new GenericArray<int> ();
-            filas.foreach ((pid, it) => { if (!vivos.contains (pid)) fuera.add (pid); });
-            for (int i = 0; i < fuera.length; i++) {
-                Gtk.TreeIter? it = filas.lookup (fuera[i]);
-                if (it != null) almacen.remove (ref it);
-                filas.remove (fuera[i]);
+            // 3. el orden: new_order[posición nueva] = posición vieja
+            int[] orden_nuevo = new int[nuevo.length];
+            bool identidad = true;
+            for (int i = 0; i < nuevo.length; i++) {
+                orden_nuevo[i] = conocidas.lookup (nuevo[i].pid);
+                if (orden_nuevo[i] != i) identidad = false;
             }
+            if (!identidad) almacen.reorder (orden_nuevo);
+            // 4. lo que cambió
+            hay = almacen.get_iter_first (out it);
+            for (int i = 0; hay && i < nuevo.length; i++) {
+                var vieja = actual[orden_nuevo[i]];
+                if (vieja != nuevo[i] && cambio (vieja, nuevo[i])) almacen.set (it, 0, nuevo[i], -1);
+                hay = almacen.iter_next (ref it);
+            }
+            rearmando = false;
+            en_tabla = nuevo;
+            al_elegir ();
+        }
+
+        /** ¿Cambió algo de lo que se ve de la fila? */
+        static bool cambio (Fila a, Fila b) {
+            return a.cpu != b.cpu || a.tiempo_cpu != b.tiempo_cpu || a.hilos != b.hilos || a.despertares != b.despertares
+                || a.memoria != b.memoria || a.comprimida != b.comprimida || a.escrito != b.escrito || a.leido != b.leido
+                || a.nombre != b.nombre || a.icono != b.icono;
         }
 
         // ---- los paneles de abajo ----------------------------------------------------------------------------------

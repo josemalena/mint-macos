@@ -78,11 +78,16 @@ namespace Actividad {
         bool dibujar (Cairo.Context cr) {
             double w = get_allocated_width ();
             double h = get_allocated_height ();
-            cr.set_source_rgb (1, 1, 1);
+            // Los colores del fondo y de las líneas salen del tema (claro u oscuro), no fijos.
+            Gdk.RGBA base_c = { 1, 1, 1, 1 }, fg = { 0, 0, 0, 1 };
+            var ctx = get_style_context ();
+            ctx.lookup_color ("theme_base_color", out base_c);
+            ctx.lookup_color ("theme_fg_color", out fg);
+            cr.set_source_rgba (base_c.red, base_c.green, base_c.blue, 1);
             cr.rectangle (0, 0, w, h);
             cr.fill ();
             if (rejilla) {
-                cr.set_source_rgba (0, 0, 0, 0.10);
+                cr.set_source_rgba (fg.red, fg.green, fg.blue, 0.12);
                 cr.set_line_width (1);
                 for (int i = 1; i < 4; i++) {
                     cr.move_to (0, Math.floor (h * i / 4) + 0.5);
@@ -132,7 +137,7 @@ namespace Actividad {
                 if (apilado) for (int k = 0; k < n; k++) base_[k] += dato (s, k, n);
             }
             if (borde) {
-                cr.set_source_rgba (0, 0, 0, 0.35);
+                cr.set_source_rgba (fg.red, fg.green, fg.blue, 0.35);
                 cr.set_line_width (1);
                 cr.rectangle (0.5, 0.5, w - 1, h - 1);
                 cr.stroke ();
