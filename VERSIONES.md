@@ -7,9 +7,9 @@ Cada fork, el commit que se compila y los parches que lleva encima de su upstrea
 
 - Fork: https://github.com/josemalena/fynder.git
 - Upstream: https://github.com/linuxmint/nemo.git, rama `master`
-- Commit: `3e157166537170b043f925c5c28eba2d555b9e36` (2026-10-18, fix(discos): los APFS de fstab con el ícono de su disco físico)
+- Commit: `c662f8f88d4005729b5f379c30f8da76a96765b2` (2026-10-18, fix(selector): el módulo de GTK pasa la carpeta y el archivo que puso el programa)
 - Base: `66eabf459bc86d03c24797274d0e3f60b9b7a7d8` (master.lmde7), 2026-10-06, nemo-icon-dnd.c: Fix reporting a successful drag result.
-- Parches: 201
+- Parches: 207
 
 | Commit | Fecha | Asunto |
 |---|---|---|
@@ -214,6 +214,12 @@ Cada fork, el commit que se compila y los parches que lleva encima de su upstrea
 | `b4d0b912` | 2026-10-18 | fix(portapapeles): un solo pedido de TARGETS en vuelo |
 | `c44e4e7f` | 2026-10-18 | test: reproducción de la caída de kitty por BadWindow (portapapeles) |
 | `3e157166` | 2026-10-18 | fix(discos): los APFS de fstab con el ícono de su disco físico |
+| `b08912ab` | 2026-10-18 | feat(selector): Open y Save de todo el sistema con una ventana de Fynder |
+| `c44284f8` | 2026-10-18 | portal: instalar-selector.sh, el selector de Fynder en la sesión (sin sudo) |
+| `e6fc78f4` | 2026-10-18 | feat(selector): la hoja de guardar de la Mac, compacta y expandida |
+| `550aae8c` | 2026-10-18 | fix(selector): la hoja vuelve a su sitio al aparecer y sin barra de ruta |
+| `364c37e5` | 2026-10-18 | feat(selector): módulo de GTK 3 para los programas que arman su propio diálogo |
+| `c662f8f8` | 2026-10-18 | fix(selector): el módulo de GTK pasa la carpeta y el archivo que puso el programa |
 
 ## mint-macos-dock
 
