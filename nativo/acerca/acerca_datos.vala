@@ -212,6 +212,9 @@ namespace Acerca {
     public class Volumen : Object {
         public string nombre = "";
         public string dispositivo = "";
+        public string montaje = "";
+        public int64[] categoria_bytes = {};     // uno por categoría de «categorias ()»
+        public int pendientes = 0;               // du que faltan por terminar: >0 = «Calculating…»
         public int64 tamano = 0;
         public int64 libre = 0;
         public string descripcion = "";     // «500 GB\nSolid State\nSATA Drive»
@@ -286,6 +289,7 @@ namespace Acerca {
             vistos[dev] = "1";
             var v = new Volumen ();
             v.dispositivo = dev;
+            v.montaje = mp;
             var et = etiqueta_de (dev);
             if (et != "") v.nombre = et;
             else if (mp == "/") v.nombre = nombre_sistema;
@@ -303,6 +307,101 @@ namespace Acerca {
             salida += v;
         }
         return salida;
+    }
+
+    // ── Categorías de Storage ───────────────────────────────────────────
+
+    public class Categoria : Object {
+        public string nombre;
+        public string[] rutas;
+        public double r;
+        public double g;
+        public double b;
+        public Categoria (string nombre, string[] rutas, double r, double g, double b) {
+            this.nombre = nombre;
+            this.rutas = rutas;
+            this.r = r; this.g = g; this.b = b;
+        }
+    }
+
+    /** Las categorías de la barra, con los colores de la captura de High Sierra (Documentos, Fotos, Apps…). Other es el resto. */
+    public Categoria[] categorias () {
+        string[] docs = {};
+        foreach (var t in new UserDirectory[] { UserDirectory.DOCUMENTS, UserDirectory.DESKTOP }) {
+            var r = Environment.get_user_special_dir (t);
+            if (r != null) docs += r;
+        }
+        string[] fotos = {};
+        var pic = Environment.get_user_special_dir (UserDirectory.PICTURES);
+        if (pic != null) fotos += pic;
+        string[] audio = {};
+        var mus = Environment.get_user_special_dir (UserDirectory.MUSIC);
+        if (mus != null) audio += mus;
+        string[] pelis = {};
+        var vid = Environment.get_user_special_dir (UserDirectory.VIDEOS);
+        if (vid != null) pelis += vid;
+        string[] apps = { "/usr", "/opt", "/var/lib/flatpak", "/snap", "/var/lib/snapd" };
+        return {
+            new Categoria ("Documents", docs, 0.824, 0.447, 0.867),
+            new Categoria ("Photos", fotos, 0.286, 0.859, 0.290),
+            new Categoria ("Apps", apps, 0.0, 0.678, 0.957),
+            new Categoria ("Audio", audio, 1.0, 0.157, 0.412),
+            new Categoria ("Movies", pelis, 0.596, 0.8, 0.98)
+        };
+    }
+
+    /** El volumen que contiene la ruta (el de punto de montaje más largo que la precede). */
+    Volumen? volumen_de (string ruta, Volumen[] vols) {
+        var real = Posix.realpath (ruta);
+        if (real == null) return null;
+        Volumen? mejor = null;
+        foreach (var v in vols) {
+            bool contiene = v.montaje == "/" || real == v.montaje || real.has_prefix (v.montaje + "/");
+            if (contiene && (mejor == null || v.montaje.length > mejor.montaje.length)) mejor = v;
+        }
+        return mejor;
+    }
+
+    public delegate void AlCalcular ();
+
+    /**
+     * Calcula en segundo plano cuánto ocupa cada categoría en cada volumen (du -sbx, hasta 90 s por ruta) y avisa a
+     * medida que llegan. Mientras un volumen tenga `pendientes` > 0 está «calculando».
+     */
+    public void calcular_categorias (Volumen[] vols, Categoria[] cats, owned AlCalcular al_avanzar) {
+        foreach (var v in vols) {
+            v.categoria_bytes = new int64[cats.length];
+        }
+        for (int i = 0; i < cats.length; i++) {
+            var idx = i;
+            foreach (var ruta in cats[i].rutas) {
+                if (!FileUtils.test (ruta, FileTest.EXISTS)) continue;
+                // si la carpeta de usuario es el propio HOME (así la deja el sistema de José) no es una categoría
+                var real_ruta = Posix.realpath (ruta);
+                var real_home = Posix.realpath (Environment.get_home_dir ());
+                if (real_ruta != null && real_ruta == real_home) continue;
+                var v = volumen_de (ruta, vols);
+                if (v == null) continue;
+                v.pendientes++;
+                try {
+                    var p = new Subprocess.newv ({ "timeout", "90", "du", "-sbx", ruta },
+                                                 SubprocessFlags.STDOUT_PIPE | SubprocessFlags.STDERR_SILENCE);
+                    p.communicate_utf8_async.begin (null, null, (o, res) => {
+                        try {
+                            string salida;
+                            p.communicate_utf8_async.end (res, out salida, null);
+                            var t = (salida ?? "").split ("\t");
+                            if (t.length > 0) v.categoria_bytes[idx] += int64.parse (t[0]);
+                        } catch (Error e) {
+                        }
+                        v.pendientes--;
+                        al_avanzar ();
+                    });
+                } catch (Error e) {
+                    v.pendientes--;
+                }
+            }
+        }
     }
 
     /** «92.58 GB» / «1 TB» / «190 MB», como las cifras de la Mac (base 10). */

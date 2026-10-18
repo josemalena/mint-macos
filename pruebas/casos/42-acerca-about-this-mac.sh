@@ -1,5 +1,5 @@
 # caso: About This Mac/PC (mac-acerca) abre con el equipo real y cambia de pestaña
-# límite: 90
+# límite: 150
 prueba() {
   requiere mac-acerca xdotool
   # Un equipo.json de prueba con todos los campos de hardware (los del servicio mint-macos-equipo).
@@ -35,5 +35,13 @@ JSON
   comprobar "la pestaña Displays cambia el alto de la ventana" test "$HEIGHT" -ne "$alto1"
   mac-acerca --pestana storage >/dev/null 2>&1
   sleep 1
+  captura acerca-storage-calculando
+  sleep 25
   captura acerca-storage
+  mac-acerca --pestana support >/dev/null 2>&1
+  sleep 1
+  captura acerca-support
+  mac-acerca --pestana service >/dev/null 2>&1
+  sleep 1
+  captura acerca-service
 }

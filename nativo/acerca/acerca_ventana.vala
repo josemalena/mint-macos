@@ -8,11 +8,13 @@
 namespace Acerca {
     const string CSS = """
 window.acerca-ventana headerbar { min-height: 38px; }
+window.acerca-ventana stackswitcher button { padding-left: 8px; padding-right: 8px; min-width: 0; }
 window.acerca-ventana label { font-family: ".SF NS"; }
 .acerca-so { font-size: 26px; }
 .acerca-version { font-size: 12px; }
 .acerca-fila { font-size: 12px; }
 .acerca-pie { font-size: 10px; opacity: 0.55; }
+button.acerca-enlace-flecha { padding: 0; min-height: 0; border: none; background: none; box-shadow: none; }
 button.acerca-enlace { padding: 0; min-height: 0; border: none; background: none; box-shadow: none; }
 button.acerca-enlace label { font-family: ".SF NS"; font-size: 10px; opacity: 0.55; text-decoration: underline; }
 .acerca-pantalla { font-size: 16px; font-weight: bold; }
@@ -41,6 +43,8 @@ button.acerca-enlace label { font-family: ".SF NS"; font-size: 10px; opacity: 0.
             pila.add_titled (overview (), "overview", "Overview");
             pila.add_titled (displays (), "displays", "Displays");
             pila.add_titled (storage (), "storage", "Storage");
+            pila.add_titled (soporte (), "support", "Support");
+            pila.add_titled (servicio (), "service", "Service");
 
             var barra = new Gtk.HeaderBar ();
             barra.show_close_button = true;
@@ -223,10 +227,17 @@ button.acerca-enlace label { font-family: ".SF NS"; font-size: 10px; opacity: 0.
         }
 
         // ── Storage ─────────────────────────────────────────────────────
+        Volumen[] volumenes_vivos = {};
+        Gtk.DrawingArea[] barras = {};
+        Categoria[] categorias_vivas = {};      // campo: las barras se dibujan mucho después de armar la pestaña
+
         Gtk.Widget storage () {
             var lista = new Gtk.Box (Gtk.Orientation.VERTICAL, 0);
             lista.set_size_request (586, -1);
-            foreach (var v in volumenes (equipo.sistema)) lista.pack_start (renglon_de (v), false, false, 0);
+            volumenes_vivos = volumenes (equipo.sistema);
+            categorias_vivas = categorias ();
+            foreach (var v in volumenes_vivos) lista.pack_start (renglon_de (v), false, false, 0);
+            calcular_categorias (volumenes_vivos, categorias_vivas, () => { foreach (var b in barras) b.queue_draw (); });
             var scroll = new Gtk.ScrolledWindow (null, null);
             scroll.set_policy (Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC);
             scroll.propagate_natural_height = true;
@@ -254,28 +265,151 @@ button.acerca-enlace label { font-family: ".SF NS"; font-size: 10px; opacity: 0.
 
             var col = new Gtk.Box (Gtk.Orientation.VERTICAL, 3);
             col.valign = Gtk.Align.START;
-            col.pack_start (etiqueta (esc (v.nombre), "acerca-volumen"), false, false, 0);
-            col.pack_start (etiqueta (esc ("%s available of %s".printf (tamano_legible (v.libre), tamano_legible (v.tamano))), "acerca-libre"), false, false, 0);
+            var cabecera = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 0);
+            var textos = new Gtk.Box (Gtk.Orientation.VERTICAL, 3);
+            textos.pack_start (etiqueta (esc (v.nombre), "acerca-volumen"), false, false, 0);
+            textos.pack_start (etiqueta (esc ("%s available of %s".printf (tamano_legible (v.libre), tamano_legible (v.tamano))), "acerca-libre"), false, false, 0);
+            cabecera.pack_start (textos, true, true, 0);
+            if (v.montaje == "/") {          // Manage… (el volumen del sistema): el analizador de disco de Mint
+                var manejar = new Gtk.Button.with_label ("Manage…");
+                manejar.valign = Gtk.Align.START;
+                manejar.clicked.connect (() => lanzar ({ "baobab" }));
+                cabecera.pack_end (manejar, false, false, 0);
+            }
+            col.pack_start (cabecera, false, false, 0);
             var barra = new Gtk.DrawingArea ();
             barra.set_size_request (-1, 20);
             barra.margin_top = 3;
-            double usado = v.tamano > 0 ? 1.0 - ((double) v.libre / v.tamano) : 0;
-            barra.draw.connect ((cr) => {
-                int w = barra.get_allocated_width (), h = barra.get_allocated_height ();
-                cr.rectangle (0.5, 0.5, w - 1, h - 1);
-                cr.set_source_rgba (0.5, 0.5, 0.5, 0.25);
-                cr.fill_preserve ();
-                cr.set_source_rgba (0.5, 0.5, 0.5, 0.6);
-                cr.set_line_width (1);
-                cr.stroke ();
-                cr.rectangle (1, 1, (w - 2) * usado, h - 2);
-                cr.set_source_rgba (0.62, 0.62, 0.64, 0.95);
-                cr.fill ();
-                return true;
-            });
+            barra.draw.connect ((cr) => { dibujar_barra (cr, barra, v, categorias_vivas); return true; });
+            barras += barra;
             col.pack_start (barra, false, false, 0);
             fila.pack_start (col, true, true, 0);
             return fila;
+        }
+
+        /** La barra del volumen: por categorías cuando ya se calcularon, gris con «Calculating…» mientras tanto. */
+        static void dibujar_barra (Cairo.Context cr, Gtk.DrawingArea barra, Volumen v, Categoria[] cats) {
+            int w = barra.get_allocated_width (), h = barra.get_allocated_height ();
+            double total = v.tamano > 0 ? v.tamano : 1;
+            double usado = (v.tamano - v.libre) / total;
+            cr.rectangle (0.5, 0.5, w - 1, h - 1);
+            cr.set_source_rgba (0.5, 0.5, 0.5, 0.15);
+            cr.fill_preserve ();
+            cr.set_source_rgba (0.5, 0.5, 0.5, 0.6);
+            cr.set_line_width (1);
+            cr.stroke ();
+            double x = 1;
+            double ancho_usado = (w - 2) * usado;
+            var sel = v.categoria_bytes;
+            bool listo = v.pendientes <= 0 && sel.length == cats.length;
+            if (!listo) {
+                cr.rectangle (1, 1, ancho_usado, h - 2);
+                cr.set_source_rgba (0.62, 0.62, 0.64, 0.95);
+                cr.fill ();
+                texto_en_barra (cr, "Calculating…", 6, h);
+                return;
+            }
+            int64 suma = 0;
+            for (int i = 0; i < cats.length; i++) {
+                if (sel[i] <= 0) continue;
+                double ancho = (w - 2) * ((double) sel[i] / total);
+                if (x + ancho > 1 + ancho_usado) ancho = 1 + ancho_usado - x;
+                if (ancho <= 0) break;
+                cr.rectangle (x, 1, ancho, h - 2);
+                cr.set_source_rgb (cats[i].r, cats[i].g, cats[i].b);
+                cr.fill ();
+                if (ancho > 64) texto_en_barra (cr, cats[i].nombre, x + 5, h, true);
+                x += ancho;
+                suma += sel[i];
+            }
+            if (x < 1 + ancho_usado) {          // el resto de lo usado: Other
+                cr.rectangle (x, 1, 1 + ancho_usado - x, h - 2);
+                cr.set_source_rgb (0.66, 0.66, 0.68);
+                cr.fill ();
+            }
+        }
+
+        static void texto_en_barra (Cairo.Context cr, string t, double x, int h, bool claro = false) {
+            cr.select_font_face (".SF NS", Cairo.FontSlant.NORMAL, Cairo.FontWeight.NORMAL);
+            cr.set_font_size (11);
+            cr.set_source_rgb (1, 1, 1);
+            cr.move_to (x, h / 2.0 + 4);
+            cr.show_text (t);
+        }
+
+        // ── Support y Service ───────────────────────────────────────────
+        // Las pestañas de Apple (Ayuda de Mac, AppleCare…) enseñan aquí los enlaces que trae Linux Mint, tomados de
+        // /etc/os-release y /etc/linuxmint/info; un enlace que el sistema no trae no sale.
+        Gtk.Widget soporte () {
+            var caja = enlaces_con_logo ("%s Resources".printf (equipo.sistema), {
+                { "User Guide", url_de ("/etc/linuxmint/info", "USER_GUIDE_URL") },
+                { "Release Notes", url_de ("/etc/linuxmint/info", "RELEASE_NOTES_URL") },
+                { "Support", url_de ("/etc/os-release", "SUPPORT_URL") }
+            });
+            caja.set_size_request (586, 301);
+            return caja;
+        }
+
+        Gtk.Widget servicio () {
+            var caja = enlaces_con_logo ("%s Service".printf (equipo.sistema), {
+                { "New Features", url_de ("/etc/linuxmint/info", "NEW_FEATURES_URL") },
+                { "Troubleshooting Guide", url_de ("/etc/os-release", "BUG_REPORT_URL") }
+            });
+            caja.set_size_request (586, 301);
+            return caja;
+        }
+
+        static string url_de (string archivo, string clave) {
+            foreach (var l in leer (archivo).split ("\n")) {
+                if (l.has_prefix (clave + "=")) return l.substring (clave.length + 1).replace ("\"", "").strip ();
+            }
+            return "";
+        }
+
+        /** Un título grueso a la izquierda con el logo y, a la derecha, los enlaces con su flecha en un círculo. */
+        Gtk.Box enlaces_con_logo (string titulo_seccion, string[,] enlaces) {
+            var caja = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 40);
+            caja.halign = Gtk.Align.CENTER;
+            caja.valign = Gtk.Align.CENTER;
+            var izq = new Gtk.Box (Gtk.Orientation.VERTICAL, 12);
+            izq.valign = Gtk.Align.CENTER;
+            izq.pack_start (etiqueta ("<b>%s</b>".printf (esc (titulo_seccion)), "acerca-fila"), false, false, 0);
+            caja.pack_start (izq, false, false, 0);
+            caja.pack_start (disco_del_sistema (), false, false, 0);
+            var der = new Gtk.Box (Gtk.Orientation.VERTICAL, 14);
+            der.valign = Gtk.Align.CENTER;
+            for (int i = 0; i < enlaces.length[0]; i++) {
+                var url = enlaces[i, 1];
+                if (url == "") continue;
+                der.pack_start (enlace_con_flecha (enlaces[i, 0], url), false, false, 0);
+            }
+            caja.pack_start (der, false, false, 0);
+            return caja;
+        }
+
+        static Gtk.Widget enlace_con_flecha (string texto, string url) {
+            var b = new Gtk.Button ();
+            b.relief = Gtk.ReliefStyle.NONE;
+            b.get_style_context ().add_class ("acerca-enlace-flecha");
+            var h = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
+            var flecha = new Gtk.DrawingArea ();
+            flecha.set_size_request (14, 14);
+            flecha.draw.connect ((cr) => {           // ➜ en un círculo gris
+                cr.arc (7, 7, 6.5, 0, 2 * Math.PI);
+                cr.set_source_rgba (0.35, 0.35, 0.37, 1);
+                cr.fill ();
+                cr.set_source_rgb (1, 1, 1);
+                cr.set_line_width (1.6);
+                cr.move_to (3.5, 7); cr.line_to (10, 7);
+                cr.move_to (7.5, 4); cr.line_to (10.5, 7); cr.line_to (7.5, 10);
+                cr.stroke ();
+                return true;
+            });
+            h.pack_start (flecha, false, false, 0);
+            h.pack_start (etiqueta (esc (texto), "acerca-fila", false), false, false, 0);
+            b.add (h);
+            b.clicked.connect (() => lanzar ({ "xdg-open", url }));
+            return b;
         }
     }
 }
