@@ -213,9 +213,9 @@ Cada fork, el commit que se compila y los parches que lleva encima de su upstrea
 
 - Fork: https://github.com/josemalena/mint-macos-dock.git
 - Upstream: https://github.com/zquestz/plank-reloaded.git, rama `master`
-- Commit: `12d51dd5c95a1cc4f8b900e0b81c8c9c08323100` (2026-10-16, macos: los dos separadores con la misma holgura, y sin apps recientes no sale el segundo)
+- Commit: `68d01f049de8653aa52f685774666bac13900fb4` (2026-10-17, tests: plank-tests a 120 s y dock-test a 60 s también sin Xvfb (el timeout de 30 s por defecto se agotó una de tres veces con la máquina cargada))
 - Base: `e8e2b1fe2e9b13664b1402e2e68246a974ea1a4b` (0.11.176), 2026-10-09, Bump version to 0.11.176
-- Parches: 20
+- Parches: 21
 
 | Commit | Fecha | Asunto |
 |---|---|---|
@@ -239,6 +239,7 @@ Cada fork, el commit que se compila y los parches que lleva encima de su upstrea
 | `8400c8442` | 2026-10-15 | macos: soltar un ícono del dock sobre la Papelera lo quita del dock |
 | `a8ce1db1e` | 2026-10-15 | macos: la Papelera del dock cuenta y vacía la de macOS de los discos externos (<volumen>/.Trashes/<uid>) |
 | `12d51dd5c` | 2026-10-16 | macos: los dos separadores con la misma holgura, y sin apps recientes no sale el segundo |
+| `68d01f049` | 2026-10-17 | tests: plank-tests a 120 s y dock-test a 60 s también sin Xvfb (el timeout de 30 s por defecto se agotó una de tres veces con la máquina cargada) |
 
 ## slick-greeter-mac
 
