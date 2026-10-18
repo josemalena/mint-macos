@@ -18,9 +18,11 @@
 set -euo pipefail
 
 AQUI="$(cd "$(dirname "$0")" && pwd)"
-# Edge si está; si no, el primer Chromium que haya. Firefox no sirve: no tiene --app.
+# Edge si está; si no, el primer Chromium que haya: el chromium de Mint lo instala
+# requisitos.sh cuando no hay ninguno. chromium-browser va al final: en Ubuntu es el
+# del snap. Firefox no tiene --app.
 if [ -z "${NAVEGADOR:-}" ]; then
-  for n in microsoft-edge-stable google-chrome-stable chromium chromium-browser brave-browser; do
+  for n in microsoft-edge-stable google-chrome-stable chromium brave-browser chromium-browser; do
     command -v "$n" >/dev/null && { NAVEGADOR="$n"; break; }
   done
 fi
@@ -56,14 +58,18 @@ if [ "${1:-}" = "--quitar" ]; then
   exit 0
 fi
 
-# Sin Chromium, Firefox por el backend de Web Apps de Mint (webapp-manager), como
-# pidió José (15-10-2026; la iMac no tiene Edge): cada app en su ventana con su
-# perfil de Firefox aparte, y se ven y se editan en la app Web Apps.
+# Sin ningún Chromium, y solo como último recurso, Firefox por el backend de Web Apps
+# de Mint (webapp-manager): cada app en su ventana con su perfil de Firefox aparte, así
+# que cada una pide la clave de Apple por su lado (13 veces). José, 18-10-2026: en
+# una Mac sin Edge ni Chrome va el chromium de Mint, que pone requisitos.sh.
 WEBAPPS=/usr/lib/webapp-manager
 MODO=chromium
 if ! command -v "$NAVEGADOR" >/dev/null; then
   if command -v firefox >/dev/null && [ -f "$WEBAPPS/common.py" ]; then
     MODO=firefox; NAVEGADOR=firefox
+    echo "  ⚠ sin Edge, Chrome ni Chromium: las apps web de iCloud van con Firefox, y cada una"
+    echo "    pide entrar a iCloud aparte. Con Chromium (sudo apt install chromium) entra una vez"
+    echo "    para todas: instálalo y corre $0 --quitar y después $0."
   else
     # Sin navegador que sirva no se corta la instalación: avisa y sale bien.
     echo "  ⚠ sin Edge, Chrome/Chromium ni Firefox con Web Apps: las apps web de iCloud no se crean."
@@ -72,6 +78,12 @@ if ! command -v "$NAVEGADOR" >/dev/null; then
   fi
 fi
 mkdir -p "$APPS" "$ICONOS"
+# Una máquina que venía con las de Firefox: se quitan sus lanzadores para que no
+# salgan dos de cada una. Sus perfiles (con la sesión de iCloud) los borra --quitar.
+if [ "$MODO" = chromium ] && ls "$APPS"/WebApp-mintmacos*.desktop >/dev/null 2>&1; then
+  rm -f "$APPS"/WebApp-mintmacos*.desktop
+  echo "  quitadas las apps web de Firefox de antes (sus perfiles siguen en ~/.local/share/ice/firefox/mintmacos*; $0 --quitar los borra)"
+fi
 
 # La clase de ventana que pone Chromium con --app: «host__ruta», con las barras
 # de la ruta como «_»; sin ruta, el host solo. Es lo que el Dock usa para

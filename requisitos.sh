@@ -82,6 +82,25 @@ else
   apt-get install -y "${COMPILAR[@]}" "${EJECUCION[@]}"
 fi
 
+paso "Un navegador Chromium para las apps web de iCloud"
+# Las apps web de iCloud (icloud/apps-web.sh) van en ventanas --app de Chromium: con
+# Firefox cada una lleva su perfil y pide la clave de Apple aparte (José, 18-10-2026).
+# Solo si no hay Edge, Chrome, Chromium ni Brave, y solo el chromium de Mint (deb): el
+# chromium-browser de Ubuntu es el transicional que trae el snap.
+NAV_HAY=""
+for n in microsoft-edge-stable google-chrome-stable chromium brave-browser; do
+  command -v "$n" >/dev/null && { NAV_HAY="$n"; break; }
+done
+if [ -n "$NAV_HAY" ]; then
+  echo "  ya hay uno: $NAV_HAY"
+elif ! apt-cache policy chromium 2>/dev/null | grep -q 'Candidate:.*linuxmint'; then
+  echo "  ⚠ no hay el chromium de Mint en los repositorios: las apps web de iCloud irán con Firefox"
+elif $SIMULAR; then
+  echo "  se instalaría chromium ($(apt-cache policy chromium | sed -n 's/ *Candidate: //p'))"
+else
+  apt-get install -y chromium
+fi
+
 paso "zsh como shell, como en Catalina"
 ZSH_BIN="$(command -v zsh || echo /usr/bin/zsh)"
 ACTUAL="$(getent passwd "$USUARIO" | cut -d: -f7)"
