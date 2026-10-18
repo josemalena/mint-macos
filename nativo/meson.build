@@ -25,6 +25,7 @@ subdir('acerca')
 subdir('emojis')
 subdir('tienda')
 subdir('menu')
+subdir('actividad')
 subdir('ventanas')
 subdir('preferencias')
 

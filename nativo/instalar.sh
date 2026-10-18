@@ -23,6 +23,7 @@ case "${1:-}" in
     # El App Store: lanzador en el menú de aplicaciones; el servicio de /Applications (aplicaciones.path) lo copia para
     # Launchpad. El Dock (mac-tienda.dockitem) y el menú Apple (applemenu) apuntan a él.
     install -D -m 755 "$AQUI/mac-tienda.desktop" "$HOME/.local/share/applications/mac-tienda.desktop"
+    install -D -m 755 "$AQUI/actividad/mac-actividad.desktop" "$HOME/.local/share/applications/mac-actividad.desktop"
     mkdir -p "$HOME/.config/mint-macos"
     grep -qs '^arriba mac-tienda.desktop' "$HOME/.config/mint-macos/aplicaciones.conf" \
       || echo 'arriba mac-tienda.desktop' >> "$HOME/.config/mint-macos/aplicaciones.conf"
