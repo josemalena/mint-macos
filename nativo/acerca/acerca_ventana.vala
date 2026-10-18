@@ -254,7 +254,8 @@ button.acerca-enlace label { font-family: ".SF NS"; font-size: 10px; opacity: 0.
             fila.margin_top = 20;
             var icono_col = new Gtk.Box (Gtk.Orientation.VERTICAL, 4);
             icono_col.set_size_request (90, -1);
-            var icono = new Gtk.Image.from_icon_name (v.externo ? "drive-removable-media" : "drive-harddisk", Gtk.IconSize.DIALOG);
+            // Los tres discos de Catalina que trae el tema Constanza (finder/): interno, externo y removible.
+            var icono = new Gtk.Image.from_icon_name (v.removible ? "drive-removable-media" : (v.externo ? "drive-harddisk-usb" : "drive-harddisk"), Gtk.IconSize.DIALOG);
             icono.pixel_size = 48;
             icono_col.pack_start (icono, false, false, 0);
             var desc = etiqueta (esc (v.descripcion), "acerca-disco", false);

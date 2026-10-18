@@ -218,7 +218,8 @@ namespace Acerca {
         public int64 tamano = 0;
         public int64 libre = 0;
         public string descripcion = "";     // «500 GB\nSolid State\nSATA Drive»
-        public bool externo = false;
+        public bool externo = false;        // por USB o ieee1394 y no removible
+        public bool removible = false;      // un pendrive, una tarjeta (RM=1)
     }
 
     /** punto de montaje → dispositivo, de los discos reales (nada de loop, tmpfs ni /boot/efi). */
@@ -250,8 +251,9 @@ namespace Acerca {
         return "";
     }
 
-    string describir_disco (string dispositivo, out bool externo) {
+    string describir_disco (string dispositivo, out bool externo, out bool removible) {
         externo = false;
+        removible = false;
         var padre = ejecutar ({ "lsblk", "-no", "PKNAME", dispositivo }).strip ();
         var base_ = padre != "" ? "/dev/" + padre : dispositivo;
         var campos = ejecutar ({ "lsblk", "-dnb", "-o", "SIZE,ROTA,TRAN,RM", base_ }).strip ().split (" ");
@@ -262,8 +264,10 @@ namespace Acerca {
         var tam = bytes >= 900000000000 ? "%.0f TB".printf (bytes / 1e12 < 1.5 ? 1.0 : bytes / 1e12) : "%d GB".printf ((int) Math.round (bytes / 1e9));
         if (bytes >= 900000000000 && bytes < 1500000000000) tam = "1 TB";
         var tran = c.length > 2 ? c[2].up () : "";
-        externo = tran == "USB" || (c.length > 3 && c[c.length - 1] == "1");
-        if (externo) return "External %s\n%s Disk".printf (tam, tran != "" ? tran : "USB");
+        // La misma regla que Fynder (udisks2): removible si RM=1; externo si va por USB o ieee1394; interno si no.
+        removible = c.length > 3 && c[c.length - 1] == "1";
+        externo = !removible && (tran == "USB" || tran == "IEEE1394");
+        if (removible || externo) return "External %s\n%s Disk".printf (tam, tran != "" ? tran : "USB");
         return "%s\n%s\n%s".printf (tam, c[1] == "0" ? "Solid State" : "Hard Disk", tran != "" ? tran + " Drive" : "Drive");
     }
 
@@ -301,9 +305,10 @@ namespace Acerca {
             } catch (Error e) {
                 continue;
             }
-            bool ext;
-            v.descripcion = describir_disco (dev, out ext);
+            bool ext, rem;
+            v.descripcion = describir_disco (dev, out ext, out rem);
             v.externo = ext;
+            v.removible = rem;
             salida += v;
         }
         return salida;
