@@ -314,11 +314,29 @@ class GlobalMenuApplet extends Applet.Applet {
     });
   }
 
-  // ¿El modelo de GTK trae al menos un menú que se pueda pintar?
-  _modeloConMenus(m) {
+  // Los ítems de la barra, entrando en las secciones sin etiqueta: appmenu-gtk-module (xed y las apps que exportan así)
+  // envuelve la barra en dos secciones, y los menús File, Edit… quedan dentro. Devuelve [modelo, índice].
+  _itemsDeBarra(m, prof = 0) {
+    let res = [];
     let n = m.get_n_items();
     for (let i = 0; i < n; i++) {
-      if (m.get_item_link(i, LINK_SUBMENU) && limpiarEtiqueta(texto(m, i, ATTR_LABEL))) return true;
+      let sub = m.get_item_link(i, LINK_SUBMENU);
+      let sec = m.get_item_link(i, LINK_SECTION);
+      if (sec && !sub && prof < 4) {
+        this._vivos.push(sec);
+        precargar(sec, 0, this._vivos);
+        res = res.concat(this._itemsDeBarra(sec, prof + 1));
+      } else {
+        res.push([m, i]);
+      }
+    }
+    return res;
+  }
+
+  // ¿El modelo de GTK trae al menos un menú que se pueda pintar?
+  _modeloConMenus(m) {
+    for (let [mm, i] of this._itemsDeBarra(m)) {
+      if (mm.get_item_link(i, LINK_SUBMENU) && limpiarEtiqueta(texto(mm, i, ATTR_LABEL))) return true;
     }
     return false;
   }
@@ -331,14 +349,13 @@ class GlobalMenuApplet extends Applet.Applet {
     this._limpiar();
     this._vivos = [];
     precargar(m, 0, this._vivos);
-    let n = m.get_n_items();
-    for (let i = 0; i < n; i++) {
-      let sub = m.get_item_link(i, LINK_SUBMENU);
-      let etiqueta = limpiarEtiqueta(texto(m, i, ATTR_LABEL));
+    for (let [mm, i] of this._itemsDeBarra(m)) {
+      let sub = mm.get_item_link(i, LINK_SUBMENU);
+      let etiqueta = limpiarEtiqueta(texto(mm, i, ATTR_LABEL));
       if (!sub || !etiqueta) continue;
       // El menú propio de la app (x-constanza-app-menu) lo pinta appmenu en
       // el nombre de la app; aquí no se repite.
-      let propio = atributo(m, i, "x-constanza-app-menu");
+      let propio = atributo(mm, i, "x-constanza-app-menu");
       try { if (propio && propio.get_boolean()) continue; } catch (e) {}
       this._agregarBoton(etiqueta, sub);
     }
