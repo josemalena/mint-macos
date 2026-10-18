@@ -31,4 +31,9 @@ fi
 [[ "${U:-}" =~ ^[0-9]+$ ]] || U=0
 [[ "${G:-}" =~ ^[0-9]+$ ]] || G="$U"
 [[ "${VOL:-}" =~ ^[0-9]+$ ]] || VOL=1
+# El espacio libre del contenedor, para About ▸ Storage y Fynder: fsapfsmount no
+# responde statfs. Se mide una vez al montar (en solo lectura no cambia) y queda en
+# /run/mint-macos/apfs/<uuid>.json. Si falla, se monta igual.
+ESPACIO=/usr/libexec/mint-macos/apfs-espacio
+[ -x "$ESPACIO" ] && "$ESPACIO" "$SRC" --guardar >/dev/null 2>&1 || true
 exec /usr/local/bin/fsapfsmount -f "$VOL" -X "allow_other,uid=$U,gid=$G" "$SRC" "$TARGET"

@@ -174,7 +174,10 @@ gráficos. Lo leen libmacos y el applet; los campos están en la cabecera de `ru
 
 **Un solo programa para lo del arranque** (José, 18-10-2026): lo que no cambia con el sistema corriendo
 lo lee `mint-macos-equipo` y nadie más; los demás leen `equipo.json` y, si no está, no enseñan esas filas.
-Las pantallas y los discos se leen al usarse, porque cambian. El archivo es **0640 root:users**: lleva la
+Las pantallas y los discos se leen al usarse, porque cambian. **No es una excepción:** el espacio libre de
+los discos APFS de la Mac (`/run/mint-macos/apfs/<uuid>.json`, de `mint-macos-apfs-espacio`) no es dato del
+arranque sino de cada montaje: lo escribe `apfs/mount.fsapfs` al montar (fsapfsmount no responde statfs) y
+cambia si se monta otro disco. El archivo es **0640 root:users**: lleva la
 serie, así que lo leen las personas de la máquina (el grupo `users`) y no los demonios.
 
 El nombre comercial (Macmini6,1 → «Mac mini (Late 2012)») sale de `rust/equipo/src/modelos.rs`.

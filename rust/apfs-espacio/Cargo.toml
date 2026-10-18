@@ -1,0 +1,9 @@
+[package]
+name = "mint-macos-apfs-espacio"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+description = "El tamaño y el espacio libre de un contenedor APFS, leído en solo lectura (lo que fsapfsmount no responde por statfs)"
+
+# Sin dependencias: solo la biblioteca estándar.
+[dependencies]

@@ -15,7 +15,8 @@
 #      como GIO con un disco que conoce: usb → drive-harddisk-usb; SSD interno →
 #      drive-harddisk-solidstate; de platos → drive-harddisk. Sin eso GIO no sabe de qué
 #      disco es un FUSE y le pone drive-removable-media.
-#   3. Instala apfs/mount.fsapfs (el de ahora pone el dueño del montaje: uid/gid).
+#   3. Instala apfs/mount.fsapfs (el de ahora pone el dueño del montaje: uid/gid) y
+#      mint-macos-apfs-espacio, que mide el espacio libre al montar (statfs da 0).
 #   4. Suelta los montajes fsapfs de fstab que no estén en uso, para que el
 #      automount los rehaga con lo nuevo (y quita la copia de más, si hay).
 # Antes de tocar nada guarda fstab, la regla y el ayudante en
@@ -91,8 +92,20 @@ install -m 644 "$TMP" /etc/fstab
 rm -f "$TMP"
 systemctl daemon-reload
 
-echo "▸ El ayudante de mount(8)"
+echo "▸ El ayudante de mount(8) y el que mide el espacio libre"
 install -m 755 "$AQUI/mount.fsapfs" "$AYUDANTE"
+ESP="$AQUI/../rust/target/release/mint-macos-apfs-espacio"
+if [ -x "$ESP" ]; then
+  install -d -m 755 /usr/libexec/mint-macos
+  install -m 755 -o root -g root "$ESP" /usr/libexec/mint-macos/apfs-espacio
+  # Los que ya están montados no pasan otra vez por mount.fsapfs: se miden ahora.
+  for d in "${DISCOS[@]}"; do
+    /usr/libexec/mint-macos/apfs-espacio "/dev/disk/by-uuid/${d%% *}" --guardar >/dev/null || true
+  done
+  echo "  espacio libre en /run/mint-macos/apfs/"
+else
+  echo "  ⚠ falta compilar $ESP (cd rust && cargo build --release -p mint-macos-apfs-espacio, sin sudo)"
+fi
 
 echo "▸ Los montajes, de nuevo (solo los que nadie usa)"
 for d in "${DISCOS[@]}"; do

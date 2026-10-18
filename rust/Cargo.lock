@@ -665,6 +665,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "mint-macos-apfs-espacio"
+version = "0.1.0"
+
+[[package]]
 name = "mint-macos-aplicaciones"
 version = "0.1.0"
 
