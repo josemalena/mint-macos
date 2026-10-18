@@ -28,8 +28,12 @@
 //!                       de /proc/cpuinfo (src/procesador.rs)
 //!     memoria           total (bytes), tipo, velocidad (MT/s, que la Mac llama MHz),
 //!                       modulos, texto («16 GB 1333 MHz DDR3») y fuente: «smbios» (la
-//!                       tabla DMI, solo root) o, si no se lee, «meminfo» con solo el total
-//!     graficos          [{pci, fabricante, modelo, texto}], de /sys/bus/pci y pci.ids
+//!                       tabla DMI, solo root) o, si no se lee, «meminfo» con solo el total;
+//!                       ranuras: [{etiqueta, tamano (null = vacía), tipo, velocidad,
+//!                       fabricante}] en el orden de la tabla, las vacías incluidas
+//!     graficos          [{pci, fabricante, modelo, texto, fuente, vram}]: el nombre de
+//!                       mercado de Mesa (Intel, src/gpus.rs) o de amdgpu.ids (AMD), si
+//!                       no el de pci.ids; vram solo si el driver la da (src/graficos.rs)
 //!     video             {decodifica: ["h264", "mpeg2", …]}: lo que la GPU decodifica por
 //!                       VA-API (libva por DRM, src/video.rs); null sin GPU o sin driver
 //!
@@ -42,6 +46,7 @@
 //!     mint-macos-equipo --raiz DIR         lee DIR/sys, DIR/proc, DIR/etc/os-release y
 //!                                          DIR/usr/share (para las pruebas)
 
+mod gpus;
 mod graficos;
 mod memoria;
 mod modelos;
@@ -205,13 +210,13 @@ fn serie_de_verdad(s: String) -> Option<String> {
 /// La memoria de SMBIOS; si la tabla no se lee, el total de /proc/meminfo (lo que ve
 /// el núcleo, redondeado a GB al escribirlo), sin tipo ni velocidad.
 fn leer_memoria(raiz: &Path) -> Option<(memoria::Memoria, &'static str)> {
-    if let Some(m) = fs::read(raiz.join("sys/firmware/dmi/tables/DMI")).ok().and_then(|t| memoria::resumir(&memoria::modulos(&t))) {
+    if let Some(m) = fs::read(raiz.join("sys/firmware/dmi/tables/DMI")).ok().and_then(|t| memoria::resumir(&memoria::modulos(&t), memoria::ranuras(&t))) {
         return Some((m, "smbios"));
     }
     let info = fs::read_to_string(raiz.join("proc/meminfo")).ok()?;
     let kb: u64 = info.lines().find_map(|l| l.strip_prefix("MemTotal:"))?.trim().trim_end_matches("kB").trim().parse().ok()?;
     let gb = ((kb as f64 / 1048576.0).round() as u64).max(1);
-    Some((memoria::Memoria { total: gb << 30, tipo: None, velocidad: None, modulos: 0 }, "meminfo"))
+    Some((memoria::Memoria { total: gb << 30, tipo: None, velocidad: None, modulos: 0, ranuras: vec![] }, "meminfo"))
 }
 
 fn leer(raiz: &Path) -> Equipo {
@@ -289,15 +294,28 @@ fn json_memoria(m: &Option<(memoria::Memoria, &'static str)>) -> String {
     match m {
         None => "null".to_string(),
         Some((m, fuente)) => format!(
-            "{{\n    \"total\": {},\n    \"tipo\": {},\n    \"velocidad\": {},\n    \"modulos\": {},\n    \"texto\": {},\n    \"fuente\": {}\n  }}",
+            "{{\n    \"total\": {},\n    \"tipo\": {},\n    \"velocidad\": {},\n    \"modulos\": {},\n    \"texto\": {},\n    \"fuente\": {},\n    \"ranuras\": {}\n  }}",
             m.total,
             opcional(&m.tipo.map(|t| t.to_string())),
             numero(m.velocidad),
             if m.modulos > 0 { m.modulos.to_string() } else { "null".to_string() },
             cadena(&memoria::texto(m)),
-            cadena(fuente)
+            cadena(fuente),
+            json_ranuras(&m.ranuras)
         ),
     }
+}
+
+/// Las ranuras de memoria; [] si la fuente no las da (meminfo).
+fn json_ranuras(r: &[memoria::Ranura]) -> String {
+    if r.is_empty() {
+        return "[]".to_string();
+    }
+    let filas: Vec<String> = r
+        .iter()
+        .map(|x| format!("\n      {{\"etiqueta\": {}, \"tamano\": {}, \"tipo\": {}, \"velocidad\": {}, \"fabricante\": {}}}", opcional(&x.etiqueta), numero(x.bytes), opcional(&x.tipo.map(String::from)), numero(x.velocidad), opcional(&x.fabricante)))
+        .collect();
+    format!("[{}\n    ]", filas.join(","))
 }
 
 fn json_graficos(g: &[graficos::Grafico]) -> String {
@@ -306,7 +324,7 @@ fn json_graficos(g: &[graficos::Grafico]) -> String {
     }
     let filas: Vec<String> = g
         .iter()
-        .map(|x| format!("\n    {{\"pci\": {}, \"fabricante\": {}, \"modelo\": {}, \"texto\": {}}}", cadena(&x.pci), opcional(&x.fabricante), opcional(&x.modelo), cadena(&x.texto)))
+        .map(|x| format!("\n    {{\"pci\": {}, \"fabricante\": {}, \"modelo\": {}, \"texto\": {}, \"fuente\": {}, \"vram\": {}}}", cadena(&x.pci), opcional(&x.fabricante), opcional(&x.modelo), cadena(&x.texto), cadena(x.fuente), numero(x.vram)))
         .collect();
     format!("[{}\n  ]", filas.join(","))
 }

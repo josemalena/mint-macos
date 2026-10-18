@@ -1,6 +1,12 @@
 //! Los controladores de video, de /sys/bus/pci/devices: los de clase 0x0300 (VGA),
-//! 0x0302 (3D) y 0x0380 (Display). El nombre sale de pci.ids, la misma base que usa
-//! lspci, sin ejecutarlo. El que arrancó la pantalla (boot_vga = 1) va primero.
+//! 0x0302 (3D) y 0x0380 (Display). El que arrancó la pantalla (boot_vga = 1) va
+//! primero.
+//!
+//! El nombre, el de mercado cuando hay fuente (como lo dice la Mac: «Intel HD
+//! Graphics 4000»): Intel de la tabla de Mesa (src/gpus.rs, generada), AMD de
+//! /usr/share/libdrm/amdgpu.ids (por device y revisión); si no, pci.ids, la base
+//! que usa lspci, sin ejecutarlo. La VRAM solo si el driver la dice
+//! (mem_info_vram_total, amdgpu): una integrada de Intel no tiene propia.
 
 use std::fs;
 use std::path::Path;
@@ -11,8 +17,22 @@ pub struct Grafico {
     pub pci: String,
     pub fabricante: Option<String>,
     pub modelo: Option<String>,
-    /// «Intel 3rd Gen Core processor Graphics Controller»; el id PCI si pci.ids no lo trae.
+    /// «Intel HD Graphics 4000»; si no hay nombre de mercado, el de pci.ids, y si
+    /// tampoco, el id PCI.
     pub texto: String,
+    /// De dónde sale texto: «mesa», «amdgpu.ids», «pci.ids» o «pci».
+    pub fuente: &'static str,
+    pub vram: Option<u64>,
+}
+
+/// AMD: «1002:73bf» con revisión «c1» en amdgpu.ids («73BF,\tC1,\tAMD Radeon RX 6800 XT»).
+pub fn amdgpu(ids: &str, device: &str, revision: &str) -> Option<String> {
+    let (d, r) = (device.to_ascii_uppercase(), revision.to_ascii_uppercase());
+    ids.lines().filter(|l| !l.starts_with('#')).find_map(|l| {
+        let mut c = l.splitn(3, ',').map(str::trim);
+        let (Some(a), Some(b), Some(n)) = (c.next(), c.next(), c.next()) else { return None };
+        (a == d && b == r).then(|| n.to_string())
+    })
 }
 
 /// Fabricante y dispositivo en pci.ids: «8086  Intel Corporation» y debajo, con un
@@ -73,13 +93,23 @@ pub fn leer(raiz: &Path) -> Vec<Grafico> {
         let (fab, modelo) = nombres(&ids, &ven, &dev);
         let fab = fab.map(|f| fabricante_corto(&f));
         let pci = format!("{ven}:{dev}");
-        let texto = match (&fab, &modelo) {
-            (Some(f), Some(m)) => format!("{f} {m}"),
-            (Some(f), None) => format!("{f} {pci}"),
-            _ => pci.clone(),
+        let mercado = match ven.as_str() {
+            "8086" => u16::from_str_radix(&dev, 16).ok().and_then(|n| crate::gpus::INTEL.iter().find(|(i, _)| *i == n)).map(|(_, nombre)| (nombre.to_string(), "mesa")),
+            "1002" => {
+                let rev = hex(&d.join("revision")).unwrap_or_default();
+                fs::read_to_string(raiz.join("usr/share/libdrm/amdgpu.ids")).ok().and_then(|t| amdgpu(&t, &dev, &rev)).map(|n| (n, "amdgpu.ids"))
+            }
+            _ => None,
         };
+        let (texto, fuente) = match (mercado, &fab, &modelo) {
+            (Some((n, f)), _, _) => (n, f),
+            (None, Some(f), Some(m)) => (format!("{f} {m}"), "pci.ids"),
+            (None, Some(f), None) => (format!("{f} {pci}"), "pci.ids"),
+            _ => (pci.clone(), "pci"),
+        };
+        let vram = fs::read_to_string(d.join("mem_info_vram_total")).ok().and_then(|t| t.trim().parse::<u64>().ok()).filter(|v| *v > 0);
         let arranque = fs::read_to_string(d.join("boot_vga")).map(|s| s.trim() == "1").unwrap_or(false);
-        v.push((arranque, e.file_name().to_string_lossy().into_owned(), Grafico { pci, fabricante: fab, modelo, texto }));
+        v.push((arranque, e.file_name().to_string_lossy().into_owned(), Grafico { pci, fabricante: fab, modelo, texto, fuente, vram }));
     }
     v.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| a.1.cmp(&b.1)));
     v.into_iter().map(|(_, _, g)| g).collect()
@@ -120,7 +150,15 @@ mod pruebas {
         fs::create_dir_all(t.join("usr/share/misc")).unwrap();
         fs::write(t.join("usr/share/misc/pci.ids"), IDS).unwrap();
         let g = leer(&t);
-        assert_eq!(g.iter().map(|x| x.texto.as_str()).collect::<Vec<_>>(), ["AMD Tahiti XT [Radeon HD 7970]", "Intel 3rd Gen Core processor Graphics Controller"]);
+        // Intel con nombre de Mesa; la AMD sin amdgpu.ids de prueba se queda con pci.ids.
+        assert_eq!(g.iter().map(|x| (x.texto.as_str(), x.fuente)).collect::<Vec<_>>(), [("AMD Tahiti XT [Radeon HD 7970]", "pci.ids"), ("Intel HD Graphics 4000", "mesa")]);
+        fs::create_dir_all(t.join("usr/share/libdrm")).unwrap();
+        fs::write(t.join("usr/share/libdrm/amdgpu.ids"), "# x\n1.0.0\n6798,\t00,\tAMD Radeon HD 7970\n").unwrap();
+        fs::write(t.join("sys/bus/pci/devices/0000:01:00.0/revision"), "0x00\n").unwrap();
+        fs::write(t.join("sys/bus/pci/devices/0000:01:00.0/mem_info_vram_total"), "3221225472\n").unwrap();
+        let g = leer(&t);
+        assert_eq!((g[0].texto.as_str(), g[0].fuente, g[0].vram), ("AMD Radeon HD 7970", "amdgpu.ids", Some(3 << 30)));
+        assert_eq!(g[1].vram, None, "la integrada de Intel no dice VRAM");
         fs::remove_dir_all(&t).unwrap();
     }
 }
