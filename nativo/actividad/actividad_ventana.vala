@@ -733,9 +733,10 @@ button.act-redondo { background-image: none; background-color: #f6f6f6; border: 
             m.get (it, 0, out f);
             if (f == null || f.usuario != yo) return;
             int pid = f.pid;
+            // HIPÓTESIS: no hay captura del diálogo Quit de Activity Monitor. El texto es neutro (el nombre y el PID) y los botones
+            // son los de Force Quit; se cambia cuando llegue la captura (pantallas-con-captura-pendientes.md).
             var d = new Gtk.MessageDialog (this, Gtk.DialogFlags.MODAL, Gtk.MessageType.QUESTION, Gtk.ButtonsType.NONE,
-                                           "Are you sure you want to quit this process?");
-            d.secondary_text = "%s (%d)".printf (f.nombre, pid);
+                                           "%s (%d)", f.nombre, pid);
             d.add_button ("Cancel", Gtk.ResponseType.CANCEL);
             d.add_button ("Force Quit", Gtk.ResponseType.REJECT);
             d.add_button ("Quit", Gtk.ResponseType.ACCEPT);
