@@ -52,11 +52,105 @@ def atajo(tecla, mascara):
     return m + t
 
 
+def nibarchive(b):
+    """Un NIBArchive (los nib de Monterey en adelante) con la forma de un NSKeyedArchiver:
+    {'$archiver', '$objects', '$top'}, objetos como dict con '$class' y referencias plistlib.UID.
+
+    Cabecera «NIBArchive», dos u32 y ocho u32: objetos, claves, valores y clases (cantidad y
+    posición de cada tabla). Los enteros de largo variable son de 7 bits, el menos
+    significativo primero, y el byte con el bit alto encendido es el ÚLTIMO. Un arreglo o un
+    diccionario lleva sus elementos con la clave UINibEncoderEmptyKey, en orden (en un
+    diccionario, alternando clave y valor)."""
+    import struct
+    if not b.startswith(b'NIBArchive'):
+        raise ValueError('no es un NIBArchive')
+    nobj, pobj, nclav, pclav, nval, pval, ncla, pcla = struct.unpack_from('<8I', b, 18)
+
+    def var(i):
+        n = desp = 0
+        while True:
+            c = b[i]
+            i += 1
+            n |= (c & 0x7F) << desp
+            desp += 7
+            if c & 0x80:
+                return n, i
+
+    i, claves = pclav, []
+    for _ in range(nclav):
+        n, i = var(i)
+        claves.append(b[i:i + n].decode('utf-8', 'replace'))
+        i += n
+    i, clases = pcla, []
+    for _ in range(ncla):
+        n, i = var(i)
+        extra, i = var(i)
+        i += 4 * extra
+        clases.append(b[i:i + n].rstrip(b'\0').decode('utf-8', 'replace'))
+        i += n
+    i, valores = pval, []
+    for _ in range(nval):
+        k, i = var(i)
+        t = b[i]
+        i += 1
+        if t in (0, 1, 2, 3):
+            tam = (1, 2, 4, 8)[t]
+            v = int.from_bytes(b[i:i + tam], 'little', signed=True)
+            i += tam
+        elif t in (4, 5):
+            v = t == 4
+        elif t == 6:
+            v = struct.unpack_from('<f', b, i)[0]
+            i += 4
+        elif t == 7:
+            v = struct.unpack_from('<d', b, i)[0]
+            i += 8
+        elif t == 8:
+            n, i = var(i)
+            v = bytes(b[i:i + n])
+            i += n
+        elif t == 9:
+            v = None
+        elif t == 10:
+            v = plistlib.UID(struct.unpack_from('<I', b, i)[0])
+            i += 4
+        else:
+            raise ValueError('NIBArchive: tipo de valor %d desconocido' % t)
+        valores.append((claves[k], v))
+    # Las clases van al final de $objects, una vez cada una, como en NSKeyedArchiver.
+    objetos, crudos = [], []
+    i = pobj
+    for _ in range(nobj):
+        c, i = var(i)
+        vi, i = var(i)
+        vn, i = var(i)
+        crudos.append((c, valores[vi:vi + vn]))
+    base_clases = nobj
+    for c, vals in crudos:
+        o = {'$class': plistlib.UID(base_clases + c)}
+        nombre = clases[c]
+        vacios = [v for k, v in vals if k == 'UINibEncoderEmptyKey']
+        if nombre in ('NSArray', 'NSMutableArray', 'NSSet', 'NSMutableSet'):
+            o['NS.objects'] = vacios
+        elif nombre in ('NSDictionary', 'NSMutableDictionary'):
+            o['NS.keys'], o['NS.objects'] = vacios[0::2], vacios[1::2]
+        for k, v in vals:
+            if k != 'UINibEncoderEmptyKey':
+                o.setdefault(k, v)
+        objetos.append(o)
+    objetos += [{'$classname': n} for n in clases]
+    raiz = next((plistlib.UID(j) for j, (c, _) in enumerate(crudos) if clases[c] == 'NSIBObjectData'), plistlib.UID(0))
+    return {'$archiver': 'NSKeyedArchiver', '$objects': objetos, '$top': {'IB.objectdata': raiz}}
+
+
 class Nib:
     def __init__(self, ruta, cadenas=None):
-        d = plistlib.load(open(ruta, 'rb'))
+        crudo = open(ruta, 'rb').read()
+        # Catalina compila los nib como bplist de NSKeyedArchiver; Monterey y los que siguen,
+        # como NIBArchive. Los dos quedan con la forma del primero.
+        d = nibarchive(crudo) if crudo.startswith(b'NIBArchive') else plistlib.loads(crudo)
         if d.get('$archiver') != 'NSKeyedArchiver':
-            raise ValueError('no es un NSKeyedArchiver (¿NIBArchive?): %s' % ruta)
+            raise ValueError('no es un NSKeyedArchiver ni un NIBArchive: %s' % ruta)
         self.ruta = ruta
         self.o = d['$objects']
         self.top = self.res(d['$top'].get('IB.objectdata'))
@@ -91,7 +185,8 @@ class Nib:
             clave = self.texto(self.get(x, 'NSKey'))
             if clave and clave in self.cadenas:
                 return self.cadenas[clave]
-            return self.texto(self.get(x, 'NS.string'))
+            # NIBArchive (Monterey) lo guarda en NS.bytes.
+            return self.texto(self.get(x, 'NS.string') or self.get(x, 'NS.bytes'))
         if c in ('NSString', 'NSMutableString'):
             return self.texto(self.get(x, 'NS.string') or self.get(x, 'NS.bytes'))
         if c in ('NSAttributedString', 'NSMutableAttributedString'):

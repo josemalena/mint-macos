@@ -237,6 +237,12 @@ class AppMac:
         """El menú de la barra: el NSMenu más grande del nib principal."""
         nombre = self.principal if self.ruta_de(self.principal) else self.nibs[0][0]
         menus = [r for r in self.raices(nombre) if r['clase'] == 'NSMenu']
+        if not menus:
+            # Sin NSMainNibFile (el Finder): la barra que tenga Edit o View, en cualquier nib.
+            def de_barra(r):
+                tops = {h['props'].get('titulo') for h in r['hijos']}
+                return r['clase'] == 'NSMenu' and bool(tops & {'Edit', 'View', 'Window'})
+            menus = [r for n, _ in self.nibs for r in self.raices(n) if de_barra(r)]
         return max(menus, key=lambda r: len(r['hijos'])) if menus else None
 
     def ventanas(self):

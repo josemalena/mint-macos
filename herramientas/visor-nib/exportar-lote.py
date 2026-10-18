@@ -118,6 +118,7 @@ def main():
            'aquí al lado, con `json/` y `png/`. Para verlos en el visor: `mac-visor-nib <bundle>`.' % time.strftime('%d-%m-%Y %H:%M'),
            '', '| Bundle | Leídos | Fallidos |', '|---|---|---|']
     cab += ['| %s | %d | %d |' % t for t in totales]
+    os.makedirs(visor.SALIDA, exist_ok=True)
     with open(os.path.join(visor.SALIDA, 'INDICE.md'), 'w') as f:
         f.write('\n'.join(cab) + '\n\n' + '\n'.join(secciones))
     print(os.path.join(visor.SALIDA, 'INDICE.md'))
