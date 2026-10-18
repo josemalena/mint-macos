@@ -32,7 +32,7 @@ fn ov<'a>(v: impl Into<Value<'a>>) -> OwnedValue {
 const COLUMNAS: &[(&str, &str, &str)] = &[
     ("pid", "/proc/<pid>/stat", ""),
     ("ppid", "/proc/<pid>/stat", ""),
-    ("nombre", ".desktop de la app, o comm", ""),
+    ("nombre", ".desktop de la app, o el nombre del proceso (completo aunque comm venga cortado en 15)", ""),
     ("icono", ".desktop de la app", ""),
     ("usuario", "/proc/<pid>/status + /etc/passwd", ""),
     ("cpu", "/proc/<pid>/stat entre dos muestras", ""),
@@ -110,7 +110,7 @@ impl Motor {
     fn fila(&self, f: &muestra::Fila, cols: &[String]) -> Dict {
         let p = &f.p;
         let quiere = |k: &str| cols.is_empty() || cols.iter().any(|c| c == k);
-        let app = self.apps.de(p.flatpak.as_deref(), &p.cmdline, &p.comm);
+        let app = self.apps.de(p.flatpak.as_deref(), &p.cmdline, &p.comm, p.exe.as_deref());
         let mut d = Dict::new();
         let mut poner = |k: &str, v: OwnedValue| {
             if quiere(k) {
@@ -119,8 +119,9 @@ impl Motor {
         };
         poner("pid", ov(p.pid));
         poner("ppid", ov(p.ppid));
-        poner("nombre", ov(app.map(|a| a.nombre.clone()).unwrap_or_else(|| p.comm.clone())));
-        if let Some(i) = app.and_then(|a| a.icono.clone()) {
+        let propio = proc::nombre_completo(&p.comm, &p.cmdline);
+        poner("nombre", ov(app.filter(|a| a.1).map(|a| a.0.nombre.clone()).unwrap_or(propio)));
+        if let Some(i) = app.and_then(|a| a.0.icono.clone()) {
             poner("icono", ov(i));
         }
         if let Some(u) = self.usuarios.get(&p.uid) {

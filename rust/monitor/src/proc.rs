@@ -35,6 +35,57 @@ pub struct Proceso {
     /// «64 bit» o «32 bit», de la clase ELF del ejecutable (solo procesos propios: el
     /// exe de otros pide ptrace).
     pub bits: Option<u8>,
+    /// La ruta del ejecutable (readlink de /proc/<pid>/exe; solo procesos propios).
+    pub exe: Option<String>,
+}
+
+/// Los intérpretes: su nombre no dice qué programa corre (Spotlyte es «python3 …/ulauncher»).
+pub fn es_interprete(nombre: &str) -> bool {
+    let n = nombre.trim_end_matches(|c: char| c.is_ascii_digit() || c == '.');
+    matches!(n, "python" | "perl" | "ruby" | "node" | "nodejs" | "bash" | "sh" | "dash" | "java" | "gjs" | "lua" | "php")
+}
+
+/// El guion que corre un intérprete: el primer argumento que no es opción, o el módulo de
+/// «-m módulo». None si no es un intérprete o no hay guion (un shell interactivo).
+pub fn guion(cmdline: &[String]) -> Option<String> {
+    let b0 = Path::new(cmdline.first()?).file_name()?.to_string_lossy().into_owned();
+    if !es_interprete(&b0) {
+        return None;
+    }
+    let mut it = cmdline.iter().skip(1);
+    while let Some(a) = it.next() {
+        if a == "-m" {
+            return it.next().cloned();
+        }
+        if a == "-c" {
+            return None;
+        }
+        if !a.starts_with('-') {
+            return Path::new(a).file_name().map(|n| n.to_string_lossy().into_owned());
+        }
+    }
+    None
+}
+
+/// El nombre completo del proceso. El comm del kernel se corta en 15 caracteres
+/// («keyd-applicatio»): si llegó al tope, el primer argumento cuyo basename empieza con
+/// él. Un intérprete que no se puso nombre propio sale con el de su guion. Si no hay
+/// nada mejor (Firefox reescribe su argv: «Isolated Web Co» se queda así), el comm.
+pub fn nombre_completo(comm: &str, cmdline: &[String]) -> String {
+    if es_interprete(comm) {
+        if let Some(g) = guion(cmdline) {
+            return g;
+        }
+    }
+    if comm.len() < 15 {
+        return comm.to_string();
+    }
+    cmdline
+        .iter()
+        .take(3)
+        .filter_map(|a| Path::new(a).file_name().map(|n| n.to_string_lossy().into_owned()))
+        .find(|b| b.starts_with(comm) && b.len() > comm.len())
+        .unwrap_or_else(|| comm.to_string())
 }
 
 fn kb(v: &str) -> Option<u64> {
@@ -83,6 +134,7 @@ pub fn leer_proceso(raiz: &Path, pid: i32, mi_uid: u32) -> Option<Proceso> {
                 }
             }
         }
+        p.exe = fs::read_link(d.join("exe")).ok().map(|r| r.to_string_lossy().into_owned());
         // EI_CLASS del ELF: 1 = 32 bit, 2 = 64 bit.
         if let Ok(mut f) = fs::File::open(d.join("exe")) {
             let mut cab = [0u8; 5];

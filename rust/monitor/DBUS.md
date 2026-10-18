@@ -69,7 +69,7 @@ Una clave sin dato **no viene** (nunca un 0 inventado). `Columnas()` dice la fue
 
 | Pestaña (captura) | Columna de la Mac | clave | tipo | |
 |---|---|---|---|---|
-| todas | Process Name | `nombre`, `icono` | s | el de la app si tiene .desktop (por Flatpak, ejecutable o StartupWMClass); si no, `comm` |
+| todas | Process Name | `nombre`, `icono` | s | el de la app si el proceso es la app (por Flatpak, por el ejecutable, por el guion de un intérprete o por StartupWMClass, contra el Exec de su .desktop). Un ayudante de la app (el binario `-bin` detrás del guion del Exec, o otro ejecutable en la carpeta propia de la app: los procesos de Firefox) lleva el `icono` de la app y su propio nombre. Si no, el nombre del proceso: completo aunque `comm` venga cortado en 15 («keyd-application-mapper», del argumento que empieza igual), y el del guion para un intérprete (`python3 …/ulauncher` → «ulauncher»). Los que reescriben su argv (Firefox: «Isolated Web Co») se quedan con el `comm`. Demonios e hilos del kernel, sin `icono`, como en la Mac |
 | todas | PID / User | `pid`, `ppid` / `usuario` | i / s | |
 | CPU | % CPU | `cpu` | d | 100 = un núcleo entero, como la Mac |
 | CPU | CPU Time | `tiempo_cpu` | t | ms |
