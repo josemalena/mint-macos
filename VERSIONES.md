@@ -7,9 +7,9 @@ Cada fork, el commit que se compila y los parches que lleva encima de su upstrea
 
 - Fork: https://github.com/josemalena/fynder.git
 - Upstream: https://github.com/linuxmint/nemo.git, rama `master`
-- Commit: `223db0b133193be35bf26015db22a3f79c3763d2` (2026-10-17, feat(appimage): el ícono del lanzador de mint-macos (Icon=))
+- Commit: `7a3a01194002129197f3776ad94a496c00067a90` (2026-10-18, feat(menú global): íconos del menú Go y atajos con ^ del menú File)
 - Base: `66eabf459bc86d03c24797274d0e3f60b9b7a7d8` (master.lmde7), 2026-10-06, nemo-icon-dnd.c: Fix reporting a successful drag result.
-- Parches: 195
+- Parches: 198
 
 | Commit | Fecha | Asunto |
 |---|---|---|
@@ -208,6 +208,9 @@ Cada fork, el commit que se compila y los parches que lleva encima de su upstrea
 | `5c8d1df2` | 2026-10-17 | feat(menus): el menú View del Finder de Catalina |
 | `552a50b6` | 2026-10-17 | feat(appimage): una AppImage con su lanzador de mint-macos se ve con el nombre de la app y «.app» |
 | `223db0b1` | 2026-10-17 | feat(appimage): el ícono del lanzador de mint-macos (Icon=) |
+| `236f91b3` | 2026-10-18 | fix(escritorio): miniaturas de videos y capturas, y que quepan en el recuadro |
+| `1482cbfc` | 2026-10-18 | feat(menús): File y Go como en el Finder de Catalina |
+| `7a3a0119` | 2026-10-18 | feat(menú global): íconos del menú Go y atajos con ^ del menú File |
 
 ## mint-macos-dock
 
