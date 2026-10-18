@@ -16,8 +16,11 @@ en `~/.cache/mint-macos/pruebas/resultados`.
 
 ## Qué aísla
 
-Cada corrida tiene su propio X (una copia de Xephyr con otro nombre, para que
-un `pkill Xephyr` ajeno no la mate), su Muffin, su bus de D-Bus y un HOME con
+Cada corrida tiene su propio X: Xvfb a 1600×1200, que no se ve (regla de José,
+18-10-2026: nada en el LEN; a ese tamaño Xephyr no cabe en el Dell); con `--ver`,
+Xephyr a 1280×1000 en +0+0, dentro del Dell (los casos que miden la pantalla
+pueden fallar ahí). Es una copia con otro nombre, para que un `pkill Xephyr`
+ajeno no la mate, su Muffin, su bus de D-Bus y un HOME con
 sus `XDG_*`, exportados **antes** de arrancar el bus: si no, el dconf del bus
 de prueba escribe en el de José (pasó el 10-10 y el 17-10-2026). Antes del
 primer caso se comprueba que el dconf de prueba escribe donde debe, y al final

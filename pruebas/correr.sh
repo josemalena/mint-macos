@@ -3,7 +3,11 @@
 # Force Quit, preferencias… Cada caso es un archivo en pruebas/casos/ (ver
 # pruebas/LEEME.md para escribir uno).
 #
-#   pruebas/correr.sh                    todos los casos, en un Xephyr aparte
+#   pruebas/correr.sh                    todos los casos, en un X aparte que no se ve
+#                                        (Xvfb, 1600×1200); sin Xvfb, en Xephyr
+#   pruebas/correr.sh --ver              en Xephyr, a la vista dentro del Dell
+#                                        (1280×1000 en +0+0): los casos que miden
+#                                        el tamaño de la pantalla pueden fallar
 #   pruebas/correr.sh 10 trash           solo esos (por el principio del número o
 #                                        parte del nombre: «7» son los 7x)
 #   pruebas/correr.sh --pantalla-real    en :0, con gui-lock y SIN mandar teclas:
@@ -14,7 +18,7 @@
 #   pruebas/correr.sh --lista            los casos, sin correr nada
 #
 # Nada de la sesión de José entra en las pruebas: su propio X (una copia de
-# Xephyr con otro nombre, para que un «pkill Xephyr» ajeno no la mate), su
+# Xvfb o Xephyr con otro nombre, para que un «pkill Xephyr» ajeno no la mate), su
 # propio bus de D-Bus, y HOME y XDG_* propios exportados ANTES de arrancar el
 # bus (si no, el dconf-service del bus de prueba escribe en el dconf de José).
 # Al terminar se cierran todos los procesos que llevan la marca de esta corrida
@@ -27,6 +31,7 @@ set -euo pipefail
 
 AQUI="$(cd "$(dirname "$0")" && pwd)"
 REAL=false
+VER=false
 PREFIJO="$HOME/.local"
 RES=""
 LISTA=false
@@ -34,10 +39,11 @@ FILTROS=()
 while [ $# -gt 0 ]; do
   case "$1" in
     --pantalla-real) REAL=true; shift ;;
+    --ver) VER=true; shift ;;
     --prefijo) PREFIJO="$(cd "$2" && pwd)"; shift 2 ;;
     --resultados) RES="$2"; shift 2 ;;
     --lista) LISTA=true; shift ;;
-    -h|--help) sed -n '2,23p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,27p' "$0"; exit 0 ;;
     -*) echo "opción desconocida: $1" >&2; exit 2 ;;
     *) FILTROS+=("$1"); shift ;;
   esac
@@ -94,6 +100,7 @@ volcar_dconf() {
 }
 
 XPID=""
+XNOMBRE=""
 LOCK=false
 limpiar() {
   local p
@@ -120,15 +127,26 @@ if $REAL; then
   gui-lock tomar Pruebas 900 || { echo "  ✗ la pantalla la tiene otra sesión"; exit 1; }
   LOCK=true
 else
-  # Una copia de Xephyr con otro nombre, en el primer display libre desde :70.
-  cp /usr/bin/Xephyr "$TRABAJO/x/xpruebas"
+  # Una copia del X con otro nombre, en el primer display libre desde :70. Por
+  # defecto Xvfb, que no se ve: la regla de José es que nada se abra en el LEN
+  # (HDMI-3), y a 1600×1200 Xephyr no cabe en el Dell (HDMI-1, 1280×1024, en +0+0).
   n=70
   while [ -e "/tmp/.X11-unix/X$n" ] || [ -e "/tmp/.X$n-lock" ]; do n=$((n + 1)); done
   PANT=":$n"
-  # En +0+0, el Dell (HDMI-1, el de la izquierda): regla de José, 18-10-2026.
-  # A 1600×1200 se pasa 320 px al LEN; el arreglo es Xvfb (pendiente, ver LEEME).
-  MINT_MACOS_PRUEBA="$MARCA" "$TRABAJO/x/xpruebas" "$PANT" -screen "${PRUEBAS_ANCHO}x${PRUEBAS_ALTO}+0+0" -nolisten tcp -br \
-    > "$RES/xephyr.log" 2>&1 &
+  if ! $VER && [ -x /usr/bin/Xvfb ]; then
+    cp /usr/bin/Xvfb "$TRABAJO/x/xpruebas"; XNOMBRE="Xvfb, no se ve"
+    MINT_MACOS_PRUEBA="$MARCA" "$TRABAJO/x/xpruebas" "$PANT" -screen 0 "${PRUEBAS_ANCHO}x${PRUEBAS_ALTO}x24" -nolisten tcp \
+      > "$RES/xephyr.log" 2>&1 &
+  else
+    if $VER; then
+      PRUEBAS_ANCHO=1280 PRUEBAS_ALTO=1000
+    else
+      echo "  ⚠ sin Xvfb (sudo apt install xvfb): Xephyr a ${PRUEBAS_ANCHO}×${PRUEBAS_ALTO} se pasa del Dell al LEN" >&2
+    fi
+    cp /usr/bin/Xephyr "$TRABAJO/x/xpruebas"; XNOMBRE="Xephyr"
+    MINT_MACOS_PRUEBA="$MARCA" "$TRABAJO/x/xpruebas" "$PANT" -screen "${PRUEBAS_ANCHO}x${PRUEBAS_ALTO}+0+0" -nolisten tcp -br \
+      > "$RES/xephyr.log" 2>&1 &
+  fi
   XPID=$!
   for _ in $(seq 50); do [ -e "/tmp/.X11-unix/X$n" ] && break; sleep 0.1; done
   [ -e "/tmp/.X11-unix/X$n" ] || { echo "  ✗ Xephyr no arrancó"; cat "$RES/xephyr.log"; exit 1; }
@@ -160,7 +178,7 @@ if [ "$PREFIJO" != "$HOME_REAL/.local" ]; then
 fi
 unset DBUS_SESSION_BUS_ADDRESS SESSION_MANAGER
 
-printf '▸ Pruebas en %s (%s), %s casos\n' "$PANT" "$($REAL && echo 'la pantalla de José, sin teclas' || echo Xephyr)" "${#CASOS[@]}"
+printf '▸ Pruebas en %s (%s), %s casos\n' "$PANT" "$($REAL && echo 'la pantalla de José, sin teclas' || echo "$XNOMBRE")" "${#CASOS[@]}"
 ESTADO=0
 # Lo que escriben el bus y los servicios que activa (gvfs, portales…) va a
 # bus.log; por la terminal, solo el resumen.
