@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Activity Monitor
+GenericName=Activity Monitor
+Comment=View processes, CPU, memory, disk and network use
+Exec=mac-actividad
+Icon=mac-activity-monitor
+Terminal=false
+Categories=System;Monitor;
+StartupWMClass=mac-actividad
+Keywords=processes;cpu;memory;monitor;task;
