@@ -29,6 +29,18 @@
 # comparar no cambian aunque se commitee en el medio (17-10-2026).
 set -euo pipefail
 
+# Que no le quite la máquina a José (18-10-2026: «cpu al 100%», carga 22 con este
+# armado y una compilación de nativo a la vez): todo lo de aquí, y lo que lance,
+# con la prioridad más baja de CPU y de disco, y compilaciones de 2 en 2.
+renice -n 19 -p $$ >/dev/null 2>&1 || true
+ionice -c3 -p $$ >/dev/null 2>&1 || true
+export CARGO_BUILD_JOBS=2 MAKEFLAGS=-j2
+# Si otra sesión está compilando (ninja), se espera a que termine: dos a la vez
+# llenan la máquina aunque vayan con nice.
+while pgrep -u "$USER" -x ninja >/dev/null; do
+  echo "  esperando: otra compilación (ninja) está corriendo" >&2; sleep 30
+done
+
 REPO="$(cd "$(dirname "$0")" && pwd)"
 SIN_PAQUETE=false
 DEST=""
@@ -131,7 +143,7 @@ echo "$N_FYNDER" > "$T/fynder-build-number"
 export FYNDER_BUILD_COUNTER="$T/fynder-build-number"
 export SOURCE_DATE_EPOCH="$(git -C "$S_FYNDER" log -1 --format=%ct HEAD)"
 callado meson setup "$T/build/fynder" "$S_FYNDER" --prefix="$PREFIJO"
-callado ninja -C "$T/build/fynder"
+callado ninja -j2 -C "$T/build/fynder"
 callado meson install -C "$T/build/fynder" --destdir "$RAIZ"
 echo "  $(du -h "$T/build/fynder/src/fynder" | cut -f1) src/fynder, build $(cat "$T/fynder-build-number")"
 unset SOURCE_DATE_EPOCH
@@ -140,13 +152,13 @@ paso "Compilar mint-macos-dock"
 # Sin el rpath el binario carga la libplank del sistema y no la del fork.
 LDFLAGS="-Wl,-rpath,$PREFIJO/lib/$ARCH" \
   callado meson setup "$T/build/plank" "$S_PLANK" --prefix="$PREFIJO" -Denable-apport=false
-callado ninja -C "$T/build/plank"
+callado ninja -j2 -C "$T/build/plank"
 callado meson install -C "$T/build/plank" --destdir "$RAIZ"
 echo "  listo"
 
 paso "Compilar slick-greeter-mac (prueba: el paquete lleva la fuente)"
 callado meson setup "$T/build/greeter" "$S_GREETER" --prefix=/usr/local
-callado ninja -C "$T/build/greeter"
+callado ninja -j2 -C "$T/build/greeter"
 echo "  listo"
 
 paso "Pruebas: versiones.sh"
@@ -168,7 +180,7 @@ echo "  $(grep -Eo '[0-9]+ passed' "$T/ultimo.log" | awk '{s += $1} END {print s
 # hubiera en ~/.local/bin (18-10-2026: 42 y 45 fallaban con el About viejo).
 paso "Compilando nativo/ (Vala)"
 callado meson setup "$T/build/nativo" "$M/nativo" --buildtype=release --prefix=/usr
-callado ninja -C "$T/build/nativo"
+callado ninja -j2 -C "$T/build/nativo"
 install -d "$RAIZ$PREFIJO/bin"
 find "$T/build/nativo" -mindepth 2 -maxdepth 2 -type f -executable -name 'mac-*' -exec install -m 755 {} "$RAIZ$PREFIJO/bin/" \;
 install -m 755 "$M"/nativo/mac-*-lanzar "$RAIZ$PREFIJO/bin/"

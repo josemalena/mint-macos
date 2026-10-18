@@ -29,6 +29,10 @@
 # el dconf de José cambió (después de cada caso se mira, y la corrida se para).
 set -euo pipefail
 
+# Prioridad más baja de CPU y de disco: José trabaja mientras corren (18-10-2026).
+renice -n 19 -p $$ >/dev/null 2>&1 || true
+ionice -c3 -p $$ >/dev/null 2>&1 || true
+
 AQUI="$(cd "$(dirname "$0")" && pwd)"
 REAL=false
 VER=false
