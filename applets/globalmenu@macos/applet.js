@@ -215,6 +215,13 @@ class GlobalMenuApplet extends Applet.Applet {
     });
 
     this._senalFoco = global.display.connect("notify::focus-window", () => this._alCambiarFoco());
+    // Al entrar el escritorio de Fynder puede salir después que la barra: sin foco, hasta que aparece la barra sale vacía.
+    this._senalCreada = 0;
+    try {
+      this._senalCreada = global.display.connect("window-created", () => {
+        if (!this._ventana) GLib.timeout_add(GLib.PRIORITY_DEFAULT, 400, () => { this._alCambiarFoco(); return GLib.SOURCE_REMOVE; });
+      });
+    } catch (e) {}
     this._alCambiarFoco();
   }
 
@@ -247,6 +254,9 @@ class GlobalMenuApplet extends Applet.Applet {
   _alCambiarFoco() {
     let w = global.display.focus_window;
     if (w && esLanzador(w)) w = ventanaDelEscritorioDeFynder() || this._ventana;
+    // Sin ventana con foco (recién entrada la sesión, o cerrada la última) la barra es la de Fynder, como el Finder
+    // de la Mac. Con un menú nuestro abierto el foco también es nulo, y ahí sí se conserva lo que hay.
+    if (!w && global.stage_input_mode === Cinnamon.StageInputMode.NORMAL) w = ventanaDelEscritorioDeFynder();
     // Al abrir uno de nuestros menús el foco no cambia a otra app; si la nueva
     // ventana es nula (el escritorio, el propio panel) se conserva el menú.
     if (!w) return;
@@ -537,6 +547,7 @@ class GlobalMenuApplet extends Applet.Applet {
   on_applet_removed_from_panel() {
     if (this._reg) { try { this._reg.destruir(); } catch (e) {} this._reg = null; }
     if (this._senalFoco) { try { global.display.disconnect(this._senalFoco); } catch (e) {} }
+    if (this._senalCreada) { try { global.display.disconnect(this._senalCreada); } catch (e) {} }
     if (this._pendiente) GLib.source_remove(this._pendiente);
     if (this._relleno) GLib.source_remove(this._relleno);
     this._soltarModelo();

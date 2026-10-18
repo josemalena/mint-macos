@@ -39,11 +39,18 @@ poner_gestor() {
       GPID=$!
       for _ in $(seq 50); do wmctrl -m >/dev/null 2>&1 && break; sleep 0.1; done
       wmctrl -m >/dev/null 2>&1 || { echo "Muffin no arrancó (muffin.log)"; return 1; } ;;
-    cinnamon)
+    cinnamon|cinnamon-applets)
       # Las extensiones del repo (las que se están probando), no las de José.
       mkdir -p "$XDG_DATA_HOME/cinnamon/extensions" "$XDG_CONFIG_HOME/autostart"
       cp -r "$MINT_MACOS_REPO"/extensions/*@macos "$XDG_DATA_HOME/cinnamon/extensions/"
       gsettings set org.cinnamon enabled-extensions "['cmdtab@macos']"
+      # «cinnamon-applets» además pone en el panel la barra de menús (appmenu@macos y globalmenu@macos) del repo.
+      if [ "$1" = cinnamon-applets ]; then
+        mkdir -p "$XDG_DATA_HOME/cinnamon/applets"
+        cp -r "$MINT_MACOS_REPO"/applets/appmenu@macos "$MINT_MACOS_REPO"/applets/globalmenu@macos "$XDG_DATA_HOME/cinnamon/applets/"
+        gsettings set org.cinnamon panels-enabled "['1:0:top']"
+        gsettings set org.cinnamon enabled-applets "['panel1:left:0:appmenu@macos:1', 'panel1:left:1:globalmenu@macos:2']"
+      fi
       # Sin animaciones: una ventana recién abierta se ve (y se captura) al mapearse.
       gsettings set org.cinnamon desktop-effects false
       gsettings set org.cinnamon startup-animation false

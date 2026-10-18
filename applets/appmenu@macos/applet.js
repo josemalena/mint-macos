@@ -392,6 +392,9 @@ function getFocusedWindow() {
   try {
     let w = global.display.get_focus_window ? global.display.get_focus_window() : null;
     if (w && esLanzador(w)) return ventanaDelEscritorioDeFynder();
+    // Sin ventana con foco (al entrar, o cerrada la última) es Fynder, no «Finder»: igual que con el escritorio enfocado.
+    // Con un menú de la barra abierto el foco también es nulo y se deja como estaba.
+    if (!w && global.stage_input_mode === Cinnamon.StageInputMode.NORMAL) return ventanaDelEscritorioDeFynder();
     return w;
   }
   catch (e) { return null; }
@@ -530,6 +533,10 @@ class AppMenuApplet extends Applet.TextApplet {
       this._focusSig = global.display.connect("notify::focus-window", () => {
         this._updateLabel();
         this._updateMenuLabels();
+      });
+      // El escritorio de Fynder puede salir después que la barra, al entrar.
+      this._creadaSig = global.display.connect("window-created", () => {
+        GLib.timeout_add(GLib.PRIORITY_DEFAULT, 400, () => { this._updateLabel(); this._updateMenuLabels(); return GLib.SOURCE_REMOVE; });
       });
     } catch (e) {
       this._timer = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 2, () => {
@@ -810,6 +817,7 @@ ${cmdline || "N/A"}`;
     for (let [n] of this._atajos || []) {
       try { Main.keybindingManager.removeHotKey(n); } catch (e) {}
     }
+    if (this._creadaSig) { try { global.display.disconnect(this._creadaSig); } catch (e) {} this._creadaSig = 0; }
     if (this._focusSig) {
       try { global.display.disconnect(this._focusSig); } catch (e) {}
     }
