@@ -7,8 +7,16 @@ prueba() {
   rm -f "$HOME/Desktop"/Screen\ Shot*
   # El HOME de prueba está vacío: modo «pantalla entera», destino Desktop, sin temporizador.
   lanzar mac-captura-herramienta-vala
-  local b; b="$(esperar_ventana '[Mm]ac-captura-herramienta' 30)"
-  [ "$(titulo "$b")" = "Screenshot" ] || falla "la barra no se llama Screenshot: «$(titulo "$b")»"
+  # Con «pantalla entera» también sale la capa de la cámara (otra ventana de la misma clase, sin título «Screenshot»):
+  # la barra se busca por su título.
+  esperar_ventana '[Mm]ac-captura-herramienta' 30 >/dev/null
+  local b=""
+  for _ in $(seq 50); do
+    b="$(xdotool search --onlyvisible --name '^Screenshot$' 2>/dev/null | tail -1 || true)"
+    [ -n "$b" ] && break
+    sleep 0.2
+  done
+  [ -n "$b" ] || falla "no salió la ventana «Screenshot» de la barra"
   sleep 1
   captura barra
   # El botón Capture es el último de la barra: se pulsa con el ratón (la barra es un dock y no toma el teclado).
