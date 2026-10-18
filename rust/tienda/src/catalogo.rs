@@ -689,6 +689,15 @@ fn archivos(rutas: &Rutas) -> (Vec<PathBuf>, Vec<(String, String, PathBuf, PathB
 pub fn firma(rutas: &Rutas, idiomas: &Idiomas) -> String {
     let (dep11, xml) = archivos(rutas);
     let mut v: Vec<String> = vec![format!("v2 {}", idiomas.0.join(":"))];
+    // Los íconos de DEP-11 se resuelven al leer: si aparecen o cambian (iconos-apt-root.sh,
+    // un apt update), el caché ya no vale.
+    let mut carpetas: Vec<PathBuf> = vec![rutas.iconos_dep11.clone()];
+    carpetas.extend(fs::read_dir(&rutas.iconos_dep11).into_iter().flatten().flatten().map(|e| e.path()));
+    carpetas.sort();
+    for c in carpetas {
+        let f = fs::metadata(&c).and_then(|m| m.modified()).ok().and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok()).map(|d| d.as_nanos()).unwrap_or(0);
+        v.push(format!("{} {}", c.display(), f));
+    }
     for p in dep11.iter().chain(xml.iter().map(|(_, _, p, _)| p)) {
         let m = fs::metadata(p).ok();
         let fecha = m.as_ref().and_then(|m| m.modified().ok()).and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok()).map(|d| d.as_nanos()).unwrap_or(0);
