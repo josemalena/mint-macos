@@ -634,10 +634,13 @@ button.tienda-enlace label { font-size: 12px; }
             rejilla.column_homogeneous = true;
             int n = (int) apps.length;
             int filas_n = (n + columnas - 1) / columnas;
+            var nombres = new HashTable<string, int> (str_hash, str_equal);
+            for (int i = 0; i < n; i++) nombres.replace (apps[i].nombre, (nombres.lookup (apps[i].nombre)) + 1);
             for (int i = 0; i < n; i++) {
-                int col = n <= 12 ? i / filas_n : i % columnas;
-                int fil = n <= 12 ? i % filas_n : i / columnas;
-                var f = fila_app (apps[i], numerada ? i + 1 : 0);
+                bool por_columna = numerada || n <= 12;
+                int col = por_columna ? i / filas_n : i % columnas;
+                int fil = por_columna ? i % filas_n : i / columnas;
+                var f = fila_app (apps[i], numerada ? i + 1 : 0, nombres.lookup (apps[i].nombre) > 1);
                 f.hexpand = true;
                 rejilla.attach (f, col, fil, 1, 1);
             }

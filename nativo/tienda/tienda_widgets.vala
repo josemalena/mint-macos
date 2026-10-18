@@ -255,7 +255,7 @@ namespace Tienda {
     }
 
     /** Una fila de lista: [número] ícono, nombre y resumen, y el botón. Un clic fuera del botón abre la ficha. */
-    public Gtk.Widget fila_app (Resumen r, int numero = 0) {
+    public Gtk.Widget fila_app (Resumen r, int numero = 0, bool con_desarrollador = false) {
         var caja = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 10);
         caja.margin = 6;
         if (numero > 0) {
@@ -267,7 +267,9 @@ namespace Tienda {
         var textos = new Gtk.Box (Gtk.Orientation.VERTICAL, 2);
         textos.valign = Gtk.Align.CENTER;
         textos.pack_start (etiqueta (r.nombre, "tienda-fila-nombre"), false, false, 0);
-        if (r.resumen != "") textos.pack_start (etiqueta (r.resumen, "tienda-fila-resumen"), false, false, 0);
+        // Dos apps con el mismo nombre se distinguen por su desarrollador, que el Flatpak casi siempre trae.
+        string sub = (con_desarrollador && r.desarrollador != "") ? r.desarrollador : r.resumen;
+        if (sub != "") textos.pack_start (etiqueta (sub, "tienda-fila-resumen"), false, false, 0);
         caja.pack_start (textos, true, true, 0);
         caja.pack_end (new BotonGet (r), false, false, 0);
         var ev = new Gtk.EventBox ();
