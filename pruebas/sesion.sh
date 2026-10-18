@@ -3,6 +3,8 @@
 # un gestor de ventanas si hace falta y corre cada caso con su tiempo límite.
 #   sesion.sh CASO.sh…
 set -uo pipefail
+# Qué cambió en el dconf de José y si es fuga (revisar_dconf).
+source "$(dirname "$0")/dconf-jose.sh"
 
 RES="$PRUEBAS_RES"
 
@@ -86,9 +88,11 @@ for c in "$@"; do
   r=$?
   cerrar_caso "$n"
   seg=$(( $(date +%s) - inicio ))
-  # El dconf de José, después de cada caso: si cambió, no sigue nada más.
-  if [ "$(sha256sum "$PRUEBAS_DCONF_JOSE" 2>/dev/null | cut -d' ' -f1 || true)" != "$PRUEBAS_DCONF_ANTES" ]; then
-    printf '  ✗ %-28s el dconf de José cambió: paro la corrida\n' "$n"
+  # El dconf de José, después de cada caso: si cambió algo que tocan las pruebas, no
+  # sigue nada más; si fue otra cosa (José trabajando), se anota y se sigue.
+  dr=0; revisar_dconf "$PRUEBAS_DCONF_JOSE" || dr=$?
+  if [ "$dr" = 2 ]; then
+    printf '  ✗ %-28s el dconf de José cambió en %s: paro la corrida\n' "$n" "$(head -3 "$PRUEBAS_DCOPIA/dconf-fugas.txt" | tr '\n' ' ')"
     exit 2
   fi
   case $r in

@@ -92,12 +92,10 @@ DCOPIA="${XDG_DATA_HOME:-$HOME/.local/share}/mint-macos/pruebas-dconf"
 rm -rf "$DCOPIA"
 (umask 077; mkdir -p "$DCOPIA/dconf-antes/dconf")
 install -m 600 "$DCONF_JOSE" "$DCOPIA/dconf-antes/dconf/user" 2>/dev/null || true
-# dconf dump de una copia: lee el archivo directo (sin dconf-service) con un
-# perfil que solo tiene esa base.
-volcar_dconf() {
-  printf 'user-db:user\n' > "$1/perfil"
-  XDG_CONFIG_HOME="$1" DCONF_PROFILE="$1/perfil" dconf dump / 2>/dev/null
-}
+echo "$DCONF_ANTES" > "$DCOPIA/sha"
+# Qué es fuga y qué es José usando su sesión: pruebas/dconf-jose.sh.
+export PRUEBAS_DCOPIA="$DCOPIA"
+source "$AQUI/dconf-jose.sh"
 
 XPID=""
 XNOMBRE=""
@@ -185,15 +183,16 @@ ESTADO=0
 dbus-run-session -- bash "$AQUI/sesion.sh" "${CASOS[@]}" 2> "$RES/bus.log" || ESTADO=$?
 
 # sesion.sh ya lo mira después de cada caso; esto cubre lo que pase al cerrar.
-DCONF_DESPUES="$(sha256sum "$DCONF_JOSE" 2>/dev/null | cut -d' ' -f1 || true)"
-if [ "$DCONF_ANTES" != "$DCONF_DESPUES" ]; then
-  echo "  ✗ el dconf de José ($DCONF_JOSE) cambió durante las pruebas: la corrida no vale." | tee -a "$RES/resumen.txt"
-  (umask 077; mkdir -p "$DCOPIA/dconf-despues/dconf")
-  install -m 600 "$DCONF_JOSE" "$DCOPIA/dconf-despues/dconf/user" 2>/dev/null || true
-  (umask 077; diff <(volcar_dconf "$DCOPIA/dconf-antes") <(volcar_dconf "$DCOPIA/dconf-despues") > "$DCOPIA/dconf.diff")
-  echo "    lo que cambió: $DCOPIA/dconf.diff ($(grep -c '^[<>]' "$DCOPIA/dconf.diff") líneas)" | tee -a "$RES/resumen.txt"
-  echo "    Si fue una prueba, revisar con dconf dump / y reponer; si fue José usando su sesión, repetir." | tee -a "$RES/resumen.txt"
+r=0; revisar_dconf "$DCONF_JOSE" || r=$?
+if [ "$r" = 2 ] || [ "$ESTADO" = 2 ]; then
+  echo "  ✗ cambió en el dconf de José algo que tocan las pruebas: la corrida no vale." | tee -a "$RES/resumen.txt"
+  echo "    claves: $(tr '\n' ' ' < "$DCOPIA/dconf-fugas.txt" 2>/dev/null)" | tee -a "$RES/resumen.txt"
+  echo "    detalle: $DCOPIA/dconf.diff. Si fue una prueba, reponer con dconf; si fue José, repetir." | tee -a "$RES/resumen.txt"
   ESTADO=2
+fi
+if [ -s "$DCOPIA/dconf-avisos.txt" ]; then
+  echo "  ⚠ José cambió su dconf durante la corrida (no es de lo que tocan las pruebas; sigue valiendo):" | tee -a "$RES/resumen.txt"
+  sed 's/^/      /' "$DCOPIA/dconf-avisos.txt" | cut -c1-200 | tee -a "$RES/resumen.txt"
 fi
 echo "  resultados: $RES"
 exit "$ESTADO"
