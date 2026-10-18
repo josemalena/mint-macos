@@ -1,8 +1,12 @@
 //! mint-macos-equipo: qué equipo es y qué sistema corre, para About This Mac/PC.
 //!
 //! Lo corre al arrancar mint-macos-equipo.service (oneshot del sistema) y escribe
-//! /run/mint-macos/equipo.json, legible para todos (0644). Lo leen libmacos y el
-//! applet; si el archivo falta, ellos leen DMI y os-release con la misma regla.
+//! /run/mint-macos/equipo.json. Es el único programa que lee los datos del equipo
+//! que no cambian con el sistema corriendo (regla de José, 18-10-2026): los demás
+//! leen este archivo y no vuelven a leer /sys, /proc ni lspci.
+//!
+//! El archivo es 0640 root:users porque lleva el número de serie: lo leen las
+//! personas de la máquina (el grupo users) y no los demonios (lightdm, etc.).
 //!
 //!     version           1
 //!     tipo              "mac" si sys_vendor es «Apple Inc.», si no "pc"
@@ -18,6 +22,14 @@
 //!                       os-release
 //!     logo, logo_icono  LOGO= de os-release (o «ID-logo» si no trae) y su archivo en
 //!                       hicolor: el scalable, o si no el PNG más grande
+//!     serie             product_serial (solo root); null si es un relleno del fabricante
+//!                       («To be filled by O.E.M.», «Default string»…)
+//!     procesador        modelo, ghz, nucleos y texto («2.5 GHz Dual-Core Intel Core i5»),
+//!                       de /proc/cpuinfo (src/procesador.rs)
+//!     memoria           total (bytes), tipo, velocidad (MT/s, que la Mac llama MHz),
+//!                       modulos, texto («16 GB 1333 MHz DDR3») y fuente: «smbios» (la
+//!                       tabla DMI, solo root) o, si no se lee, «meminfo» con solo el total
+//!     graficos          [{pci, fabricante, modelo, texto}], de /sys/bus/pci y pci.ids
 //!
 //! Lo que no se puede leer va null, nunca "". Nada se adivina: un PC sin tabla lleva
 //! lo que dice su DMI.
@@ -25,10 +37,13 @@
 //!     mint-macos-equipo                    escribe /run/mint-macos/equipo.json
 //!     mint-macos-equipo --imprimir         lo escribe en la salida, sin tocar nada
 //!     mint-macos-equipo --salida ARCHIVO   en otro archivo
-//!     mint-macos-equipo --raiz DIR         lee DIR/sys/class/dmi/id, DIR/etc/os-release y
-//!                                          DIR/usr/share/icons (para las pruebas)
+//!     mint-macos-equipo --raiz DIR         lee DIR/sys, DIR/proc, DIR/etc/os-release y
+//!                                          DIR/usr/share (para las pruebas)
 
+mod graficos;
+mod memoria;
 mod modelos;
+mod procesador;
 
 use std::fs;
 use std::io::Write;
@@ -166,6 +181,33 @@ struct Equipo {
     sistema: [Option<String>; 4],
     logo: Option<String>,
     logo_icono: Option<String>,
+    serie: Option<String>,
+    procesador: Option<procesador::Procesador>,
+    memoria: Option<(memoria::Memoria, &'static str)>,
+    graficos: Vec<graficos::Grafico>,
+}
+
+/// Lo que ponen los fabricantes cuando no graban la serie: no es una serie.
+fn serie_de_verdad(s: String) -> Option<String> {
+    let l = s.to_ascii_lowercase();
+    let relleno = ["to be filled by o.e.m.", "default string", "system serial number", "not specified", "not applicable", "none", "n/a", "0", "123456789", "chassis serial number"];
+    if relleno.contains(&l.as_str()) || s.chars().all(|c| c == '0' || c == ' ' || c == 'x' || c == 'X') {
+        None
+    } else {
+        Some(s)
+    }
+}
+
+/// La memoria de SMBIOS; si la tabla no se lee, el total de /proc/meminfo (lo que ve
+/// el núcleo, redondeado a GB al escribirlo), sin tipo ni velocidad.
+fn leer_memoria(raiz: &Path) -> Option<(memoria::Memoria, &'static str)> {
+    if let Some(m) = fs::read(raiz.join("sys/firmware/dmi/tables/DMI")).ok().and_then(|t| memoria::resumir(&memoria::modulos(&t))) {
+        return Some((m, "smbios"));
+    }
+    let info = fs::read_to_string(raiz.join("proc/meminfo")).ok()?;
+    let kb: u64 = info.lines().find_map(|l| l.strip_prefix("MemTotal:"))?.trim().trim_end_matches("kB").trim().parse().ok()?;
+    let gb = ((kb as f64 / 1048576.0).round() as u64).max(1);
+    Some((memoria::Memoria { total: gb << 30, tipo: None, velocidad: None, modulos: 0 }, "meminfo"))
 }
 
 fn leer(raiz: &Path) -> Equipo {
@@ -191,7 +233,57 @@ fn leer(raiz: &Path) -> Equipo {
         sistema: [id, clave(&os, "NAME"), clave(&os, "VERSION"), clave(&os, "PRETTY_NAME")],
         logo,
         logo_icono,
+        serie: dmi(raiz, "product_serial").and_then(serie_de_verdad),
+        procesador: fs::read_to_string(raiz.join("proc/cpuinfo")).ok().and_then(|c| {
+            let base = fs::read_to_string(raiz.join("sys/devices/system/cpu/cpu0/cpufreq/base_frequency")).ok().and_then(|s| s.trim().parse().ok());
+            procesador::leer(&c, base)
+        }),
+        memoria: leer_memoria(raiz),
+        graficos: graficos::leer(raiz),
     }
+}
+
+fn numero(n: Option<impl std::fmt::Display>) -> String {
+    n.map(|v| v.to_string()).unwrap_or_else(|| "null".to_string())
+}
+
+fn json_procesador(p: &Option<procesador::Procesador>) -> String {
+    match p {
+        None => "null".to_string(),
+        Some(p) => format!(
+            "{{\n    \"modelo\": {},\n    \"ghz\": {},\n    \"nucleos\": {},\n    \"texto\": {}\n  }}",
+            cadena(&p.modelo),
+            numero(p.ghz.map(|g| format!("{g:.2}"))),
+            numero(p.nucleos),
+            cadena(&p.texto)
+        ),
+    }
+}
+
+fn json_memoria(m: &Option<(memoria::Memoria, &'static str)>) -> String {
+    match m {
+        None => "null".to_string(),
+        Some((m, fuente)) => format!(
+            "{{\n    \"total\": {},\n    \"tipo\": {},\n    \"velocidad\": {},\n    \"modulos\": {},\n    \"texto\": {},\n    \"fuente\": {}\n  }}",
+            m.total,
+            opcional(&m.tipo.map(|t| t.to_string())),
+            numero(m.velocidad),
+            if m.modulos > 0 { m.modulos.to_string() } else { "null".to_string() },
+            cadena(&memoria::texto(m)),
+            cadena(fuente)
+        ),
+    }
+}
+
+fn json_graficos(g: &[graficos::Grafico]) -> String {
+    if g.is_empty() {
+        return "[]".to_string();
+    }
+    let filas: Vec<String> = g
+        .iter()
+        .map(|x| format!("\n    {{\"pci\": {}, \"fabricante\": {}, \"modelo\": {}, \"texto\": {}}}", cadena(&x.pci), opcional(&x.fabricante), opcional(&x.modelo), cadena(&x.texto)))
+        .collect();
+    format!("[{}\n  ]", filas.join(","))
 }
 
 fn json(e: &Equipo) -> String {
@@ -201,7 +293,7 @@ fn json(e: &Equipo) -> String {
     };
     let [id, nombre, version, texto] = &e.sistema;
     format!(
-        "{{\n  \"version\": 1,\n  \"tipo\": {},\n  \"fabricante\": {},\n  \"identificador\": {},\n  \"nombre\": {},\n  \"nombres\": {},\n  \"fuente_nombre\": {},\n  \"version_producto\": {},\n  \"sistema\": {{\n    \"id\": {},\n    \"nombre\": {},\n    \"version\": {},\n    \"texto\": {}\n  }},\n  \"logo\": {},\n  \"logo_icono\": {}\n}}\n",
+        "{{\n  \"version\": 1,\n  \"tipo\": {},\n  \"fabricante\": {},\n  \"identificador\": {},\n  \"nombre\": {},\n  \"nombres\": {},\n  \"fuente_nombre\": {},\n  \"version_producto\": {},\n  \"sistema\": {{\n    \"id\": {},\n    \"nombre\": {},\n    \"version\": {},\n    \"texto\": {}\n  }},\n  \"logo\": {},\n  \"logo_icono\": {},\n  \"serie\": {},\n  \"procesador\": {},\n  \"memoria\": {},\n  \"graficos\": {}\n}}\n",
         cadena(e.tipo),
         opcional(&e.fabricante),
         opcional(&e.identificador),
@@ -215,7 +307,20 @@ fn json(e: &Equipo) -> String {
         opcional(texto),
         opcional(&e.logo),
         opcional(&e.logo_icono),
+        opcional(&e.serie),
+        json_procesador(&e.procesador),
+        json_memoria(&e.memoria),
+        json_graficos(&e.graficos),
     )
+}
+
+/// El gid del grupo users (100 en Debian), de /etc/group.
+fn gid_users() -> Option<u32> {
+    let g = fs::read_to_string("/etc/group").ok()?;
+    g.lines().find_map(|l| {
+        let mut c = l.split(':');
+        (c.next()? == "users").then(|| c.nth(1)?.parse().ok()).flatten()
+    })
 }
 
 /// Escribe en un temporal de la misma carpeta y lo cambia de nombre: quien lo lea
@@ -231,7 +336,10 @@ fn escribir(destino: &Path, texto: &str) -> std::io::Result<()> {
     f.write_all(texto.as_bytes())?;
     f.sync_all()?;
     drop(f);
-    fs::set_permissions(&tmp, fs::Permissions::from_mode(0o644))?;
+    // Antes del rename: nunca hay un equipo.json con la serie y otro permiso.
+    let gid = gid_users().ok_or_else(|| std::io::Error::other("no está el grupo users en /etc/group"))?;
+    std::os::unix::fs::chown(&tmp, None, Some(gid))?;
+    fs::set_permissions(&tmp, fs::Permissions::from_mode(0o640))?;
     fs::rename(&tmp, destino)
 }
 
@@ -280,6 +388,14 @@ mod pruebas {
         }
         let mini = modelos::MODELOS.iter().find(|m| m.0 == "Macmini6,1").unwrap();
         assert_eq!(mini.1, &["Mac mini (Late 2012)"]);
+    }
+
+    #[test]
+    fn rellenos_no_son_serie() {
+        assert_eq!(serie_de_verdad("C07JD0ABDWYL".into()), Some("C07JD0ABDWYL".into()));
+        for r in ["To be filled by O.E.M.", "Default string", "0000000000", "System Serial Number"] {
+            assert_eq!(serie_de_verdad(r.into()), None, "{r}");
+        }
     }
 
     #[test]

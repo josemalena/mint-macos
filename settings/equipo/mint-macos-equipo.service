@@ -8,11 +8,11 @@ After=local-fs.target
 Type=oneshot
 RemainAfterExit=yes
 ExecStart=/usr/libexec/mint-macos/equipo
-# /run/mint-macos, 0755: el JSON lo lee cualquiera; se queda mientras corra el equipo.
+# /run/mint-macos, 0755; el JSON va 0640 root:users (lleva la serie). Se queda mientras corra el equipo.
 RuntimeDirectory=mint-macos
 RuntimeDirectoryMode=0755
 RuntimeDirectoryPreserve=yes
-# Solo lee /sys, /etc y /usr y escribe en /run/mint-macos.
+# Solo lee /sys, /proc, /etc y /usr y escribe en /run/mint-macos.
 ProtectSystem=strict
 ReadWritePaths=/run/mint-macos
 ProtectHome=yes

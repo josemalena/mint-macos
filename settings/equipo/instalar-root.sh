@@ -1,6 +1,6 @@
 #!/bin/bash
-# Instala mint-macos-equipo: al arrancar escribe /run/mint-macos/equipo.json (Mac o PC,
-# modelo, sistema y su logo) para About This Mac/PC. REQUIERE ROOT:
+# Instala mint-macos-equipo: al arrancar escribe /run/mint-macos/equipo.json (0640 root:users: Mac o PC,
+# modelo, sistema, logo, serie, procesador, memoria y gráficos) para About This Mac/PC. REQUIERE ROOT:
 #   sudo ./instalar-root.sh            instala el binario y el servicio, y lo corre ya
 #   sudo ./instalar-root.sh --python   igual (no hay versión en Python)
 #   sudo ./instalar-root.sh --quitar   lo quita, con el archivo de /run
