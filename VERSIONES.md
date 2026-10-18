@@ -7,9 +7,9 @@ Cada fork, el commit que se compila y los parches que lleva encima de su upstrea
 
 - Fork: https://github.com/josemalena/fynder.git
 - Upstream: https://github.com/linuxmint/nemo.git, rama `master`
-- Commit: `c44e4e7f5fbbc29555c001bd207cdab90513190e` (2026-10-18, test: reproducción de la caída de kitty por BadWindow (portapapeles))
+- Commit: `3e157166537170b043f925c5c28eba2d555b9e36` (2026-10-18, fix(discos): los APFS de fstab con el ícono de su disco físico)
 - Base: `66eabf459bc86d03c24797274d0e3f60b9b7a7d8` (master.lmde7), 2026-10-06, nemo-icon-dnd.c: Fix reporting a successful drag result.
-- Parches: 200
+- Parches: 201
 
 | Commit | Fecha | Asunto |
 |---|---|---|
@@ -213,6 +213,7 @@ Cada fork, el commit que se compila y los parches que lleva encima de su upstrea
 | `7a3a0119` | 2026-10-18 | feat(menú global): íconos del menú Go y atajos con ^ del menú File |
 | `b4d0b912` | 2026-10-18 | fix(portapapeles): un solo pedido de TARGETS en vuelo |
 | `c44e4e7f` | 2026-10-18 | test: reproducción de la caída de kitty por BadWindow (portapapeles) |
+| `3e157166` | 2026-10-18 | fix(discos): los APFS de fstab con el ícono de su disco físico |
 
 ## mint-macos-dock
 
