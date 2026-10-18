@@ -100,6 +100,18 @@ Escriben directo en la configuración del programa, en vez de traer su interfaz:
     con `Hidden=true` tapa el de `/etc/xdg/autostart` sin tocarlo. Hasta que Software Update tenga su
     aviso, no hay aviso de actualizaciones. **Vuelta atrás:** `rm ~/.config/autostart/mintupdate.desktop`
     y `mintupdate-launcher &` (o cerrar sesión y entrar).
+- **System Reports por notificaciones, sin mintreport-tray** (José, 18-10-2026): `avisos/instalar.sh` pone
+  `mint-macos-avisos` (`rust/avisos`, servicio de usuario `avisos.service`). Una vez al día, como la
+  bandeja, corre los chequeos de Mint y avisa cada informe nuevo con «Show» (abre System Reports) e
+  «Ignore» (la misma lista `ignored-reports` del botón de Mint). No repite un aviso. El ícono de la
+  bandeja lo tapa `~/.config/autostart/mintreport.desktop` con `Hidden=true`. **Vuelta atrás:**
+  `avisos/instalar.sh --quitar`.
+  - **Python de Mint, a propósito:** el sondeo es un `python3 -I` corto que carga los informes con el
+    cargador de Mint (`/usr/lib/linuxmint/mintreport/common.py`). Son los chequeos de Mint, no una
+    copia; por eso no se pasa a Rust.
+  - **Ojo con xappstatusapplet:** dos informes de Mint (`xappstatusapplet-missing` y
+    `xappstatusapplet-blocked`) avisan si la barra no tiene el applet XApp Status o si otro indicador
+    lo bloquea. Si algún día se quita ese applet de la barra, van a llegar como notificación.
 - **Bluetooth** (`bt.py`): BlueZ por D-Bus (encender, apagar, conectar los dispositivos emparejados).
 - **Sharing** (`compartir.py`): Remote Login (ssh), File Sharing (smbd) y Printer Sharing (cupsctl) por un
   ayudante de root con polkit (abajo).

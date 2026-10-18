@@ -2,7 +2,7 @@
 # (decisión de José, 16-10-2026). Lo que tiene ventana va en Vala.
 [workspace]
 resolver = "2"
-members = ["modifier-keys", "sharing", "startup-disk", "registrador", "aplicaciones", "equipo", "appimages"]
+members = ["modifier-keys", "sharing", "startup-disk", "registrador", "aplicaciones", "equipo", "appimages", "avisos"]
 
 [workspace.package]
 edition = "2021"
