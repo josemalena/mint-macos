@@ -125,6 +125,14 @@ function esLanzador(w) {
   } catch (e) { return false; }
 }
 
+const RE_INTERNAS = /^mac-(ventanas|acerca|gatekeeper|sesion|forcequit|captura-herramienta)/;
+function esInterna(w) {
+  try {
+    let c = ((w.get_wm_class_instance && w.get_wm_class_instance()) || (w.get_wm_class && w.get_wm_class()) || "").toLowerCase();
+    return RE_INTERNAS.test(c);
+  } catch (e) { return false; }
+}
+
 function ventanaDelEscritorioDeFynder() {
   try {
     for (let a of global.get_window_actors()) {
@@ -254,6 +262,8 @@ class GlobalMenuApplet extends Applet.Applet {
   _alCambiarFoco() {
     let w = global.display.focus_window;
     if (w && esLanzador(w)) w = ventanaDelEscritorioDeFynder() || this._ventana;
+    // About, Force Quit y demás programas internos de mint-macos no tienen menú: la barra sigue con la app anterior.
+    if (w && esInterna(w)) return;
     // Sin ventana con foco (recién entrada la sesión, o cerrada la última) la barra es la de Fynder, como el Finder
     // de la Mac. Con un menú nuestro abierto el foco también es nulo, y ahí sí se conserva lo que hay.
     if (!w && global.stage_input_mode === Cinnamon.StageInputMode.NORMAL) w = ventanaDelEscritorioDeFynder();

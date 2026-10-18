@@ -388,10 +388,30 @@ function procNameFromPid(pid) {
   return "";
 }
 
+// Los programas internos de mint-macos (About, Force Quit, los diálogos de sesión, Gatekeeper, ⇧⌘5) corren en
+// binarios sin nombre de app: no tienen menú propio y la barra sigue con la app que estaba al frente (lo dijo José
+// con About This Mac, 18-10-2026; con los demás todavía no hay captura, y mientras tanto hacen lo mismo).
+const RE_INTERNAS = /^mac-(ventanas|acerca|gatekeeper|sesion|forcequit|captura-herramienta)/;
+let ultimaReal = null;
+
+function esInterna(w) {
+  try { return RE_INTERNAS.test((getWmClass(w) || "").toLowerCase()); }
+  catch (e) { return false; }
+}
+
+function ventanaViva(w) {
+  try {
+    for (let a of global.get_window_actors()) if (a.meta_window === w) return true;
+  } catch (e) {}
+  return false;
+}
+
 function getFocusedWindow() {
   try {
     let w = global.display.get_focus_window ? global.display.get_focus_window() : null;
     if (w && esLanzador(w)) return ventanaDelEscritorioDeFynder();
+    if (w && esInterna(w)) return (ultimaReal && ventanaViva(ultimaReal)) ? ultimaReal : ventanaDelEscritorioDeFynder();
+    if (w) ultimaReal = w;
     // Sin ventana con foco (al entrar, o cerrada la última) es Fynder, no «Finder»: igual que con el escritorio enfocado.
     // Con un menú de la barra abierto el foco también es nulo y se deja como estaba.
     if (!w && global.stage_input_mode === Cinnamon.StageInputMode.NORMAL) return ventanaDelEscritorioDeFynder();
@@ -580,15 +600,6 @@ class AppMenuApplet extends Applet.TextApplet {
     // El escritorio de Fynder se llama Fynder, no «Finder» (decisión de José,
     // 13-10-2026): es el nombre de la app, y así lo dicen About/Hide/Quit.
     if (norm === "nemo-desktop") return "Fynder";
-
-    // Los programas internos de mint-macos (About, Force Quit, los diálogos de sesión, Gatekeeper, ⇧⌘5) corren dentro
-    // de un residente que no es una app con nombre: un nombre interno («Mac-ventanas») nunca sale en la barra. Se usa
-    // el título de su ventana. Qué dice la Mac con estas ventanas al frente está por verificar (pantallas-con-captura-pendientes).
-    if (/^mac-(ventanas|acerca|gatekeeper|sesion|forcequit|captura-herramienta)/.test(norm)) {
-      let t = "";
-      try { t = w.get_title() || ""; } catch (e) {}
-      return t || fallback;
-    }
 
     // El nombre de la app como lo conoce Cinnamon (su .desktop): «Microsoft
     // Edge», no la clase de la ventana, que en Chromium con otro perfil trae

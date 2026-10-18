@@ -1,11 +1,17 @@
 /*
- * Lo que enseña About This Mac / About This PC, leído del equipo real: /run/mint-macos/equipo.json (lo escribe el
- * servicio mint-macos-equipo: tipo mac|pc, nombre comercial, sistema y logo), /proc, lspci, lsblk y el EDID de las
- * pantallas. Lo que no se puede leer sin ser root (el número de serie, el tipo y la velocidad de la memoria) no se
- * muestra: no se inventa. Si equipo.json trae la clave «serie» se muestra.
+ * Lo que enseña About This Mac / About This PC. Todo lo que se lee al arrancar (modelo, procesador, memoria, gráficos,
+ * serie, sistema y logo) sale de /run/mint-macos/equipo.json, que escribe un solo programa (mint-macos-equipo): aquí no
+ * se lee /proc, ni lspci ni DMI. Si el archivo no está, solo salen los datos de os-release y ninguna fila de hardware;
+ * un campo que no viene (serie, velocidad de la memoria) no muestra fila. Lo que cambia con el sistema corriendo
+ * (las pantallas por su EDID y los discos) se lee en vivo.
  */
 namespace Acerca {
     public const string RUTA_EQUIPO = "/run/mint-macos/equipo.json";
+
+    /** Las pruebas apuntan a otro equipo.json con MINT_MACOS_EQUIPO. */
+    string ruta_equipo () {
+        return Environment.get_variable ("MINT_MACOS_EQUIPO") ?? RUTA_EQUIPO;
+    }
 
     public class Equipo : Object {
         public string tipo = "pc";                 // «mac» o «pc»
@@ -15,6 +21,9 @@ namespace Acerca {
         public string logo = "";
         public string logo_icono = "";
         public string serie = "";
+        public string procesador = "";             // «2.5 GHz Dual-Core Intel Core i5»
+        public string memoria = "";                // «16 GB 1333 MHz DDR3»
+        public string graficos = "";               // «Intel HD Graphics 4000 1536 MB»
 
         /** «About This Mac» o «About This PC», según el equipo. */
         public string etiqueta_menu () {
@@ -25,7 +34,7 @@ namespace Acerca {
             var e = new Equipo ();
             try {
                 var p = new Json.Parser ();
-                p.load_from_file (RUTA_EQUIPO);
+                p.load_from_file (ruta_equipo ());
                 var o = p.get_root ().get_object ();
                 e.tipo = o.get_string_member_with_default ("tipo", "pc");
                 e.nombre = o.get_string_member_with_default ("nombre", "");
@@ -33,7 +42,13 @@ namespace Acerca {
                     e.nombre = "%s %s".printf (o.get_string_member_with_default ("fabricante", ""),
                                                o.get_string_member_with_default ("identificador", "")).strip ();
                 }
-                e.serie = o.get_string_member_with_default ("serie", "");
+                if (o.has_member ("serie") && !o.get_null_member ("serie")) e.serie = o.get_string_member ("serie");
+                e.procesador = texto_de (o, "procesador");
+                e.memoria = texto_de (o, "memoria");
+                if (o.has_member ("graficos") && o.get_member ("graficos").get_node_type () == Json.NodeType.ARRAY) {
+                    var g = o.get_array_member ("graficos");
+                    if (g.get_length () > 0) e.graficos = g.get_object_element (0).get_string_member_with_default ("texto", "");
+                }
                 e.logo = o.get_string_member_with_default ("logo", "");
                 e.logo_icono = o.get_string_member_with_default ("logo_icono", "");
                 if (o.has_member ("sistema")) {
@@ -43,17 +58,18 @@ namespace Acerca {
                 }
                 return e;
             } catch (Error err) {
-                // sin el servicio: se lee lo que se puede de DMI y de os-release
+                // sin el servicio: solo os-release
             }
-            var vendor = leer ("/sys/class/dmi/id/sys_vendor");
-            var modelo = leer ("/sys/class/dmi/id/product_name");
-            e.tipo = vendor.has_prefix ("Apple") ? "mac" : "pc";
-            e.nombre = "%s %s".printf (vendor, modelo).strip ();
             var os = os_release ();
             e.sistema = os.contains ("NAME") ? os["NAME"] : "Linux";
             e.version = os.contains ("VERSION") ? os["VERSION"] : "";
             e.logo_icono = os.contains ("LOGO") ? os["LOGO"] : "";
             return e;
+        }
+
+        static string texto_de (Json.Object o, string clave) {
+            if (!o.has_member (clave) || o.get_member (clave).get_node_type () != Json.NodeType.OBJECT) return "";
+            return o.get_object_member (clave).get_string_member_with_default ("texto", "");
         }
 
         /** «Linux Mint» y «Zena» de «22.3 (Zena)»: el nombre del sistema y su nombre de versión, si lo trae. */
@@ -101,54 +117,6 @@ namespace Acerca {
 
     // ── Overview ────────────────────────────────────────────────────────
 
-    /** «2.5 GHz Dual-Core Intel Core i5», como lo dice la Mac, de /proc/cpuinfo. */
-    public string procesador () {
-        string modelo = "";
-        int nucleos = 0;
-        var fisicos = new HashTable<string, string> (str_hash, str_equal);
-        string fis = "";
-        foreach (var l in leer ("/proc/cpuinfo").split ("\n")) {
-            if (l.has_prefix ("model name") && modelo == "") modelo = l.substring (l.index_of_char (':') + 1).strip ();
-            if (l.has_prefix ("physical id")) fis = l.substring (l.index_of_char (':') + 1).strip ();
-            if (l.has_prefix ("cpu cores") && !fisicos.contains (fis)) {
-                fisicos[fis] = "1";
-                nucleos += int.parse (l.substring (l.index_of_char (':') + 1).strip ());
-            }
-        }
-        if (modelo == "") return "";
-        string ghz = "";
-        try {
-            MatchInfo m;
-            if (new Regex ("@\\s*([0-9.]+)\\s*GHz").match (modelo, 0, out m)) {
-                ghz = "%.1f GHz".printf (double.parse (m.fetch (1))).replace (",", ".");
-            }
-            var limpio = modelo.replace ("(R)", "").replace ("(TM)", "");
-            limpio = new Regex ("\\s*@.*$").replace (limpio, -1, 0, "");
-            limpio = new Regex ("\\s+(CPU|Processor)\\b").replace (limpio, -1, 0, "");
-            limpio = new Regex ("\\b(i[3579])-\\w+").replace (limpio, -1, 0, "\\1");   // «i5-3210M» → «i5», como la Mac
-            limpio = new Regex ("\\s+").replace (limpio, -1, 0, " ").strip ();
-            string cores = "";
-            if (nucleos == 2) cores = "Dual-Core";
-            else if (nucleos == 4) cores = "Quad-Core";
-            else if (nucleos > 0) cores = "%d-Core".printf (nucleos);
-            return string.joinv (" ", { ghz, cores, limpio }).replace ("  ", " ").strip ();
-        } catch (RegexError e) {
-            return modelo;
-        }
-    }
-
-    /** «16 GB» (la velocidad y el tipo de la memoria no se leen sin ser root). */
-    public string memoria () {
-        foreach (var l in leer ("/proc/meminfo").split ("\n")) {
-            if (l.has_prefix ("MemTotal:")) {
-                var kb = int64.parse (l.substring (9).replace ("kB", "").strip ());
-                var gb = (int) Math.round (kb / 1048576.0);
-                return "%d GB".printf (gb < 1 ? 1 : gb);
-            }
-        }
-        return "";
-    }
-
     /** Dónde está el sistema: la etiqueta del volumen raíz, o el nombre del sistema. */
     public string disco_de_arranque (string respaldo) {
         var montajes = montajes_de_discos ();
@@ -157,36 +125,11 @@ namespace Acerca {
         return etiqueta != "" ? etiqueta : respaldo;
     }
 
-    /** «Intel 3rd Gen Core processor Graphics Controller», del primer controlador de video de lspci. */
-    public string graficos () {
-        foreach (var l in ejecutar ({ "lspci", "-mm" }).split ("\n")) {
-            if (l.contains ("VGA compatible") || l.contains ("3D controller") || l.contains ("Display controller")) {
-                // 00:02.0 "VGA compatible controller" "Intel Corporation" "3rd Gen Core processor Graphics Controller" -r09 …
-                string[] partes = {};
-                bool dentro = false;
-                var sb = new StringBuilder ();
-                for (int k = 0; k < l.length; k++) {
-                    if (l[k] == '"') {
-                        if (dentro) { partes += sb.str; sb.truncate (0); }
-                        dentro = !dentro;
-                    } else if (dentro) {
-                        sb.append_c (l[k]);
-                    }
-                }
-                if (partes.length >= 3) {
-                    var vendor = partes[1].replace (" Corporation", "").replace (" Corp.", "").replace ("Advanced Micro Devices, Inc. [AMD/ATI]", "AMD");
-                    return "%s %s".printf (vendor, partes[2]);
-                }
-            }
-        }
-        return "";
-    }
-
     // ── Displays ────────────────────────────────────────────────────────
 
     public class Pantalla : Object {
         public string nombre = "";     // «LEN T2454pA Display»
-        public int pulgadas = 0;
+        public double pulgadas = 0;        // con un decimal, del EDID
         public int ancho = 0;
         public int alto = 0;
     }
@@ -212,7 +155,7 @@ namespace Acerca {
             if (diag <= 0 && m.get_width_mm () > 0) {
                 diag = Math.sqrt ((double) (m.get_width_mm () * m.get_width_mm () + m.get_height_mm () * m.get_height_mm ())) / 25.4;
             }
-            p.pulgadas = (int) Math.round (diag);
+            p.pulgadas = Math.round (diag * 10) / 10.0;
             if (p.nombre == "") p.nombre = salida_x != "" ? salida_x : "Display";
             salida += p;
         }
@@ -255,6 +198,13 @@ namespace Acerca {
         // muchos monitores ya traen el fabricante en el nombre («LEN T2454pA»)
         if (modelo == "") return "%s Display".printf (id);
         return modelo.has_prefix (id) ? "%s Display".printf (modelo) : "%s %s Display".printf (id, modelo);
+    }
+
+    /** «24-inch» o «17.1-inch»: un decimal solo si hace falta, como la Mac. */
+    public string pulgadas_texto (double p) {
+        var t = "%.1f".printf (p).replace (",", ".");
+        if (t.has_suffix (".0")) t = t.substring (0, t.length - 2);
+        return "%s-inch".printf (t);
     }
 
     // ── Storage ─────────────────────────────────────────────────────────
@@ -380,8 +330,8 @@ namespace Acerca {
         sb.append ("sistema: %s | versión %s | nombre %s\n".printf (e.sistema, e.version_numero (), e.version_nombre ()));
         sb.append ("equipo: %s\n".printf (e.nombre));
         sb.append ("procesador: %s\nmemoria: %s\ndisco de arranque: %s\ngráficos: %s\nserie: %s\n".printf (
-            procesador (), memoria (), disco_de_arranque (e.sistema), graficos (), e.serie));
-        foreach (var p in pantallas ()) sb.append ("pantalla: %s | %d-inch | %d x %d\n".printf (p.nombre, p.pulgadas, p.ancho, p.alto));
+            e.procesador, e.memoria, disco_de_arranque (e.sistema), e.graficos, e.serie));
+        foreach (var p in pantallas ()) sb.append ("pantalla: %s | %s | %d x %d\n".printf (p.nombre, pulgadas_texto (p.pulgadas), p.ancho, p.alto));
         foreach (var v in volumenes (e.sistema)) {
             sb.append ("volumen: %s | %s de %s | %s\n".printf (v.nombre, tamano_legible (v.libre), tamano_legible (v.tamano), v.descripcion.replace ("\n", " / ")));
         }

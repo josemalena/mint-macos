@@ -12,6 +12,9 @@ window.acerca-ventana label { font-family: ".SF NS"; }
 .acerca-so { font-size: 26px; }
 .acerca-version { font-size: 12px; }
 .acerca-fila { font-size: 12px; }
+.acerca-pie { font-size: 10px; opacity: 0.55; }
+button.acerca-enlace { padding: 0; min-height: 0; border: none; background: none; box-shadow: none; }
+button.acerca-enlace label { font-family: ".SF NS"; font-size: 10px; opacity: 0.55; text-decoration: underline; }
 .acerca-pantalla { font-size: 16px; font-weight: bold; }
 .acerca-dato { font-size: 12px; }
 .acerca-volumen { font-size: 14px; }
@@ -73,8 +76,9 @@ window.acerca-ventana label { font-family: ".SF NS"; }
 
         // ── Overview ────────────────────────────────────────────────────
         Gtk.Widget overview () {
+            var pagina = new Gtk.Box (Gtk.Orientation.VERTICAL, 0);
             var fila = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 52);
-            fila.set_size_request (586, 315);
+            fila.set_size_request (586, 316);
             fila.margin_start = 52;
             fila.margin_end = 40;
             fila.margin_bottom = 20;
@@ -93,10 +97,10 @@ window.acerca-ventana label { font-family: ".SF NS"; }
             var datos = new Gtk.Box (Gtk.Orientation.VERTICAL, 3);
             datos.margin_top = 18;
             if (equipo.nombre != "") datos.pack_start (etiqueta ("<b>%s</b>".printf (esc (equipo.nombre)), "acerca-fila"), false, false, 0);
-            agregar_fila (datos, "Processor", procesador ());
-            agregar_fila (datos, "Memory", memoria ());
+            agregar_fila (datos, "Processor", equipo.procesador);
+            agregar_fila (datos, "Memory", equipo.memoria);
             agregar_fila (datos, "Startup Disk", disco_de_arranque (equipo.sistema));
-            agregar_fila (datos, "Graphics", graficos ());
+            agregar_fila (datos, "Graphics", equipo.graficos);
             agregar_fila (datos, "Serial Number", equipo.serie);
             col.pack_start (datos, false, false, 0);
 
@@ -110,7 +114,31 @@ window.acerca-ventana label { font-family: ".SF NS"; }
             botones.pack_start (actualizar, false, false, 0);
             col.pack_start (botones, false, false, 0);
             fila.pack_start (col, true, true, 0);
-            return fila;
+            pagina.pack_start (fila, true, true, 0);
+            pagina.pack_end (pie_de_licencia (), false, false, 0);
+            return pagina;
+        }
+
+        /**
+         * El pie del Overview, donde Apple pone «™ and © 1983-… Apple Inc. All Rights Reserved. License Agreement»: aquí
+         * el sistema y su licencia. Las fuentes: el nombre sale de os-release (NAME) y la licencia de
+         * /usr/share/doc/mint-info-cinnamon/copyright («free software … GNU General Public License»); el enlace abre ese texto.
+         */
+        Gtk.Widget pie_de_licencia () {
+            var caja = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 4);
+            caja.halign = Gtk.Align.CENTER;
+            caja.margin_bottom = 12;
+            var txt = etiqueta ("%s is free software under the GNU General Public License.".printf (esc (equipo.sistema)), "acerca-pie");
+            caja.pack_start (txt, false, false, 0);
+            var licencia = "/usr/share/doc/mint-info-cinnamon/copyright";
+            if (FileUtils.test (licencia, FileTest.EXISTS)) {
+                var enlace = new Gtk.Button.with_label ("License Agreement");
+                enlace.relief = Gtk.ReliefStyle.NONE;
+                enlace.get_style_context ().add_class ("acerca-enlace");
+                enlace.clicked.connect (() => lanzar ({ "xdg-open", licencia }));
+                caja.pack_start (enlace, false, false, 0);
+            }
+            return caja;
         }
 
         static void agregar_fila (Gtk.Box caja, string clave, string valor) {
@@ -158,67 +186,40 @@ window.acerca-ventana label { font-family: ".SF NS"; }
         }
 
         // ── Displays ────────────────────────────────────────────────────
+        // Con varios monitores van uno al lado del otro, cada uno con su dibujo arriba y sus textos debajo alineados a
+        // la izquierda de su columna (captura de High Sierra con dos monitores); un solo botón abajo a la derecha.
         Gtk.Widget displays () {
             var caja = new Gtk.Box (Gtk.Orientation.VERTICAL, 0);
-            caja.set_size_request (586, -1);
-            var gpu = graficos ();
-            var todas = pantallas ();
-            var lista = new Gtk.Box (Gtk.Orientation.VERTICAL, 24);
-            lista.margin_top = 26;
-            foreach (var p in todas) {
+            caja.set_size_request (586, 376);      // 414 px con la barra de título, como en la Mac
+            var columnas = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 0);
+            columnas.homogeneous = true;
+            columnas.margin_top = 44;
+            columnas.margin_start = 30;
+            columnas.margin_end = 30;
+            foreach (var p in pantallas ()) {
                 var b = new Gtk.Box (Gtk.Orientation.VERTICAL, 3);
                 b.halign = Gtk.Align.CENTER;
-                var dibujo = new Gtk.DrawingArea ();
-                dibujo.set_size_request (172, 112);
+                // El dibujo de la pantalla: del tema de íconos (el de Apple no se copia al repo).
+                var dibujo = new Gtk.Image.from_icon_name ("video-display", Gtk.IconSize.DIALOG);
+                dibujo.pixel_size = 96;
                 dibujo.halign = Gtk.Align.CENTER;
-                dibujo.draw.connect ((cr) => { dibujar_pantalla (cr); return true; });
                 b.pack_start (dibujo, false, false, 0);
-                var nom = etiqueta ("%s".printf (esc (p.nombre)), "acerca-pantalla");
-                nom.margin_top = 36;
-                nom.xalign = 0;
+                var nom = etiqueta (esc (p.nombre), "acerca-pantalla");
+                nom.margin_top = 32;
                 b.pack_start (nom, false, false, 0);
-                var medida = p.pulgadas > 0 ? "%d-inch (%d x %d)".printf (p.pulgadas, p.ancho, p.alto) : "%d x %d".printf (p.ancho, p.alto);
+                var medida = p.pulgadas > 0 ? "%s (%d x %d)".printf (pulgadas_texto (p.pulgadas), p.ancho, p.alto) : "%d x %d".printf (p.ancho, p.alto);
                 b.pack_start (etiqueta (esc (medida), "acerca-dato"), false, false, 0);
-                if (gpu != "") b.pack_start (etiqueta (esc ("%s graphics".printf (gpu)), "acerca-dato"), false, false, 0);
-                lista.pack_start (b, false, false, 0);
+                if (equipo.graficos != "") b.pack_start (etiqueta (esc ("%s graphics".printf (equipo.graficos)), "acerca-dato"), false, false, 0);
+                columnas.pack_start (b, true, true, 0);
             }
-            var scroll = new Gtk.ScrolledWindow (null, null);
-            scroll.set_policy (Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC);
-            scroll.propagate_natural_height = true;
-            scroll.max_content_height = 520;
-            scroll.add (lista);
-            caja.pack_start (scroll, true, true, 0);
+            caja.pack_start (columnas, false, false, 0);
             var pie = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 0);
             pie.margin = 20;
             var prefs = new Gtk.Button.with_label ("Displays Preferences…");
             prefs.clicked.connect (() => lanzar ({ "mac-settings", "displays" }));
             pie.pack_end (prefs, false, false, 0);
-            caja.pack_start (pie, false, false, 0);
+            caja.pack_end (pie, false, false, 0);
             return caja;
-        }
-
-        static void dibujar_pantalla (Cairo.Context cr) {
-            double x = 0, y = 0, w = 172, h = 105;
-            cr.save ();
-            cr.translate (0, 0);
-            cr.rectangle (x, y, w, h);
-            cr.set_source_rgb (0.05, 0.05, 0.05);
-            cr.fill ();
-            // el reflejo en diagonal de la pantalla
-            cr.move_to (x + 112, y);
-            cr.line_to (x + w, y);
-            cr.line_to (x + w, y + h);
-            cr.line_to (x + 90, y + h);
-            cr.close_path ();
-            cr.set_source_rgba (1, 1, 1, 0.12);
-            cr.fill ();
-            cr.restore ();
-            cr.save ();
-            cr.scale (1, 0.18);
-            cr.arc (w / 2, 105 / 0.18 * 1.0 - 5, 26, 0, 2 * Math.PI);
-            cr.set_source_rgba (0.85, 0.85, 0.85, 0.9);
-            cr.fill ();
-            cr.restore ();
         }
 
         // ── Storage ─────────────────────────────────────────────────────
@@ -236,7 +237,10 @@ window.acerca-ventana label { font-family: ".SF NS"; }
 
         Gtk.Widget renglon_de (Volumen v) {
             var fila = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 20);
-            fila.margin = 20;
+            fila.set_size_request (-1, 150);        // un disco: 188 px con la barra de título; cada disco suma un renglón
+            fila.margin_start = 20;
+            fila.margin_end = 20;
+            fila.margin_top = 20;
             var icono_col = new Gtk.Box (Gtk.Orientation.VERTICAL, 4);
             icono_col.set_size_request (90, -1);
             var icono = new Gtk.Image.from_icon_name (v.externo ? "drive-removable-media" : "drive-harddisk", Gtk.IconSize.DIALOG);
