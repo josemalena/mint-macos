@@ -84,6 +84,10 @@ pub struct Motor {
     bus: Mutex<Option<Connection>>,
     /// Refrescar pide releer los catálogos aunque el caché diga que están al día.
     forzar: AtomicBool,
+    /// Los íconos por bajar, en orden; uno a la vez, en un hilo.
+    iconos: Mutex<(std::collections::VecDeque<String>, std::collections::HashSet<String>, bool)>,
+    /// El Arc de sí mismo, para los hilos que arranca desde &self.
+    yo: std::sync::OnceLock<std::sync::Weak<Motor>>,
 }
 
 fn cache_indice() -> PathBuf {
@@ -107,7 +111,10 @@ impl Motor {
             ultimo_refresco: Mutex::new(0),
             bus: Mutex::new(None),
             forzar: AtomicBool::new(false),
+            iconos: Mutex::new(Default::default()),
+            yo: std::sync::OnceLock::new(),
         });
+        let _ = m.yo.set(Arc::downgrade(&m));
         let m2 = m.clone();
         std::thread::spawn(move || m2.cargar());
         m
@@ -188,6 +195,39 @@ impl Motor {
         }
     }
 
+    /// Pone un ícono en la cola. Un hilo los baja uno por uno y avisa IconoListo; una
+    /// URL que falló no se vuelve a pedir mientras viva el servicio.
+    fn pedir_icono(&self, url: &str) {
+        let mut g = self.iconos.lock().unwrap();
+        if !g.1.insert(url.to_string()) {
+            return;
+        }
+        g.0.push_back(url.to_string());
+        if g.2 {
+            return;
+        }
+        g.2 = true;
+        drop(g);
+        let Some(m) = self.yo.get().and_then(|w| w.upgrade()) else { return };
+        std::thread::spawn(move || {
+            loop {
+                let u = {
+                    let mut g = m.iconos.lock().unwrap();
+                    match g.0.pop_front() {
+                        Some(u) => u,
+                        None => {
+                            g.2 = false;
+                            break;
+                        }
+                    }
+                };
+                if m.web.bajar_icono(&u) {
+                    m.emitir("IconoListo", &(u.as_str(), m.web.ruta_icono(&u).to_string_lossy().as_ref()));
+                }
+            }
+        });
+    }
+
     pub fn ocupado(&self) -> bool {
         !self.trabajos.lock().unwrap().is_empty()
     }
@@ -211,7 +251,14 @@ impl Motor {
             d.insert("icono".into(), ov(p.to_string_lossy().into_owned()));
         } else if tema.is_none() {
             if let Some(u) = a.icono_url.as_ref().or_else(|| hermanas.iter().find_map(|h| h.icono_url.as_ref())) {
-                d.insert("icono".into(), ov(u.clone()));
+                // Si ya se bajó, la ruta; si no, la URL y se pide (IconoListo avisa).
+                let r = self.web.ruta_icono(u);
+                if r.is_file() {
+                    d.insert("icono".into(), ov(r.to_string_lossy().into_owned()));
+                } else {
+                    d.insert("icono".into(), ov(u.clone()));
+                    self.pedir_icono(u);
+                }
             }
         }
         if let Some(t) = tema {
@@ -386,7 +433,15 @@ impl Motor {
                 };
                 for c in cats {
                     let ruta = format!("category/{c}?sort_by=installs_last_month");
-                    pedidos.push((format!("populares-{s}-{c}"), format!("Top {c}"), "lista-numerada".into(), format!("flathub:/collection/category/{c}?sort_by=installs_last_month"), self.web.coleccion(&ruta, 24)));
+                    let titulo = match *c {
+                        "graphics" => "Top Graphics & Design",
+                        "audiovideo" => "Top Photo & Video",
+                        "office" => "Top Productivity",
+                        "game" => "Top Games",
+                        "development" => "Top Developer Tools",
+                        otro => otro,
+                    };
+                    pedidos.push((format!("populares-{s}-{c}"), titulo.to_string(), "lista-numerada".into(), format!("flathub:/collection/category/{c}?sort_by=installs_last_month"), self.web.coleccion(&ruta, 24)));
                 }
             }
         }

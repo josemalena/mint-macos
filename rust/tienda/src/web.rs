@@ -137,6 +137,35 @@ impl Web {
     }
 }
 
+impl Web {
+    /// Dónde queda el ícono bajado de una URL (exista o no todavía).
+    pub fn ruta_icono(&self, url: &str) -> PathBuf {
+        let ext = if url.ends_with(".svg") { "svg" } else { "png" };
+        let mut h: u64 = 0xcbf29ce484222325; // FNV-1a: un nombre corto y estable por URL
+        for b in url.bytes() {
+            h = (h ^ b as u64).wrapping_mul(0x100000001b3);
+        }
+        self.cache.with_file_name("iconos").join(format!("{h:016x}.{ext}"))
+    }
+
+    /// Baja un ícono (hasta 2 MB) a su ruta. true si quedó.
+    pub fn bajar_icono(&self, url: &str) -> bool {
+        let destino = self.ruta_icono(url);
+        if destino.is_file() {
+            return true;
+        }
+        let Ok(mut r) = self.agente.get(url).call() else { return false };
+        let Ok(b) = r.body_mut().with_config().limit(2 << 20).read_to_vec() else { return false };
+        // Solo imágenes: PNG o SVG.
+        if !(b.starts_with(b"\x89PNG") || b.starts_with(b"<svg") || b.starts_with(b"<?xml")) {
+            return false;
+        }
+        let _ = fs::create_dir_all(destino.parent().unwrap());
+        let tmp = destino.with_extension("tmp");
+        fs::write(&tmp, &b).is_ok() && fs::rename(&tmp, &destino).is_ok()
+    }
+}
+
 /// Promedio de 0 a 5 a partir de los votos por estrella.
 pub fn promedio(e: &[u64; 5], total: u64) -> f64 {
     if total == 0 {

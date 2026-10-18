@@ -82,6 +82,13 @@ cat > "$A/appstream.xml" <<'FIN'
     <releases><release version="1" timestamp="1790000000"/></releases>
     <bundle type="flatpak">app/org.mintmacos.Juguete/x86_64/stable</bundle>
   </component>
+  <component type="desktop-application">
+    <id>org.mintmacos.ConIconoRemoto</id>
+    <name>Con ícono remoto</name>
+    <summary>Su ícono solo está en la red</summary>
+    <icon type="remote" width="128">http://127.0.0.1:PUERTO/icono.png</icon>
+    <bundle type="flatpak">app/org.mintmacos.ConIconoRemoto/x86_64/stable</bundle>
+  </component>
 </components>
 FIN
 
@@ -100,6 +107,7 @@ python3 -I "$AQUI/prueba/falsos.py" pk "$TIENDA_BUS_SISTEMA" "$T/raiz/var/lib/dp
 python3 -I "$AQUI/prueba/falsos.py" web "$T/puerto" & echo $! > "$T/pid-web"
 for _ in $(seq 50); do [ -s "$T/pk.listo" ] && [ -s "$T/puerto" ] && break; sleep 0.1; done
 export TIENDA_FLATHUB="http://127.0.0.1:$(cat "$T/puerto")/api/v2" TIENDA_ODRS="http://127.0.0.1:$(cat "$T/puerto")/odrs"
+sed -i "s/PUERTO/$(cat "$T/puerto")/" "$T/inst/appstream/flathub/x86_64/active/appstream.xml"
 # La activación hereda el entorno del bus; se lo pasamos al daemon.
 dbus-update-activation-environment TIENDA_BUS_SISTEMA TIENDA_FLATHUB TIENDA_ODRS TIENDA_RAIZ FLATPAK_USER_DIR FLATPAK_SYSTEM_DIR \
   XDG_CACHE_HOME XDG_DATA_HOME XDG_CONFIG_HOME XDG_STATE_HOME GSETTINGS_BACKEND GIO_USE_VFS LANG

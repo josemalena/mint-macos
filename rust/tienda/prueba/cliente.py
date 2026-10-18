@@ -136,6 +136,21 @@ fin = esperar_terminado(t)
 comprobar("quitar Flatpak termina bien", fin is not None and fin[1] is True, fin)
 comprobar("la ficha ya no dice instalada", ficha(FP).get("instalada") is False)
 
+# 8b. Un ícono que solo está en la red: la primera vez viene la URL y se baja.
+r = llamar("Buscar", "(sasu)", ("remoto", [], 5))
+url = r[0].get("icono", "") if r else ""
+comprobar("ícono remoto: primero la URL", url.startswith("http://127.0.0.1:"), r)
+fin = time.time() + 15
+listo = None
+while time.time() < fin and not listo:
+    while ctx.pending():
+        ctx.iteration(False)
+    listo = next((a for s_, a in senales if s_ == "IconoListo" and a[0] == url), None)
+    time.sleep(0.05)
+comprobar("IconoListo con la ruta bajada", listo is not None and os.path.isfile(listo[1]), listo)
+r = llamar("Buscar", "(sasu)", ("remoto", [], 5))
+comprobar("ícono remoto: después la ruta", r and listo and r[0].get("icono") == listo[1], r)
+
 # 9. El salto de versión y el estado.
 v = llamar("NuevaVersion")
 comprobar("NuevaVersion: el salto menor", v.get("tipo") == "menor" and v.get("herramienta") == "mint-release-upgrade", v)

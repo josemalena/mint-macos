@@ -157,6 +157,13 @@ class Manejador(http.server.BaseHTTPRequestHandler):
 
     def do_GET(self):
         ruta = self.path.split("?")[0]
+        if ruta == "/icono.png":
+            b = b"\x89PNG\r\n\x1a\n" + b"\0" * 64   # basta con la firma
+            self.send_response(200)
+            self.send_header("Content-Type", "image/png")
+            self.end_headers()
+            self.wfile.write(b)
+            return
         if ruta.startswith("/api/v2/app-picks/app-of-the-day/"):
             return self.responder({"app_id": "org.mintmacos.Juguete", "day": ruta.rsplit("/", 1)[1]})
         self.responder(RESPUESTAS.get(ruta))
