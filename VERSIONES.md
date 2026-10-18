@@ -279,9 +279,9 @@ Cada fork, el commit que se compila y los parches que lleva encima de su upstrea
 
 - Fork: https://github.com/josemalena/spotlyte.git
 - Upstream: https://github.com/Ulauncher/Ulauncher.git, rama `v5`
-- Commit: `a62cdb91edc803f042ee654e60f0e9d56186d655` (2026-10-14, tema: esquinas de 12, lupa de 28, cabeceras tenues y tabla de datos en la vista previa)
+- Commit: `0a6a4c4878936a4c611098397f7f0e0b5b6e4f78` (2026-10-18, fix(ventana): Spotlyte no sale en el Dock ni en el selector de ventanas, como Spotlight)
 - Base: `5ba6eb1ec507d0c90cae80a8b4c33df473ade7be` (5.16.2), 2026-09-17, fix(settings): convert v6 setting names back when returning from v6
-- Parches: 6
+- Parches: 8
 
 | Commit | Fecha | Asunto |
 |---|---|---|
@@ -291,3 +291,5 @@ Cada fork, el commit que se compila y los parches que lleva encima de su upstrea
 | `b87bab62` | 2026-10-14 | perf: un índice por fuente (home, discos montados, iCloud) y sin stat por archivo |
 | `6159e16a` | 2026-10-14 | perf: el indexado corre con E/S en clase idle |
 | `a62cdb91` | 2026-10-14 | tema: esquinas de 12, lupa de 28, cabeceras tenues y tabla de datos en la vista previa |
+| `cb78641c` | 2026-10-18 | perf: la búsqueda de archivos ya no traba el teclado (hilo aparte, espera de 90 ms, fuentes a la vez, índice en el disco del sistema) |
+| `0a6a4c48` | 2026-10-18 | fix(ventana): Spotlyte no sale en el Dock ni en el selector de ventanas, como Spotlight |
