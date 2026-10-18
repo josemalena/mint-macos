@@ -52,8 +52,14 @@ prueba() {
   local antes; antes="$(python3 -c "import json;print(json.load(open('$diseno'))['orden'])")"
   paso "orden antes: $antes"
   arrastrar 3 0
-  local despues; despues="$(python3 -c "import json;print(json.load(open('$diseno'))['orden'])")"
+  # Con la máquina cargada (un armado completo) el soltar tarda en guardarse: se espera el cambio en vez de un tiempo fijo.
+  local despues="$antes"
+  for _ in $(seq 40); do
+    despues="$(python3 -c "import json;print(json.load(open('$diseno'))['orden'])")"
+    [ "$antes" != "$despues" ] && break
+    sleep 0.25
+  done
   paso "orden después: $despues"
-  [ "$antes" != "$despues" ] || falla "llevar un ícono a otro lugar no cambió el orden"
   captura launchpad-reordenado
+  [ "$antes" != "$despues" ] || falla "llevar un ícono a otro lugar no cambió el orden: $(cat "$diseno")"
 }
