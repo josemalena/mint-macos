@@ -3,6 +3,8 @@
 macOS a su tamaño en puntos, con el árbol de objetos y sus propiedades al lado.
 Sirve para comparar mint-macos con la Mac sin depender de capturas.
 
+    herramientas/visor-nib/visor.py RUTA.app                 una app entera: sus nib en una lista,
+                                                             con el principal (NSMainNibFile) abierto
     herramientas/visor-nib/visor.py RUTA.nib                 la ventana del visor
     herramientas/visor-nib/visor.py RUTA.nib --json SALIDA   el árbol en JSON (para Dev-Dock)
     herramientas/visor-nib/visor.py RUTA.nib --png CARPETA   cada ventana a un PNG (sin pantalla:
@@ -29,6 +31,49 @@ from gi.repository import Gtk, Gdk, GdkPixbuf  # noqa: E402
 
 SALIDA = os.path.join(os.path.expanduser('~/.local/share/mint-macos'), 'visor-nib')
 CAR = os.path.join(os.path.dirname(os.path.dirname(AQUI)), 'tema', 'iconos', 'car.py')
+
+
+# --- una app entera --------------------------------------------------------------
+
+def ruta_nib(p):
+    """Un nib puede ser un archivo o una carpeta (keyedobjects.nib dentro)."""
+    if os.path.isdir(p):
+        for n in sorted(os.listdir(p)):
+            if n.startswith('keyedobjects') and n.endswith('.nib'):
+                return os.path.join(p, n)
+        return None
+    return p
+
+
+def nibs_del_bundle(app):
+    """(nombre, ruta) de los nib de una .app: Base.lproj, en.lproj, los sueltos y los de los
+    storyboards; el principal (NSMainNibFile o NSMainStoryboardFile) primero."""
+    recursos = os.path.join(app, 'Contents', 'Resources')
+    principal = None
+    try:
+        import plistlib  # pylint: disable=import-outside-toplevel
+        info = plistlib.load(open(os.path.join(app, 'Contents', 'Info.plist'), 'rb'))
+        principal = info.get('NSMainNibFile') or info.get('NSMainStoryboardFile')
+    except (OSError, ValueError):
+        pass
+    vistos, out = set(), []
+    for carpeta in ('Base.lproj', 'en.lproj', 'English.lproj', ''):
+        d = os.path.join(recursos, carpeta)
+        for n in sorted(os.listdir(d)) if os.path.isdir(d) else []:
+            rutas = []
+            if n.endswith('.nib'):
+                rutas.append((n[:-4], os.path.join(d, n)))
+            elif n.endswith('.storyboardc'):
+                for m in sorted(os.listdir(os.path.join(d, n))):
+                    if m.endswith('.nib'):
+                        rutas.append(('%s ▸ %s' % (n[:-12], m[:-4]), os.path.join(d, n, m)))
+            for nombre, r in rutas:
+                r = ruta_nib(r)
+                if r and nombre not in vistos:
+                    vistos.add(nombre)
+                    out.append((nombre, r))
+    out.sort(key=lambda x: (x[0] != principal and not x[0].startswith(str(principal) + ' ▸'), x[0].lower()))
+    return out
 
 
 # --- las imágenes del bundle y de AppKit ---------------------------------------
@@ -247,16 +292,33 @@ def nombre_de(n):
 
 class Visor(Gtk.Window):
     def __init__(self, ruta):
-        super().__init__(title='Visor de nib — ' + os.path.basename(ruta))
+        super().__init__(title='Visor de nib')
         self.set_default_size(1400, 860)
-        self.imgs = Imagenes(ruta)
-        self.raices = nib.abrir(ruta).raices()
+        # Una .app trae una lista de nib; un nib suelto, solo ese.
+        if ruta.rstrip('/').endswith('.app') and os.path.isdir(ruta):
+            self.app = os.path.basename(ruta.rstrip('/'))[:-4]
+            self.nibs = nibs_del_bundle(ruta)
+        else:
+            self.app = None
+            self.nibs = [(os.path.splitext(os.path.basename(ruta))[0], ruta_nib(ruta))]
+        if not self.nibs:
+            raise SystemExit('%s no tiene ningún nib' % ruta)
+        caja = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        self.add(caja)
+        if len(self.nibs) > 1:
+            arriba = Gtk.Box(spacing=8)
+            arriba.set_border_width(6)
+            arriba.pack_start(Gtk.Label(label='Nib:'), False, False, 0)
+            combo = Gtk.ComboBoxText()
+            for n, _ in self.nibs:
+                combo.append_text(n)
+            combo.connect('changed', lambda c: self._cargar(c.get_active()))
+            arriba.pack_start(combo, False, False, 0)
+            caja.pack_start(arriba, False, False, 0)
         panel = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
-        self.add(panel)
+        caja.pack_start(panel, True, True, 0)
         # El árbol.
         self.modelo = Gtk.TreeStore(str, object)
-        for r in self.raices:
-            self._poner(None, r)
         arbol = Gtk.TreeView(model=self.modelo)
         arbol.append_column(Gtk.TreeViewColumn('Objeto', Gtk.CellRendererText(), text=0))
         arbol.get_selection().connect('changed', self._elegido)
@@ -277,6 +339,34 @@ class Visor(Gtk.Window):
         self.der = Gtk.ScrolledWindow()
         panel.pack2(self.der, True, False)
         self.actual = None
+        self.arbol = arbol
+        if len(self.nibs) > 1:
+            combo.set_active(0)
+        else:
+            self._cargar(0)
+
+    def _cargar(self, i):
+        nombre, ruta = self.nibs[i]
+        self.set_title('%s — %s' % (self.app, nombre) if self.app else 'Visor de nib — ' + nombre)
+        self.imgs = Imagenes(ruta)
+        try:
+            self.raices = nib.abrir(ruta).raices()
+        except ValueError as e:
+            self.raices = [{'id': None, 'clase': 'error', 'props': {'mensaje': str(e)}, 'hijos': []}]
+        self.modelo.clear()
+        self.actual = None
+        for h in self.der.get_children():
+            self.der.remove(h)
+        for r in self.raices:
+            self._poner(None, r)
+        # Al abrir, la ventana más grande del nib, ya pintada.
+        ventanas = [i for i, r in enumerate(self.raices) if r['clase'] == 'NSWindowTemplate']
+        if ventanas:
+            grande = max(ventanas, key=lambda i: (self.raices[i]['props'].get('marco') or [0, 0, 0, 0])[2])
+            self.arbol.get_selection().select_path(Gtk.TreePath(grande))
+        elif self.raices:
+            # Un nib sin ventanas (el MainMenu de TextEdit): su barra de menús.
+            self.arbol.get_selection().select_path(Gtk.TreePath(0))
 
     def _poner(self, padre, n):
         it = self.modelo.append(padre, [nombre_de(n), n])
