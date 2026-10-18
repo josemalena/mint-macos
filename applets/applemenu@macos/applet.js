@@ -65,6 +65,20 @@ function comandoPreferencias() {
   return GLib.find_program_in_path("mac-settings") ? "mac-settings" : "cinnamon-settings";
 }
 
+// «About This Mac» o «About This PC», según lo que dice el servicio mint-macos-equipo (tipo mac|pc).
+function etiquetaAcerca() {
+  try {
+    let [ok, bytes] = GLib.file_get_contents("/run/mint-macos/equipo.json");
+    if (ok && JSON.parse(imports.byteArray.toString(bytes)).tipo === "pc") return "About This PC";
+  } catch (e) {}
+  return "About This Mac";
+}
+
+function comandoAcerca() {
+  let l = GLib.build_filenamev([GLib.get_home_dir(), ".local", "bin", "mac-acerca-lanzar"]);
+  return GLib.file_test(l, GLib.FileTest.IS_EXECUTABLE) ? l : "mintreport";
+}
+
 function spawn(cmd) {
   Util.spawnCommandLine(cmd);
 }
@@ -226,7 +240,7 @@ class AppleMenuApplet extends Applet.IconApplet {
   _buildMenu() {
     this.menu.removeAll();
 
-    this._item("About This Mac", null, () => spawn("mintreport"));
+    this._item(etiquetaAcerca(), null, () => spawn(comandoAcerca()));
     this._separador();
     this._item("System Preferences…", null, () => spawn(comandoPreferencias()));
     this._item("App Store…", null, () => spawn("mintinstall"));
@@ -320,8 +334,8 @@ class AppleMenuApplet extends Applet.IconApplet {
         return;
       }
     }
-    let script = GLib.build_filenamev([this._appletPath, "forcekill.py"]);
-    spawn(`python3 '${script}'`);
+    // El lanzador usa el Vala (o el residente) y cae a Python si no está instalado.
+    spawn("mac-forcequit-lanzar");
   }
 
   // ── Recent Items ──────────────────────────────────────────────────────────

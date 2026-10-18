@@ -21,6 +21,7 @@ subdir('gatekeeper')
 subdir('forcequit')
 subdir('launchpad')
 subdir('captura')
+subdir('acerca')
 subdir('ventanas')
 subdir('preferencias')
 

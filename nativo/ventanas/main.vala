@@ -7,6 +7,7 @@
  *   mac-ventanas forcequit [--prueba]                «Force Quit Applications» (⌥⌘⎋)
  *   mac-ventanas app-del-frente                      fuerza la salida de la app activa (⌥⇧⌘⎋)
  *   mac-ventanas captura                             la barra de ⇧⌘5
+ *   mac-ventanas acerca [--pestana overview|displays|storage]   About This Mac / About This PC
  *
  * Cada orden es una línea de comandos de GApplication: si ya hay un residente, el cliente se la manda y espera su
  * resultado (lo que imprime y el código de salida llegan al cliente, así el JSON de «sesion» sigue siendo el de siempre);
@@ -16,6 +17,7 @@
 public class Ventanas : Gtk.Application {
     Captura.Barra? barra = null;
     MacForceQuit.Ventana? forcequit = null;
+    Acerca.Ventana? acerca = null;
     bool residente = false;
 
     public Ventanas () {
@@ -25,7 +27,7 @@ public class Ventanas : Gtk.Application {
     public override int command_line (ApplicationCommandLine cmd) {
         var args = cmd.get_arguments ();
         if (args.length < 2) {
-            cmd.printerr ("uso: mac-ventanas --residente | sesion … | forcequit [--prueba] | app-del-frente | captura\n");
+            cmd.printerr ("uso: mac-ventanas --residente | sesion … | forcequit [--prueba] | app-del-frente | captura | acerca\n");
             return 2;
         }
         switch (args[1]) {
@@ -56,6 +58,13 @@ public class Ventanas : Gtk.Application {
         case "captura":
             abrir_captura ();
             return 0;
+        case "acerca":
+            string pestana = "overview";
+            for (int i = 2; i + 1 < args.length; i++) {
+                if (args[i] == "--pestana") pestana = args[i + 1];
+            }
+            abrir_acerca (pestana);
+            return 0;
         default:
             cmd.printerr ("mac-ventanas: no conozco «%s»\n", args[1]);
             return 2;
@@ -70,6 +79,16 @@ public class Ventanas : Gtk.Application {
         forcequit = new MacForceQuit.Ventana (matar);
         add_window (forcequit);
         forcequit.destroy.connect (() => { forcequit = null; });
+    }
+
+    void abrir_acerca (string pestana) {
+        if (acerca != null) {
+            acerca.ir_a (pestana);
+            return;
+        }
+        acerca = new Acerca.Ventana (pestana);
+        add_window (acerca);
+        acerca.destroy.connect (() => { acerca = null; });
     }
 
     void abrir_captura () {

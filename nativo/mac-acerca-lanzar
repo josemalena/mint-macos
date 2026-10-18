@@ -1,0 +1,12 @@
+#!/bin/sh
+# About This Mac / About This PC. Con el residente (nativo/activar-ventanas.sh) se le pide a mac-ventanas; si no, el binario
+# suelto; y sin ninguno, el informe del sistema de Mint de siempre.
+ventanas="$HOME/.local/bin/mac-ventanas"
+if [ -f "$HOME/.config/mint-macos/ventanas.activo" ] && [ -x "$ventanas" ]; then
+  exec "$ventanas" acerca "$@"
+fi
+bin="$HOME/.local/bin/mac-acerca"
+if [ -x "$bin" ]; then
+  exec "$bin" "$@"
+fi
+exec mintreport
