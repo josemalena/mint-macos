@@ -37,6 +37,7 @@ public class Ventanas : Gtk.Application {
             if (!residente) {
                 residente = true;
                 hold ();                    // sigue vivo sin ventanas
+                Menu.Anfitrion.iniciar ();   // org.mintmacos.Menu1: el menú de la app al frente para el applet
                 Idle.add (precalentar);
             }
             return 0;

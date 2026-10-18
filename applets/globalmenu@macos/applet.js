@@ -199,6 +199,31 @@ function alinearALaIzquierda() {
   return [Math.round(x), y];
 }
 
+// ── El servicio del menú (org.mintmacos.Menu1, nativo/menu/DBUS.md) ─────────────────────────────────────────────────
+// Lo pesado (leer GMenuModel y dbusmenu, aplanar secciones, dar la forma de la Mac a los atajos) lo hace mac-ventanas; el
+// applet pide la barra y los menús por xid y dibuja. Si el servicio no está (nadie tiene el nombre) se cae al camino de
+// siempre, que sigue más abajo.
+const MENU1 = "org.mintmacos.Menu1";
+const RUTA_MENU1 = "/org/mintmacos/Menu1";
+
+function menu1(metodo, params, tipo) {
+  return new Promise((resolver, rechazar) => {
+    Gio.DBus.session.call(MENU1, RUTA_MENU1, MENU1, metodo, params, tipo ? new GLib.VariantType(tipo) : null,
+      Gio.DBusCallFlags.NONE, 5000, null, (con, res) => {
+        try { resolver(con.call_finish(res)); } catch (e) { rechazar(e); }
+      });
+  });
+}
+
+function sinServicio(e) {
+  let m = String(e && e.message);
+  return m.indexOf("ServiceUnknown") >= 0 || m.indexOf("NameHasNoOwner") >= 0 || m.indexOf("not provided by any") >= 0;
+}
+
+function desempacar(v) {
+  return typeof v.recursiveUnpack === "function" ? v.recursiveUnpack() : v.deepUnpack();
+}
+
 // Posición de un submenú que sale a la derecha del renglón que lo abre (como en la Mac); si no cabe, a la izquierda.
 function ladoDerecho() {
   let caja = Cinnamon.util_get_transformed_allocation(this.sourceActor);
@@ -290,6 +315,13 @@ class GlobalMenuApplet extends Applet.Applet {
       if (w && w.get_xwindow && w.get_xwindow() === xid) { this._ventana = null; this._alCambiarFoco(); }
     });
 
+    // BarraCambio / ArbolCambio del servicio: solo las de la ventana de la barra.
+    this._senalesMenu1 = ["BarraCambio", "ArbolCambio"].map(nombre =>
+      Gio.DBus.session.signal_subscribe(MENU1, MENU1, nombre, RUTA_MENU1, null, Gio.DBusSignalFlags.NONE,
+        (_c, _s, _r, _i, n, p) => this._alCambiarMenu1(n, p)));
+    this._xidServicio = 0;
+    this._version = 0;
+
     this._senalFoco = global.display.connect("notify::focus-window", () => this._alCambiarFoco());
     // Al entrar el escritorio de Fynder puede salir después que la barra: sin foco, hasta que aparece la barra sale vacía.
     this._senalCreada = 0;
@@ -340,6 +372,31 @@ class GlobalMenuApplet extends Applet.Applet {
     if (!w) return;
     if (w === this._ventana) return;
 
+    this._ventana = w;
+    this._probando = null;
+    this._soltarModelo();
+    this._limpiar();
+    this._viaServicio(w);
+  }
+
+  // El servicio da la barra de la ventana; si nadie tiene org.mintmacos.Menu1, se lee aquí como antes.
+  _viaServicio(w) {
+    let xid = 0;
+    try { xid = w.get_xwindow(); } catch (e) {}
+    this._xidServicio = xid;
+    menu1("Barra", new GLib.Variant("(u)", [xid]), "(uaa{sv})").then(r => {
+      if (w !== this._ventana) return;
+      let [version, items] = desempacar(r);
+      this._version = version;
+      this._limpiar();
+      for (let it of items) this._agregarBotonServicio(it);
+    }).catch(e => {
+      if (w !== this._ventana) return;
+      if (sinServicio(e)) this._leerEnApplet(w);
+    });
+  }
+
+  _leerEnApplet(w) {
     let bus = null, rutaMenu = null, rutaApp = null, rutaVentana = null;
     try {
       bus = w.get_gtk_unique_bus_name();
@@ -347,11 +404,6 @@ class GlobalMenuApplet extends Applet.Applet {
       rutaApp = w.get_gtk_application_object_path();
       rutaVentana = w.get_gtk_window_object_path();
     } catch (e) {}
-
-    this._ventana = w;
-    this._probando = null;
-    this._soltarModelo();
-    this._limpiar();
     if (!bus || !rutaMenu) { this._probarDbusmenu(w); return; }
 
     let con = Gio.DBus.session;
@@ -366,6 +418,93 @@ class GlobalMenuApplet extends Applet.Applet {
     this._senalModelo = this._modelo.connect("items-changed", () => this._programarArmado());
     precargar(this._modelo, 0, this._vivos);
     this._programarArmado();
+  }
+
+  _alCambiarMenu1(nombre, p) {
+    let w = this._ventana;
+    let xid = p.get_child_value(0).get_uint32();
+    if (!w || xid !== this._xidServicio) return;
+    if (nombre === "BarraCambio") {
+      if (this._avisoMenu1) GLib.source_remove(this._avisoMenu1);
+      this._avisoMenu1 = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 60, () => { this._avisoMenu1 = 0; this._viaServicio(w); return GLib.SOURCE_REMOVE; });
+    } else {
+      let id = p.get_child_value(1).get_string()[0];
+      for (let m of this._menus) if (m._idServicio === id && m.isOpen) this._abrirServicio(m);
+    }
+  }
+
+  _agregarBotonServicio(it) {
+    let boton = new St.Button({ label: it.etiqueta, style_class: "globalmenu-boton", reactive: true,
+                                can_focus: true, track_hover: true, toggle_mode: false, style: ESTILO_BOTON });
+    this._caja.add_actor(boton);
+    let lado = this._orientation === St.Side.BOTTOM ? St.Side.BOTTOM : St.Side.TOP;
+    let menu = new PopupMenu.PopupMenu(boton, lado);
+    menu._calculatePosition = alinearALaIzquierda;
+    menu.actor.set_style(ESTILO_MENU);
+    menu.actor.add_style_class_name("constanza-menu");
+    menu.box.add_style_class_name("constanza-menu-box");
+    Main.uiGroup.add_actor(menu.actor);
+    menu.actor.hide();
+    this.menuManager.addMenu(menu);
+    this._menus.push(menu);
+    menu._idServicio = it.id;
+    menu.connect("open-state-changed", (_m, abierto) => {
+      boton.checked = abierto;
+      if (abierto) this._abrirServicio(menu);
+      else menu1("Cerrar", new GLib.Variant("(us)", [this._xidServicio, it.id]), null).catch(() => {});
+    });
+    boton.connect("clicked", () => menu.toggle());
+  }
+
+  _abrirServicio(menu) {
+    let w = this._ventana;
+    menu1("Abrir", new GLib.Variant("(us)", [this._xidServicio, menu._idServicio]), "(uaa{sv})").then(r => {
+      if (w !== this._ventana || !menu.isOpen) return;
+      let [version, items] = desempacar(r);
+      this._version = version;
+      this._raiz = menu;
+      menu.removeAll();
+      this._itemsServicio(menu, items, 0);
+      relanzar(menu);
+    }).catch(e => { log("globalmenu: Abrir: " + e.message); });
+  }
+
+  _itemsServicio(menu, items, profundidad) {
+    for (let it of items) {
+      if (it.tipo === "separador") { menu.addMenuItem(separador()); continue; }
+      if (it.tipo === "submenu") {
+        let sub = new SubmenuLateral(it.etiqueta, menu, this._raiz || menu);
+        menu.addMenuItem(sub);
+        if (profundidad < 4 && it.hijos) this._itemsServicio(sub.menu, it.hijos, profundidad + 1);
+        sub.setSensitive(it.activo !== false);
+        continue;
+      }
+      let item = new PopupMenu.PopupMenuItem(it.etiqueta);
+      if (it.marca && it.marcado) marcar(item);
+      let id = it.id, w = this._ventana, xid = this._xidServicio;
+      item.connect("activate", () => {
+        menu1("Activar", new GLib.Variant("(uus)", [xid, this._version, id]), "(b)").catch(e => {
+          // La app rehízo el menú entre el clic y la llamada: no se ejecutó nada; se vuelve a pedir la barra.
+          if (String(e.message).indexOf("Vencido") >= 0 && w === this._ventana) this._viaServicio(w);
+          else log("globalmenu: Activar: " + e.message);
+        });
+      });
+      if (it.icono) {
+        try {
+          let ic = new St.Icon({ gicon: Gio.Icon.new_for_string(it.icono), icon_size: 16, style_class: "globalmenu-icono",
+                                 y_align: Clutter.ActorAlign.CENTER });
+          item.actor.insert_child_at_index(ic, 0);
+        } catch (e) {}
+      }
+      if (it.atajo) {
+        try {
+          item.addActor(new St.Label({ text: it.atajo, style_class: "globalmenu-atajo", y_align: Clutter.ActorAlign.CENTER }),
+                        { align: St.Align.END });
+        } catch (e) {}
+      }
+      item.setSensitive(it.activo !== false);
+      menu.addMenuItem(item);
+    }
   }
 
   // Los ítems llegan en ráfagas por D-Bus: se arma una sola vez cuando paran.
@@ -658,6 +797,9 @@ class GlobalMenuApplet extends Applet.Applet {
     if (this._senalCreada) { try { global.display.disconnect(this._senalCreada); } catch (e) {} }
     if (this._pendiente) GLib.source_remove(this._pendiente);
     if (this._relleno) GLib.source_remove(this._relleno);
+    if (this._avisoMenu1) GLib.source_remove(this._avisoMenu1);
+    for (let id of this._senalesMenu1 || []) { try { Gio.DBus.session.signal_unsubscribe(id); } catch (e) {} }
+    this._senalesMenu1 = [];
     this._soltarModelo();
     this._limpiar();
   }

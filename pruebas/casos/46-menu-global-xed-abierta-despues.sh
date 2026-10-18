@@ -1,10 +1,12 @@
-# caso: una app GTK3 con menú exportado (xed) que se abre con otra app al frente trae sus menús en la barra global
+# caso: una app GTK3 con menú exportado (xed) que se abre con otra app al frente trae sus menús en la barra global, por org.mintmacos.Menu1
 # límite: 150
 # gestor: cinnamon-applets
 prueba() {
-  requiere xed gdbus xdotool mac-acerca
+  requiere xed gdbus xdotool mac-acerca mac-menu
   gsettings set io.github.josemalena.fynder.preferences global-menu true 2>/dev/null || true
   export GTK_MODULES="${GTK_MODULES:-appmenu-gtk-module}"
+  lanzar mac-menu
+  sleep 1
   lanzar mac-acerca
   esperar_ventana '[Mm]ac-acerca' 30 >/dev/null
   sleep 2
@@ -21,6 +23,10 @@ prueba() {
   done
   paso "botones en la barra global: ${n:-?} ($r)"
   captura menu-global-xed
+  # Y los botones vienen del servicio (la versión que dio Barra queda en el applet), no de la lectura propia.
+  local ver; ver="$(gdbus call --session --dest org.Cinnamon --object-path /org/Cinnamon --method org.Cinnamon.Eval \
+    "String(imports.ui.appletManager.getRunningInstancesForUuid('globalmenu@macos')[0]._version)" 2>&1 | tr -dc '0-9')"
+  [ "${ver:-0}" -gt 0 ] 2>/dev/null || falla "el applet no usó org.mintmacos.Menu1 (versión $ver)"
   [ "${n:-0}" -gt 0 ] 2>/dev/null || falla "xed no trajo sus menús a la barra global: $r"
 
   # Los submenús salen a la derecha del renglón, no hacia abajo en acordeón (como en la Mac).

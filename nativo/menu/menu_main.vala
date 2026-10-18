@@ -5,21 +5,8 @@
 int main (string[] args) {
     Gtk.init (ref args);
     var loop = new MainLoop ();
-    var servicio = new Menu.Servicio ();
     int salida = 0;
-    Bus.own_name (BusType.SESSION, "org.mintmacos.Menu1", BusNameOwnerFlags.NONE,
-        (con) => {
-            try {
-                con.register_object ("/org/mintmacos/Menu1", servicio);
-                servicio.registrar (con);
-            } catch (IOError e) {
-                warning ("%s", e.message);
-                salida = 1;
-                loop.quit ();
-            }
-        },
-        null,
-        () => { warning ("org.mintmacos.Menu1 ya existe"); salida = 1; loop.quit (); });
+    Menu.Anfitrion.iniciar (() => { salida = 1; loop.quit (); });
     loop.run ();
     return salida;
 }

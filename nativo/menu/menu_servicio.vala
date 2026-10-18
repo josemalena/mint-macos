@@ -84,6 +84,20 @@ namespace Menu {
         [DBus (visible = false)]
         public void registrar (DBusConnection c) {
             con = c;
+            // Varias apps se anotan en el registrador segundos después de abrir la ventana (Firefox, Thunderbird): si alguien
+            // ya preguntó por esa ventana, se vuelve a probar y se avisa de que la barra cambió.
+            foreach (var nombre in new string[] { "WindowRegistered", "WindowUnregistered" }) {
+                c.signal_subscribe (null, REGISTRADOR, nombre, RUTA_REGISTRADOR, null, DBusSignalFlags.NONE,
+                    (cc, rem, ruta, ifaz, sen, p) => {
+                        uint xid = p.get_child_value (0).get_uint32 ();
+                        var v = ventanas.lookup (xid);
+                        if (v == null) return;
+                        if (v.fuente != null && v.fuente.nombre_fuente () == "dbusmenu") v.fuente = null;
+                        if (v.fuente == null || v.fuente.nombre_fuente () == "dbusmenu") v.dbusmenu_probado = false;
+                        v.version++;
+                        barra_cambio (xid);
+                    });
+            }
             limpieza = Timeout.add_seconds (30, () => {
                 int64 ahora = get_monotonic_time ();
                 var fuera = new GenericArray<uint> ();
@@ -262,6 +276,33 @@ namespace Menu {
             var tablas = Nodo.a_tablas (res);
             foreach (var t in tablas) t.insert ("version", new Variant.uint32 (v.version));
             return tablas;
+        }
+    }
+
+    public delegate void Aviso ();
+
+    /** Quien lo hospeda (mac-menu suelto o mac-ventanas --residente) lo arranca con esto. */
+    public class Anfitrion : Object {
+        static Servicio? servicio = null;
+
+        /** Pide el nombre en el bus de sesión y exporta el objeto. `si_falla` se llama si el nombre ya lo tiene otro. */
+        public static void iniciar (owned Aviso? si_falla = null) {
+            if (servicio != null) return;
+            servicio = new Servicio ();
+            Bus.own_name (BusType.SESSION, "org.mintmacos.Menu1", BusNameOwnerFlags.NONE,
+                (con) => {
+                    try {
+                        con.register_object ("/org/mintmacos/Menu1", servicio);
+                        servicio.registrar (con);
+                    } catch (IOError e) {
+                        warning ("org.mintmacos.Menu1: %s", e.message);
+                    }
+                },
+                null,
+                () => {
+                    warning ("org.mintmacos.Menu1 ya existe");
+                    if (si_falla != null) si_falla ();
+                });
         }
     }
 }
