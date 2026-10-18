@@ -132,6 +132,42 @@ impl Indice {
         for (i, a) in apps.iter().enumerate() {
             grupos.entry(a.appstream_id.as_str()).or_default().push(i);
         }
+        // Los ids de AppStream de APT y de Flathub muchas veces no coinciden (DEP-11
+        // «org.aegisub.desktop», Flathub «org.aegisub.Aegisub»). Un grupo que solo tiene
+        // APT se junta con uno de Flatpak si se llaman igual y además coincide algo que
+        // no es casualidad: el paquete es un <provides><binary> del Flatpak o una parte
+        // de su id, la última parte de los dos ids coincide (org.blender.Blender y
+        // blender.desktop), el desarrollador
+        // o la página web. Dos «Camera» distintas (org.gnome.Snapshot y cheese) no se juntan.
+        let web = |a: &App| a.urls.iter().find(|(t, _)| t == "homepage").map(|(_, u)| u.trim_end_matches('/').trim_start_matches("https://").trim_start_matches("http://").trim_start_matches("www.").to_lowercase());
+        let mut por_nombre: HashMap<String, Vec<&str>> = HashMap::new();
+        for (k, g) in &grupos {
+            if g.iter().any(|i| apps[*i].origen == Origen::Flatpak) {
+                por_nombre.entry(plegar(&apps[g[0]].nombre)).or_default().push(k);
+            }
+        }
+        let solo_apt: Vec<&str> = grupos.iter().filter(|(_, g)| g.iter().all(|i| apps[*i].origen == Origen::Apt)).map(|(k, _)| *k).collect();
+        for k in solo_apt {
+            let a = &apps[grupos[k][0]];
+            let Some(candidatos) = por_nombre.get(&plegar(&a.nombre)) else { continue };
+            let destino = candidatos.iter().copied().find(|c| {
+                grupos[c].iter().map(|i| &apps[*i]).any(|f| {
+                    let cola = |id: &str| id.rsplit('.').next().unwrap_or(id).to_lowercase();
+                    let limpio = |x: &str| x.to_lowercase().replace('-', "");
+                    // Una parte del id del Flatpak que es el paquete: org.freeplane.App y
+                    // freeplane, org.alienarena.alienarena y alien-arena (de 4 letras o más).
+                    let parte = |p: &str| { let p = limpio(p); p.len() >= 4 && f.appstream_id.split('.').any(|c| limpio(c) == p) };
+                    a.paquete.as_ref().map(|p| f.binarios.contains(p) || parte(p)).unwrap_or(false)
+                        || cola(&f.appstream_id) == cola(&a.appstream_id)
+                        || (a.desarrollador.is_some() && plegar(a.desarrollador.as_deref().unwrap_or("")) == plegar(f.desarrollador.as_deref().unwrap_or("")))
+                        || (web(a).is_some() && web(a) == web(f))
+                })
+            });
+            if let Some(d) = destino {
+                let mover = grupos.remove(k).unwrap_or_default();
+                grupos.get_mut(d).unwrap().extend(mover);
+            }
+        }
         let mut claves: Vec<&str> = grupos.keys().copied().collect();
         claves.sort();
         let mut fichas = Vec::new();
@@ -144,7 +180,9 @@ impl Indice {
             for i in &g {
                 por_id.insert(apps[*i].id.clone(), n);
             }
-            por_appstream.insert(k.to_string(), n);
+            for i in &g {
+                por_appstream.insert(apps[*i].appstream_id.clone(), n);
+            }
             fichas.push(Ficha { app: g[0], otras: g[1..].to_vec() });
         }
         Indice { apps, instaladas, fichas, por_id, por_appstream }
@@ -307,6 +345,30 @@ mod pruebas {
         inst.apt.insert("gimp".into(), "2.10".into());
         let i = Indice::armar(apps, inst);
         assert_eq!(i.app(&i.fichas[0]).id, "apt:gimp", "lo instalado gana: el botón dice Open");
+    }
+
+    #[test]
+    fn apt_y_flathub_con_ids_distintos_van_en_una_ficha() {
+        let mut fp = app("flatpak:user/flathub/app/org.aegisub.Aegisub/x86_64/stable", "org.aegisub.Aegisub", Origen::Flatpak, Some("user"), "Aegisub");
+        fp.binarios = vec!["aegisub".into()];
+        let ap = app("apt:aegisub", "org.aegisub", Origen::Apt, None, "Aegisub");
+        let otro = app("apt:aegisub-viejo", "otro.id", Origen::Apt, None, "Aegisub");
+        let bl_f = app("flatpak:user/flathub/app/org.blender.Blender/x86_64/stable", "org.blender.Blender", Origen::Flatpak, Some("user"), "Blender");
+        let bl_a = app("apt:blender", "blender", Origen::Apt, None, "Blender");
+        let cam_f = app("flatpak:user/flathub/app/org.gnome.Snapshot/x86_64/stable", "org.gnome.Snapshot", Origen::Flatpak, Some("user"), "Camera");
+        let cam_a = app("apt:cheese", "org.gnome.Cheese", Origen::Apt, None, "Camera");
+        let i2 = Indice::armar(vec![bl_f, bl_a, cam_f, cam_a], Instaladas::default());
+        assert_eq!(i2.fichas.len(), 3, "Blender se junta por el id; las dos Camera no");
+        let fr_f = app("flatpak:user/flathub/app/org.freeplane.App/x86_64/stable", "org.freeplane.App", Origen::Flatpak, Some("user"), "Freeplane");
+        let fr_a = app("apt:freeplane", "freeplane", Origen::Apt, None, "Freeplane");
+        let al_f = app("flatpak:user/flathub/app/org.alienarena.alienarena/x86_64/stable", "org.alienarena.alienarena", Origen::Flatpak, Some("user"), "Alien Arena");
+        let al_a = app("apt:alien-arena", "alien-arena", Origen::Apt, None, "Alien Arena");
+        assert_eq!(Indice::armar(vec![fr_f, fr_a, al_f, al_a], Instaladas::default()).fichas.len(), 2);
+        let i = Indice::armar(vec![fp, ap, otro], Instaladas::default());
+        assert_eq!(i.fichas.len(), 2, "el de APT con el binario se junta; el homónimo sin nada en común, no");
+        let f = &i.fichas[i.por_id["apt:aegisub"]];
+        assert_eq!(i.app(f).id, "flatpak:user/flathub/app/org.aegisub.Aegisub/x86_64/stable");
+        assert_eq!(i.por_appstream["org.aegisub"], i.por_id["apt:aegisub"]);
     }
 
     #[test]

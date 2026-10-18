@@ -79,7 +79,9 @@ impl Web {
     /// Los app_id de una colección de Flathub, en su orden: «popular», «trending»,
     /// «recently-added», «recently-updated» o «category/graphics».
     pub fn coleccion(&self, cual: &str, cuantas: u32) -> Option<Vec<String>> {
-        let ruta = format!("/collection/{cual}?page=1&per_page={cuantas}");
+        // «category/graphics?sort_by=…» ya trae su «?».
+        let sep = if cual.contains('?') { '&' } else { '?' };
+        let ruta = format!("/collection/{cual}{sep}page=1&per_page={cuantas}");
         let v = self.json(&format!("flathub{ruta}"), &format!("{}{ruta}", self.base_flathub), None)?;
         Some(v["hits"].as_array()?.iter().filter_map(|h| h["app_id"].as_str().map(String::from)).collect())
     }

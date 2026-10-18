@@ -33,6 +33,29 @@ fn ahora() -> i64 {
     SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs() as i64).unwrap_or(0)
 }
 
+/// ¿Está ese ícono en el tema? hicolor (cualquier tamaño) o /usr/share/pixmaps. Una app
+/// de APT sin instalar trae su nombre de ícono pero no el ícono: ese no sirve.
+fn tema_existe(nombre: &str) -> bool {
+    use std::sync::OnceLock;
+    static NOMBRES: OnceLock<std::collections::HashSet<String>> = OnceLock::new();
+    let n = NOMBRES.get_or_init(|| {
+        let mut h = std::collections::HashSet::new();
+        let mut poner = |dir: &Path| {
+            for e in fs::read_dir(dir).into_iter().flatten().flatten() {
+                if let Some(base) = e.path().file_stem() {
+                    h.insert(base.to_string_lossy().into_owned());
+                }
+            }
+        };
+        for tam in fs::read_dir("/usr/share/icons/hicolor").into_iter().flatten().flatten() {
+            poner(&tam.path().join("apps"));
+        }
+        poner(Path::new("/usr/share/pixmaps"));
+        h
+    });
+    n.contains(nombre.trim_end_matches(".png").trim_end_matches(".svg"))
+}
+
 // --- el motor -----------------------------------------------------------------
 
 struct Trabajo {
@@ -179,12 +202,19 @@ impl Motor {
         if !a.resumen.is_empty() {
             d.insert("resumen".into(), ov(a.resumen.clone()));
         }
-        if let Some(p) = &a.icono_archivo {
+        // El ícono: el archivo de la app, o el de otra variante de la misma ficha (el
+        // Flatpak de una app de APT trae casi siempre el suyo en disco); el del tema
+        // solo si de verdad está instalado; la URL, al final.
+        let hermanas: Vec<&App> = ix.por_id.get(&a.id).map(|n| &ix.fichas[*n]).map(|f| std::iter::once(f.app).chain(f.otras.iter().copied()).map(|i| &ix.apps[i]).filter(|x| x.id != a.id).collect()).unwrap_or_default();
+        let tema = a.icono_tema.as_ref().filter(|t| tema_existe(t));
+        if let Some(p) = a.icono_archivo.as_ref().or_else(|| hermanas.iter().find_map(|h| h.icono_archivo.as_ref())) {
             d.insert("icono".into(), ov(p.to_string_lossy().into_owned()));
-        } else if let Some(u) = &a.icono_url {
-            d.insert("icono".into(), ov(u.clone()));
+        } else if tema.is_none() {
+            if let Some(u) = a.icono_url.as_ref().or_else(|| hermanas.iter().find_map(|h| h.icono_url.as_ref())) {
+                d.insert("icono".into(), ov(u.clone()));
+            }
         }
-        if let Some(t) = &a.icono_tema {
+        if let Some(t) = tema {
             d.insert("icono_tema".into(), ov(t.clone()));
         }
         d.insert("origen".into(), ov(a.origen_nombre()));

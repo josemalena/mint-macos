@@ -74,6 +74,10 @@ pub struct App {
     /// OARS: (atributo, valor).
     pub edad: Vec<(String, String)>,
     pub paquete: Option<String>,
+    /// Los <provides><binary> de AppStream: sirven para juntar un Flatpak con su
+    /// paquete de APT cuando los ids no coinciden (org.aegisub.Aegisub y aegisub).
+    #[serde(default)]
+    pub binarios: Vec<String>,
     pub flatpak: Option<FuenteFlatpak>,
 }
 
@@ -100,6 +104,7 @@ impl App {
             urls: Vec::new(),
             edad: Vec::new(),
             paquete: None,
+            binarios: Vec::new(),
             flatpak: None,
         }
     }
@@ -337,6 +342,7 @@ struct Componente {
     desarrollador: Vec<(String, String)>,
     licencia: Option<String>,
     categorias: Vec<String>,
+    binarios: Vec<String>,
     palabras: Vec<(String, String)>,
     icono_cache: Vec<(u32, String)>,
     icono_remoto: Vec<(u32, String)>,
@@ -524,6 +530,7 @@ pub fn leer_xml<R: std::io::BufRead>(entrada: R, instalacion: &str, remote: &str
                     "name" if padre == "developer" => c.desarrollador.push((lang, valor)),
                     "project_license" => c.licencia = Some(valor),
                     "category" => c.categorias.push(valor),
+                    "binary" if padre == "provides" => c.binarios.push(valor),
                     "keyword" => c.palabras.push((lang, valor)),
                     "caption" if padre == "screenshot" => {
                         if let Some(s) = c.capturas.last_mut() {
@@ -575,6 +582,7 @@ fn app_xml(c: Componente, instalacion: &str, remote: &str, iconos: &Path, idioma
     a.desarrollador = idiomas.elegir(&c.desarrollador).map(String::from);
     a.licencia = c.licencia;
     a.categorias = c.categorias;
+    a.binarios = c.binarios;
     let pal: Vec<(String, String)> = {
         let mut m: Vec<(String, String)> = Vec::new();
         for (l, p) in c.palabras {
@@ -680,7 +688,7 @@ fn archivos(rutas: &Rutas) -> (Vec<PathBuf>, Vec<(String, String, PathBuf, PathB
 /// idiomas (el caché guarda los textos ya elegidos).
 pub fn firma(rutas: &Rutas, idiomas: &Idiomas) -> String {
     let (dep11, xml) = archivos(rutas);
-    let mut v: Vec<String> = vec![format!("v1 {}", idiomas.0.join(":"))];
+    let mut v: Vec<String> = vec![format!("v2 {}", idiomas.0.join(":"))];
     for p in dep11.iter().chain(xml.iter().map(|(_, _, p, _)| p)) {
         let m = fs::metadata(p).ok();
         let fecha = m.as_ref().and_then(|m| m.modified().ok()).and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok()).map(|d| d.as_nanos()).unwrap_or(0);
@@ -851,6 +859,21 @@ mod pruebas {
         assert_ne!(f2, f1, "el catálogo cambió");
         assert!(!leer_cache(&archivo, &f2).unwrap().1, "viejo: se sirve, pero no está fresco");
         fs::remove_dir_all(&d).unwrap();
+    }
+
+    #[test]
+    fn desarrollador_con_id() {
+        let x = r#"<components origin="flathub"><component type="desktop-application"><id>org.blender.Blender</id><name>Blender</name>
+    <developer id="org.blender">
+      <name>Blender Foundation</name>
+    </developer>
+    <developer_name>Blender Foundation</developer_name>
+    <url type="homepage">https://www.blender.org</url>
+    <provides><binary>blender</binary></provides>
+    <bundle type="flatpak">app/org.blender.Blender/x86_64/stable</bundle></component></components>"#;
+        let v = leer_xml(x.as_bytes(), "user", "flathub", Path::new("/"), &Idiomas(vec![]));
+        assert_eq!(v[0].desarrollador.as_deref(), Some("Blender Foundation"));
+        assert_eq!(v[0].binarios, ["blender"]);
     }
 
     #[test]
