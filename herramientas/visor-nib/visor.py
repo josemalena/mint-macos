@@ -2,10 +2,10 @@
 """Visor de nib: pinta en GTK3 las ventanas, las vistas y los menús de una app de macOS a
 su tamaño en puntos, para comparar mint-macos con la Mac sin depender de capturas.
 
-    herramientas/visor-nib/visor.py RUTA.app                 la app como en la Mac: su ventana
-                                                             principal, su menú en la barra de
-                                                             arriba y, en Window, las demás
-                                                             ventanas y el Inspector
+    herramientas/visor-nib/visor.py RUTA.app                 la app como en la Mac: abre solo su
+                                                             ventana principal, con su menú en la
+                                                             barra de arriba; en Window, las demás
+                                                             ventanas y el Inspector (⌥⌘I)
     herramientas/visor-nib/visor.py RUTA.nib                 un nib suelto, igual
     herramientas/visor-nib/visor.py RUTA.nib --json SALIDA   el árbol en JSON (para Dev-Dock)
     herramientas/visor-nib/visor.py RUTA --png CARPETA       a PNG sin pantalla (Xvfb, pruebas):
@@ -26,6 +26,7 @@ recetas van a ~/.local/share/mint-macos/visor-nib, nunca al repo: tienen datos d
 """
 import copy
 import glob
+import hashlib
 import json
 import os
 import plistlib
@@ -158,6 +159,33 @@ def redimensionar(n, ancho, alto):
     return nuevo
 
 
+def raices_con_cache(ruta):
+    """Las raíces de un nib, guardadas en JSON: leer los 106 nib de Mail del disco de la Mac
+    (FUSE) tardaba 2 s antes de enseñar la ventana. La firma lleva el tamaño y la fecha del nib
+    y de nib.py, así que un cambio en cualquiera de los dos lo vuelve a leer."""
+    try:
+        st = os.stat(ruta)
+        firma = [st.st_size, st.st_mtime, os.stat(nib.__file__).st_mtime]
+        archivo = os.path.join(SALIDA, 'cache', hashlib.sha1(ruta.encode()).hexdigest() + '.json')
+        try:
+            d = json.load(open(archivo))
+            if d.get('firma') == firma:
+                return d['raices']
+        except (OSError, ValueError):
+            pass
+        raices = nib.abrir(ruta).raices()
+        try:
+            os.makedirs(os.path.dirname(archivo), exist_ok=True)
+            with open(archivo + '.nuevo', 'w') as f:
+                json.dump({'ruta': ruta, 'firma': firma, 'raices': raices}, f, ensure_ascii=False)
+            os.replace(archivo + '.nuevo', archivo)
+        except OSError:
+            pass
+        return raices
+    except Exception as e:  # pylint: disable=broad-except
+        return [{'id': None, 'clase': 'error', 'props': {'mensaje': str(e)}, 'hijos': []}]
+
+
 class AppMac:
     """Una .app (o un nib suelto): sus nib, su menú principal, sus ventanas y la receta."""
 
@@ -195,10 +223,7 @@ class AppMac:
 
     def raices(self, nombre):
         if nombre not in self._raices:
-            try:
-                self._raices[nombre] = nib.abrir(self.ruta_de(nombre)).raices()
-            except Exception as e:  # pylint: disable=broad-except
-                self._raices[nombre] = [{'id': None, 'clase': 'error', 'props': {'mensaje': str(e)}, 'hijos': []}]
+            self._raices[nombre] = raices_con_cache(self.ruta_de(nombre))
         return self._raices[nombre]
 
     def imgs(self, nombre):
@@ -631,7 +656,7 @@ class VentanaMac(Gtk.Window):
         mi = Gtk.MenuItem(label='Inspector del visor')
         k, m = tecla_gdk('⌥⌘I')
         mi.add_accelerator('activate', self.grupo, k, m, Gtk.AccelFlags.VISIBLE)
-        mi.connect('activate', lambda _m: self.inspector.present())
+        mi.connect('activate', lambda _m: (self.inspector.show_all(), self.inspector.present()))
         sub.append(mi)
         # En el menú, las ventanas; las vistas sueltas, solo en el Inspector.
         solo = [(i, v) for i, v in enumerate(self.ventanas) if not v.get('vista')]
@@ -810,7 +835,8 @@ def main():
     v.connect('destroy', Gtk.main_quit)
     v.show_all()
     v.mostrar(app.inicial(v.ventanas))
-    v.inspector.show_all()
+    # Solo la ventana de la app, con el foco: el Inspector sale con Window ▸ Inspector (⌥⌘I).
+    v.present()
     Gtk.main()
 
 
