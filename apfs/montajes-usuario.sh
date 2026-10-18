@@ -13,16 +13,39 @@
 #
 # El usuario tiene que estar en el grupo disk (lo pone requisitos.sh) para leer
 # el contenedor sin sudo. /media/jmalena/MacMini sigue siendo el de fstab (root).
+#
+# Se montan en ~/.local/share/mint-macos/montajes/<nombre>, una carpeta oculta del
+# home: GIO no enseña un montaje ahí, así que no salen como discos en Fynder ni en
+# la barra lateral (son herramientas, no discos de José; 18-10-2026). Antes iban en
+# ~/.cache/mint-macos, que es un enlace a /media/…/cache-share, y GIO los enseñaba
+# con ícono genérico. ~/.cache/mint-macos/<nombre> queda como enlace al montaje:
+# los guiones que leen de ahí siguen igual.
 set -euo pipefail
 
 CACHE="$HOME/.cache/mint-macos"
+OCULTOS="$HOME/.local/share/mint-macos/montajes"
 UNIDADES="$HOME/.config/systemd/user"
 # nombre | UUID del contenedor APFS | volumen (fsapfsmount -f) | punto de montaje
 MONTAJES=(
-  "disco-mac|ad6302c4-5b01-4d3f-b5f7-bcf7490190b3|1|$CACHE/disco-mac"
-  "disco-mac-sistema|ad6302c4-5b01-4d3f-b5f7-bcf7490190b3|5|$CACHE/disco-mac-sistema"
-  "disco-sequoia|3c3da2ad-c4c8-4275-9971-70b3f2616f13|1|$CACHE/disco-sequoia"
+  "disco-mac|ad6302c4-5b01-4d3f-b5f7-bcf7490190b3|1|$OCULTOS/disco-mac"
+  "disco-mac-sistema|ad6302c4-5b01-4d3f-b5f7-bcf7490190b3|5|$OCULTOS/disco-mac-sistema"
+  "disco-sequoia|3c3da2ad-c4c8-4275-9971-70b3f2616f13|1|$OCULTOS/disco-sequoia"
 )
+
+# ~/.cache/mint-macos/<nombre> → el montaje oculto. Si ahí hay una carpeta (el
+# punto de antes), tiene que estar desmontada y vacía; si no, no se toca.
+enlazar() {
+  local nombre="$1" punto="$2" viejo="$CACHE/$1"
+  mkdir -p "$CACHE"
+  if [ -L "$viejo" ]; then ln -sfn "$punto" "$viejo"; return; fi
+  if [ -d "$viejo" ]; then
+    if mountpoint -q "$viejo" || [ -n "$(ls -A "$viejo" 2>/dev/null)" ]; then
+      echo "  ✗ $viejo sigue montado o no está vacío: no lo cambio por el enlace" >&2; return 1
+    fi
+    rmdir "$viejo"
+  fi
+  ln -s "$punto" "$viejo"
+}
 FSAPFS="$(command -v fsapfsmount || echo /usr/local/bin/fsapfsmount)"
 
 unidad() { echo "mint-macos-apfs-$1.service"; }
@@ -34,7 +57,13 @@ case "${1:-}" in
     mkdir -p "$UNIDADES"
     for m in "${MONTAJES[@]}"; do
       IFS='|' read -r nombre uuid vol punto <<<"$m"
+      # El servicio de antes suelta su punto (el de ~/.cache) antes de cambiarlo.
+      if [ ! -L "$CACHE/$nombre" ] && [ -f "$UNIDADES/$(unidad "$nombre")" ]; then
+        systemctl --user stop "$(unidad "$nombre")" 2>/dev/null || true
+        mountpoint -q "$CACHE/$nombre" && fusermount -u -z "$CACHE/$nombre" 2>/dev/null || true
+      fi
       mkdir -p "$punto"
+      enlazar "$nombre" "$punto"
       dev="/dev/disk/by-uuid/$uuid"
       cat > "$UNIDADES/$(unidad "$nombre")" <<EOF
 [Unit]
