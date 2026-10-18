@@ -4,7 +4,7 @@
 # recortando la franja de abajo de la pantalla y quitándole el fondo (-trim); xed abre arriba, lejos de esa franja.
 ancho_dibujado() {
   local f="$PRUEBAS_RES/$PRUEBAS_CASO-franja.png"
-  import -display "$DISPLAY" -window root -crop 1600x200+0+1000 +repage "$f"
+  import -display "$DISPLAY" -window root -crop "${PRUEBAS_ANCHO}x200+0+$((PRUEBAS_ALTO - 200))" +repage "$f"
   convert "$f" -fuzz 4% -trim -format '%w' info:
 }
 prueba() {

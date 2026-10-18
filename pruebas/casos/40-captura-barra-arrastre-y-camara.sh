@@ -38,7 +38,7 @@ prueba() {
   done
   [ -n "$f" ] || falla "el clic con la cámara no dejó ningún «Screen Shot …png» en $HOME/Desktop"
   for _ in $(seq 50); do identify "$f" >/dev/null 2>&1 && break; sleep 0.2; done
-  comprobar "capturó la pantalla entera (1600x1200)" test "$(identify -format '%wx%h' "$f")" = "1600x1200"
+  comprobar "capturó la pantalla entera (${PRUEBAS_ANCHO}x${PRUEBAS_ALTO})" test "$(identify -format '%wx%h' "$f")" = "${PRUEBAS_ANCHO}x${PRUEBAS_ALTO}"
 
   # Esc, con la cámara puesta, cierra toda la herramienta.
   sleep 2

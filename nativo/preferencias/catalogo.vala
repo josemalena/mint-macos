@@ -67,6 +67,13 @@ namespace Preferencias {
             }
             actual.paneles.append (p);
         }
+        // Paneles de terceros, como macFUSE en Catalina: una fila aparte antes de «Advanced». Solaar solo si está instalado.
+        if (Environment.find_program_in_path ("solaar") != null) {
+            var terceros = new GrupoPaneles ();
+            terceros.id = "terceros";
+            terceros.paneles.append (new PanelSolaar ());
+            grupos.append (terceros);
+        }
         var avanzado = new GrupoPaneles ();
         avanzado.id = "advanced";
         avanzado.paneles.append (new PanelAvanzado ());

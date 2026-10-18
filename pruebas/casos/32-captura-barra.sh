@@ -27,5 +27,5 @@ prueba() {
   for _ in $(seq 50); do identify "$f" >/dev/null 2>&1 && break; sleep 0.2; done     # hasta que termine de escribirse
   comprobar "el nombre es el de la Mac" bash -c \
     '[[ "$(basename "$1")" =~ ^Screen\ Shot\ [0-9]{4}-[0-9]{2}-[0-9]{2}\ at\ [0-9]{1,2}\.[0-9]{2}\.[0-9]{2}\ (AM|PM)\.png$ ]]' _ "$f"
-  comprobar "es la pantalla entera (1600x1200)" test "$(identify -format '%wx%h' "$f")" = "1600x1200"
+  comprobar "es la pantalla entera (${PRUEBAS_ANCHO}x${PRUEBAS_ALTO})" test "$(identify -format '%wx%h' "$f")" = "${PRUEBAS_ANCHO}x${PRUEBAS_ALTO}"
 }

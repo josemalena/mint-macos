@@ -112,8 +112,11 @@ limpiar() {
 }
 trap limpiar EXIT
 
+# El tamaño de la pantalla de prueba; los casos lo leen de PRUEBAS_ANCHO y PRUEBAS_ALTO.
+PRUEBAS_ANCHO=1280 PRUEBAS_ALTO=1000
 if $REAL; then
   PANT=":0"
+  read -r PRUEBAS_ANCHO PRUEBAS_ALTO < <(xdpyinfo -display :0 | awk '/dimensions:/{split($2, d, "x"); print d[1], d[2]}')
   gui-lock tomar Pruebas 900 || { echo "  ✗ la pantalla la tiene otra sesión"; exit 1; }
   LOCK=true
 else
@@ -122,7 +125,9 @@ else
   n=70
   while [ -e "/tmp/.X11-unix/X$n" ] || [ -e "/tmp/.X$n-lock" ]; do n=$((n + 1)); done
   PANT=":$n"
-  MINT_MACOS_PRUEBA="$MARCA" "$TRABAJO/x/xpruebas" "$PANT" -screen 1600x1200 -nolisten tcp -br \
+  # En el Dell (HDMI-1, 1280×1024, el de la izquierda en +0+0), nunca en el LEN:
+  # regla de José, 18-10-2026. 1280×1000 cabe con la barra de título.
+  MINT_MACOS_PRUEBA="$MARCA" "$TRABAJO/x/xpruebas" "$PANT" -screen "${PRUEBAS_ANCHO}x${PRUEBAS_ALTO}+0+0" -nolisten tcp -br \
     > "$RES/xephyr.log" 2>&1 &
   XPID=$!
   for _ in $(seq 50); do [ -e "/tmp/.X11-unix/X$n" ] && break; sleep 0.1; done
@@ -144,6 +149,7 @@ export PRUEBAS_PREFIJO="$PREFIJO" PRUEBAS_LIB="$AQUI/lib.sh" PRUEBAS_CACHE_REAL=
 # pasa con lo recién compilado); si no, los de rust/target/release.
 export PRUEBAS_RUST="${PRUEBAS_RUST:-}"
 export PRUEBAS_DCONF_JOSE="$DCONF_JOSE" PRUEBAS_DCONF_ANTES="$DCONF_ANTES"
+export PRUEBAS_ANCHO PRUEBAS_ALTO
 export DISPLAY="$PANT" HOME="$H" XDG_CONFIG_HOME="$H/config" XDG_DATA_HOME="$H/data" \
   XDG_CACHE_HOME="$H/cache" XDG_STATE_HOME="$H/state" XDG_RUNTIME_DIR="$H/run" GSETTINGS_SCHEMA_DIR="$H/esquemas" \
   XDG_DATA_DIRS="$PREFIJO/share:/usr/local/share:/usr/share" PATH="$PREFIJO/bin:$PATH" \
