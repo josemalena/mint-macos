@@ -158,6 +158,13 @@ class Nib:
             if alto_padre is not None:
                 m = [m[0], alto_padre - m[1] - m[3], m[2], m[3]]
             p['marco'] = m
+        # Los resortes (autoresizingMask): cómo se estira la vista cuando el padre cambia.
+        flags = self.get(x, 'NSvFlags')
+        if isinstance(flags, int) and flags & 0x3F:
+            p['autoajuste'] = flags & 0x3F
+        # El bit 31 es «hidden» (sale negativo: el bplist lo guarda con signo).
+        if isinstance(flags, int) and (flags < 0 or flags & 0x80000000):
+            p['oculta'] = True
         for k, nombre in (('NSImage', 'imagen'), ('NSToolbarItemImage', 'imagen'), ('NSOnImage', 'imagen_marcado')):
             im = self.imagen(self.get(x, k))
             if im:
@@ -172,7 +179,14 @@ class Nib:
             if im:
                 p['imagen'] = im
             p['celda'] = self.clase(celda)
-            segs = self.lista(self.get(celda, 'NSSegmentImages'))
+            # La alineación (bits 26-28 de NSCellFlags2: 0 izquierda, 1 derecha, 2 centro) y la letra.
+            f2 = self.get(celda, 'NSCellFlags2')
+            if isinstance(f2, int) and (f2 >> 26) & 7 in (1, 2):
+                p['alineacion'] = {1: 'derecha', 2: 'centro'}[(f2 >> 26) & 7]
+            letra = self.res(self.get(celda, 'NSSupport'))
+            if self.clase(letra) == 'NSFont':
+                p['letra'] = [self.texto(self.get(letra, 'NSName')), self.num(letra, 'NSSize')]
+            segs =self.lista(self.get(celda, 'NSSegmentImages'))
             if segs:
                 p['segmentos'] = [{'titulo': self.texto(self.get(s, 'NSSegmentItemLabel')),
                                    'imagen': self.imagen(self.get(s, 'NSSegmentItemImage')),
@@ -313,6 +327,118 @@ def cadenas_de(ruta_strings):
     else:
         return {}
     return dict(re.findall(r'"((?:[^"\\]|\\.)*)"\s*=\s*"((?:[^"\\]|\\.)*)"\s*;', t))
+
+
+def openstep(t):
+    """Un plist de texto de OpenStep («{ clave = (a, "b"); }») → dict, list y str."""
+    i = 0
+
+    def blanco():
+        nonlocal i
+        while i < len(t):
+            if t[i].isspace():
+                i += 1
+            elif t.startswith('//', i):
+                i = t.find('\n', i) + 1 or len(t)
+            elif t.startswith('/*', i):
+                i = t.find('*/', i) + 2 if t.find('*/', i) >= 0 else len(t)
+            else:
+                break
+
+    def valor():
+        nonlocal i
+        blanco()
+        c = t[i]
+        if c == '{':
+            i += 1
+            d = {}
+            while True:
+                blanco()
+                if t[i] == '}':
+                    i += 1
+                    return d
+                k = valor()
+                blanco()
+                i += 1  # =
+                d[k] = valor()
+                blanco()
+                if t[i] == ';':
+                    i += 1
+        if c == '(':
+            i += 1
+            out = []
+            while True:
+                blanco()
+                if t[i] == ')':
+                    i += 1
+                    return out
+                out.append(valor())
+                blanco()
+                if t[i] == ',':
+                    i += 1
+        if c == '"':
+            j, s = i + 1, []
+            while t[j] != '"':
+                if t[j] == '\\':
+                    j += 1
+                    s.append({'n': '\n', 't': '\t'}.get(t[j], t[j]))
+                else:
+                    s.append(t[j])
+                j += 1
+            i = j + 1
+            return ''.join(s)
+        j = i
+        while j < len(t) and (t[j].isalnum() or t[j] in '_.:$-/'):
+            j += 1
+        s, i = t[i:j], j
+        return s
+
+    return valor()
+
+
+def barra_de_archivo(ruta, cadenas=None):
+    """Un .toolbar de la app (Mail: MainWindow.toolbar, plist de OpenStep con «default set» y
+    «toolbar array») → un nodo NSToolbar como los del nib: ítems con título, ayuda e imagen;
+    los de segmentos, con un NSSegmentedControl dentro."""
+    cadenas = cadenas or {}
+    d = openstep(open(ruta, encoding='utf-8', errors='replace').read())
+    porid = {}
+
+    def juntar(v):
+        if isinstance(v, list):
+            for e in v:
+                juntar(e)
+        elif isinstance(v, dict) and v.get('identifier'):
+            porid.setdefault(v['identifier'], v)
+    juntar(d.get('toolbar array', []))
+
+    def txt(k):
+        return cadenas.get(k, k) if k else None
+
+    def imagen(e):
+        im = e.get('image')
+        return None if im in (None, 'empty') else im
+
+    barra = {'id': None, 'clase': 'NSToolbar', 'props': {'archivo': os.path.basename(ruta)}, 'hijos': []}
+    for ident in d.get('default set', []):
+        e = porid.get(ident, {})
+        p = {'identificador': ident}
+        for k, nombre in (('title', 'titulo'), ('help', 'ayuda')):
+            if e.get(k):
+                p[nombre] = txt(e[k])
+        if imagen(e):
+            p['imagen'] = imagen(e)
+        item = {'id': None, 'clase': 'NSToolbarItem', 'props': p, 'hijos': []}
+        if e.get('segments'):
+            segs = [{'titulo': txt(s.get('title')), 'ayuda': txt(s.get('help')), 'imagen': imagen(s), 'elegido': False}
+                    for s in e['segments']]
+            item['hijos'].append({'id': None, 'clase': 'NSSegmentedControl', 'props': {'segmentos': segs},
+                                  'hijos': []})
+        elif ident == 'Search':
+            item['hijos'].append({'id': None, 'clase': 'NSSearchField', 'props': {'marco': [0, 0, 200, 22]},
+                                  'hijos': []})
+        barra['hijos'].append(item)
+    return barra
 
 
 def abrir(ruta_nib):
