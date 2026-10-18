@@ -199,6 +199,70 @@ function alinearALaIzquierda() {
   return [Math.round(x), y];
 }
 
+// Posición de un submenú que sale a la derecha del renglón que lo abre (como en la Mac); si no cabe, a la izquierda.
+function ladoDerecho() {
+  let caja = Cinnamon.util_get_transformed_allocation(this.sourceActor);
+  let ancho = this.actor.get_preferred_size()[2];
+  let alto = this.actor.get_preferred_size()[3];
+  let monitor = Main.layoutManager.findMonitorForActor(this.sourceActor);
+  let x = caja.x2 - 2;
+  if (x + ancho > monitor.x + monitor.width) x = caja.x1 - ancho + 2;
+  let y = Math.min(caja.y1 - 4, monitor.y + monitor.height - alto);
+  return [Math.round(x), Math.round(Math.max(monitor.y, y))];
+}
+
+// Un renglón con submenú. Cinnamon despliega los suyos hacia abajo, en acordeón; en la Mac salen a la derecha, al pasar
+// el puntero. El submenú es un PopupMenu hijo del menú que lo contiene, para que el grab de Cinnamon lo reconozca.
+class SubmenuLateral extends PopupMenu.PopupBaseMenuItem {
+  _init(etiqueta, padre, raiz) {
+    super._init.call(this);
+    this._padre = padre;
+    this.actor.add_style_class_name("popup-submenu-menu-item");
+    this.label = new St.Label({ text: etiqueta, y_expand: true, y_align: Clutter.ActorAlign.CENTER });
+    this.addActor(this.label);
+    this.actor.label_actor = this.label;
+    this.addActor(new St.Label({ text: "\u25B8", y_align: Clutter.ActorAlign.CENTER }),
+                  { expand: true, span: -1, align: St.Align.END });
+
+    this.menu = new PopupMenu.PopupMenu(this.actor, St.Side.LEFT);
+    this.menu._calculatePosition = ladoDerecho;
+    this.menu.actor.set_style(ESTILO_MENU);
+    this.menu.actor.add_style_class_name("constanza-menu");
+    this.menu.box.add_style_class_name("constanza-menu-box");
+    Main.uiGroup.add_actor(this.menu.actor);
+    this.menu.actor.hide();
+    padre.addChildMenu(this.menu);
+    // Elegir algo del submenú cierra toda la cadena.
+    this.menu.connect("activate", () => { try { raiz.close(true); } catch (e) {} });
+
+    this._idItem = this.connect("active-changed", (_i, activo) => {
+      if (activo) { if (!this.menu.isOpen) this.menu.open(false); }
+    });
+    // Al pasar a otro renglón del menú padre, este submenú se cierra.
+    this._idPadre = padre.connect("active-changed", (_m, item) => {
+      if (item !== this && this.menu.isOpen) this.menu.close(false);
+    });
+  }
+
+  activate(event) {
+    if (!this.menu.isOpen) this.menu.open(false);
+  }
+
+  _onKeyPressEvent(actor, event) {
+    let simbolo = event.get_key_symbol();
+    if (simbolo === Clutter.KEY_Right) { this.menu.open(false); return Clutter.EVENT_STOP; }
+    if (simbolo === Clutter.KEY_Left && this.menu.isOpen) { this.menu.close(false); return Clutter.EVENT_STOP; }
+    return super._onKeyPressEvent(actor, event);
+  }
+
+  destroy() {
+    try { this._padre.disconnect(this._idPadre); } catch (e) {}
+    try { this._padre.removeChildMenu(this.menu); } catch (e) {}
+    try { this.menu.destroy(); } catch (e) {}
+    super.destroy();
+  }
+}
+
 class GlobalMenuApplet extends Applet.Applet {
   constructor(metadata, orientation, panel_height, instance_id) {
     super(orientation, panel_height, instance_id);
@@ -404,6 +468,7 @@ class GlobalMenuApplet extends Applet.Applet {
   // Llena un menú (o submenú) con el GMenuModel, cada vez que se abre: así
   // las acciones salen con su estado y su «enabled» del momento.
   _llenar(menu, modelo) {
+    this._raiz = menu;
     this._soltarSubmodelos();
     menu.removeAll();
     this._agregarItems(menu, modelo, 0);
@@ -445,7 +510,7 @@ class GlobalMenuApplet extends Applet.Applet {
       let etiqueta = limpiarEtiqueta(texto(modelo, i, ATTR_LABEL));
       let sub = modelo.get_item_link(i, LINK_SUBMENU);
       if (sub) {
-        let item = new PopupMenu.PopupSubMenuMenuItem(etiqueta);
+        let item = new SubmenuLateral(etiqueta, menu, this._raiz || menu);
         menu.addMenuItem(item);
         if (profundidad < 4) this._agregarItems(item.menu, sub, profundidad + 1);
         huboAlgo = true;
@@ -556,6 +621,7 @@ class GlobalMenuApplet extends Applet.Applet {
   }
 
   _llenarDbus(menu, items) {
+    this._raiz = menu;
     menu.removeAll();
     this._itemsDbus(menu, items, 0);
     relanzar(menu);
@@ -565,7 +631,7 @@ class GlobalMenuApplet extends Applet.Applet {
     for (let it of items) {
       if (it.separador) { menu.addMenuItem(separador()); continue; }
       if (it.submenu) {
-        let sub = new PopupMenu.PopupSubMenuMenuItem(it.etiqueta);
+        let sub = new SubmenuLateral(it.etiqueta, menu, this._raiz || menu);
         menu.addMenuItem(sub);
         if (profundidad < 4) this._itemsDbus(sub.menu, it.submenu, profundidad + 1);
         sub.setSensitive(it.activo);
