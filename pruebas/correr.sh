@@ -113,7 +113,7 @@ limpiar() {
 trap limpiar EXIT
 
 # El tamaño de la pantalla de prueba; los casos lo leen de PRUEBAS_ANCHO y PRUEBAS_ALTO.
-PRUEBAS_ANCHO=1280 PRUEBAS_ALTO=1000
+PRUEBAS_ANCHO=1600 PRUEBAS_ALTO=1200
 if $REAL; then
   PANT=":0"
   read -r PRUEBAS_ANCHO PRUEBAS_ALTO < <(xdpyinfo -display :0 | awk '/dimensions:/{split($2, d, "x"); print d[1], d[2]}')
@@ -125,8 +125,8 @@ else
   n=70
   while [ -e "/tmp/.X11-unix/X$n" ] || [ -e "/tmp/.X$n-lock" ]; do n=$((n + 1)); done
   PANT=":$n"
-  # En el Dell (HDMI-1, 1280×1024, el de la izquierda en +0+0), nunca en el LEN:
-  # regla de José, 18-10-2026. 1280×1000 cabe con la barra de título.
+  # En +0+0, el Dell (HDMI-1, el de la izquierda): regla de José, 18-10-2026.
+  # A 1600×1200 se pasa 320 px al LEN; el arreglo es Xvfb (pendiente, ver LEEME).
   MINT_MACOS_PRUEBA="$MARCA" "$TRABAJO/x/xpruebas" "$PANT" -screen "${PRUEBAS_ANCHO}x${PRUEBAS_ALTO}+0+0" -nolisten tcp -br \
     > "$RES/xephyr.log" 2>&1 &
   XPID=$!
