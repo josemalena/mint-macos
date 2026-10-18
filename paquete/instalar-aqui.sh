@@ -76,6 +76,14 @@ glib-compile-schemas "$HOME/.local/share/glib-2.0/schemas"
 echo "  $(tar -tzf "$AQUI/binarios.tar.gz" | wc -l) archivos en ~/.local"
 # Los diálogos de sesión en Vala (el lanzador cae a applemenu.py si faltan).
 [ -f "$AQUI/nativo-binarios.tar.gz" ] && tar -xzf "$AQUI/nativo-binarios.tar.gz" -C "$HOME"
+# Open/Save de todo el sistema con el selector de Fynder (portal y módulo de GTK; toma efecto al
+# volver a entrar). Vuelta atrás: sh fynder-selector.sh --quitar. Y las hojas pegadas a su ventana,
+# como en la Mac (vuelta atrás: gsettings set org.cinnamon.muffin attach-modal-dialogs false).
+MOD="$(ls "$HOME"/.local/lib/*/gtk-3.0/modules/libfynder-chooser-module.so 2>/dev/null | head -1)"
+if [ -f "$AQUI/fynder-selector.sh" ] && [ -n "$MOD" ]; then
+  MODULO_COMPILADO="$MOD" sh "$AQUI/fynder-selector.sh" && echo "  selector de Open/Save: Fynder"
+fi
+gsettings set org.cinnamon.muffin attach-modal-dialogs true 2>/dev/null || true
 }
 
 p_apple() {

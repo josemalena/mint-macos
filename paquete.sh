@@ -149,6 +149,19 @@ else
   echo "  sin valac o meson: el paquete va sin mac-sesion (los diálogos usan applemenu.py)"
 fi
 
+# El selector de Open/Save de Fynder (portal + módulo de GTK): su instalador viaja aparte;
+# el módulo va en binarios.tar.gz con el resto de Fynder.
+FF=""
+for f in "${FYNDER_FUENTE:-}" "$(dirname "$REPO")/$FYNDER_LOCAL"; do
+  [ -n "$f" ] && [ -f "$f/portal/instalar-selector.sh" ] && { FF="$f"; break; }
+done
+if [ -n "$FF" ]; then
+  install -m 755 "$FF/portal/instalar-selector.sh" "$DEST/fynder-selector.sh"
+  echo "  selector de Fynder: fynder-selector.sh"
+else
+  echo "  ⚠ sin portal/instalar-selector.sh de Fynder: el paquete va sin el selector de Open/Save"
+fi
+
 paso "Fynder y el Dock instalados${BINARIOS_DESDE:+ (de $BINARIOS_DESDE)}"
 LISTA="$(mktemp)"
 for b in "$BUILD_FYNDER" "$BUILD_DOCK"; do

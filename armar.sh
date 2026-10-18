@@ -249,7 +249,7 @@ $SIN_PAQUETE && { paso "Listo (sin paquete)"; exit 0; }
 
 paso "El paquete (paquete.sh, sobre lo compilado aquí)"
 BUILD_FYNDER="$T/build/fynder" BUILD_DOCK="$T/build/plank" BINARIOS_DESDE="$RAIZ$HOME" \
-  GREETER_FUENTE="$S_GREETER" SPOTLYTE_FUENTE="$S_SPOTLYTE" \
+  GREETER_FUENTE="$S_GREETER" SPOTLYTE_FUENTE="$S_SPOTLYTE" FYNDER_FUENTE="$S_FYNDER" \
   "$M/paquete.sh" "$DEST"
 
 cat >> "$DEST/origen.txt" <<EOF
