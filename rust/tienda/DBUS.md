@@ -150,8 +150,28 @@ Solo se leen: el motor no publica reseñas ni manda el `user_hash` de la máquin
 | `sistema` | todo lo demás de APT: núcleo, bibliotecas, Cinnamon… | Software Update (System Preferences), dentro del panel, con progreso |
 
 Los núcleos y Timeshift se quedan en Update Manager (Advanced… en Software
-Update). El salto de versión de Mint (22.3 → 23) va en Software Update, con su
-propia propuesta antes de implementarse.
+Update).
+
+### El salto de versión de Mint (grupo `sistema`)
+
+Se **detecta con los archivos de Mint** y se **hace con las herramientas de
+Mint**; el motor no reimplementa ningún salto (aprobado por Planner, 18-10-2026).
+
+- Detección, la misma regla que los informes 070 y 071 de mintreport: el
+  codename y la edición de `/etc/linuxmint/info`, y el paquete
+  `mint-upgrade-info`. `/usr/share/mint-upgrade-info/<codename>/info` es un
+  salto **menor** (22.2 → 22.3); `<codename>-major/info`, uno **mayor** (22 → 23,
+  si la edición y la arquitectura están en la lista).
+- Ejecución: el menor abre `mint-release-upgrade` (el asistente de Mint, con su
+  pkexec). El mayor abre `mintupgrade`; si no está instalado, primero lo instala
+  por PackageKit. El progreso lo enseña la herramienta de Mint, no el panel.
+- **Nunca se corre un salto sin el sí de José**, ni para probar: las pruebas
+  cubren solo la detección, con una raíz falsa.
+
+| Método | Entrada | Salida | |
+|---|---|---|---|
+| `NuevaVersion` | — | `a{sv}` | Vacío si no hay salto. Si hay: `tipo` (`menor` o `mayor`), `nombre` («Linux Mint 23 …»), `codename`, `imagen` (el png de la edición, si viene), `enlace` (whatsnew en el menor, el blog en el mayor), `herramienta` (`mint-release-upgrade` o `mintupgrade`), `herramienta_instalada` b |
+| `SubirVersion` | — | `s trabajo` | Abre la herramienta de Mint (antes instala `mintupgrade` si hace falta). `Terminado` llega cuando la herramienta se cierra; si hubo salto o no lo dice la herramienta, no el motor |
 
 ## Autorización
 
