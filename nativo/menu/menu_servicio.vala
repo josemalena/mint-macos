@@ -92,8 +92,9 @@ namespace Menu {
                         uint xid = p.get_child_value (0).get_uint32 ();
                         var v = ventanas.lookup (xid);
                         if (v == null) return;
-                        if (v.fuente != null && v.fuente.nombre_fuente () == "dbusmenu") v.fuente = null;
-                        if (v.fuente == null || v.fuente.nombre_fuente () == "dbusmenu") v.dbusmenu_probado = false;
+                        // El registro cambió: la fuente se vuelve a elegir en la próxima pregunta.
+                        v.fuente = null;
+                        v.dbusmenu_probado = false;
                         v.version++;
                         barra_cambio (xid);
                     });
@@ -118,12 +119,12 @@ namespace Menu {
             }
             v.ultimo_uso = get_monotonic_time ();
             if (v.fuente == null) {
-                if (v.props.bus != null && v.props.ruta_menu != null) {
+                // Una app que se anotó en el registrador publica ahí su menú de verdad (Firefox, Thunderbird, Chrome…); el módulo
+                // de GTK anota CADA ventana GTK y deja su modelo vacío. Se prefiere dbusmenu cuando está; si no, GTK.
+                if (!(yield probar_dbusmenu (v)) && v.props.bus != null && v.props.ruta_menu != null) {
                     var f = new FuenteGtk (con, v.props.bus, v.props.ruta_menu, v.props.ruta_app, v.props.ruta_ventana);
                     f.clase = v.props.clase;
                     poner_fuente (v, f);
-                } else {
-                    yield probar_dbusmenu (v);
                 }
             }
             return v.fuente != null ? v : null;
