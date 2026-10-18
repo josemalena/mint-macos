@@ -691,6 +691,14 @@ name = "mint-macos-modifier-keys"
 version = "0.1.0"
 
 [[package]]
+name = "mint-macos-monitor"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "zbus",
+]
+
+[[package]]
 name = "mint-macos-registrador"
 version = "0.1.0"
 dependencies = [

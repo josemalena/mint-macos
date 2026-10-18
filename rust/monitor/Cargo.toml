@@ -1,0 +1,11 @@
+[package]
+name = "mint-macos-monitor"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+description = "Los datos de Activity Monitor (org.mintmacos.Monitor1): procesos, recursos e historial, de /proc, sin root"
+
+[dependencies]
+# La misma zbus que los otros servicios (5.19, MIT), con su API bloqueante.
+zbus = "5.19"
+serde = { version = "1.0.228", features = ["derive"] }

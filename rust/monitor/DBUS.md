@@ -5,9 +5,21 @@ ventana (Dev-Dock, en Vala) solo dibuja: el diseño de Catalina más una pestañ
 «Resources» con gráficas como las de GNOME System Monitor (CPU por núcleo,
 memoria y swap, red en el tiempo).
 
-**Estado: propuesta (18-10-2026), sin implementar.** Las columnas exactas de cada
-pestaña salen de las capturas de Catalina, que todavía no hay: lo marcado
-**(hipótesis)** se confirma o cambia con ellas.
+**Estado (18-10-2026): implementado** (`rust/monitor`, prueba de punta a punta en
+`rust/monitor/prueba.sh`: 17 comprobaciones). Las columnas salen de las capturas de
+Activity Monitor de High Sierra 10.13.6 que José dio como fuente para Catalina
+(`~/.local/share/mint-macos/referencias/activity-monitor-20261018`, fuera del repo:
+traen datos de terceros). Lo que Catalina tenga distinto, sin captura todavía.
+
+**Lo que gasta** (medido con `prueba.sh`, binario release, ~390 procesos):
+sin clientes **0 ticks en 30 s** (no lee nada) y 5.2 MB de RSS; con un cliente cada
+2 s, **51 ticks en 30 s** (1.7 % de un núcleo) y 5.4 MB. La primera muestra tarda
+0.08 s. Leer `smaps_rollup` (PSS) de todos los procesos costaba 0.62 s por muestra:
+por eso la memoria es RssAnon y no PSS.
+
+**Regla 0: sin fuente no se muestra.** Energía y red por proceso no tienen fuente
+en Linux sin root: esas columnas existen en el contrato, pero vienen vacías y
+marcadas (ver `Columnas`).
 
 ## Dónde vive
 
@@ -24,10 +36,10 @@ pestaña salen de las capturas de Catalina, que todavía no hay: lo marcado
 |---|---|---|
 | CPU por proceso (%) | `/proc/<pid>/stat` (utime + stime) entre dos muestras | todos |
 | Hilos, usuario, nombre, comando | `/proc/<pid>/status`, `cmdline`, `comm` | todos |
-| Memoria por proceso | RSS de `/proc/<pid>/statm` para todos; PSS de `smaps_rollup` para los de José (los de otros usuarios no se pueden leer) | todos / solo de José |
+| Memoria por proceso | `RssAnon` de `/proc/<pid>/status` (lo más parecido al «Memory» de la Mac: su memoria propia, sin lo compartido con archivos) y `VmRSS` aparte | todos |
 | Disco por proceso (bytes leídos y escritos) | `/proc/<pid>/io` | **solo los de José** (los de root piden ptrace) |
-| Red por proceso | **no hay fuente sin root** (haría falta eBPF o nethogs). Solo totales del sistema | — |
-| Energía por proceso | **no hay fuente** (powertop pide root y no da lo que la Mac llama «Energy Impact»). **(hipótesis)** una aproximación con CPU y despertares (`voluntary_ctxt_switches`), dicha como aproximación, o la pestaña sin esa columna | — |
+| Red por proceso | **sin fuente sin root** (haría falta eBPF o nethogs). Solo totales del sistema | — |
+| Energía por proceso | **sin fuente** (powertop pide root y no da lo que la Mac llama «Energy Impact»). No se aproxima | — |
 | CPU por núcleo, total | `/proc/stat` | gráficas |
 | Memoria y swap | `/proc/meminfo` (MemTotal, MemAvailable, Cached, SwapTotal/SwapFree, presión: `/proc/pressure/memory`) | gráficas |
 | Red del sistema | `/proc/net/dev` (sin `lo`) | gráficas |
@@ -38,48 +50,75 @@ pestaña salen de las capturas de Catalina, que todavía no hay: lo marcado
 
 | Método | Entrada | Salida | |
 |---|---|---|---|
-| `Suscribir` | `u intervalo_ms` | — | Empieza a medir (1000-5000 ms; 2000 por defecto). Uno por cliente: si el cliente se va del bus, cuenta como `Soltar` |
+| `Suscribir` | `u intervalo_ms` | — | Empieza a medir (1000-5000 ms). Uno por cliente: si el cliente se va del bus, cuenta como `Soltar` |
 | `Soltar` | — | — | |
-| `Procesos` | `as columnas` | `aa{sv}` | Una fila por proceso con las columnas pedidas (ver abajo), de la última muestra |
-| `Historial` | `s serie, u segundos` | `a(xd)` | (unix ms, valor) de una serie: `cpu`, `cpu.<n>`, `mem.usada`, `mem.cache`, `swap.usada`, `red.rx`, `red.tx`, `disco.leido`, `disco.escrito`. Se guardan 10 min |
-| `Resumen` | — | `a{sv}` | Lo de abajo de cada pestaña de Catalina: % de sistema/usuario/ocioso, hilos y procesos; memoria física, usada, cache, swap y presión; totales de disco y red **(hipótesis: los campos exactos según las capturas)** |
-| `Salir` | `i pid` | `b` | Quit: SIGTERM. false si el proceso no es de José |
-| `ForzarSalida` | `i pid` | `b` | Force Quit: SIGKILL. false si no es de José |
-| `Muestra` | `i pid` | `s` | Sample Process: la pila de cada hilo (`/proc/<pid>/task/*/stack` no se puede leer sin root; **(hipótesis)** `gdb -batch` si está instalado). Puede quedar fuera |
+| `Procesos` | `as columnas` | `aa{sv}` | Una fila por proceso con las columnas pedidas (vacío = todas), de la última muestra |
+| `Columnas` | — | `a(sss)` | (clave, fuente, motivo): de dónde sale cada columna, o por qué no hay |
+| `Historial` | `s serie, u segundos` | `a(xd)` | (unix ms, valor) de una serie, hasta 600 s (ver «Series») |
+| `Resumen` | — | `a{sv}` | Los paneles de abajo (ver «Paneles») |
+| `Salir` | `i pid` | `b` | Quit: SIGTERM. false si no es de José, es el 1 o es el servicio |
+| `ForzarSalida` | `i pid` | `b` | Force Quit: SIGKILL. Igual |
 
 Los procesos de otros usuarios (root) no se cierran desde aquí: en la Mac eso pide
 la clave de administrador; si hace falta, va por polkit y mac-polkit, en otra
-versión.
+versión. Sample Process (el menú del engranaje) no está.
 
-## Columnas de `Procesos`
+## Las pestañas: columnas de `Procesos`
 
-Cada fila es `a{sv}`; una clave sin dato **no viene** (nunca un 0 inventado).
+Una clave sin dato **no viene** (nunca un 0 inventado). `Columnas()` dice la fuente.
 
-| clave | tipo | pestaña de Catalina |
-|---|---|---|
-| `pid`, `ppid` | i | todas |
-| `nombre` | s | todas («Process Name»: el nombre de la app si tiene .desktop, si no `comm`) |
-| `icono` | s | todas (el de su .desktop, por WM_CLASS o por el ejecutable) |
-| `usuario` | s | todas |
-| `cpu` | d | CPU («% CPU», 100 = un núcleo, como la Mac) |
-| `tiempo_cpu` | t | CPU («CPU Time», ms) |
-| `hilos` | u | CPU («Threads») |
-| `despertares` | u | CPU («Idle Wake Ups» **(hipótesis)**: cambios de contexto voluntarios por segundo) |
-| `memoria` | t | Memory («Memory», bytes: PSS si se puede, si no RSS) |
-| `memoria_fuente` | s | `pss` o `rss` |
-| `comprimida` | t | Memory («Compressed Mem»: la parte en zram/swap, `VmSwap`) |
-| `puertos` | — | Memory («Ports»): no existe en Linux; no viene |
-| `leido`, `escrito` | t | Disk («Bytes Read/Written»; solo procesos de José) |
-| `tipo` | s | todas («Kind»: **(hipótesis)** `64-bit`; o el origen: apt, flatpak, AppImage) |
+| Pestaña (captura) | Columna de la Mac | clave | tipo | |
+|---|---|---|---|---|
+| todas | Process Name | `nombre`, `icono` | s | el de la app si tiene .desktop (por Flatpak, ejecutable o StartupWMClass); si no, `comm` |
+| todas | PID / User | `pid`, `ppid` / `usuario` | i / s | |
+| CPU | % CPU | `cpu` | d | 100 = un núcleo entero, como la Mac |
+| CPU | CPU Time | `tiempo_cpu` | t | ms |
+| CPU, Memory | Threads | `hilos` | u | |
+| CPU | Idle Wake Ups | `despertares` | u | cambios de contexto voluntarios por segundo; solo procesos de José |
+| Memory | Memory | `memoria` | t | RssAnon, bytes |
+| Memory | Compressed Mem | `comprimida` | t | VmSwap (lo del proceso en swap/zram) |
+| Memory | Ports | `puertos` | — | **sin fuente**: Linux no tiene puertos de Mach |
+| Disk | Bytes Written / Bytes Read | `escrito` / `leido` | t | solo procesos de José |
+| Disk | Kind | `tipo` | s | «64 bit» o «32 bit» (ELF); solo procesos de José |
+| Energy | Energy Impact, Avg Energy Impact | `energia`, `energia_promedio` | — | **sin fuente** |
+| Energy | App Nap, Requires High Perf GPU | `app_nap`, `gpu_alto_rendimiento` | — | **sin fuente** |
+| Network | Sent/Rcvd Bytes, Sent/Rcvd Packets | `red_enviada`, `red_recibida`, `paquetes_enviados`, `paquetes_recibidos` | — | **sin fuente sin root** |
+| (extra) | — | `memoria_residente`, `origen` | t, s | VmRSS; `flatpak` o `nativo` |
+
+Energy en la Mac lista apps («App Name», «Applications in last 12 hours»), no
+procesos: sin ninguna columna con fuente, la ventana puede enseñar la pestaña con
+la lista de apps y las columnas vacías, o no enseñarla.
+
+## Paneles: `Resumen`
+
+| Pestaña | De la Mac | clave | |
+|---|---|---|---|
+| CPU | System / User / Idle | `cpu_sistema`, `cpu_usuario`, `cpu_ocioso` | % de /proc/stat entre dos muestras (sistema = system + irq + softirq; ocioso = idle + iowait) |
+| CPU | Threads / Processes | `hilos`, `procesos` | |
+| Memory | Physical Memory / Memory Used / Cached Files / Swap Used | `mem_fisica`, `mem_usada` (MemTotal − MemAvailable), `mem_cache` (Cached + Buffers), `swap_usada` | |
+| Memory | App Memory / Wired Memory / Compressed | `mem_app` (AnonPages), `mem_wired` (SUnreclaim + KernelStack + PageTables + Unevictable), `mem_comprimida` (Zswap; no viene si no hay zswap) | equivalentes de Linux, no iguales |
+| Memory | Memory Pressure | `mem_presion` | avg10 de /proc/pressure/memory |
+| Disk | Reads in / Writes out, Data read / Data written | `disco_lecturas`, `disco_escrituras`, `disco_leido`, `disco_escrito` | desde que arrancó el sistema; los «/sec» salen de las series |
+| Network | Packets in / out, Data received / sent | `red_paquetes_recibidos`, `red_paquetes_enviados`, `red_recibido`, `red_enviado` | sin lo |
+| Energy | Remaining charge | `bateria_carga`, `bateria_estado` | solo si hay batería; Graphics Card sale de equipo.json; Time remaining y la gráfica de 12 h no están |
+| — | | `nucleos`, `cuando` | |
+
+## Series de `Historial`
+
+`cpu`, `cpu.<n>` (por núcleo), `cpu.usuario`, `cpu.sistema` (la gráfica CPU LOAD),
+`mem.usada`, `mem.cache`, `swap.usada`, `mem.presion`, `red.rx`, `red.tx`,
+`red.paquetes_rx`, `red.paquetes_tx` (bytes y paquetes por segundo),
+`disco.leido`, `disco.escrito`, `disco.lecturas`, `disco.escrituras` (por segundo).
+Se guardan 10 minutos.
 
 ## Señales
 
 | Señal | Argumentos | |
 |---|---|---|
 | `Muestreado` | `x unix_ms` | Hay una muestra nueva: la ventana pide `Procesos` y lo que esté enseñando |
-| `ProcesoTermino` | `i pid` | Uno que se pidió cerrar ya no está |
+| `ProcesoTermino` | `i pid` | Uno que se pidió cerrar ya no está (o quedó zombi) |
 
 ## Lo que no se hace
 
 - Nada como root, ni medir sin un cliente conectado.
-- Red y energía por proceso: no hay fuente; no se inventan.
+- Energía, puertos y red por proceso: no hay fuente; no se inventan ni se aproximan.
