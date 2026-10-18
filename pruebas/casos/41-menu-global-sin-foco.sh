@@ -24,6 +24,12 @@ prueba() {
   case "$r" in *"|Fynder|"*) paso "la barra dice Fynder" ;; *) falla "la barra no dice Fynder: $r" ;; esac
   case "$r" in *"|0'"*|*"|-1'"*) falla "la barra de menús está vacía: $r" ;; *) paso "hay menús" ;; esac
 
+  # El menú de la app Fynder es el del Finder (Catalina 12.31.32 PM): con Services ▸ y sin Quit.
+  local m
+  m="$(gdbus call --session --dest org.Cinnamon --object-path /org/Cinnamon --method org.Cinnamon.Eval \
+    "let a=imports.ui.appletManager.getRunningInstancesForUuid('appmenu@macos')[0]; a._updateMenuLabels(true); [a.servicesItem ? a.servicesItem.label.text : 'sin-services', a.quitItem.actor.visible].join('|')" 2>&1)"
+  paso "menú de la app: $m"
+  case "$m" in *"Services|false"*) paso "tiene Services y no tiene Quit" ;; *) falla "el menú de Fynder debe tener Services y no Quit: $m" ;; esac
   # About (y los demás programas internos de mint-macos) no tienen menú: la barra sigue con la app anterior (Fynder).
   if command -v mac-acerca >/dev/null; then
     lanzar mac-acerca

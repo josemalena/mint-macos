@@ -27,6 +27,10 @@ const ATTR_LABEL = "label";
 const ATTR_ACTION = "action";
 const ATTR_TARGET = "target";
 const ATTR_ACCEL = "accel";
+// Texto literal del atajo («^⌘N»), para lo que atajoBonito no puede mostrar (⌃ no se distingue de ⌘ con keyd): gana sobre «accel».
+const ATTR_ACCEL_LITERAL = "x-constanza-accel";
+// El ícono del ítem, un GIcon serializado (el menú Go de Catalina lleva uno por ítem).
+const ATTR_ICON = "icon";
 const LINK_SUBMENU = "submenu";
 const LINK_SECTION = "section";
 
@@ -464,7 +468,18 @@ class GlobalMenuApplet extends Applet.Applet {
       item.connect("activate", () => { if (grupo && nombre) grupo.activate_action(nombre, objetivo); });
     }
 
-    let atajo = atajoBonito(texto(modelo, i, ATTR_ACCEL), this._D && this._D.teclaBonita);
+    let atajo = texto(modelo, i, ATTR_ACCEL_LITERAL) || atajoBonito(texto(modelo, i, ATTR_ACCEL), this._D && this._D.teclaBonita);
+    let icono = null;
+    try {
+      let v = atributo(modelo, i, ATTR_ICON);
+      if (v) icono = Gio.Icon.deserialize(v);
+    } catch (e) {}
+    if (icono) {
+      try {
+        let ic = new St.Icon({ gicon: icono, icon_size: 16, style_class: "globalmenu-icono", y_align: Clutter.ActorAlign.CENTER });
+        item.actor.insert_child_at_index(ic, 0);
+      } catch (e) {}
+    }
     if (atajo) {
       try {
         item.addActor(new St.Label({ text: atajo, style_class: "globalmenu-atajo", y_align: Clutter.ActorAlign.CENTER }),

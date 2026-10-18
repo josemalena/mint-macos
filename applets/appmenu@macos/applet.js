@@ -666,10 +666,16 @@ class AppMenuApplet extends Applet.TextApplet {
       });
     }
     sep();
+    // Services ▸ como en Catalina (12.31.32 PM): Linux no tiene servicios, así que sale apagado. El texto de su submenú
+    // está por verificar (pantallas-con-captura-pendientes), por eso no lleva submenú.
+    this.servicesItem = item("Services", "▸", () => {});
+    this.servicesItem.setSensitive(false);
+    sep();
     this.hideItem = item(`Hide ${name}`, "⌘H", () => this._ocultarApp());
     this.hideOthersItem = item("Hide Others", "⌥⌘H", () => this._ocultarOtras());
     this.showAllItem = item("Show All", "", () => this._mostrarTodas());
-    sep();
+    // El Finder no tiene Quit (Catalina 12.31.32 PM): con el escritorio de Fynder al frente ni el renglón ni su separador.
+    this.quitSep = sep();
     this.quitItem = item(`Quit ${name}`, "⌘Q", () => this._salirDeApp());
   }
 
@@ -689,7 +695,10 @@ class AppMenuApplet extends Applet.TextApplet {
     }
     this.hideItem.setSensitive(hayApp);
     this.hideOthersItem.setSensitive(hayApp);
-    this.quitItem.setSensitive(hayApp && !esEscritorioDeFynder(w));
+    let esFynder = esEscritorioDeFynder(w);
+    this.quitItem.actor.visible = !esFynder;
+    this.quitSep.actor.visible = !esFynder;
+    this.quitItem.setSensitive(hayApp && !esFynder);
     this.showAllItem.setSensitive(ventanasNormales().some(v => v.minimized));
   }
 
