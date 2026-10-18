@@ -23,7 +23,7 @@ const Util = imports.misc.util;
 
 const ANCHO_ICONO = 18;
 const ANCHO_PANEL = 345;
-const FONDO_PANEL = 0.45;   // con el vidrio detrás; sin él era 0.96
+const FONDO_PANEL = 0.96;   // sin vidrio (José, 18-10-2026: «no usemos vidrio»): la caja va casi opaca
 const FUENTE = 'font-family: ".SF NS", sans-serif;';
 
 function dibujarIcono(area, alto) {
@@ -67,9 +67,8 @@ class NotificationCenter extends Applet.Applet {
     // pide reiniciar Cinnamon, ReloadXlet no lo vuelve a leer.
     this._catalina = imports.ui.appletManager.applets[metadata.uuid].catalina;
     this._catalina.aplicar();
-    // El vidrio de Catalina en todos los menús de Cinnamon (vidrio.js).
-    this._vidrio = imports.ui.appletManager.applets[metadata.uuid].vidrio;
-    this._vidrio.aplicar();
+    // Sin el vidrio de Catalina (vidrio.js, ya quitado): los menús van opacos. Si un Cinnamon que todavía lo tenía puesto recarga
+    // este applet, su instancia vieja lo desaplica al irse.
 
     this._orientation = orientation;
     this.menuManager = new PopupMenu.PopupMenuManager(this);
@@ -85,7 +84,7 @@ class NotificationCenter extends Applet.Applet {
     this._armarMenu();
     // Para la esquina activa «Notification Center» (System Preferences ▸ Mission Control).
     global.mintMacosNotificationCenter = () => this.on_applet_clicked();
-    // Fluido desde el primer clic: el primer open cuesta ~48 ms (se arma el vidrio y se miden los actores) contra ~4 ms los demás, y
+    // Fluido desde el primer clic: el primer open cuesta ~48 ms (se miden los actores y se arma el menú) contra ~4 ms los demás, y
     // Today tardaba en llenarse. Se calienta una vez, ya cargada la sesión: abrir y cerrar en el mismo ciclo no llega a pintar un
     // cuadro, y los datos de Today se piden y se renuevan cada 10 min, así que al abrir ya están.
     this._calentar = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 8, () => {
@@ -102,7 +101,6 @@ class NotificationCenter extends Applet.Applet {
     if (this._calentar) GLib.source_remove(this._calentar);
     if (this._renovarHoy) GLib.source_remove(this._renovarHoy);
     if (this._reintento) GLib.source_remove(this._reintento);
-    if (this._vidrio) this._vidrio.desaplicar();
     if (this._catalina) this._catalina.quitar();
     if (this._senal) Main.messageTray.disconnect(this._senal);
     if (this._contado) {
@@ -139,9 +137,8 @@ class NotificationCenter extends Applet.Applet {
     this.menu = new Applet.AppletPopupMenu(this, this._orientation);
     this.menuManager.addMenu(this.menu);
     // Sin el marco opaco del tema (border-image de .popup-menu): el tinte
-    // translúcido va solo en la caja, y detrás el vidrio.
+    // casi opaco va solo en la caja.
     this.menu.actor.set_style(FUENTE + " border-image: none; background: none; background-color: transparent; box-shadow: none; padding: 0;");
-    // Translúcido: detrás va el vidrio de vidrio.js, como en todos los menús.
     this.menu.box.set_style(`width: ${ANCHO_PANEL}px; padding: 8px 0; background-color: rgba(30, 30, 32, ${FONDO_PANEL});` +
                             " border: 1px solid #45474a; border-radius: 0;");
 

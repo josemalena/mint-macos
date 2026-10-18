@@ -240,11 +240,11 @@ su cuenta.
 ## Cosas que saber
 
 - Cinnamon guarda en caché los módulos de los applets (`dbusmenu.js`,
-  `catalina.js`, `vidrio.js`…): después de actualizarlos hay que cerrar
+  `catalina.js`…): después de actualizarlos hay que cerrar
   sesión (o `cinnamon --replace`), no basta recargar el applet.
-- El vidrio de los menús (lo de detrás desenfocado, como Catalina) lo pone el
-  applet `notificaciones@macos`; quitarlo del panel lo apaga. Sin él, los
-  menús quedan translúcidos sin desenfoque.
+- Sin vidrio (José, 18-10-2026: «no usemos vidrio»): los menús salen opacos y
+  el panel del Notification Center casi opaco. El desenfoque de lo de detrás
+  (`vidrio.js`) se quitó; las reglas `.con-vidrio` del tema quedan sin uso.
 - El hinting de las fuentes queda en «none» y el suavizado en gris, como en
   macOS: afecta a todo el escritorio.
 - `cinnamon/barra.sh` deja el panel arriba con el id 1; si la máquina tiene
