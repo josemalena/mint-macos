@@ -14,10 +14,11 @@ use std::io::{BufReader, Read};
 use std::path::{Path, PathBuf};
 
 use flate2::read::GzDecoder;
+use serde::{Deserialize, Serialize};
 use quick_xml::events::{BytesStart, Event};
 use yaml_rust2::{Yaml, YamlLoader};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Origen {
     Flatpak,
     Apt,
@@ -34,21 +35,21 @@ impl Origen {
 
 /// De dónde sale un Flatpak: la instalación («user» o «system»), el remote y el ref
 /// («app/org.gimp.GIMP/x86_64/stable»).
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct FuenteFlatpak {
     pub instalacion: String,
     pub remote: String,
     pub referencia: String,
 }
 
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Captura {
     pub grande: String,
     pub miniatura: String,
     pub pie: String,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct App {
     pub id: String,
     pub appstream_id: String,
@@ -656,13 +657,70 @@ impl Rutas {
     }
 }
 
+/// Los catálogos que se leen, en orden: los DEP-11 y el appstream.xml de cada remote.
+fn archivos(rutas: &Rutas) -> (Vec<PathBuf>, Vec<(String, String, PathBuf, PathBuf)>) {
+    let mut dep11: Vec<PathBuf> = fs::read_dir(&rutas.dep11).map(|d| d.flatten().map(|e| e.path()).filter(|p| p.to_string_lossy().ends_with(".yml.gz") || p.to_string_lossy().ends_with(".yml")).collect()).unwrap_or_default();
+    dep11.sort();
+    let mut xml = Vec::new();
+    for (inst, dir) in &rutas.flatpak {
+        let Ok(remotes) = fs::read_dir(dir.join("appstream")) else { continue };
+        let mut remotes: Vec<_> = remotes.flatten().collect();
+        remotes.sort_by_key(|e| e.file_name());
+        for rem in remotes {
+            let activo = rem.path().join(std::env::consts::ARCH).join("active");
+            if let Some(p) = ["appstream.xml.gz", "appstream.xml"].iter().map(|n| activo.join(n)).find(|p| p.is_file()) {
+                xml.push((inst.clone(), rem.file_name().to_string_lossy().into_owned(), p, activo.join("icons")));
+            }
+        }
+    }
+    (dep11, xml)
+}
+
+/// Lo que hace válido un caché: la ruta, el tamaño y la fecha de cada catálogo, y los
+/// idiomas (el caché guarda los textos ya elegidos).
+pub fn firma(rutas: &Rutas, idiomas: &Idiomas) -> String {
+    let (dep11, xml) = archivos(rutas);
+    let mut v: Vec<String> = vec![format!("v1 {}", idiomas.0.join(":"))];
+    for p in dep11.iter().chain(xml.iter().map(|(_, _, p, _)| p)) {
+        let m = fs::metadata(p).ok();
+        let fecha = m.as_ref().and_then(|m| m.modified().ok()).and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok()).map(|d| d.as_nanos()).unwrap_or(0);
+        v.push(format!("{} {} {}", p.display(), m.map(|m| m.len()).unwrap_or(0), fecha));
+    }
+    v.join("\n")
+}
+
+#[derive(Serialize, Deserialize)]
+struct Cache {
+    firma: String,
+    apps: Vec<App>,
+}
+
+/// El índice guardado: (apps, si la firma coincide). None si no hay o no se lee.
+pub fn leer_cache(archivo: &Path, firma: &str) -> Option<(Vec<App>, bool)> {
+    let c: Cache = serde_json::from_reader(BufReader::new(fs::File::open(archivo).ok()?)).ok()?;
+    let fresco = c.firma == firma;
+    Some((c.apps, fresco))
+}
+
+pub fn guardar_cache(archivo: &Path, firma: &str, apps: &[App]) {
+    let Some(dir) = archivo.parent() else { return };
+    let _ = fs::create_dir_all(dir);
+    let tmp = archivo.with_extension("tmp");
+    let r = fs::File::create(&tmp).map(std::io::BufWriter::new).and_then(|mut f| {
+        serde_json::to_writer(&mut f, &Cache { firma: firma.into(), apps: apps.to_vec() }).map_err(std::io::Error::other)?;
+        std::io::Write::flush(&mut f)
+    });
+    if r.is_ok() {
+        let _ = fs::rename(&tmp, archivo);
+    }
+}
+
 /// Lee todo. Los archivos de DEP-11 en orden de nombre; entre dos componentes de APT
 /// con el mismo paquete gana el de la versión más nueva (noble-updates sobre noble).
 pub fn cargar(rutas: &Rutas, idiomas: &Idiomas) -> Vec<App> {
     let mut apt: HashMap<String, App> = HashMap::new();
-    let mut archivos: Vec<PathBuf> = fs::read_dir(&rutas.dep11).map(|d| d.flatten().map(|e| e.path()).filter(|p| p.to_string_lossy().ends_with(".yml.gz") || p.to_string_lossy().ends_with(".yml")).collect()).unwrap_or_default();
-    archivos.sort();
-    for p in archivos {
+    let (dep11, xml) = archivos(rutas);
+    for p in dep11 {
         let Some(mut r) = abrir_gz(&p) else { continue };
         let mut t = String::new();
         if r.read_to_string(&mut t).is_err() {
@@ -680,18 +738,9 @@ pub fn cargar(rutas: &Rutas, idiomas: &Idiomas) -> Vec<App> {
         }
     }
     let mut todas: Vec<App> = apt.into_values().collect();
-    for (inst, dir) in &rutas.flatpak {
-        let Ok(remotes) = fs::read_dir(dir.join("appstream")) else { continue };
-        let mut remotes: Vec<_> = remotes.flatten().collect();
-        remotes.sort_by_key(|e| e.file_name());
-        for rem in remotes {
-            let remote = rem.file_name().to_string_lossy().into_owned();
-            let activo = rem.path().join(std::env::consts::ARCH).join("active");
-            let xml = ["appstream.xml.gz", "appstream.xml"].iter().map(|n| activo.join(n)).find(|p| p.is_file());
-            let Some(xml) = xml else { continue };
-            let Some(r) = abrir_gz(&xml) else { continue };
-            todas.extend(leer_xml(BufReader::new(r), inst, &remote, &activo.join("icons"), idiomas));
-        }
+    for (inst, remote, p, iconos) in xml {
+        let Some(r) = abrir_gz(&p) else { continue };
+        todas.extend(leer_xml(BufReader::new(r), &inst, &remote, &iconos, idiomas));
     }
     todas.sort_by(|a, b| a.id.cmp(&b.id));
     todas
@@ -781,6 +830,27 @@ mod pruebas {
         let ingles = leer_xml(XML.as_bytes(), "user", "flathub", Path::new("/no-existe"), &Idiomas(vec!["en".into()]));
         assert_eq!(ingles[0].descripcion, "<p>GIMP is an <em>image</em> editor.</p><ul><li>Layers</li></ul>");
         assert_eq!(ingles[0].palabras, ["photo"]);
+    }
+
+    #[test]
+    fn cache_del_indice() {
+        let d = std::env::temp_dir().join(format!("tienda-cache-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&d);
+        fs::create_dir_all(d.join("yaml")).unwrap();
+        fs::write(d.join("yaml/a.yml"), DEP11).unwrap();
+        let rutas = Rutas { dep11: d.join("yaml"), iconos_dep11: d.join("iconos"), flatpak: vec![] };
+        let f1 = firma(&rutas, &en());
+        let apps = cargar(&rutas, &en());
+        let archivo = d.join("indice.json");
+        guardar_cache(&archivo, &f1, &apps);
+        let (leidas, fresco) = leer_cache(&archivo, &f1).unwrap();
+        assert!(fresco && leidas == apps);
+        assert_ne!(firma(&rutas, &Idiomas(vec!["fr".into()])), f1, "otro idioma, otro caché");
+        fs::write(d.join("yaml/a.yml"), format!("{DEP11}\n")).unwrap();
+        let f2 = firma(&rutas, &en());
+        assert_ne!(f2, f1, "el catálogo cambió");
+        assert!(!leer_cache(&archivo, &f2).unwrap().1, "viejo: se sirve, pero no está fresco");
+        fs::remove_dir_all(&d).unwrap();
     }
 
     #[test]

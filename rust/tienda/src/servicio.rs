@@ -59,6 +59,13 @@ pub struct Motor {
     pub ultima_actividad: Mutex<Instant>,
     ultimo_refresco: Mutex<i64>,
     bus: Mutex<Option<Connection>>,
+    /// Refrescar pide releer los catálogos aunque el caché diga que están al día.
+    forzar: AtomicBool,
+}
+
+fn cache_indice() -> PathBuf {
+    let casa = PathBuf::from(std::env::var_os("HOME").unwrap_or_default());
+    std::env::var_os("XDG_CACHE_HOME").map(PathBuf::from).filter(|p| p.is_absolute()).unwrap_or_else(|| casa.join(".cache")).join("mint-macos/tienda/indice.json")
 }
 
 impl Motor {
@@ -76,6 +83,7 @@ impl Motor {
             ultima_actividad: Mutex::new(Instant::now()),
             ultimo_refresco: Mutex::new(0),
             bus: Mutex::new(None),
+            forzar: AtomicBool::new(false),
         });
         let m2 = m.clone();
         std::thread::spawn(move || m2.cargar());
@@ -95,12 +103,30 @@ impl Motor {
         v
     }
 
-    fn cargar(&self) {
-        let apps = catalogo::cargar(&self.rutas, &catalogo::Idiomas::del_entorno());
+    fn poner_apps(&self, apps: Vec<catalogo::App>) {
         let inst = indice::leer_instaladas(&self.rutas, &self.dpkg);
         *self.firma.lock().unwrap() = self.firma_actual();
         *self.indice.lock().unwrap() = Some(Indice::armar(apps, inst));
         self.listo.notify_all();
+    }
+
+    /// El índice: del caché en disco si los catálogos no cambiaron; si cambiaron, se
+    /// sirve el viejo mientras se rearma; si no hay caché, se arma y se guarda.
+    fn cargar(&self) {
+        let idiomas = catalogo::Idiomas::del_entorno();
+        let firma = catalogo::firma(&self.rutas, &idiomas);
+        let archivo = cache_indice();
+        if !self.forzar.swap(false, Ordering::SeqCst) {
+            if let Some((apps, fresco)) = catalogo::leer_cache(&archivo, &firma) {
+                self.poner_apps(apps);
+                if fresco {
+                    return;
+                }
+            }
+        }
+        let apps = catalogo::cargar(&self.rutas, &idiomas);
+        catalogo::guardar_cache(&archivo, &firma, &apps);
+        self.poner_apps(apps);
     }
 
     /// Vuelve a leer lo instalado y arma el índice otra vez (sin releer los catálogos).
