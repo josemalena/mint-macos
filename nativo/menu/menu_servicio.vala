@@ -258,7 +258,9 @@ namespace Menu {
             var v = yield obtener (xid);
             if (v == null) throw new Menu.Error.SIN_MENU ("la ventana %u no publica menú", xid);
             try {
-                return Nodo.a_tablas (yield v.fuente.menu_app ());
+                var tablas = Nodo.a_tablas (yield v.fuente.menu_app ());
+                foreach (var t in tablas) t.insert ("version", new Variant.uint32 (v.version));
+                return tablas;
             } catch (GLib.Error e) {
                 throw new Menu.Error.SIN_MENU ("%s", e.message);
             }
@@ -268,6 +270,11 @@ namespace Menu {
             var v = yield obtener (xid);
             if (v == null) throw new Menu.Error.SIN_MENU ("la ventana %u no publica menú", xid);
             var todos = yield v.fuente.todo (ESPERA_DBUSMENU);
+            // También el menú propio de la app (About, Preferences…, Quit): lo pinta appmenu, pero se busca igual.
+            try {
+                Fuente.recorrer (yield v.fuente.menu_app (), "Application", todos);
+            } catch (GLib.Error e) {
+            }
             var q = texto.down ();
             var res = new GenericArray<Nodo> ();
             for (int i = 0; i < todos.length; i++) {

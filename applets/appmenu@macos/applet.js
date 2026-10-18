@@ -47,6 +47,54 @@ function elegirItem(candidatos, patron) {
   return (pref && candidatos.find(c => pref.test(c.etiqueta))) || candidatos[0] || null;
 }
 
+// ── El servicio del menú (org.mintmacos.Menu1, nativo/menu/DBUS.md) ─────────────────────────────────────────────────
+// Buscar el ítem de About, Preferences… o Quit en el menú de la app (y leer su menú propio) lo hace el servicio, sin bloquear
+// a Cinnamon. Si nadie tiene el nombre, se cae a las lecturas síncronas de siempre, más abajo.
+const MENU1 = "org.mintmacos.Menu1";
+const RUTA_MENU1 = "/org/mintmacos/Menu1";
+
+function m1(metodo, params, tipo) {
+  return new Promise((resolver, rechazar) => {
+    Gio.DBus.session.call(MENU1, RUTA_MENU1, MENU1, metodo, params, tipo ? new GLib.VariantType(tipo) : null,
+      Gio.DBusCallFlags.NONE, 4000, null, (con, res) => {
+        try { resolver(con.call_finish(res)); } catch (e) { rechazar(e); }
+      });
+  });
+}
+
+function sinServicio(e) {
+  let m = String(e && e.message);
+  return m.indexOf("ServiceUnknown") >= 0 || m.indexOf("NameHasNoOwner") >= 0 || m.indexOf("not provided by any") >= 0;
+}
+
+function xidDe(w) {
+  try { return w.get_xwindow(); } catch (e) { return 0; }
+}
+
+// Todos los ítems del menú de la ventana (el de la barra y el propio de la app); un segundo pedido en 1,5 s reutiliza el primero.
+let _cacheItems = { xid: 0, cuando: 0, promesa: null };
+function itemsServicio(w) {
+  let xid = xidDe(w), ahora = GLib.get_monotonic_time();
+  if (_cacheItems.promesa && _cacheItems.xid === xid && ahora - _cacheItems.cuando < 1500000) return _cacheItems.promesa;
+  let p = m1("Buscar", new GLib.Variant("(us)", [xid, ""]), "(aa{sv})").then(r => r.recursiveUnpack()[0]);
+  _cacheItems = { xid, cuando: ahora, promesa: p };
+  p.catch(() => { if (_cacheItems.promesa === p) _cacheItems.promesa = null; });
+  return p;
+}
+
+// El ítem que cumple el patrón (con el preferido de elegirItem), o null.
+async function itemPorPatron(w, patron) {
+  let items = await itemsServicio(w);
+  let candidatos = items.filter(i => i.activo !== false && patron.test(i.etiqueta || ""))
+    .map(i => ({ etiqueta: i.etiqueta, it: i }));
+  let e = elegirItem(candidatos, patron);
+  return e ? e.it : null;
+}
+
+function activarItemServicio(w, it) {
+  return m1("Activar", new GLib.Variant("(uus)", [xidDe(w), it.version, it.id]), "(b)").then(r => r.deepUnpack()[0]);
+}
+
 function llamar(bus, ruta, iface, metodo, args, tipo) {
   return Gio.DBus.session.call_sync(bus, ruta, iface, metodo, args,
     tipo ? new GLib.VariantType(tipo) : null, Gio.DBusCallFlags.NONE, DBUS_TIMEOUT, null);
@@ -232,6 +280,10 @@ function leerMenuDeApp(w) {
 }
 
 function activarEntrada(w, e) {
+  if (e.id !== undefined) {
+    activarItemServicio(w, e).catch(err => global.logError("appmenu@macos: " + err));
+    return;
+  }
   try {
     let bus = w.get_gtk_unique_bus_name();
     let p = e.accion.indexOf("."), pref = e.accion.slice(0, p), n = e.accion.slice(p + 1);
@@ -304,6 +356,23 @@ function abrirAboutDeLaApp(w) {
     global.logError("appmenu@macos: About de la app: " + e);
   }
   return false;
+}
+
+// Apps sin ítem About en el menú pero con la acción app.about (GApplication): se pregunta sin bloquear. Promesa: true si la activó.
+function abrirAboutPorAccion(w) {
+  return new Promise(resolver => {
+    let bus = null, rutaApp = null;
+    try { bus = w.get_gtk_unique_bus_name(); rutaApp = w.get_gtk_application_object_path(); } catch (e) {}
+    if (!bus || !rutaApp) { resolver(false); return; }
+    Gio.DBus.session.call(bus, rutaApp, "org.gtk.Actions", "List", null, new GLib.VariantType("(as)"),
+      Gio.DBusCallFlags.NONE, DBUS_TIMEOUT, null, (con, res) => {
+        try {
+          let lista = con.call_finish(res).deepUnpack()[0];
+          if (lista.indexOf("about") >= 0) { activarAccion(bus, rutaApp, "about", null); resolver(true); return; }
+        } catch (e) {}
+        resolver(false);
+      });
+  });
 }
 
 // Los navegadores de Chromium no publican «About» en su menú (Edge solo trae
@@ -621,7 +690,10 @@ class AppMenuApplet extends Applet.TextApplet {
   // El menú de la app como en macOS: About, Preferences… (si la app lo
   // publica), Hide, Hide Others, Show All y Quit. Hide y compañía los hace
   // Cinnamon minimizando ventanas; no hace falta la app.
-  _buildMenu() {
+  _buildMenu(propio) {
+    // Sin argumento: se arma el menú de siempre y, aparte, se le pide su menú propio al servicio (sin bloquear).
+    let cargar = propio === undefined;
+    if (propio === undefined) propio = null;
     this.menu.removeAll();
     let item = (texto, atajo, accion) => {
       let it = new PopupMenu.PopupMenuItem(texto);
@@ -645,7 +717,6 @@ class AppMenuApplet extends Applet.TextApplet {
 
     let name = this._getFocusedAppName();
     let w = getFocusedWindow();
-    let propio = (w && !isDesktopWindow(w)) ? leerMenuDeApp(w) : null;
     this._menuPropio = !!propio;
     if (propio) {
       // La app trae su menú (About, Preferences…, Empty Trash…): va tal cual,
@@ -662,7 +733,7 @@ class AppMenuApplet extends Applet.TextApplet {
       this.prefsSep = sep();
       this.prefsItem = item("Preferences…", "⌘,", () => {
         let v = getFocusedWindow();
-        if (v) activarDeMenu(v, RE_PREFS);
+        if (v) this._abrirPreferencias(v);
       });
     }
     sep();
@@ -677,6 +748,30 @@ class AppMenuApplet extends Applet.TextApplet {
     // El Finder no tiene Quit (Catalina 12.31.32 PM): con el escritorio de Fynder al frente ni el renglón ni su separador.
     this.quitSep = sep();
     this.quitItem = item(`Quit ${name}`, "⌘Q", () => this._salirDeApp());
+    if (cargar && w && !isDesktopWindow(w)) this._cargarMenuPropio(w);
+  }
+
+  // El menú propio de la app (el marcado x-constanza-app-menu) por el servicio; sin servicio, la lectura síncrona de siempre.
+  _cargarMenuPropio(w) {
+    m1("MenuApp", new GLib.Variant("(u)", [xidDe(w)]), "(aa{sv})").then(r => {
+      let items = r.recursiveUnpack()[0];
+      if (!items.length || w !== getFocusedWindow()) return;
+      let lista = items.map(i => i.tipo === "separador" ? { separador: true }
+        : { etiqueta: i.etiqueta, activo: i.activo, id: i.id, version: i.version });
+      this._buildMenu(lista);
+      this._updateMenuLabels(false);
+    }).catch(e => {
+      if (!sinServicio(e)) return;     // la ventana no publica menú propio: queda el de siempre
+      let lista = leerMenuDeApp(w);
+      if (lista && w === getFocusedWindow()) { this._buildMenu(lista); this._updateMenuLabels(false); }
+    });
+  }
+
+  _abrirPreferencias(v) {
+    itemPorPatron(v, RE_PREFS).then(it => { if (it) activarItemServicio(v, it); }).catch(e => {
+      if (sinServicio(e)) activarDeMenu(v, RE_PREFS);
+      else global.logError("appmenu@macos: Preferences: " + e);
+    });
   }
 
   // alAbrir: solo al abrir el menú se pregunta a la app si tiene Preferences
@@ -689,9 +784,17 @@ class AppMenuApplet extends Applet.TextApplet {
     this.hideItem.label.text = `Hide ${name}`;
     this.quitItem.label.text = `Quit ${name}`;
     if (alAbrir && this.prefsItem) {
-      let prefs = hayApp && menuTiene(w, RE_PREFS);
-      this.prefsItem.actor.visible = prefs;
-      this.prefsSep.actor.visible = prefs;
+      // Preferences… solo si la app lo publica; se pregunta al servicio (sin bloquear) y mientras tanto no se ve.
+      this.prefsItem.actor.visible = false;
+      this.prefsSep.actor.visible = false;
+      if (hayApp) {
+        let ponerPrefs = (prefs) => {
+          if (!this.prefsItem || w !== getFocusedWindow()) return;
+          this.prefsItem.actor.visible = prefs;
+          this.prefsSep.actor.visible = prefs;
+        };
+        itemPorPatron(w, RE_PREFS).then(it => ponerPrefs(!!it)).catch(e => ponerPrefs(sinServicio(e) && menuTiene(w, RE_PREFS)));
+      }
     }
     this.hideItem.setSensitive(hayApp);
     this.hideOthersItem.setSensitive(hayApp);
@@ -721,9 +824,19 @@ class AppMenuApplet extends Applet.TextApplet {
       return;
     }
     this._quitPendiente = { pid: pid, cuando: ahora };
-    if (activarDeMenu(w, RE_QUIT)) return;
-    let activar = await buscarEnDbusmenu(w, RE_QUIT);
-    if (activar) { activar(); return; }
+    try {
+      let it = await itemPorPatron(w, RE_QUIT);
+      if (it && await activarItemServicio(w, it)) return;
+    } catch (e) {
+      if (sinServicio(e)) {
+        // Sin servicio: las lecturas síncronas de siempre.
+        if (activarDeMenu(w, RE_QUIT)) return;
+        let activar = await buscarEnDbusmenu(w, RE_QUIT);
+        if (activar) { activar(); return; }
+      } else {
+        global.logError("appmenu@macos: Quit: " + e);
+      }
+    }
     let hora = global.get_current_time();
     for (let v of ventanasNormales()) if (mismaApp(v, w)) { try { v.delete(hora); } catch (e) {} }
   }
@@ -754,11 +867,21 @@ class AppMenuApplet extends Applet.TextApplet {
       return;
     }
 
-    if (abrirAboutDeLaApp(w)) return;
-    if (abrirAboutChromium(w)) return;
-    // Si la app publica por dbusmenu (Edge lo tiene en Help).
-    buscarEnDbusmenu(w, RE_ABOUT).then(activar => {
-      if (activar) activar(); else this._aboutDeRespaldo(w, name);
+    // Por el servicio: el About del menú de la app (GTK o dbusmenu). Sin servicio, las lecturas síncronas de siempre.
+    itemPorPatron(w, RE_ABOUT).then(it => {
+      if (it) return activarItemServicio(w, it);
+      return false;
+    }).then(hecho => hecho || abrirAboutPorAccion(w)).then(hecho => {
+      if (hecho) return;
+      if (abrirAboutChromium(w)) return;
+      this._aboutDeRespaldo(w, name);
+    }).catch(e => {
+      if (!sinServicio(e)) global.logError("appmenu@macos: About: " + e);
+      if (abrirAboutDeLaApp(w)) return;
+      if (abrirAboutChromium(w)) return;
+      buscarEnDbusmenu(w, RE_ABOUT).then(activar => {
+        if (activar) activar(); else this._aboutDeRespaldo(w, name);
+      });
     });
   }
 
