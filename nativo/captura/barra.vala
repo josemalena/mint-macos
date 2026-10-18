@@ -38,6 +38,12 @@ namespace Captura {
         Gtk.Button accion;
         /** Hecha la captura o grabando: pedir ⇧⌘5 otra vez no debe volver a enseñar la barra. */
         public bool ocupada = false;
+        // Arrastre de la barra: de dónde se agarró (en la pantalla) y dónde estaba la ventana.
+        bool arrastrando = false;
+        int agarre_x = 0;
+        int agarre_y = 0;
+        int origen_x = 0;
+        int origen_y = 0;
 
         public Barra (Gtk.Application app) {
             Object (application: app, type: Gtk.WindowType.TOPLEVEL);
@@ -61,6 +67,7 @@ namespace Captura {
             set_skip_taskbar_hint (true);
             set_type_hint (Gdk.WindowTypeHint.DOCK);
             set_title ("Screenshot");
+            add_events (Gdk.EventMask.BUTTON_PRESS_MASK | Gdk.EventMask.BUTTON_RELEASE_MASK | Gdk.EventMask.POINTER_MOTION_MASK);
             destroy.connect (() => soltar_armado ());
 
             var fila = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 2);
@@ -108,9 +115,45 @@ namespace Captura {
             Timeout.add (120, () => { armar (); return false; });
         }
 
+        /** Abajo al centro del monitor principal, como en la Mac. */
         void centrar () {
-            var pant = get_screen ();
-            move ((pant.get_width () - get_allocated_width ()) / 2, pant.get_height () - 150);
+            var m = get_display ().get_primary_monitor () ?? get_display ().get_monitor (0);
+            var g = m.get_geometry ();
+            move (g.x + (g.width - get_allocated_width ()) / 2, g.y + g.height - 150);
+        }
+
+        /** Un clic que no cae en un botón agarra la barra y la lleva a donde se suelte, como en la Mac. */
+        public override bool button_press_event (Gdk.EventButton e) {
+            if (e.button != 1) return base.button_press_event (e);
+            int x, y;
+            get_position (out x, out y);
+            origen_x = x; origen_y = y;
+            agarre_x = (int) e.x_root; agarre_y = (int) e.y_root;
+            var seat = get_display ().get_default_seat ();
+            seat.grab (get_window (), Gdk.SeatCapabilities.POINTER, false, null, e, null);
+            arrastrando = true;
+            return true;
+        }
+
+        public override bool motion_notify_event (Gdk.EventMotion e) {
+            if (!arrastrando) return false;
+            move (origen_x + (int) e.x_root - agarre_x, origen_y + (int) e.y_root - agarre_y);
+            return true;
+        }
+
+        public override bool button_release_event (Gdk.EventButton e) {
+            if (!arrastrando) return base.button_release_event (e);
+            arrastrando = false;
+            get_display ().get_default_seat ().ungrab ();
+            return true;
+        }
+
+        /** Las capas de captura dejan pasar los clics por donde está la barra: al moverse, el hueco se corre con ella. */
+        public override bool configure_event (Gdk.EventConfigure e) {
+            var r = base.configure_event (e);
+            if (marco != null) marco.reajustar_hueco ();
+            if (selector != null) selector.reajustar_hueco ();
+            return r;
         }
 
         static Gtk.Widget separador () {
@@ -157,8 +200,9 @@ namespace Captura {
                     rect = { pant.get_width () / 4, pant.get_height () / 4, ancho, alto };
                 }
                 marco = new Marco (rect, this);
-            } else if (cfg.modo == "ventana") {
-                selector = new Elegir ((wid) => tras_elegir_ventana (wid), this);
+            } else if (cfg.modo == "ventana" || cfg.modo == "pantalla") {
+                // Como en la Mac, ventana y pantalla entera ponen la cámara: un clic elige la ventana o el monitor.
+                selector = new Elegir ((wid) => tras_elegir_ventana (wid), this, cfg.modo == "pantalla");
             }
         }
 
@@ -284,7 +328,11 @@ namespace Captura {
             var modo = cfg.modo;
             if (modo == "ventana") return;           // la ventana se elige con un clic, no con Capture
             int[]? dato = null;
-            if (modo == "porcion" || modo == "grabar-porcion") {
+            if (modo == "pantalla" || modo == "grabar-pantalla") {
+                int bx, by;
+                get_position (out bx, out by);
+                dato = geometria_del_monitor (get_display (), bx + get_allocated_width () / 2, by + get_allocated_height () / 2);
+            } else if (modo == "porcion" || modo == "grabar-porcion") {
                 if (marco == null) return;
                 rect = marco.get_rect ();
                 dato = rect;
@@ -296,10 +344,19 @@ namespace Captura {
         }
 
         void tras_elegir_ventana (string? wid) {
+            var elegido = selector;
             selector = null;
-            if (wid == null) return;
+            if (wid == null) {
+                if (elegido != null && elegido.con_escape) destroy ();      // Esc sale de la herramienta
+                return;
+            }
             ocupada = true;
             hide ();
+            if (wid == "pantalla") {
+                var dato = elegido != null ? elegido.monitor_elegido : null;
+                con_temporizador (() => hacer ("pantalla", dato, null));
+                return;
+            }
             con_temporizador (() => hacer ("ventana", null, wid));
         }
 

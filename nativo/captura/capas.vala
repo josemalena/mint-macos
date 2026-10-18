@@ -21,6 +21,13 @@ namespace Captura {
         hueco = r;
     }
 
+    /** El monitor que contiene el punto (x, y): { x, y, ancho, alto }. */
+    public int[] geometria_del_monitor (Gdk.Display display, int x, int y) {
+        var m = display.get_monitor_at_point (x, y);
+        var g = m.get_geometry ();
+        return { g.x, g.y, g.width, g.height };
+    }
+
     class VentanaVisible {
         public string wid;
         public int x;
@@ -35,25 +42,39 @@ namespace Captura {
      */
     public class Elegir : Gtk.Window {
         ResolverVentana al_resolver;
-        List<VentanaVisible> ventanas;
+        List<VentanaVisible> ventanas = new List<VentanaVisible> ();
         VentanaVisible? sel = null;
+        bool pantalla;
+        Gtk.Window barra;
+        /** En modo pantalla: el monitor bajo el ratón (x, y, ancho, alto), resaltado y elegido con un clic. */
+        public int[]? monitor_elegido = null;
+        /** Cerrada con Esc: en la Mac Esc sale de toda la herramienta, no solo del cursor de cámara. */
+        public bool con_escape = false;
 
-        public Elegir (ResolverVentana al_resolver, Gtk.Window barra) {
+        public Elegir (ResolverVentana al_resolver, Gtk.Window barra, bool pantalla = false) {
             Object (type: Gtk.WindowType.POPUP);
             this.al_resolver = al_resolver;
+            this.pantalla = pantalla;
+            this.barra = barra;
             var scr = get_screen ();
             if (scr.get_rgba_visual () != null) set_visual (scr.get_rgba_visual ());
             set_app_paintable (true);
             set_decorated (false);
             set_keep_above (true);
             add_events (Gdk.EventMask.BUTTON_PRESS_MASK | Gdk.EventMask.POINTER_MOTION_MASK | Gdk.EventMask.KEY_PRESS_MASK);
-            ventanas = listar ();       // antes de mostrarse: esta capa no sale en la lista
+            if (!pantalla) ventanas = listar ();       // antes de mostrarse: esta capa no sale en la lista
             move (0, 0);
             resize (scr.get_width (), scr.get_height ());
             show_all ();
             var gw = get_window ();
             gw.set_cursor (cursor_camara (get_display ()));
             gw.focus (Gdk.CURRENT_TIME);
+            Gdk.Rectangle hueco;
+            dejar_pasar_a_la_barra (this, barra, out hueco);
+        }
+
+        /** La barra se movió: el hueco por donde pasan los clics la sigue. */
+        public void reajustar_hueco () {
             Gdk.Rectangle hueco;
             dejar_pasar_a_la_barra (this, barra, out hueco);
         }
@@ -84,6 +105,14 @@ namespace Captura {
         }
 
         public override bool motion_notify_event (Gdk.EventMotion e) {
+            if (pantalla) {
+                var g = geometria_del_monitor (get_display (), (int) e.x_root, (int) e.y_root);
+                if (monitor_elegido == null || monitor_elegido[0] != g[0] || monitor_elegido[1] != g[1]) {
+                    monitor_elegido = g;
+                    queue_draw ();
+                }
+                return false;
+            }
             VentanaVisible? nuevo = null;
             foreach (var v in ventanas) {
                 if (v.x <= e.x_root && e.x_root < v.x + v.w && v.y <= e.y_root && e.y_root < v.y + v.h) {
@@ -102,9 +131,12 @@ namespace Captura {
             cr.set_operator (Cairo.Operator.SOURCE);
             cr.set_source_rgba (0, 0, 0, 0.01);
             cr.paint ();
-            if (sel != null) {
-                cr.set_operator (Cairo.Operator.OVER);
-                cr.set_source_rgba (0.25, 0.5, 0.95, 0.35);
+            cr.set_operator (Cairo.Operator.OVER);
+            cr.set_source_rgba (0.25, 0.5, 0.95, 0.35);
+            if (pantalla && monitor_elegido != null) {
+                cr.rectangle (monitor_elegido[0], monitor_elegido[1], monitor_elegido[2], monitor_elegido[3]);
+                cr.fill ();
+            } else if (sel != null) {
                 cr.rectangle (sel.x, sel.y, sel.w, sel.h);
                 cr.fill ();
             }
@@ -112,7 +144,10 @@ namespace Captura {
         }
 
         public override bool button_press_event (Gdk.EventButton e) {
-            if (e.button == 1 && sel != null) {
+            if (e.button == 1 && pantalla) {
+                monitor_elegido = geometria_del_monitor (get_display (), (int) e.x_root, (int) e.y_root);
+                cerrar ("pantalla");
+            } else if (e.button == 1 && sel != null) {
                 cerrar (sel.wid);
             } else if (e.button != 1) {
                 cerrar (null);
@@ -121,7 +156,10 @@ namespace Captura {
         }
 
         public override bool key_press_event (Gdk.EventKey e) {
-            if (e.keyval == Gdk.Key.Escape) cerrar (null);
+            if (e.keyval == Gdk.Key.Escape) {
+                con_escape = true;
+                cerrar (null);
+            }
             return false;
         }
 
@@ -148,6 +186,7 @@ namespace Captura {
         double[] r0 = {};
         Gdk.Rectangle hueco_barra;
         bool hay_hueco = false;
+        Gtk.Window barra;
 
         public Marco (int[] r, Gtk.Window barra) {
             Object (type: Gtk.WindowType.POPUP);
@@ -158,13 +197,31 @@ namespace Captura {
             set_keep_above (true);
             ancho = scr.get_width ();
             alto = scr.get_height ();
+            this.barra = barra;
             rect = { r[0], r[1], r[2], r[3] };
-            add_events (Gdk.EventMask.BUTTON_PRESS_MASK | Gdk.EventMask.BUTTON_RELEASE_MASK | Gdk.EventMask.POINTER_MOTION_MASK);
+            add_events (Gdk.EventMask.BUTTON_PRESS_MASK | Gdk.EventMask.BUTTON_RELEASE_MASK | Gdk.EventMask.POINTER_MOTION_MASK
+                        | Gdk.EventMask.KEY_PRESS_MASK);
             move (0, 0);
             resize (ancho, alto);
             show_all ();
             dejar_pasar_a_la_barra (this, barra, out hueco_barra);
             hay_hueco = hueco_barra.width > 0;
+            get_window ().focus (Gdk.CURRENT_TIME);
+        }
+
+        /** La barra se movió: el hueco sin atenuar y por donde pasan los clics la sigue. */
+        public void reajustar_hueco () {
+            dejar_pasar_a_la_barra (this, barra, out hueco_barra);
+            hay_hueco = hueco_barra.width > 0;
+            queue_draw ();
+        }
+
+        public override bool key_press_event (Gdk.EventKey e) {
+            if (e.keyval == Gdk.Key.Escape) {
+                barra.destroy ();
+                return true;
+            }
+            return false;
         }
 
         public int[] get_rect () {
