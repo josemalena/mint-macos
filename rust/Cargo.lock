@@ -711,9 +711,11 @@ version = "0.1.0"
 name = "mint-macos-tienda"
 version = "0.1.0"
 dependencies = [
+ "blocking",
  "flate2",
  "futures-lite",
  "quick-xml",
+ "serde",
  "serde_json",
  "ureq",
  "yaml-rust2",

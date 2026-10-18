@@ -42,6 +42,7 @@ struct GList {
 extern "C" {
     fn flatpak_installation_new_user(c: *mut c_void, e: *mut *mut GError) -> *mut c_void;
     fn flatpak_installation_new_system(c: *mut c_void, e: *mut *mut GError) -> *mut c_void;
+    #[cfg_attr(not(test), allow(dead_code))]
     fn flatpak_installation_new_for_path(f: *mut c_void, user: gboolean, c: *mut c_void, e: *mut *mut GError) -> *mut c_void;
     fn flatpak_transaction_new_for_installation(i: *mut c_void, c: *mut c_void, e: *mut *mut GError) -> *mut c_void;
     fn flatpak_transaction_add_install(t: *mut c_void, remote: *const c_char, r: *const c_char, sub: *const *const c_char, e: *mut *mut GError) -> gboolean;
@@ -89,6 +90,7 @@ extern "C" {
 extern "C" {
     fn g_cancellable_new() -> *mut c_void;
     fn g_cancellable_cancel(c: *mut c_void);
+    #[cfg_attr(not(test), allow(dead_code))]
     fn g_file_new_for_path(p: *const c_char) -> *mut c_void;
 }
 
@@ -183,6 +185,7 @@ impl Instalacion {
     }
 
     /// Una instalación en otra carpeta, como si fuera de usuario (las pruebas).
+    #[cfg_attr(not(test), allow(dead_code))]
     pub fn en(dir: &Path) -> Result<Instalacion, Fallo> {
         let p = cadena(&dir.to_string_lossy())?;
         let mut e = ptr::null_mut();

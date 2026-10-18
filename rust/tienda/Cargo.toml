@@ -20,3 +20,8 @@ flate2 = "1.1.10"
 ureq = "3.4.2"
 # serde_json 1.0.151 (20-07-2026, MIT o Apache-2.0): las respuestas de esas API.
 serde_json = "=1.0.151"
+# serde (MIT o Apache-2.0), ya en el árbol por zbus: los argumentos de PackageKit.
+serde = "1.0.228"
+# blocking 1.7.0 (MIT o Apache-2.0), ya en el árbol por zbus: lo que lee la red sin
+# trabar el bus.
+blocking = "1.7.0"
