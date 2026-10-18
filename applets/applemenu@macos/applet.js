@@ -243,7 +243,7 @@ class AppleMenuApplet extends Applet.IconApplet {
     this._item(etiquetaAcerca(), null, () => spawn(comandoAcerca()));
     this._separador();
     this._item("System Preferences…", null, () => spawn(comandoPreferencias()));
-    this._item("App Store…", null, () => spawn("mintinstall"));
+    this._item("App Store…", null, () => spawn(GLib.find_program_in_path("mac-tienda") ? "mac-tienda" : "mintinstall"));
     this._separador();
 
     // Recent Items ▸: se abre al lado, como en la Mac, no adentro del menú.

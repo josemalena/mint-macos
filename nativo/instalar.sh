@@ -20,6 +20,12 @@ case "${1:-}" in
     # ⌃⌘Espacio llama a ~/.local/bin/mac-emojis: pasa a ser el lanzador (residente → binario → Python, que queda copiado).
     install -D -m 755 "$AQUI/../capturas/emojis.py" "$HOME/.local/share/mint-macos/emojis.py"
     install -m 755 "$HOME/.local/bin/mac-emojis-lanzar" "$HOME/.local/bin/mac-emojis"
+    # El App Store: lanzador en el menú de aplicaciones; el servicio de /Applications (aplicaciones.path) lo copia para
+    # Launchpad. El Dock (mac-tienda.dockitem) y el menú Apple (applemenu) apuntan a él.
+    install -D -m 755 "$AQUI/mac-tienda.desktop" "$HOME/.local/share/applications/mac-tienda.desktop"
+    mkdir -p "$HOME/.config/mint-macos"
+    grep -qs '^arriba mac-tienda.desktop' "$HOME/.config/mint-macos/aplicaciones.conf" \
+      || echo 'arriba mac-tienda.desktop' >> "$HOME/.config/mint-macos/aplicaciones.conf"
     # Un residente sigue con el código viejo en memoria y es el que atiende los atajos (⇧⌘5, Force Quit, los
     # diálogos de sesión, System Preferences): con el binario nuevo en disco no basta. Se compara la hora de
     # arranque del proceso con la del binario, y se avisa o, con --reiniciar, se reinicia.

@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=App Store
+GenericName=App Store
+Comment=Discover, download and update apps
+Exec=mac-tienda
+Icon=mintinstall
+Terminal=false
+Categories=System;PackageManager;
+StartupWMClass=mac-tienda
+Keywords=apps;store;software;install;flatpak;
