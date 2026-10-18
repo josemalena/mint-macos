@@ -7,6 +7,21 @@ llama a mintinstall ni lee nada suyo.
 
 **Estado: interfaz aprobada por Planner (18-10-2026); implementándose.**
 
+## Lo más cercano a la Mac (decisiones de José, 18-10-2026)
+
+1. **Get sin clave:** Flathub está también como remote **de usuario**
+   (`flatpak remote-add --user flathub`, hecho el 18-10). Los Flatpak se
+   instalan en `~/.local/share/flatpak` sin polkit, como en la Mac.
+2. **Una ficha por app, Flatpak primero:** si una app está en Flatpak y en APT
+   (mismo `appstream_id`), sale la de Flatpak; la de APT va en `otras_fuentes`.
+   APT solo sale sola cuando no hay Flatpak.
+3. **Actualizaciones como en la Mac, partidas en dos:** las apps (Flatpak de
+   usuario) se actualizan solas una vez al día, sin clave, si
+   `com.linuxmint.updates auto-update-flatpaks` está encendido (la misma
+   preferencia del panel; no se duplica). Lo demás va por Software Update.
+4. **Notas y reseñas de ODRS** (odrs.gnome.org, la base abierta que usa GNOME
+   Software), diciendo que salen de ahí; sin rellenar cuando no hay.
+
 ## De dónde salen los datos
 
 | | Ruta en esta máquina (Mint 22.3) | Formato |
@@ -15,7 +30,9 @@ llama a mintinstall ni lee nada suyo.
 | Catálogo de Flathub | `/var/lib/flatpak/appstream/<remote>/x86_64/active/appstream.xml.gz` | AppStream XML; íconos en `active/icons/{64x64,128x128}` |
 | Instalar con APT | PackageKit (`org.freedesktop.PackageKit`, bus de sistema) | D-Bus |
 | Instalar con Flatpak | `libflatpak.so.0`: installation, transaction, add_install/add_uninstall/add_update, run y sus señales de progreso | FFI |
+| Catálogo de Flathub (usuario) | `~/.local/share/flatpak/appstream/flathub/x86_64/active/appstream.xml.gz` | el mismo |
 | Estantes | `https://flathub.org/api/v2/…` | JSON |
+| Notas y reseñas | `https://odrs.gnome.org/1.0/reviews/api/ratings/{id}` y `…/fetch` | JSON |
 
 ## Dónde vive
 
@@ -32,7 +49,7 @@ llama a mintinstall ni lee nada suyo.
 Cada app tiene un `id` que dice de dónde sale, para que no haya dos «GIMP»
 sin saber cuál es cuál:
 
-- `flatpak:<instalación>/<remote>/<ref>` — p. ej. `flatpak:system/flathub/app/org.gimp.GIMP/x86_64/stable`
+- `flatpak:<instalación>/<remote>/<ref>` — p. ej. `flatpak:user/flathub/app/org.gimp.GIMP/x86_64/stable`. Lo nuevo se instala en `user`; lo que ya estaba en `system` se sigue viendo, actualizando y quitando ahí
 - `apt:<paquete>` — p. ej. `apt:gimp`
 
 Además, `appstream_id` (`org.gimp.GIMP`) junta las variantes de la misma app:
@@ -76,8 +93,17 @@ Las claves que no tienen dato **no vienen**. Nunca van con un valor inventado.
 | `permisos` | as | solo Flatpak: lo que pide (red, archivos, dispositivos…) |
 | `instalaciones_mes` | u | solo Flathub, de `/stats/{app_id}`; `fuente_instalaciones` dice de dónde |
 | `otras_fuentes` | as | otros `id` con el mismo `appstream_id` |
+| `nota` | d | promedio de 0 a 5 de ODRS (star1…star5); no viene si no hay votos |
+| `votos` | u | `total` de ODRS |
+| `votos_por_estrella` | au | cinco números, de 1 a 5 estrellas |
+| `fuente_nota` | s | `odrs:/1.0/reviews/api/ratings/{id}` |
 
-Notas, reseñas y precio no existen en ninguna fuente que usamos y no vienen.
+El precio no existe en ninguna fuente que usamos y no viene.
+
+**Reseña** (`a{sv}`): `resumen` s, `texto` s, `nota` d (0 a 5), `autor` s
+(`user_display`; no viene si es anónima), `fecha` x, `version` s, `distro` s.
+Solo se leen: el motor no publica reseñas ni manda el `user_hash` de la máquina
+(manda uno en ceros, que ODRS acepta para leer).
 
 ## Métodos
 
@@ -91,8 +117,9 @@ Notas, reseñas y precio no existen en ninguna fuente que usamos y no vienen.
 | `Ficha` | `s id` | `a{sv}` | |
 | `Instalar` | `s id` | `s trabajo` | Devuelve enseguida; lo demás va por señales |
 | `Quitar` | `s id` | `s trabajo` | |
-| `Actualizaciones` | — | `aa{sv}` | Resúmenes con `version` y `version_instalada` |
-| `Actualizar` | `as ids` | `s trabajo` | `ids` vacío = todas |
+| `Resenas` | `s appstream_id, u limite` | `aa{sv}` | De ODRS, las más útiles primero (su `score`) |
+| `Actualizaciones` | `s grupo` | `aa{sv}` | `grupo`: `apps` o `sistema` (ver «Las actualizaciones en dos»). Resúmenes con `version` y `version_instalada` |
+| `Actualizar` | `s grupo, as ids` | `s trabajo` | `ids` vacío = todas las del grupo |
 | `Refrescar` | — | `s trabajo` | Catálogos de APT (PackageKit `RefreshCache`) y de Flatpak (appstream de cada remote) |
 | `Cancelar` | `s trabajo` | `b` | false si ya no se puede (PackageKit no deja cancelar a mitad del dpkg) |
 | `Trabajos` | — | `a(sssu)` | (trabajo, tipo, id, porcentaje): para reengancharse si la ventana se abrió después |
@@ -115,13 +142,26 @@ Notas, reseñas y precio no existen en ninguna fuente que usamos y no vienen.
 | `Ocupado` | `b` | |
 | `UltimoRefresco` | `x` | unix |
 
-## Autorización (sin sudo)
+## Las actualizaciones en dos (como Catalina)
+
+| grupo | qué entra | dónde se instala |
+|---|---|---|
+| `apps` | Flatpak (usuario y sistema) y los paquetes de APT que tienen ficha `desktop-application` en DEP-11 | Updates del App Store |
+| `sistema` | todo lo demás de APT: núcleo, bibliotecas, Cinnamon… | Software Update (System Preferences), dentro del panel, con progreso |
+
+Los núcleos y Timeshift se quedan en Update Manager (Advanced… en Software
+Update). El salto de versión de Mint (22.3 → 23) va en Software Update, con su
+propia propuesta antes de implementarse.
+
+## Autorización
 
 - APT: PackageKit pide `org.freedesktop.packagekit.package-install` (y `-remove`, `system-update`, `system-sources-refresh`) por polkit; el diálogo lo pone mac-polkit. El motor no toca polkit ni pide claves.
-- Flatpak: en la instalación del remote. flathub está en **system**, así que instalar de flathub pasa por `flatpak-system-helper` y polkit también. El motor no añade un remote de usuario.
+- Flatpak de usuario (lo nuevo): **sin clave**.
+- Flatpak de sistema (lo que ya estaba): pasa por `flatpak-system-helper` y polkit.
 
-**Para la UI:** `Instalar`, `Quitar`, `Actualizar` y `Refrescar` pueden pedir la
-clave. El diálogo lo pone mac-polkit, fuera de la ventana del App Store;
+**Para la UI:** `Instalar` de un Flatpak no pide nada. `Instalar` y `Quitar`
+de APT, `Quitar` y `Actualizar` de un Flatpak de sistema, y `Refrescar`
+pueden pedir la clave. El diálogo lo pone mac-polkit, fuera de la ventana del App Store;
 mientras tanto `Progreso` va con `etapa = autorizando`. Si la persona cancela
 el diálogo, `Terminado` llega con `codigo = sin-autorizacion`: no es un error
 que haya que enseñar en rojo, el botón vuelve a «Get».
@@ -179,11 +219,11 @@ Cada estante dice su `fuente`. Si una fuente no responde (sin red), el estante
 
 - En APT no hay ranking: los estantes son solo de Flathub, y una app de APT sale en búsqueda y categorías, no en estantes.
 - Las respuestas de Flathub se guardan en caché 24 h (es lo que su CDN dice en `s-maxage`), en `~/.cache/mint-macos/tienda/`.
-- «Top Paid», notas, reseñas y Arcade no tienen fuente y no se ofrecen.
+- «Top Paid» y Arcade no tienen fuente y no se ofrecen.
 - Tarjetas editoriales con texto propio (kicker, título y subtítulo): no hay fuente. Fuera, salvo que José decida otra cosa.
 
 ## Lo que el motor no hace
 
-- No añade remotes ni repositorios, ni toca `/etc/apt`.
+- No añade remotes ni repositorios, ni toca `/etc/apt` (el remote de usuario de Flathub lo puso Infra una vez, con el sí de José).
 - No instala de un `.deb` o `.flatpakref` suelto (podría venir después, con la misma confirmación de Gatekeeper que las AppImages).
 - No corre nada como root: todo pasa por PackageKit o por flatpak-system-helper.
