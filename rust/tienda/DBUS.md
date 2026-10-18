@@ -5,7 +5,15 @@ solo con esta interfaz; el motor habla con PackageKit (APT) por D-Bus, con
 libflatpak por una FFI mínima, y lee los catálogos de AppStream directo. No
 llama a mintinstall ni lee nada suyo.
 
-**Estado: interfaz aprobada por Planner (18-10-2026); implementándose.**
+**Estado (18-10-2026): implementada e instalada** (`tienda/instalar.sh`, vuelta
+atrás con `--quitar`). Pruebas: `rust/tienda/prueba.sh` (35 comprobaciones de punta
+a punta en un bus aparte) y `rust/tienda/prueba-flatpak.sh` (libflatpak contra un
+repo de juguete). La primera llamada tarda 0.43 s con el caché del índice
+(`~/.cache/mint-macos/tienda/indice.json`) y 2.5 s sin él; las demás, unos 36 ms.
+
+**Además de lo de abajo:** el Resumen trae `icono_tema` (el nombre del ícono en el
+tema, cuando AppStream lo da) y, en el grupo `sistema`, `pk_id` (el id de PackageKit).
+Los títulos de las secciones, categorías y estantes van en inglés, como en la Mac.
 
 ## Lo más cercano a la Mac (decisiones de José, 18-10-2026)
 
