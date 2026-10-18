@@ -32,7 +32,8 @@ EQUIVALENCIAS = {
     "System/Library/CoreServices/Finder.app": ["org.gnome.Nautilus"],
     f"{CORE}/Archive Utility.app": ["org.gnome.FileRoller"],
     f"{UTIL}/Disk Utility.app": ["org.gnome.DiskUtility"],
-    f"{UTIL}/Activity Monitor.app": ["org.gnome.SystemMonitor"],
+    # Nuestro Activity Monitor (mac-actividad, Vala); GNOME System Monitor conserva su ícono original.
+    f"{UTIL}/Activity Monitor.app": ["mac-activity-monitor"],
     f"{APPS}/Font Book.app": ["org.gnome.font-viewer", "cs-fonts"],
     f"{UTIL}/Screenshot.app": ["org.gnome.Screenshot"],
     f"{APPS}/Stickies.app": ["sticky"],
