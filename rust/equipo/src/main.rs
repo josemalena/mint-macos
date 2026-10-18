@@ -30,6 +30,8 @@
 //!                       modulos, texto («16 GB 1333 MHz DDR3») y fuente: «smbios» (la
 //!                       tabla DMI, solo root) o, si no se lee, «meminfo» con solo el total
 //!     graficos          [{pci, fabricante, modelo, texto}], de /sys/bus/pci y pci.ids
+//!     video             {decodifica: ["h264", "mpeg2", …]}: lo que la GPU decodifica por
+//!                       VA-API (libva por DRM, src/video.rs); null sin GPU o sin driver
 //!
 //! Lo que no se puede leer va null, nunca "". Nada se adivina: un PC sin tabla lleva
 //! lo que dice su DMI.
@@ -44,6 +46,7 @@ mod graficos;
 mod memoria;
 mod modelos;
 mod procesador;
+mod video;
 
 use std::fs;
 use std::io::Write;
@@ -185,6 +188,7 @@ struct Equipo {
     procesador: Option<procesador::Procesador>,
     memoria: Option<(memoria::Memoria, &'static str)>,
     graficos: Vec<graficos::Grafico>,
+    video: Option<Vec<&'static str>>,
 }
 
 /// Lo que ponen los fabricantes cuando no graban la serie: no es una serie.
@@ -240,6 +244,27 @@ fn leer(raiz: &Path) -> Equipo {
         }),
         memoria: leer_memoria(raiz),
         graficos: graficos::leer(raiz),
+        // Con --raiz (las pruebas) no se le pregunta a la GPU de esta máquina.
+        video: if raiz == Path::new("/") { nodo_render().and_then(|n| video::decodifica(&n)) } else { None },
+    }
+}
+
+/// Al arrancar, el nodo de render puede llegar un poco después que el servicio (el
+/// driver de la GPU lo crea udev): se espera hasta 10 s.
+fn nodo_render() -> Option<PathBuf> {
+    for _ in 0..20 {
+        if let Some(n) = video::nodo(Path::new("/")) {
+            return Some(n);
+        }
+        std::thread::sleep(std::time::Duration::from_millis(500));
+    }
+    None
+}
+
+fn json_video(v: &Option<Vec<&'static str>>) -> String {
+    match v {
+        None => "null".to_string(),
+        Some(c) => format!("{{\"decodifica\": [{}]}}", c.iter().map(|x| cadena(x)).collect::<Vec<_>>().join(", ")),
     }
 }
 
@@ -293,7 +318,7 @@ fn json(e: &Equipo) -> String {
     };
     let [id, nombre, version, texto] = &e.sistema;
     format!(
-        "{{\n  \"version\": 1,\n  \"tipo\": {},\n  \"fabricante\": {},\n  \"identificador\": {},\n  \"nombre\": {},\n  \"nombres\": {},\n  \"fuente_nombre\": {},\n  \"version_producto\": {},\n  \"sistema\": {{\n    \"id\": {},\n    \"nombre\": {},\n    \"version\": {},\n    \"texto\": {}\n  }},\n  \"logo\": {},\n  \"logo_icono\": {},\n  \"serie\": {},\n  \"procesador\": {},\n  \"memoria\": {},\n  \"graficos\": {}\n}}\n",
+        "{{\n  \"version\": 1,\n  \"tipo\": {},\n  \"fabricante\": {},\n  \"identificador\": {},\n  \"nombre\": {},\n  \"nombres\": {},\n  \"fuente_nombre\": {},\n  \"version_producto\": {},\n  \"sistema\": {{\n    \"id\": {},\n    \"nombre\": {},\n    \"version\": {},\n    \"texto\": {}\n  }},\n  \"logo\": {},\n  \"logo_icono\": {},\n  \"serie\": {},\n  \"procesador\": {},\n  \"memoria\": {},\n  \"graficos\": {},\n  \"video\": {}\n}}\n",
         cadena(e.tipo),
         opcional(&e.fabricante),
         opcional(&e.identificador),
@@ -311,6 +336,7 @@ fn json(e: &Equipo) -> String {
         json_procesador(&e.procesador),
         json_memoria(&e.memoria),
         json_graficos(&e.graficos),
+        json_video(&e.video),
     )
 }
 
