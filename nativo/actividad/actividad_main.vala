@@ -9,6 +9,11 @@ public class Aplicacion : Gtk.Application {
         Object (application_id: "io.github.josemalena.MintMacosActividad", flags: ApplicationFlags.HANDLES_COMMAND_LINE);
     }
 
+    protected override void startup () {
+        base.startup ();
+        set_menubar (Actividad.Menus.construir ());
+    }
+
     public override int command_line (ApplicationCommandLine cmd) {
         var args = cmd.get_arguments ();
         string pestana = "cpu";
@@ -16,7 +21,7 @@ public class Aplicacion : Gtk.Application {
             if (args[i] == "--pestana" && i + 1 < args.length) pestana = args[++i];
         }
         if (ventana == null) {
-            ventana = new Actividad.Ventana ();
+            ventana = new Actividad.Ventana (this);
             add_window (ventana);
             ventana.destroy.connect (() => { ventana = null; });
         }

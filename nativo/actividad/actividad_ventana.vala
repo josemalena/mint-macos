@@ -39,7 +39,7 @@ button.act-redondo { background-image: none; background-color: #f6f6f6; border: 
         int ancho;
     }
 
-    public class Ventana : Gtk.Window {
+    public class Ventana : Gtk.ApplicationWindow {
         Motor motor = Motor.instancia;
         Gtk.Stack cuerpo;
         Gtk.TreeView lista;
@@ -63,8 +63,12 @@ button.act-redondo { background-image: none; background-color: #f6f6f6; border: 
         string yo = Environment.get_user_name ();
         double ultimo_cpu_total = 0;
 
-        public Ventana () {
-            Object (type: Gtk.WindowType.TOPLEVEL);
+        string filtro_proceso = "todos";
+        uint frecuencia_ms = 1000;
+
+        public Ventana (Gtk.Application app) {
+            Object (application: app);
+            show_menubar = false;       // el menú va al panel (menú global), no dentro de la ventana
             title = "Activity Monitor (All Processes)";
             set_default_size (800, 560);
             window_position = Gtk.WindowPosition.CENTER;
@@ -93,8 +97,56 @@ button.act-redondo { background-image: none; background-color: #f6f6f6; border: 
                 try { motor.suscribir.end (res); } catch (GLib.Error err) { warning ("%s", err.message); }
             });
             destroy.connect (() => { motor.soltar.begin (); });
+            registrar_acciones ();
             show_all ();
             ir_a ("cpu");
+        }
+
+        SimpleAction? accion_salir = null;
+
+        /** Las acciones win.* que la barra de menús (actividad_menus.vala) llama; las que no están aquí van en gris. */
+        void registrar_acciones () {
+            var cerrar = new SimpleAction ("cerrar", null);
+            cerrar.activate.connect (() => { close (); });
+            add_action (cerrar);
+            var buscar = new SimpleAction ("buscar", null);
+            buscar.activate.connect (() => { busqueda.grab_focus (); });
+            add_action (buscar);
+            var minimizar = new SimpleAction ("minimizar", null);
+            minimizar.activate.connect (() => { iconify (); });
+            add_action (minimizar);
+            var zoom = new SimpleAction ("zoom", null);
+            zoom.activate.connect (() => { if (is_maximized) unmaximize (); else maximize (); });
+            add_action (zoom);
+            var principal = new SimpleAction ("principal", null);
+            principal.activate.connect (() => { present (); });
+            add_action (principal);
+            accion_salir = new SimpleAction ("salir", null);
+            accion_salir.set_enabled (false);
+            accion_salir.activate.connect (() => { pedir_salida (); });
+            add_action (accion_salir);
+
+            var frecuencia = new SimpleAction.stateful ("frecuencia", VariantType.STRING, new Variant.string ("1"));
+            frecuencia.activate.connect ((p) => {
+                frecuencia.set_state (p);
+                frecuencia_ms = (uint) int.parse (p.get_string ()) * 1000;
+                motor.suscribir.begin (frecuencia_ms, (o, res) => {
+                    try { motor.suscribir.end (res); } catch (GLib.Error e) { warning ("%s", e.message); }
+                });
+            });
+            add_action (frecuencia);
+            var filtro_a = new SimpleAction.stateful ("filtro", VariantType.STRING, new Variant.string ("todos"));
+            filtro_a.activate.connect ((p) => {
+                filtro_a.set_state (p);
+                filtro_proceso = p.get_string ();
+                filtro.refilter ();
+            });
+            add_action (filtro_a);
+
+            string[,] atajos = { { "win.cerrar", "<Primary>w" }, { "win.buscar", "<Primary>f" }, { "win.minimizar", "<Primary>m" },
+                                  { "win.principal", "<Primary>1" }, { "win.salir", "<Primary><Alt>q" } };
+            for (int i = 0; i < atajos.length[0]; i++) application.set_accels_for_action (atajos[i, 0], { atajos[i, 1] });
+            application.set_accels_for_action ("win.buscar", { "<Primary>f", "<Primary><Alt>f" });
         }
 
         // ---- barra de herramientas ------------------------------------------------------------------------------
@@ -107,23 +159,26 @@ button.act-redondo { background-image: none; background-color: #f6f6f6; border: 
             detener = new Gtk.Button.from_icon_name ("window-close-symbolic", Gtk.IconSize.MENU);
             detener.get_style_context ().add_class ("act-redondo");
             detener.sensitive = false;
-            detener.tooltip_text = "Quit the selected process";
+            detener.tooltip_text = "Stop";
             detener.clicked.connect (pedir_salida);
             izq.pack_start (detener, false, false, 0);
             // El inspector y el engranaje esperan sus capturas (no hay ninguna de la ventana de inspección ni del menú).
             var info = new Gtk.Button.from_icon_name ("dialog-information-symbolic", Gtk.IconSize.MENU);
             info.get_style_context ().add_class ("act-redondo");
             info.sensitive = false;
+            info.tooltip_text = "Inspect selected process";
             izq.pack_start (info, false, false, 0);
             var engranaje = new Gtk.Button.from_icon_name ("emblem-system-symbolic", Gtk.IconSize.MENU);
             engranaje.get_style_context ().add_class ("act-redondo");
             engranaje.sensitive = false;
+            engranaje.tooltip_text = "System diagnostics options";
             izq.pack_start (engranaje, false, false, 0);
             caja.pack_start (izq, false, false, 0);
 
             var seg = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 0);
             seg.get_style_context ().add_class ("act-segmentos");
             seg.halign = Gtk.Align.CENTER;
+            seg.tooltip_text = "Display processes in the category specified";
             string[] claves = { "cpu", "memory", "energy", "disk", "network", "resources" };
             string[] titulos = { "CPU", "Memory", "Energy", "Disk", "Network", "Resources" };
             for (int i = 0; i < claves.length; i++) {
@@ -138,6 +193,7 @@ button.act-redondo { background-image: none; background-color: #f6f6f6; border: 
             busqueda = new Gtk.SearchEntry ();
             busqueda.width_chars = 22;
             busqueda.placeholder_text = "Search";
+            busqueda.tooltip_text = "Show only processes containing the string specified";
             busqueda.search_changed.connect (() => { filtro.refilter (); });
             caja.pack_end (busqueda, false, false, 0);
             return caja;
@@ -179,9 +235,21 @@ button.act-redondo { background-image: none; background-color: #f6f6f6; border: 
             if (f == null) return false;
             // Energy lista aplicaciones, no procesos: las que tienen ícono (su .desktop).
             if (pestana == "energy" && f.icono == "") return false;
+            if (!pasa_filtro (f)) return false;
             var q = busqueda.text.strip ().down ();
             if (q == "") return true;
             return f.nombre.down ().contains (q) || f.usuario.down ().contains (q) || f.pid.to_string () == q;
+        }
+
+        /** View ▸ All / My / System / Other User Processes. «System» es lo de usuarios del sistema (uid < 1000, root incluido). */
+        bool pasa_filtro (Fila f) {
+            if (filtro_proceso == "todos") return true;
+            if (filtro_proceso == "mios") return f.usuario == yo;
+            unowned Posix.Passwd? pw = Posix.getpwnam (f.usuario);
+            bool de_sistema = pw != null && pw.pw_uid < 1000;
+            if (filtro_proceso == "sistema") return de_sistema;
+            if (filtro_proceso == "otros") return f.usuario != yo && !de_sistema;
+            return true;
         }
 
         Col[] columnas_de (string p) {
@@ -330,6 +398,7 @@ button.act-redondo { background-image: none; background-color: #f6f6f6; border: 
                 propio = f != null && f.usuario == yo;
             }
             detener.sensitive = propio;
+            if (accion_salir != null) accion_salir.set_enabled (propio);
         }
 
         // ---- pestañas ---------------------------------------------------------------------------------------------
@@ -733,10 +802,10 @@ button.act-redondo { background-image: none; background-color: #f6f6f6; border: 
             m.get (it, 0, out f);
             if (f == null || f.usuario != yo) return;
             int pid = f.pid;
-            // HIPÓTESIS: no hay captura del diálogo Quit de Activity Monitor. El texto es neutro (el nombre y el PID) y los botones
-            // son los de Force Quit; se cambia cuando llegue la captura (pantallas-con-captura-pendientes.md).
+            // Las cadenas del nib de Catalina (CONFIRM_KILL_NAME_FMT, Quit, Force Quit, Cancel). El orden de los botones en pantalla
+            // no se pudo leer del nib: queda pendiente de captura.
             var d = new Gtk.MessageDialog (this, Gtk.DialogFlags.MODAL, Gtk.MessageType.QUESTION, Gtk.ButtonsType.NONE,
-                                           "%s (%d)", f.nombre, pid);
+                                           "Do you really want to quit “%s”?", f.nombre);
             d.add_button ("Cancel", Gtk.ResponseType.CANCEL);
             d.add_button ("Force Quit", Gtk.ResponseType.REJECT);
             d.add_button ("Quit", Gtk.ResponseType.ACCEPT);
