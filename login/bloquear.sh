@@ -54,5 +54,14 @@ for _ in $(seq 1 40); do activa || break; sleep 0.25; done
 # …y a que se desbloquee.
 while ! activa; do sleep 0.5; done
 anota "desbloqueado"
+# Diagnóstico (18-10-2026: tras 14 h en el greeter, al desbloquear se congeló todo): ¿responde el X al volver? Si no
+# responde, el cuelgue es del X o de Muffin y no de lo que corre encima. Un sondeo a 1, 5 y 15 s, sin tocar nada.
+if command -v xprop >/dev/null; then
+  ( for t in 1 4 10; do
+      sleep "$t"
+      if timeout 3 xprop -root _NET_ACTIVE_WINDOW >/dev/null 2>&1; then anota "X responde ($t s tras desbloquear)"
+      else anota "X NO responde ($t s tras desbloquear)"; fi
+    done ) &
+fi
 # Los pedidos que lleguen tarde (señales encoladas) chocan con el candado.
 sleep "$CALMA"
