@@ -85,10 +85,23 @@ class NotificationCenter extends Applet.Applet {
     this._armarMenu();
     // Para la esquina activa «Notification Center» (System Preferences ▸ Mission Control).
     global.mintMacosNotificationCenter = () => this.on_applet_clicked();
+    // Fluido desde el primer clic: el primer open cuesta ~48 ms (se arma el vidrio y se miden los actores) contra ~4 ms los demás, y
+    // Today tardaba en llenarse. Se calienta una vez, ya cargada la sesión: abrir y cerrar en el mismo ciclo no llega a pintar un
+    // cuadro, y los datos de Today se piden y se renuevan cada 10 min, así que al abrir ya están.
+    this._calentar = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 8, () => {
+      this._calentar = 0;
+      try { this._ajustarAlto(); this.menu.open(false); this.menu.close(false); } catch (e) {}
+      this._refrescarHoy();
+      this._renovarHoy = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 600, () => { this._refrescarHoy(); return GLib.SOURCE_CONTINUE; });
+      return GLib.SOURCE_REMOVE;
+    });
   }
 
   on_applet_removed_from_panel() {
     delete global.mintMacosNotificationCenter;
+    if (this._calentar) GLib.source_remove(this._calentar);
+    if (this._renovarHoy) GLib.source_remove(this._renovarHoy);
+    if (this._reintento) GLib.source_remove(this._reintento);
     if (this._vidrio) this._vidrio.desaplicar();
     if (this._catalina) this._catalina.quitar();
     if (this._senal) Main.messageTray.disconnect(this._senal);
@@ -209,16 +222,11 @@ class NotificationCenter extends Applet.Applet {
     return caja;
   }
 
+  // Al abrir Today: se pinta enseguida lo último que se leyó y se pide lo nuevo aparte.
   _pedirHoy() {
-    let f = new Date();
-    this._fecha.set_text(f.toLocaleFormat("%A,\n%B %-d"));
-    Gio.DBus.session.call("org.mintmacos.Hoy1", "/org/mintmacos/Hoy1", "org.mintmacos.Hoy1", "Clima", null,
-      new GLib.VariantType("(a{sv})"), Gio.DBusCallFlags.NONE, 4000, null, (con, res) => {
-        let clima = null;
-        try { clima = con.call_finish(res).recursiveUnpack()[0]; } catch (e) {}
-        this._pintarWidgets(clima);
-      });
-    this._pedirCalendario();
+    this._fecha.set_text(new Date().toLocaleFormat("%A,\n%B %-d"));
+    if (this._clima || this._eventos) this._pintarWidgets(this._clima || null);
+    this._refrescarHoy();
     // El clima tarda un momento la primera vez: se vuelve a pedir si estaba vacío.
     if (!this._climaListo && !this._reintento) {
       this._reintento = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 2500, () => {
@@ -227,6 +235,19 @@ class NotificationCenter extends Applet.Applet {
         return GLib.SOURCE_REMOVE;
       });
     }
+  }
+
+  // Pide el clima y el calendario sin bloquear; cuando llegan, repinta (si Today está a la vista).
+  _refrescarHoy() {
+    Gio.DBus.session.call("org.mintmacos.Hoy1", "/org/mintmacos/Hoy1", "org.mintmacos.Hoy1", "Clima", null,
+      new GLib.VariantType("(a{sv})"), Gio.DBusCallFlags.NONE, 4000, null, (con, res) => {
+        let clima = null;
+        try { clima = con.call_finish(res).recursiveUnpack()[0]; } catch (e) {}
+        // Un clima vacío (el servicio aún no lo leyó, o sin red) no borra el último bueno.
+        if (clima && clima.ciudad) this._clima = clima;
+        this._pintarWidgets(this._clima || null);
+      });
+    this._pedirCalendario();
   }
 
   // Los eventos de hoy, del calendario de Thunderbird, por org.mintmacos.Calendario1 (de Infra). Sin servicio no se pinta.
