@@ -143,6 +143,7 @@ namespace Preferencias {
                 armar_menu ();
             }
             if (primero == "--residente") {
+                Idle.add (() => { precalentar_solaar (); return false; });
                 return 0;                  // la sesión lo deja armado y escondido
             }
             if (!ventana.get_visible ()) {

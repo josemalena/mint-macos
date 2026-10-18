@@ -93,6 +93,21 @@ namespace Preferencias {
         return salida;
     }
 
+    // Lo último que se leyó de Solaar: `solaar show` tarda varios segundos, así que se lee al arrancar el residente y se
+    // reutiliza un par de minutos; el panel se abre al instante y se actualiza solo si el dato ya es viejo.
+    DispositivoSolaar[]? cache_solaar = null;
+    int64 cache_solaar_en = 0;
+
+    /** Se llama al arrancar el residente: deja leído lo de Solaar para cuando se abra el panel. */
+    public void precalentar_solaar () {
+        if (Environment.find_program_in_path ("solaar") == null) return;
+        new Thread<bool> ("solaar-precalentar", () => {
+            var devs = leer_dispositivos ();
+            Idle.add (() => { cache_solaar = devs; cache_solaar_en = get_monotonic_time (); return false; });
+            return true;
+        });
+    }
+
     public class PanelSolaar : Panel {
         Gtk.Box lista;
         Gtk.Spinner giro;
@@ -127,7 +142,10 @@ namespace Preferencias {
             lista = new Gtk.Box (Gtk.Orientation.VERTICAL, 14);
             giro = new Gtk.Spinner ();
             giro.start ();
-            lista.pack_start (giro, false, false, 0);
+            var cargando = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 8);
+            cargando.pack_start (giro, false, false, 0);
+            cargando.pack_start (new Gtk.Label ("Loading…"), false, false, 0);
+            lista.pack_start (cargando, false, false, 0);
             var pant = new Gtk.ScrolledWindow (null, null);
             pant.set_policy (Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC);
             pant.set_size_request (-1, 300);
@@ -153,14 +171,21 @@ namespace Preferencias {
         /** `solaar show` y `solaar config` tardan unos segundos: en un hilo, y la página se llena al terminar. */
         async void cargar () {
             DispositivoSolaar[] devs = {};
-            new Thread<bool> ("solaar", () => {
-                devs = leer_dispositivos ();
-                Idle.add (cargar.callback);
-                return true;
-            });
-            yield;
+            bool fresco = cache_solaar != null && (get_monotonic_time () - cache_solaar_en) < 120 * 1000000;
+            if (fresco) {
+                devs = cache_solaar;
+            } else {
+                new Thread<bool> ("solaar", () => {
+                    devs = leer_dispositivos ();
+                    Idle.add (cargar.callback);
+                    return true;
+                });
+                yield;
+                cache_solaar = devs;
+                cache_solaar_en = get_monotonic_time ();
+            }
             giro.stop ();
-            lista.remove (giro);
+            foreach (var h in lista.get_children ()) lista.remove (h);
             if (devs.length == 0) {
                 lista.pack_start (new Gtk.Label ("No Logitech devices found."), false, false, 0);
             }
