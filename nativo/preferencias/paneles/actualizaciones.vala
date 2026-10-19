@@ -159,7 +159,7 @@ namespace Preferencias {
             der.pack_start (avance_w, false, false, 0);
             der.pack_start (new Gtk.Box (Gtk.Orientation.HORIZONTAL, 0), true, true, 0);
             var pie = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 8);
-            var auto = new Gtk.CheckButton.with_label ("Automatically keep my computer up to date");
+            var auto = new Gtk.CheckButton.with_label ("Automatically keep my Mac up to date");
             auto.active = false;
             auto.set_sensitive (false);
             auto.set_tooltip_text ("Update Manager checks for updates; installing them stays manual.");
@@ -289,7 +289,7 @@ namespace Preferencias {
             var cab = new Gtk.Label ("Automatically:");
             cab.xalign = 0;
             c.pack_start (cab, false, false, 0);
-            string[] textos = { "Check for updates", "Download new updates when available", "Install OS updates", "Install app updates",
+            string[] textos = { "Check for updates", "Download new updates when available", "Install macOS updates", "Install app updates from the App Store",
                                 "Install system data files and security updates" };
             string[] claves = { "refresh-schedule-enabled", "", "", "auto-update-flatpaks", "" };
             for (int i = 0; i < textos.length; i++) {

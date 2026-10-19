@@ -104,7 +104,7 @@ namespace Preferencias {
 
             var cab = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 14);
             cab.pack_start (imagen_icono_panel (id, 48), false, false, 0);
-            var t = new Gtk.Label ("Mission Control gives you an overview of all your open windows, all arranged in a unified view.");
+            var t = new Gtk.Label ("Mission Control gives you an overview of all your open windows, thumbnails of your full-screen applications, all arranged in a unified view.");
             t.xalign = 0;
             t.set_line_wrap (true);
             t.set_max_width_chars (70);
@@ -136,13 +136,21 @@ namespace Preferencias {
             var c = new Gtk.CheckButton.with_label ("Displays have separate Spaces");
             c.active = mut != null && !mut.get_boolean ("workspaces-only-on-primary");
             c.toggled.connect (() => { if (mut != null) mut.set_boolean ("workspaces-only-on-primary", !c.active); });
-            cuadro.attach (c, 0, fila_c, 2, 1);
+            cuadro.attach (c, 0, fila_c, 1, 1);
+            var pide = new Gtk.Label ("Requires log out");
+            pide.get_style_context ().add_class ("dim-label");
+            cuadro.attach (pide, 1, fila_c, 1, 1);
             caja.pack_start (marco, false, false, 0);
 
             var tit = new Gtk.Label ("Keyboard and Mouse Shortcuts");
             tit.xalign = 0;
             tit.get_style_context ().add_class ("mp-sd-detalle");
             caja.pack_start (tit, false, false, 0);
+            var teclazo = new Gtk.Label ("With a single keystroke, view all open windows, windows of the current application, or hide windows to locate an item on the desktop that might be covered up.");
+            teclazo.xalign = 0;
+            teclazo.set_line_wrap (true);
+            teclazo.set_max_width_chars (80);
+            caja.pack_start (teclazo, false, false, 0);
             var atajos = marco_lista ();
             var g = new Gtk.Grid ();
             g.column_spacing = 14;

@@ -89,6 +89,8 @@ namespace Preferencias {
             pie.pack_start (new Gtk.Label ("Notification Center sort order:"), false, false, 0);
             var orden = new Gtk.ComboBoxText ();
             orden.append ("r", "Recents");
+            orden.append ("a", "Recents by App");
+            orden.append ("m", "Manually by App");
             orden.set_active (0);
             pie.pack_start (gris_avisos (orden), false, false, 0);
             caja.pack_start (pie, false, false, 0);
@@ -162,6 +164,12 @@ namespace Preferencias {
             foreach (var texto in new string[] { "Allow calls from everyone", "Allow repeated calls" }) {
                 p.pack_start (gris_avisos (new Gtk.CheckButton.with_label (texto)), false, false, 0);
             }
+            var rep = new Gtk.Label ("When enabled, a second call from the same person within three minutes will not be silenced.");
+            rep.xalign = 0;
+            rep.set_line_wrap (true);
+            rep.set_max_width_chars (48);
+            rep.get_style_context ().add_class ("mp-sd-detalle");
+            p.pack_start (rep, false, false, 0);
             return p;
         }
 
