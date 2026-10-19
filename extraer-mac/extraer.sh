@@ -151,18 +151,26 @@ if quiere recursos; then
   #    FAT32 (nada pasa de 4 GB): un .tar de más de 3.9 GB sale partido en
   #    .tar.aa, .tar.ab… y se junta con cat.
   #    Sin fuentes: las SF no se sacan (orden de José).: íconos, Assets.car, PDF, PNG,
-  #    TIFF, plists y strings; sin binarios ni idiomas que no son inglés.
+  #    TIFF, plists, strings, loctable, xml, toolbar y nib; sin idiomas que no son inglés.
+  #    Binarios solo los de los paneles de Settings y de System Settings (para SwiftUI).
   STAGE="$(mktemp -d /tmp/extraer-mac.XXXXXX)"
   for d in "System/Applications" "System/Library/CoreServices" "System/Library/PreferencePanes" \
-           "System/Library/Extensions" "System/Library/Frameworks" "System/Library/PrivateFrameworks" \
-           "Applications"; do
+           "System/Library/ExtensionKit" "System/Library/Extensions" "System/Library/Frameworks" \
+           "System/Library/PrivateFrameworks" "Applications"; do
     [ -d "/$d" ] || { log "  no existe /$d"; continue; }
     nombre="$(echo "$d" | tr '/ ' '--')"
     ( cd / && find "$d" \( -name MacOS -o -name _CodeSignature \) -prune -o -type f \
         \( -name '*.icns' -o -name '*.car' -o -name '*.pdf' -o -name '*.png' -o -name '*.tif' -o -name '*.tiff' \
-           -o -name '*.plist' -o -name '*.strings' -o -name '*.json' \) \
+           -o -name '*.plist' -o -name '*.strings' -o -name '*.json' -o -name '*.xml' -o -name '*.loctable' \
+           -o -name '*.toolbar' -o -name '*.nib' -o -path '*.nib/*' \) \
         -print 2>/dev/null | grep -v -E '/[^/]+\.lproj/' ; \
-      find "$d" \( -path '*/en.lproj/*' -o -path '*/English.lproj/*' -o -path '*/Base.lproj/*' \) -type f -print 2>/dev/null ) \
+      find "$d" \( -path '*/en.lproj/*' -o -path '*/English.lproj/*' -o -path '*/Base.lproj/*' \) -type f -print 2>/dev/null ; \
+      # Los ejecutables de los paneles de Settings y de System Settings: las vistas SwiftUI salen
+      # de su metadata de tipos (herramientas/visor-nib/swiftui.py; excepción de José, solo interfaz).
+      case "$d" in
+        System/Library/ExtensionKit) find "$d" -path '*/Contents/MacOS/*' -type f -print 2>/dev/null ;;
+        System/Applications) find "$d/System Settings.app/Contents/MacOS" -type f -print 2>/dev/null ;;
+      esac ) \
       | sort -u > "$STAGE/$nombre.lista"
     ( cd / && tar -cf - -T "$STAGE/$nombre.lista" 2>>"$LOG" ) | split -b 3900m - "$REC/sistema/$nombre.tar."
     partes=$(ls "$REC/sistema/$nombre.tar."* 2>/dev/null | wc -l | tr -d ' ')

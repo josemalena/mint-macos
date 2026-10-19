@@ -12,7 +12,7 @@ Catalina: es una referencia más.
 
 | Carpeta | Qué |
 |---|---|
-| `recursos/sistema/` | Un `.tar` por carpeta del sistema (Applications, CoreServices, PreferencePanes, Extensions, Frameworks, PrivateFrameworks, /Applications): `.icns`, `.car`, PDF, PNG, TIFF, plists y strings en inglés. Sin binarios ni fuentes. Si un `.tar` pasa de 3.9 GB sale partido (`.tar.aa`, `.tar.ab`) porque la memoria es FAT32. |
+| `recursos/sistema/` | Un `.tar` por carpeta del sistema (Applications, CoreServices, PreferencePanes, Extensions, Frameworks, PrivateFrameworks, /Applications): `.icns`, `.car`, PDF, PNG, TIFF, plists, strings, `.loctable`, `.xml`, `.toolbar` y nib en inglés (y ExtensionKit, los paneles de Settings). Sin fuentes; binarios solo los de los paneles de Settings y de System Settings, para leer sus vistas SwiftUI. Si un `.tar` pasa de 3.9 GB sale partido (`.tar.aa`, `.tar.ab`) porque la memoria es FAT32. |
 | `recursos/car/` | Los `.car` de SystemAppearance (Aqua, DarkAqua, Vibrant…) |
 | `recursos/iconos/` | CoreTypes, cada app de /System/Applications, cada `.prefPane` y Finder, Dock, Control Center, Spotlight, Siri, loginwindow |
 | `recursos/cursores/`, `recursos/sonidos/` | Cursores de HIServices; sonidos de alerta y de interfaz |

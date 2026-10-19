@@ -184,6 +184,117 @@ def menus_estandar(version, raices):
                     'Fill & Arrange…) no está en el nib: se completa desde las capturas.'}
 
 
+PREFAPP = 'System/Applications/System Preferences.app/Contents/Resources'
+SETTINGSAPP = 'System/Applications/System Settings.app/Contents/Resources'
+
+
+def info_bundle(ruta):
+    """Info.plist con los textos en inglés por encima (InfoPlist.strings o InfoPlist.loctable)."""
+    try:
+        info = plistlib.load(open(os.path.join(ruta, 'Contents', 'Info.plist'), 'rb'))
+    except (OSError, ValueError):
+        return {}
+    rec = os.path.join(ruta, 'Contents', 'Resources')
+    en = loctable(os.path.join(rec, 'InfoPlist.loctable')) or nib.cadenas_de(os.path.join(rec, 'en.lproj', 'InfoPlist.strings')) \
+        or nib.cadenas_de(os.path.join(rec, 'English.lproj', 'InfoPlist.strings'))
+    return dict(info, **{k: v for k, v in en.items() if isinstance(v, str)})
+
+
+def bundles(raices, carpeta, ext):
+    """{CFBundleIdentifier: (ruta, info)} de los bundles de una carpeta del sistema, en todas las raíces."""
+    out = {}
+    for r in raices:
+        d = os.path.join(r, carpeta)
+        for n in sorted(os.listdir(d)) if os.path.isdir(d) else []:
+            if n.endswith(ext):
+                info = info_bundle(os.path.join(d, n))
+                if info.get('CFBundleIdentifier'):
+                    out.setdefault(info['CFBundleIdentifier'], (os.path.join(d, n), info))
+    return out
+
+
+def panel_de(ruta, info, id_propio):
+    """Un panel del índice: el id estable (el del prefPane de Catalina, también en Sequoia por
+    legacyBundleIdentifier), su nombre como se ve y su ícono."""
+    attrs = (info.get('EXAppExtensionAttributes') or {}).get('SettingsExtensionAttributes') or {}
+    nombre = info.get('NSPrefPaneIconLabel') or info.get('CFBundleDisplayName') or info.get('CFBundleName')
+    nombre = ' '.join((nombre or '').replace('\\n', ' ').split())
+    p = {'id': attrs.get('legacyBundleIdentifier') or id_propio, 'nombre': nombre, 'bundle': os.path.basename(ruta)}
+    if not (info.get('NSPrefPaneIconLabel') or info.get('CFBundleDisplayName')):
+        # Sin nombre visible en los archivos (la batería de Sequoia se llama según el equipo): el
+        # interno, marcado; lo corrige una captura.
+        p['nombre_provisional'] = True
+    if p['id'] != id_propio:
+        p['id_propio'] = id_propio
+    grafico = ((info.get('CFBundleIcons') or {}).get('ISGraphicIconConfiguration') or {}).get('ISTypeIdentifier')
+    if grafico:
+        p['icono'] = {'grafico': grafico}
+    elif info.get('NSPrefPaneIconFile') or info.get('CFBundleIconFile'):
+        p['icono'] = {'archivo': os.path.join(p['bundle'], 'Contents', 'Resources',
+                                              info.get('NSPrefPaneIconFile') or info.get('CFBundleIconFile'))}
+    return p
+
+
+def system_preferences(version, raices):
+    """El índice de paneles: la rejilla de System Preferences (Catalina, Monterey:
+    NSPrefPaneGroups.xml) o la barra lateral de System Settings (Ventura en adelante: Sidebar.plist)."""
+    panes = bundles(raices, 'System/Library/PreferencePanes', '.prefPane')
+    sidebar = buscar(raices, os.path.join(SETTINGSAPP, 'Sidebar.plist'))
+    if sidebar:
+        exts = bundles(raices, 'System/Library/ExtensionKit/Extensions', '.appex')
+        exts.update({k: v for k, v in bundles(raices, os.path.join(os.path.dirname(SETTINGSAPP), 'PlugIns'), '.appex').items()
+                     if k not in exts})
+        grupos = []
+        for i, g in enumerate(plistlib.load(open(sidebar, 'rb'))):
+            if g.get('catch_all'):
+                grupos.append({'id': 'otros', 'titulo': 'Other', 'paneles': [], 'resto': True,
+                               'fuente': 'System Settings Sidebar.plist (SECTION_OTHERS: lo que no está arriba)'})
+                continue
+            ps = []
+            for ident in g.get('content', []):
+                b = exts.get(ident) or panes.get(ident)
+                ps.append(panel_de(b[0], b[1], ident) if b else {'id': ident, 'falta': 'no está en esta Mac'})
+            grupos.append({'id': 'grupo-%d' % (i + 1), 'titulo': None, 'paneles': ps})
+        # Lo de «otros» son las extensiones de terceros: aquí no hay; un grupo vacío no se enseña.
+        return {'id': 'system-preferences', 'tipo': 'barra-lateral', 'nombre': 'System Settings',
+                'grupos': [g for g in grupos if g['paneles']], 'fuente': 'System Settings Sidebar.plist; ExtensionKit Info.plist e InfoPlist.loctable'}
+    # Con Apple ID la rejilla es la de NSPrefPaneGroupsBanner.xml (la franja de arriba con Apple ID
+    # y Family Sharing, y dos filas): es la que se ve en las capturas de Catalina.
+    grupos_xml = buscar(raices, os.path.join(PREFAPP, 'NSPrefPaneGroupsBanner.xml'))
+    fuente = 'System Preferences NSPrefPaneGroupsBanner.xml (con Apple ID; sin él, NSPrefPaneGroups.xml)'
+    if not grupos_xml:
+        grupos_xml = buscar(raices, os.path.join(PREFAPP, 'NSPrefPaneGroups.xml'))
+        fuente = 'System Preferences NSPrefPaneGroups.xml'
+    if not grupos_xml:
+        # Monterey: extraer-mac no traía los .xml (ya los trae); el orden de Catalina, marcado.
+        grupos_xml = buscar(VERSIONES['catalina-10.15']['raices'], os.path.join(PREFAPP, 'NSPrefPaneGroupsBanner.xml'))
+        fuente = 'PROVISIONAL: orden de Catalina (falta NSPrefPaneGroupsBanner.xml de esta versión)'
+    if not grupos_xml:
+        return None
+    d = plistlib.load(open(grupos_xml, 'rb'))
+    titulos = nib.cadenas_de(buscar(raices, os.path.join(PREFAPP, 'en.lproj', 'NSPrefPaneGroups.strings')) or '')
+    grupos, usados = [], set()
+    for g in d.get('groups', []):
+        ps = []
+        for ident in g.get('panes', []):
+            if ident in panes:
+                ps.append(panel_de(panes[ident][0], panes[ident][1], ident))
+                usados.add(ident)
+        grupos.append({'id': 'banner' if g['identifier'] == '__banner' else g['identifier'],
+                       'titulo': titulos.get(g['identifier']), 'paneles': ps})
+    # Los paneles que no están en ningún grupo van al de «catchAllGroupID» (Other).
+    resto = [panel_de(r, i, k) for k, (r, i) in sorted(panes.items(), key=lambda x: x[1][1].get('CFBundleName', ''))
+             if k not in usados and i.get('NSPrefPaneIconLabel', i.get('CFBundleName'))]
+    otros = next((g for g in grupos if g['id'] == d.get('catchAllGroupID', 'addons')), None)
+    if otros is None:
+        otros = {'id': d.get('catchAllGroupID', 'addons'), 'titulo': titulos.get(d.get('catchAllGroupID', 'addons')), 'paneles': []}
+        grupos.append(otros)
+    otros['paneles'] += resto
+    otros['resto'] = True
+    grupos = [g for g in grupos if g['paneles']]
+    return {'id': 'system-preferences', 'tipo': 'rejilla', 'nombre': 'System Preferences', 'grupos': grupos, 'fuente': fuente}
+
+
 def generar(version, raices=None, medidas=None):
     v = VERSIONES.get(version, {'nombre': version, 'numero': '', 'raices': [], 'medidas': None})
     raices = [r for r in (raices or v['raices']) if os.path.isdir(r)]
@@ -201,6 +312,7 @@ def generar(version, raices=None, medidas=None):
 
     guardar('menu-apple', menu_apple(version, raices))
     guardar('menus-estandar', menus_estandar(version, raices))
+    guardar('system-preferences', system_preferences(version, raices))
     med = medidas or v.get('medidas')
     try:
         datos = json.load(open(med)) if med else None
