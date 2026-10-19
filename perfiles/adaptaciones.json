@@ -219,6 +219,16 @@
    "estado": "aprobado",
    "fuente": "José, 18-10-2026 (AskUserQuestion)",
    "motivo": "Touch ID & Password (Sequoia): se queda la parte de la clave; lo de Touch ID se oculta."
+  },
+  {
+   "ids": [
+    "com.apple.preference.screentime",
+    "com.apple.Screen-Time-Settings.extension"
+   ],
+   "ocultar": true,
+   "estado": "aprobado",
+   "fuente": "José, 19-10-2026 («Pausa y oculta screen time», vía Planner)",
+   "motivo": "En pausa, José 19-10-2026. El estimado para hacerlo (servicio TiempoDeUso1: uso por app con BAMF, Downtime y App Limits) es de 2.5 a 3 días de Infra más la hoja «Time Limit» de Dev-Dock."
   }
  ]
 }
