@@ -12,6 +12,7 @@ public class Aplicacion : Gtk.Application {
     protected override void startup () {
         base.startup ();
         set_menubar (Tienda.Menus.construir ());
+        MacOS.agregar_accion_acerca (this, "App Store", null, null, "system-software-install");
     }
 
     public override int command_line (ApplicationCommandLine cmd) {

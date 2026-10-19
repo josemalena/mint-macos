@@ -12,6 +12,7 @@ public class Aplicacion : Gtk.Application {
     protected override void startup () {
         base.startup ();
         set_menubar (Actividad.Menus.construir ());
+        MacOS.agregar_accion_acerca (this, "Activity Monitor", null, null, "utilities-system-monitor");
     }
 
     public override int command_line (ApplicationCommandLine cmd) {

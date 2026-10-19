@@ -66,19 +66,7 @@ namespace Preferencias {
                 dialogo_acerca.present ();
                 return;
             }
-            var d = new Gtk.AboutDialog ();
-            d.program_name = TITULO;
-            d.version = "14.0";                              // la de System Preferences en Catalina; PROVISIONAL en otras versiones de macOS
-            d.copyright = "Copyright © 2001–2026 Apple Inc. All rights reserved.";
-            d.title = "About %s".printf (TITULO);
-            d.skip_taskbar_hint = true;
-            var ruta = Path.build_filename (carpeta_apps (), "iconos", "sistema.png");
-            try {
-                d.logo = new Gdk.Pixbuf.from_file_at_size (ruta, 64, 64);
-            } catch (Error e) {
-                d.logo_icon_name = "preferences-system";
-            }
-            d.response.connect (() => d.destroy ());
+            var d = MacOS.dialogo_acerca (TITULO, Path.build_filename (carpeta_apps (), "iconos", "sistema.png"), null, "preferences-system");
             d.destroy.connect (() => { dialogo_acerca = null; });
             dialogo_acerca = d;
             d.present ();

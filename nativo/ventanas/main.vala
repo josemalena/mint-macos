@@ -26,6 +26,24 @@ public class Ventanas : Gtk.Application {
         Object (application_id: "io.github.josemalena.MintMacosVentanas", flags: ApplicationFlags.HANDLES_COMMAND_LINE);
     }
 
+    protected override void startup () {
+        base.startup ();
+        // app.about: el About del programa de la ventana activa (el residente aloja varios: Force Quit, la barra de captura, el selector de
+        // emojis, About This Mac)
+        var acerca_accion = new SimpleAction ("about", null);
+        acerca_accion.activate.connect (() => {
+            string nombre = "mint-macos";
+            var activa = get_active_window ();
+            if (activa != null && activa == forcequit) nombre = "Force Quit Applications";
+            else if (activa != null && activa == acerca) nombre = "About This Mac";
+            else if (activa != null && activa == emojis) nombre = "Emoji & Symbols";
+            else if (activa != null && activa == barra) nombre = "Screenshot";
+            var d = MacOS.dialogo_acerca (nombre, null, null, "preferences-system");
+            d.present ();
+        });
+        add_action (acerca_accion);
+    }
+
     public override int command_line (ApplicationCommandLine cmd) {
         var args = cmd.get_arguments ();
         if (args.length < 2) {

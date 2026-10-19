@@ -14,6 +14,11 @@ class ForceQuitApp : Gtk.Application {
         Object (application_id: "io.github.josemalena.MintMacosForceQuit", flags: ApplicationFlags.HANDLES_COMMAND_LINE);
     }
 
+    protected override void startup () {
+        base.startup ();
+        MacOS.agregar_accion_acerca (this, "Force Quit Applications", null, null, "process-stop");
+    }
+
     public override int command_line (ApplicationCommandLine cmd) {
         var args = cmd.get_arguments ();
         bool prueba = false;
