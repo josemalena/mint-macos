@@ -22,7 +22,12 @@ prueba() {
   done
   paso "fecha: $(ev "$a._fecha.get_text()")"
   [ -n "$clima" ] || falla "no llegó el clima por org.mintmacos.Hoy1 (¿sin red?): $r"
-  r="$(ev "$a._widgets.get_n_children()")"
+  # Los eventos del calendario llegan aparte del clima (otro servicio): se espera a que estén los dos
+  for _ in $(seq 15); do
+    r="$(ev "$a._widgets.get_n_children()")"
+    case "$r" in *"2"*) break ;; esac
+    sleep 1
+  done
   case "$r" in *"2"*) paso "widgets de Calendar y clima en Today" ;; *) falla "Today no trae Calendar y el clima (2 widgets): $r" ;; esac
   # El panel abierto, para mirarlo.
   ev "$a._ajustarAlto(); $a.menu.open(false); 'ok'" >/dev/null
