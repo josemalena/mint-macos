@@ -50,6 +50,22 @@ necesita_teclado() {
   [ "$PRUEBAS_REAL" != true ] || saltar "necesita teclado, y en la pantalla de José no se mandan teclas"
 }
 
+# liberar_nombre_dbus NOMBRE: si alguien del bus de la prueba ya tiene ese nombre (un servicio que se activó solo cuando un panel le
+# preguntó algo en un caso anterior), lo cierra por su pid: el de mentira del caso necesita el nombre. Es el bus de la prueba, no
+# el de la sesión de José, y se mata por pid, nunca por nombre.
+liberar_nombre_dbus() {
+  local nombre="$1" pid=""
+  [ "$(gdbus call --session -d org.freedesktop.DBus -o /org/freedesktop/DBus -m org.freedesktop.DBus.NameHasOwner "$nombre" 2>/dev/null)" = "(true,)" ] || return 0
+  pid="$(gdbus call --session -d org.freedesktop.DBus -o /org/freedesktop/DBus -m org.freedesktop.DBus.GetConnectionUnixProcessID "$nombre" 2>/dev/null | sed -n 's/.*uint32 \([0-9]*\).*/\1/p')"
+  [ -n "$pid" ] || return 0
+  paso "libero $nombre: cierro el pid $pid de este bus"
+  kill "$pid" 2>/dev/null || true
+  for _ in $(seq 25); do
+    [ "$(gdbus call --session -d org.freedesktop.DBus -o /org/freedesktop/DBus -m org.freedesktop.DBus.NameHasOwner "$nombre" 2>/dev/null)" = "(true,)" ] || return 0
+    sleep 0.2
+  done
+}
+
 lanzar() {
   local log="$PRUEBAS_RES/$PRUEBAS_CASO-$(basename "$1").log"
   paso "lanzo: $* ($(command -v "$1"))"

@@ -6,6 +6,7 @@ prueba() {
   export MP_PYTHON_DIR="$MINT_MACOS_REPO/settings"
   export APARIENCIA_REGISTRO="$HOME/apariencia-registro.txt"
   : > "$APARIENCIA_REGISTRO"
+  liberar_nombre_dbus org.mintmacos.Apariencia1
   lanzar python3 "$MINT_MACOS_REPO/pruebas/ayudantes/apariencia-falsa.py"
   # General pide Estado al construirse: el de mentira tiene que tener el nombre antes. NameHasOwner no activa a nadie; llamar a
   # Estado sí podría arrancar el servicio de verdad (tiene activación por D-Bus) y ganarle el nombre al falso.

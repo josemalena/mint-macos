@@ -57,7 +57,7 @@ namespace Preferencias {
         }
 
         static string defecto_tema (string clave) {
-            return clave == INDICADOR ? "0.75" : "0.625";
+            return clave == INDICADOR ? "0.75" : "0.35";
         }
 
         string? archivo_tema () {

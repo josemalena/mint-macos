@@ -134,6 +134,9 @@ VALORES = {
         'IndicatorStyle': '4', 'IndicatorColor': '131;;140;;152;;255',
         'IndicatorSize': '0.75', 'IndicatorOffset': '-0.6',
         'BlurRadius': '30', 'SeparatorPadding': '-2.2',
+        # El rebote al abrir una app, medido de un video de José (18-10-2026, un celular filmando una Mac; baja confianza):
+        # ~0.7 s por rebote y ~1/3 del ícono de altura. El de «pedir atención» no tiene datos y queda como estaba.
+        'LaunchBounceTime': '700', 'LaunchBounceHeight': '0.35',
     },
 }
 lineas, seccion, vistos = open(ruta).read().splitlines(), None, set()

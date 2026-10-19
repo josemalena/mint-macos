@@ -51,6 +51,8 @@ namespace Preferencias {
         List<GrupoPaneles> grupos = new List<GrupoPaneles> ();
         Panel panel_apple;
         string? apple_id_conocido = null;
+        /** Lo último que dijo el servicio de Apple ID (null si no contestó); el panel de Apple ID lo lee. */
+        public EstadoAppleID? estado_apple = null;
 
         Gtk.Stack pila;
         Gtk.Box content_box;
@@ -106,7 +108,7 @@ namespace Preferencias {
                 }
             }
             // Apple ID no está en la cuadrícula: se abre desde la franja de arriba.
-            panel_apple = new PanelPython (datos_apple_id ());
+            panel_apple = new PanelAppleID ();
             todos.add (panel_apple);
             for (int i = 0; i < todos.length; i++) {
                 todos[i].ventana = this;
@@ -276,50 +278,53 @@ namespace Preferencias {
 
         /**
          * La franja de arriba: el Apple ID, como en Catalina. Sin sesión, «Sign in to your Apple ID» con su botón; con sesión,
-         * el nombre y el Apple ID. (La hoja de Sign In y el panel de Apple ID se abren con el de Python por ahora.)
+         * el nombre y el Apple ID. La hoja de Sign In y el panel hablan con org.mintmacos.AppleID1 (appleid.vala).
          */
         Gtk.Widget banner_nuevo () {
             banner = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 12);
             banner.get_style_context ().add_class ("mp-banner");
             pintar_banner (null);
             Idle.add (() => { leer_apple_id.begin (); return false; });
+            AppleID.vigilar (() => leer_apple_id.begin ());
             return banner;
         }
 
-        /** rclone tarda en contestar: se pregunta aparte y la franja se rehace. */
+        /** El servicio puede tardar (activarse, rclone): se pregunta aparte y la franja se rehace. */
         async void leer_apple_id () {
-            string? actual = null;
-            if (Environment.get_variable ("MINT_APPLEID_PRUEBA") != null) {
-                var id = Environment.get_variable ("MINT_APPLEID_PRUEBA_ID");
-                actual = (id != null && id != "") ? id : null;
-            } else {
-                try {
-                    var remoto = Environment.get_variable ("ICLOUD_REMOTO") ?? "icloud";
-                    var rclone = Path.build_filename (Environment.get_home_dir (), ".local", "bin", "rclone");
-                    var p = new Subprocess (SubprocessFlags.STDOUT_PIPE | SubprocessFlags.STDERR_SILENCE, rclone, "config", "show", remoto);
-                    var cancel = new Cancellable ();
-                    uint corte = Timeout.add_seconds (15, () => { cancel.cancel (); p.force_exit (); return false; });
-                    string? salida;
-                    yield p.communicate_utf8_async (null, cancel, out salida, null);
-                    Source.remove (corte);
-                    if (p.get_successful () && salida != null) {
-                        var datos = new HashTable<string, string> (str_hash, str_equal);
-                        foreach (var linea in salida.split ("\n")) {
-                            int i = linea.index_of (" = ");
-                            if (i > 0) {
-                                datos[linea.substring (0, i)] = linea.substring (i + 3);
-                            }
-                        }
-                        if (datos["type"] == "iclouddrive" && (datos["apple_id"] ?? "") != ""
-                            && ((datos["trust_token"] ?? "") != "" || (datos["cookies"] ?? "") != "")) {
-                            actual = datos["apple_id"];
-                        }
-                    }
-                } catch (Error e) {
-                    actual = null;
-                }
-            }
+            estado_apple = yield AppleID.estado ();
+            string? actual = (estado_apple != null && estado_apple.apple_id != "") ? estado_apple.apple_id : null;
             pintar_banner (actual);
+            // Con el panel de Apple ID abierto, se rehace con lo nuevo.
+            if (this.actual == panel_apple) {
+                abrir (panel_apple, false);
+            }
+        }
+
+        /** La hoja de Sign In; con solo_mail (el «Set Up…» del panel) la sesión ya está y va directo a Mail y Calendar. */
+        public void hoja_apple_id (bool solo_mail) {
+            var hoja = new HojaAppleID (this, apple_id_conocido);
+            hoja.terminado.connect (() => leer_apple_id.begin ());
+            if (solo_mail) hoja.ir_a_mail ();
+            hoja.show_all ();
+        }
+
+        public void cerrar_sesion_apple_id () {
+            var d = new Gtk.MessageDialog (this, Gtk.DialogFlags.MODAL, Gtk.MessageType.QUESTION, Gtk.ButtonsType.NONE,
+                                           "Sign out of your Apple ID?");
+            d.format_secondary_text ("iCloud Drive is unmounted and its session removed. Mail and Calendar settings added to Thunderbird "
+                                     + "are removed too. Your files in iCloud are not touched.");
+            d.add_button ("Cancel", Gtk.ResponseType.CANCEL);
+            d.add_button ("Sign Out", Gtk.ResponseType.OK);
+            d.response.connect ((r) => {
+                d.destroy ();
+                if (r == Gtk.ResponseType.OK) {
+                    AppleID.cerrar_sesion.begin ((o, res) => {
+                        AppleID.cerrar_sesion.end (res);
+                        leer_apple_id.begin ();
+                    });
+                }
+            });
+            d.show ();
         }
 
         void pintar_banner (string? actual) {
@@ -349,7 +354,7 @@ namespace Preferencias {
             if (actual == null) {
                 var b = new Gtk.Button.with_label ("Sign In");
                 b.valign = Gtk.Align.CENTER;
-                b.clicked.connect (() => abrir_en_python (panel_apple.id));
+                b.clicked.connect (() => hoja_apple_id (false));
                 banner.pack_start (b, false, false, 0);
                 // Sin sesión Catalina solo enseña la silueta, el texto y Sign In (captura 1.31.45 PM): el ícono de Apple ID, a la
                 // derecha, sale únicamente con sesión.
