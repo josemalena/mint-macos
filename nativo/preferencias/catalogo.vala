@@ -30,6 +30,7 @@ namespace Preferencias {
         case "com.apple.preferences.sharing": return new PanelSharing ();
         case "com.apple.preferences.Bluetooth": return new PanelBluetooth ();
         case "com.apple.preference.mouse": return new PanelMouse ();
+        case "com.apple.preference.universalaccess": return new PanelAccessibility ();
         case "com.apple.preference.trackpad": return hay_touchpad () ? null : new PanelTrackpad ();   // con touchpad, el módulo de Cinnamon
         case "com.apple.Localization": return new PanelLanguage ();
         case "com.apple.preference.energysaver": return new PanelEnergySaver ();
