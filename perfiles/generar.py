@@ -27,7 +27,19 @@ REF = os.path.join(MM, 'referencias')
 SALIDA = os.path.join(MM, 'macos')
 
 # Las versiones que manejamos y de dónde salen aquí.
+def _ultima(patron):
+    """La referencia más nueva de una versión («highsierra-*»), o la ruta del patrón si no hay."""
+    import glob as _g
+    hay = sorted(_g.glob(os.path.join(REF, patron)))
+    return hay[-1] if hay else os.path.join(REF, patron)
+
+
 VERSIONES = {
+    # La MacBook Pro Early 2011 de la esposa de José (José, 18-10-2026): menos prioridad que Catalina.
+    'highsierra-10.13': {'nombre': 'macOS High Sierra', 'numero': '10.13.6',
+                         'raices': [os.path.join(_ultima('highsierra-*'), 'recursos', 'sistema-nib')],
+                         'medidas': os.path.join(_ultima('highsierra-*'), 'medidas', 'medidas.json'),
+                         'capturas': os.path.join(_ultima('highsierra-*'), 'capturas')},
     'catalina-10.15': {'nombre': 'macOS Catalina', 'numero': '10.15.8',
                        'raices': [os.path.join(MM, 'montajes', 'disco-mac-sistema')],
                        'medidas': os.path.join(REF, 'catalina-extraer-20261015', 'medidas', 'medidas.json'),
