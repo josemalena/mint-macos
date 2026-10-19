@@ -225,6 +225,40 @@ namespace Bloqueo {
 
         /** El teclado y el ratón son de esta pantalla. Mientras no se logre el grab se reintenta, y si se pierde, se retoma. */
         int grabs_fallidos = 0;
+        int64 fallando_desde = 0;      // desde cuándo falla el grab sin parar (0 = no está fallando)
+        bool recurso_usado = false;    // ya se pidió dm-tool lock en esta racha de fallos
+
+        /**
+         * Último recurso (fail-closed de verdad): si en ~2 s no se logra el grab, por cualquier motivo (Cinnamon sin Eval o colgado, otro
+         * programa con el grab), el bloqueo no se queda «medio puesto»: se pide el del greeter de LightDM (dm-tool lock), que no depende de
+         * nada de esta sesión. Se anota en el log de la sesión.
+         */
+        void ultimo_recurso () {
+            recurso_usado = true;
+            var dm_tool = Environment.find_program_in_path ("dm-tool");
+            anotar ("el grab lleva más de 2 s sin lograrse: último recurso, dm-tool lock (%s)".printf (dm_tool ?? "no está dm-tool"));
+            if (dm_tool == null) {
+                return;
+            }
+            try {
+                new Subprocess (SubprocessFlags.STDOUT_SILENCE | SubprocessFlags.STDERR_SILENCE, dm_tool, "lock");
+            } catch (Error e) {
+                anotar ("no pude lanzar dm-tool lock: %s".printf (e.message));
+            }
+        }
+
+        void anotar (string linea) {
+            warning ("%s", linea);
+            try {
+                var carpeta = Path.build_filename (Environment.get_user_state_dir (), "mint-macos");
+                DirUtils.create_with_parents (carpeta, 0700);
+                var f = FileStream.open (Path.build_filename (carpeta, "bloqueo.log"), "a");
+                if (f != null) {
+                    f.printf ("%s %s\n", new DateTime.now_local ().format ("%Y-%m-%d %H:%M:%S"), linea);
+                }
+            } catch (Error e) {
+            }
+        }
 
         bool reintentar_grab () {
             if (primera == null) {
@@ -246,8 +280,16 @@ namespace Bloqueo {
                 if (r == Gdk.GrabStatus.ALREADY_GRABBED && grabs_fallidos >= 3 && grabs_fallidos <= 30 && grabs_fallidos % 3 == 0) {
                     pedir_a_cinnamon_que_suelte ();
                 }
+                if (fallando_desde == 0) {
+                    fallando_desde = get_monotonic_time ();
+                }
+                if (!recurso_usado && get_monotonic_time () - fallando_desde > 2000000) {
+                    ultimo_recurso ();
+                }
             } else {
                 grabs_fallidos = 0;
+                fallando_desde = 0;
+                recurso_usado = false;
                 if (!clave.has_focus) {
                     clave.grab_focus ();
                 }

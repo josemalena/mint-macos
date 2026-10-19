@@ -26,6 +26,9 @@ y es lo que asustaba con mensajes FATAL). Decisión de José, 19-10-2026. Por ah
   ALREADY_GRABBED: se vería bloqueada pero la clave iría al menú. Por eso, si el grab falla, la pantalla le pide a Cinnamon por `org.Cinnamon.Eval` que haga
   popModal de cada modal y reintenta (caso 93, con un menú abierto antes de bloquear). Depende de que ese Eval esté disponible; si no lo está, la
   salida de emergencia de abajo sigue funcionando.
+- **Último recurso.** Si el grab lleva más de 2 s sin lograrse (Eval apagado, Cinnamon colgado, otro programa con el grab), el bloqueo no se queda «medio
+  puesto»: llama a `dm-tool lock` (el greeter de LightDM, que no depende de nada de esta sesión) y lo anota en `~/.local/state/mint-macos/bloqueo.log`
+  (caso 97). Es el camino que se quiere evitar, pero cierra de verdad.
 - **Clave.** PAM con el servicio `cinnamon-screensaver` del sistema (pam_unix → unix_chkpwd, sin setuid propio). La clave no se guarda: se pasa a PAM
   y se borra la copia. `pam_ayuda.c` declara la ABI mínima de PAM, así que no hace falta `libpam0g-dev` para compilar.
 - **Aspecto.** Fondo de escritorio desenfocado, avatar de 144 px, nombre en negrita y «Enter Password» (cadena de LoginUICore). Las medidas son las del
