@@ -35,6 +35,71 @@ namespace Preferencias {
             return s;
         }
 
+        /** Corre mint-macos-version y devuelve su salida, o null si el comando no está. */
+        static string? correr_version (string arg) {
+            try {
+                var p = new Subprocess (SubprocessFlags.STDOUT_PIPE | SubprocessFlags.STDERR_SILENCE, "mint-macos-version", arg);
+                string? salida;
+                p.communicate_utf8 (null, null, out salida, null);
+                return p.get_exit_status () == 0 ? salida : null;
+            } catch (Error e) {
+                return null;
+            }
+        }
+
+        /** «macOS version:» con las versiones que tienen perfil en esta máquina (mint-macos-version --lista). Sin el comando, no sale. */
+        int version_de_macos (Gtk.Grid g, int fila) {
+            var lista = correr_version ("--lista");
+            if (lista == null) return fila;
+            string? escogida = null;
+            // sin argumentos imprime «activa: …» y «escogida: …»
+            try {
+                var p = new Subprocess (SubprocessFlags.STDOUT_PIPE | SubprocessFlags.STDERR_SILENCE, "mint-macos-version");
+                string? o;
+                p.communicate_utf8 (null, null, out o, null);
+                foreach (var l in (o ?? "").split ("\n")) {
+                    if (l.has_prefix ("escogida:")) escogida = l.substring (9).strip ();
+                }
+            } catch (Error e) {
+            }
+            var combo = new Gtk.ComboBoxText ();
+            foreach (var l in lista.split ("\n")) {
+                var t = l.strip ();
+                if (t == "") continue;
+                // «id   nombre  (falta: …)»
+                var partes = t.split (" ", 2);
+                var id = partes[0];
+                var nombre = partes.length > 1 ? partes[1].strip () : id;
+                var faltas = nombre.index_of ("  (falta");
+                if (faltas > 0) nombre = nombre.substring (0, faltas).strip ();
+                combo.append (id, nombre);
+            }
+            if (escogida != null) combo.set_active_id (escogida);
+            if (combo.get_active () < 0) combo.set_active (0);
+            g.attach (etiqueta_fila ("macOS version:"), 0, fila, 1, 1);
+            var caja = new Gtk.Box (Gtk.Orientation.VERTICAL, 4);
+            caja.pack_start (combo, false, false, 0);
+            var nota = new Gtk.Label ("Takes effect the next time you log in.");
+            nota.xalign = 0;
+            nota.get_style_context ().add_class ("mp-sd-detalle");
+            caja.pack_start (nota, false, false, 0);
+            g.attach (caja, 1, fila, 2, 1);
+            combo.changed.connect (() => {
+                var id = combo.get_active_id ();
+                if (id == null || prueba) return;
+                correr_version_con ("--poner", id);
+            });
+            return fila + 1;
+        }
+
+        static void correr_version_con (string a, string b) {
+            try {
+                new Subprocess (SubprocessFlags.STDOUT_SILENCE | SubprocessFlags.STDERR_SILENCE, "mint-macos-version", a, b);
+            } catch (Error e) {
+                warning ("mint-macos-version: %s", e.message);
+            }
+        }
+
         static Gtk.Widget gris_motivo (Gtk.Widget w, string? motivo) {
             w.set_sensitive (false);
             if (motivo != null) {
@@ -99,6 +164,10 @@ namespace Preferencias {
             }
             g.attach (opciones, 1, fila, 2, 1);
             fila++;
+
+            // La versión de macOS que imitan todas las piezas (perfiles/ESQUEMA.md): una sola, global. Es un ajuste de mint-macos, no de
+            // macOS: el texto es propio. Cambiarla no reinicia nada; vale al volver a entrar.
+            fila = version_de_macos (g, fila);
 
             // Accent color y Highlight color
             g.attach (etiqueta_fila ("Accent color:"), 0, fila, 1, 1);
