@@ -25,6 +25,7 @@
 #                                         lateral del Finder (los construye
 #                                         tema/iconos/construir.sh)
 #   ~/.local/share/backgrounds/constanza/ el fondo de Catalina
+#   ~/.local/share/sounds/mint-macos/     los sonidos del Dock y del Finder (en WAV)
 #
 # Lo que NO se puede sacar desde Linux: los glifos de la barra del Finder
 # (atrás, vistas, compartir…). Están en un catálogo que solo desempaca macOS.
@@ -67,6 +68,7 @@ paso "Fuentes San Francisco";        "$REPO/tema/fuentes/desde-mac.sh" || echo "
 paso "Manzana del menú Apple";       python3 "$REPO/tema/manzana/desde-fuente.py" || echo "  (sin manzana)"
 paso "Íconos del Finder y del Dock"; "$REPO/tema/iconos/construir.sh" || echo "  (sin íconos)"
 paso "Fondo de Catalina";            "$REPO/tema/fondo/desde-mac.sh" --forzar || echo "  (sin fondo)"
+paso "Sonidos del Dock y del Finder"; "$REPO/tema/sonidos/desde-mac.sh" || echo "  (sin sonidos)"
 
 paso "Glifos de la barra del Finder"
 if [ -f "$HOME/.local/share/constanza/glifos-finder/GoBack@1x.png" ]; then
