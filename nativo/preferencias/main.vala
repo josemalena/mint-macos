@@ -48,10 +48,40 @@ namespace Preferencias {
                 a.set_enabled (false);
                 add_action (a);
             }
+            // System Preferences ▸ About System Preferences (el ítem del menú de la app lo activa por D-Bus: appmenu@macos busca la acción app.about)
+            var acerca = new SimpleAction ("about", null);
+            acerca.activate.connect (() => mostrar_acerca ());
+            add_action (acerca);
             set_accels_for_action ("app.atras", { "<Primary>bracketleft" });
             set_accels_for_action ("app.adelante", { "<Primary>bracketright" });
             set_accels_for_action ("app.todo", { "<Primary>l" });
             set_accels_for_action ("app.buscar", { "<Primary>f" });
+        }
+
+        Gtk.AboutDialog? dialogo_acerca = null;
+
+        /** «About System Preferences»: nombre, versión y derechos; si ya está abierto se trae al frente. */
+        void mostrar_acerca () {
+            if (dialogo_acerca != null) {
+                dialogo_acerca.present ();
+                return;
+            }
+            var d = new Gtk.AboutDialog ();
+            d.program_name = TITULO;
+            d.version = "14.0";                              // la de System Preferences en Catalina; PROVISIONAL en otras versiones de macOS
+            d.copyright = "Copyright © 2001–2026 Apple Inc. All rights reserved.";
+            d.title = "About %s".printf (TITULO);
+            d.skip_taskbar_hint = true;
+            var ruta = Path.build_filename (carpeta_apps (), "iconos", "sistema.png");
+            try {
+                d.logo = new Gdk.Pixbuf.from_file_at_size (ruta, 64, 64);
+            } catch (Error e) {
+                d.logo_icon_name = "preferences-system";
+            }
+            d.response.connect (() => d.destroy ());
+            d.destroy.connect (() => { dialogo_acerca = null; });
+            dialogo_acerca = d;
+            d.present ();
         }
 
         /** El menubar con View, que las apps GTK publican al menú global (appmenu-gtk-module). */
