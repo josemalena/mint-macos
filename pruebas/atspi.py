@@ -59,6 +59,7 @@ def main():
     p.add_argument("--segundos", type=float, default=15)
     p.add_argument("--volcar", action="store_true")
     p.add_argument("--pulsar", action="store_true")
+    p.add_argument("--clic", action="store_true", help="un clic de ratón en el centro del elemento (filas de una lista, que no traen acción)")
     a = p.parse_args()
     fin = time.time() + a.segundos
     while True:
@@ -73,6 +74,9 @@ def main():
                     print("  " * n + f"[{rol}] {nombre}")
                 elif nombre == a.texto and (not a.rol or rol == a.rol):
                     print(f"[{rol}] {nombre}")
+                    if a.clic:
+                        caja = x.get_extents(gi.repository.Atspi.CoordType.SCREEN)
+                        gi.repository.Atspi.generate_mouse_event(caja.x + caja.width // 2, caja.y + caja.height // 2, "b1c")
                     if a.pulsar:
                         accion = x.get_action_iface()
                         if accion is None or accion.get_n_actions() == 0 or not accion.do_action(0):

@@ -15,10 +15,96 @@ namespace Preferencias {
 
     public delegate void EscalaDoble (double valor);
 
+    /**
+     * La alerta de Sound Effects. En la Mac es el aviso del sistema (el beep de error o de acción no permitida), NO el sonido de las
+     * notificaciones: estas suenan solo si la app trae su propio sonido y «Play sound for notifications» está encendido (panel Notifications).
+     * Aquí la alerta escogida se vuelve el evento «bell-window-system» de un tema de sonido propio (~/.local/share/sounds/mint-macos) que
+     * hereda del que había; nada se escribe en org.cinnamon.sounds notification-*. El volumen de la alerta se aplica al archivo (ffmpeg).
+     */
+    namespace AlertaSistema {
+        string ruta_estado () {
+            return Path.build_filename (Environment.get_user_config_dir (), "mint-macos", "alerta.ini");
+        }
+
+        string carpeta_tema () {
+            return Path.build_filename (Environment.get_user_data_dir (), "sounds", "mint-macos");
+        }
+
+        KeyFile leer () {
+            var k = new KeyFile ();
+            try {
+                k.load_from_file (ruta_estado (), KeyFileFlags.NONE);
+            } catch (Error e) {
+            }
+            return k;
+        }
+
+        public string? archivo_elegido () {
+            try {
+                return leer ().get_string ("Alerta", "archivo");
+            } catch (Error e) {
+                return null;
+            }
+        }
+
+        public double volumen_elegido () {
+            try {
+                return leer ().get_double ("Alerta", "volumen");
+            } catch (Error e) {
+                return 1.0;
+            }
+        }
+
+        /** Escribe el tema y deja la alerta puesta. Devuelve false si no se pudo. */
+        public bool aplicar (string archivo, double volumen) {
+            var k = leer ();
+            var cfg = abrir_settings ("org.cinnamon.desktop.sound");
+            // El tema de antes, para heredarlo (solo la primera vez: después el actual ya es el nuestro)
+            string anterior = "";
+            try { anterior = k.get_string ("Alerta", "tema-anterior"); } catch (Error e) { }
+            if (anterior == "" && cfg != null) {
+                anterior = cfg.get_string ("theme-name");
+                if (anterior == "mint-macos") anterior = "";
+            }
+            k.set_string ("Alerta", "archivo", archivo);
+            k.set_double ("Alerta", "volumen", volumen);
+            k.set_string ("Alerta", "tema-anterior", anterior);
+            try {
+                DirUtils.create_with_parents (Path.get_dirname (ruta_estado ()), 0755);
+                FileUtils.set_contents (ruta_estado (), k.to_data ());
+                var carpeta = carpeta_tema ();
+                DirUtils.create_with_parents (Path.build_filename (carpeta, "stereo"), 0755);
+                var herencia = anterior != "" ? anterior + ",freedesktop" : "freedesktop";
+                FileUtils.set_contents (Path.build_filename (carpeta, "index.theme"),
+                    "[Sound Theme]\nName=mint-macos\nComment=La alerta del sistema de Sound Effects\nInherits=%s\nDirectories=stereo\n\n[stereo]\nOutputProfile=stereo\n".printf (herencia));
+                var destino = Path.build_filename (carpeta, "stereo", "bell-window-system.wav");
+                FileUtils.unlink (destino);
+                // ffmpeg: a WAV y con el volumen de la alerta; sin él, el archivo tal cual si ya es WAV
+                if (Environment.find_program_in_path ("ffmpeg") != null) {
+                    var p = new Subprocess (SubprocessFlags.STDOUT_SILENCE | SubprocessFlags.STDERR_SILENCE,
+                                            "ffmpeg", "-y", "-loglevel", "error", "-i", archivo, "-filter:a", "volume=%.3f".printf (volumen), destino);
+                    p.wait ();
+                } else if (archivo.has_suffix (".wav")) {
+                    var f = File.new_for_path (archivo);
+                    f.copy (File.new_for_path (destino), FileCopyFlags.OVERWRITE);
+                }
+            } catch (Error e) {
+                warning ("alerta: %s", e.message);
+                return false;
+            }
+            if (cfg != null && cfg.get_string ("theme-name") != "mint-macos") {
+                cfg.set_string ("theme-name", "mint-macos");
+            }
+            return true;
+        }
+    }
+
     public class PanelSound : Panel {
         // MINT_SONIDO_PRUEBA: no escribe en PipeWire ni en gsettings.
         bool prueba = Environment.get_variable ("MINT_SONIDO_PRUEBA") != null;
         bool cargando = false;
+        Gtk.Scale? volumen_alerta = null;
+        uint cambio_volumen = 0;
         Gtk.Scale? vol_salida = null;
         Gtk.Scale? vol_entrada = null;
         Gtk.Scale? balance = null;
@@ -268,6 +354,19 @@ namespace Preferencias {
                 col.expand = true;
                 arbol.append_column (col);
             }
+            // La alerta que ya estaba (sin dispararla: cargando sigue en true mientras se arma la página)
+            var previa = AlertaSistema.archivo_elegido ();
+            if (previa != null) {
+                lista.foreach ((m, ruta_, it_) => {
+                    string r;
+                    m.get (it_, 2, out r, -1);
+                    if (r == previa) {
+                        arbol.get_selection ().select_iter (it_);
+                        return true;
+                    }
+                    return false;
+                });
+            }
             arbol.get_selection ().changed.connect (() => alerta_elegida (arbol.get_selection ()));
             var marco = marco_lista ();
             marco.set_size_request (-1, 130);
@@ -288,9 +387,20 @@ namespace Preferencias {
             por.set_tooltip_text ("Effects always use the selected output device here.");
             g.attach (por, 1, 0, 2, 1);
             g.attach (etiqueta_fila ("Alert volume:"), 0, 1, 1, 1);
-            var av = deslizador (100, 0, 100, null, null, (v) => { }, 8);
-            av.set_sensitive (false);
-            av.set_tooltip_text ("Alerts follow the output volume on this computer.");
+            var av = deslizador (AlertaSistema.volumen_elegido () * 100, 0, 100, null, null, (v) => {
+                if (cargando || prueba) return;
+                var elegida = AlertaSistema.archivo_elegido ();
+                if (elegida == null) return;
+                if (cambio_volumen != 0) Source.remove (cambio_volumen);
+                // Se espera a que el deslizador pare: ffmpeg regenera el archivo de la alerta
+                cambio_volumen = Timeout.add (400, () => {
+                    cambio_volumen = 0;
+                    AlertaSistema.aplicar (elegida, v / 100.0);
+                    sonar_alerta (elegida, v / 100.0);
+                    return false;
+                });
+            }, 8);
+            volumen_alerta = av;
             g.attach (av, 1, 1, 2, 1);
             var cfg = abrir_settings ("org.cinnamon.desktop.sound");
             string[] claves = { "event-sounds", "volume-sound-enabled" };
@@ -314,13 +424,14 @@ namespace Preferencias {
             }
             string ruta;
             modelo.get (it, 2, out ruta, -1);
-            var cfg = abrir_settings ("org.cinnamon.sounds");
-            if (cfg != null) {
-                cfg.set_string ("notification-file", ruta);
-                cfg.set_boolean ("notification-enabled", true);
-            }
+            double vol = volumen_alerta != null ? volumen_alerta.get_value () / 100.0 : 1.0;
+            AlertaSistema.aplicar (ruta, vol);
+            sonar_alerta (ruta, vol);
+        }
+
+        void sonar_alerta (string ruta, double vol) {
             try {
-                Process.spawn_async (null, { "paplay", ruta }, null,
+                Process.spawn_async (null, { "paplay", "--volume=%d".printf ((int) (65536 * vol)), ruta }, null,
                                      SpawnFlags.SEARCH_PATH | SpawnFlags.STDOUT_TO_DEV_NULL | SpawnFlags.STDERR_TO_DEV_NULL, null, null);
             } catch (Error e) {
             }

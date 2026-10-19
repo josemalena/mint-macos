@@ -236,9 +236,9 @@ class PanelSound:
         if it is None or self._cargando or self.PRUEBA:
             return
         ruta = modelo[it][2]
-        cfg = Gio.Settings.new("org.cinnamon.sounds")
-        cfg.set_string("notification-file", ruta)
-        cfg.set_boolean("notification-enabled", True)
+        # La alerta de Sound Effects es el aviso del sistema, no el sonido de las notificaciones (en la Mac estas no la usan): aquí ya no se
+        # toca org.cinnamon.sounds notification-*. La versión en Vala (paneles/sonido.vala) la vuelve el evento bell-window-system de un tema propio;
+        # esta, la de respaldo, solo la reproduce.
         try:
             subprocess.Popen(["paplay", ruta], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         except OSError:
