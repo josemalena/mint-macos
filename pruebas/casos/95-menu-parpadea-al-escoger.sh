@@ -27,6 +27,17 @@ cambios = sum(1 for a, b in zip(estado, estado[1:]) if (not a) and b)   # apagad
 print(cambios)
 PY
 }
+menu_abierto() {   # ¿hay un menú pintado debajo de la manzana? (la zona de 380×280 bajo la barra deja de ser lisa)
+  import -display "$DISPLAY" -window root -crop "380x280+0+30" +repage "$PRUEBAS_RES/$PRUEBAS_CASO-zona.png" 2>/dev/null || return 1
+  python3 - "$PRUEBAS_RES/$PRUEBAS_CASO-zona.png" <<'PY'
+import sys
+from PIL import Image
+im = Image.open(sys.argv[1]).convert("L")
+px = list(im.getdata())
+fondo = px[-1]
+sys.exit(0 if sum(1 for p in px if abs(p - fondo) > 12) > 0.15 * len(px) else 1)
+PY
+}
 prueba() {
   despejar_pantalla
   necesita_teclado
@@ -42,7 +53,14 @@ prueba() {
   local resultado
   for modo in true false; do
     gsettings set org.mintmacos.menus menu-flash "$modo"
-    xdotool mousemove 22 10 click 1; sleep 1
+    # El menú se abre con un clic y a veces tarda en pintarse (en un armado cargado el primer cuadro sale vacío): se espera y, si no salió, se vuelve a clicar
+    local intento
+    for intento in 1 2 3 4 5 6; do
+      xdotool mousemove 22 10 click 1
+      for _ in 1 2 3 4 5 6 7 8; do sleep 0.3; menu_abierto && break 2; done
+      xdotool key Escape; sleep 0.5      # no salió: se cierra lo que haya y se reintenta
+    done
+    menu_abierto || falla "el menú de la manzana no se abrió en 6 intentos"
     captura "menu-sin-escoger-$modo"
     xdotool key Down; sleep 0.5
     captura "menu-abierto-$modo"
