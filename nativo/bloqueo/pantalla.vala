@@ -224,6 +224,8 @@ namespace Bloqueo {
         }
 
         /** El teclado y el ratón son de esta pantalla. Mientras no se logre el grab se reintenta, y si se pierde, se retoma. */
+        int grabs_fallidos = 0;
+
         bool reintentar_grab () {
             if (primera == null) {
                 return Source.CONTINUE;
@@ -237,10 +239,34 @@ namespace Bloqueo {
             var r = seat.grab (ventana, Gdk.SeatCapabilities.ALL, true, null, null, null);
             if (r != Gdk.GrabStatus.SUCCESS) {
                 warning ("grab: %s (se reintenta)", r.to_string ());
-            } else if (!clave.has_focus) {
-                clave.grab_focus ();
+                grabs_fallidos++;
+                // Quien tiene el grab es casi siempre Cinnamon: mientras hay un menú abierto Muffin agarra el teclado y el ratón
+                // (begin_modal). Se le pide que suelte los modales (popModal de cada uno) y el siguiente intento ya lo logra.
+                // Solo si el grab falló: sin él no hay nada que soltar.
+                if (r == Gdk.GrabStatus.ALREADY_GRABBED && grabs_fallidos >= 3 && grabs_fallidos <= 30 && grabs_fallidos % 3 == 0) {
+                    pedir_a_cinnamon_que_suelte ();
+                }
+            } else {
+                grabs_fallidos = 0;
+                if (!clave.has_focus) {
+                    clave.grab_focus ();
+                }
             }
             return Source.CONTINUE;
+        }
+
+        void pedir_a_cinnamon_que_suelte () {
+            const string JS = "(function(){ let m = imports.ui.main; while (m.modalActorFocusStack.length > 0) " +
+                "m.popModal(m.modalActorFocusStack[m.modalActorFocusStack.length - 1].actor); })()";
+            try {
+                var bus = Bus.get_sync (BusType.SESSION);
+                bus.call.begin ("org.Cinnamon", "/org/Cinnamon", "org.Cinnamon", "Eval", new Variant ("(s)", JS),
+                                null, DBusCallFlags.NO_AUTO_START, 2000, null, (o, res) => {
+                    try { bus.call.end (res); } catch (Error e) { warning ("Cinnamon no soltó el grab: %s", e.message); }
+                });
+            } catch (Error e) {
+                warning ("sin bus de sesión para pedirle a Cinnamon que suelte el grab: %s", e.message);
+            }
         }
 
         bool subir () {

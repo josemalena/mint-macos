@@ -11,6 +11,8 @@ prueba() {
   wmctrl -i -a "$x"; sleep 1
   xdotool type --delay 60 "antes"; sleep 1
 
+  # Un menú de Cinnamon abierto justo antes de bloquear (el de la manzana, si el gestor lo trae): no puede quedar a la vista
+  xdotool mousemove 22 10 click 1; sleep 1
   LD_PRELOAD="$PRUEBAS_RES/pam-falso.so" lanzar mac-bloqueo
   local pant=""
   for _ in $(seq 60); do
@@ -30,6 +32,28 @@ prueba() {
   paso "la ventana de más arriba es del pid $arriba (la pantalla es $pant)"
   [ "$arriba" = "$pant" ] || falla "algo quedó encima de la pantalla de bloqueo (pid $arriba)"
   captura bloqueo-con-notificacion
+  # Nada de la sesión se ve: ni la barra de arriba, ni el menú que estaba abierto, ni la notificación (esquina superior derecha).
+  # Se compara cada zona con el fondo de la pantalla de bloqueo, que es liso en esas esquinas.
+  python3 - "$PRUEBAS_RES/$PRUEBAS_CASO-bloqueo-con-notificacion.png" <<'PY' || falla "se ve algo de la sesión por encima del bloqueo"
+import sys
+from PIL import Image
+im = Image.open(sys.argv[1]).convert("RGB")
+w, h = im.size
+fondo = im.getpixel((w // 2, h - 20))
+def liso(x0, y0, x1, y1):
+    for y in range(y0, y1, 4):
+        for x in range(x0, x1, 4):
+            p = im.getpixel((x, y))
+            if max(abs(p[i] - fondo[i]) for i in range(3)) > 14:
+                return False
+    return True
+zonas = {"la barra de arriba": (0, 0, w, 30), "el menú abierto": (0, 30, 400, 330), "las notificaciones": (w - 420, 30, w, 330)}
+malas = [n for n, z in zonas.items() if not liso(*z)]
+if malas:
+    print("se ve algo en: " + ", ".join(malas))
+    sys.exit(1)
+PY
+  paso "ni la barra, ni el menú abierto, ni la notificación se ven"
 
   xdotool type --delay 60 "buena"; xdotool key Return
   for _ in $(seq 50); do pgrep -x mac-bloqueo >/dev/null || break; sleep 0.2; done
