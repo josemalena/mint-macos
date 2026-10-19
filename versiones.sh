@@ -23,7 +23,7 @@ FORKS=(FYNDER PLANK GREETER SPOTLYTE)
 # Fynder: el administrador de archivos con la cara del Finder
 FYNDER_NOMBRE=Fynder
 FYNDER_REPO=https://github.com/josemalena/fynder.git
-FYNDER_HASH=9d26af5e92a0898ff00c01d370956eb91cf3a61c
+FYNDER_HASH=36730fb87737f08aa0f6571a1b51f1612839789e
 FYNDER_LOCAL=fynder
 FYNDER_UPSTREAM=https://github.com/linuxmint/nemo.git
 FYNDER_RAMA=master
@@ -87,7 +87,7 @@ COMPILAR=(
   build-essential pkg-config git meson ninja-build gettext
   gobject-introspection libgirepository1.0-dev libglib2.0-dev libglib2.0-dev-bin
   libgtk-3-dev libatk1.0-dev libpango1.0-dev libjson-glib-dev libcinnamon-desktop-dev
-  libgail-3-dev libx11-dev libxapp-dev libexif-dev libexempi-dev
+  libgail-3-dev libx11-dev libxapp-dev libexif-dev libexempi-dev libcanberra-dev
   valac libgdk-pixbuf-2.0-dev libgee-0.8-dev libbamf3-dev libcairo2-dev libwnck-3-dev
   libgnome-menu-3-dev libcanberra-dev libdbusmenu-glib-dev libdbusmenu-gtk3-dev
   libxi-dev libxfixes-dev

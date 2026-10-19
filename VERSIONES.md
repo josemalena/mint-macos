@@ -7,9 +7,9 @@ Cada fork, el commit que se compila y los parches que lleva encima de su upstrea
 
 - Fork: https://github.com/josemalena/fynder.git
 - Upstream: https://github.com/linuxmint/nemo.git, rama `master`
-- Commit: `9d26af5e92a0898ff00c01d370956eb91cf3a61c` (2026-10-19, fynder-desktop: teclear selecciona el icono sin cuadro de búsqueda)
+- Commit: `36730fb87737f08aa0f6571a1b51f1612839789e` (2026-10-19, feat(sonidos): los sonidos del Finder al terminar copiar, mandar a la papelera y vaciarla)
 - Base: `66eabf459bc86d03c24797274d0e3f60b9b7a7d8` (master.lmde7), 2026-10-06, nemo-icon-dnd.c: Fix reporting a successful drag result.
-- Parches: 243
+- Parches: 244
 
 | Commit | Fecha | Asunto |
 |---|---|---|
@@ -256,6 +256,7 @@ Cada fork, el commit que se compila y los parches que lleva encima de su upstrea
 | `f88274b4` | 2026-10-19 | fix(statusbar): en el diseño Finder no van los botones de abajo de la barra lateral |
 | `4b01cfad` | 2026-10-19 | tema claro: la barra de título y la toolbar, un solo degradado sin costura |
 | `9d26af5e` | 2026-10-19 | fynder-desktop: teclear selecciona el icono sin cuadro de búsqueda |
+| `36730fb8` | 2026-10-19 | feat(sonidos): los sonidos del Finder al terminar copiar, mandar a la papelera y vaciarla |
 
 ## muelle
 
