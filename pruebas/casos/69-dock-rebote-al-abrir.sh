@@ -37,7 +37,7 @@ prueba() {
   # (con un prefijo de pruebas sin instalar, el esquema de Muelle está en ../esquemas)
   local esq; esq="$(dirname "$(command -v muelle)")/../esquemas"
   [ -d "$esq" ] && export GSETTINGS_SCHEMA_DIR="$esq"
-  gsettings set org.mintmacos.muelle.dock.settings:/org/mintmacos/muelle/docks/dock1/ dock-items "['lento.dockitem', 'launchpad.dockitem']" 2>/dev/null || true
+  dconf write /org/mintmacos/muelle/docks/dock1/dock-items "['lento.dockitem', 'launchpad.dockitem']"   # (dconf directo: no depende de dónde esté el esquema)
   lanzar muelle
   esperar_ventana '^[Mm]uelle$' 30 >/dev/null
   sleep 3

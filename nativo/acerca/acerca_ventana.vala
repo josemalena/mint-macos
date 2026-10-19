@@ -143,19 +143,14 @@ button.acerca-enlace label { font-family: ".SF NS"; font-size: 10px; opacity: 0.
                 enlace.clicked.connect (() => lanzar ({ "xdg-open", licencia }));
                 caja.pack_start (enlace, false, false, 0);
             }
-            // Los créditos de mint-macos (regla de José, 19-10-2026): el diseño y el código; «Credits» abre el About completo
-            var creditos = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 4);
-            creditos.halign = Gtk.Align.CENTER;
-            creditos.pack_start (etiqueta (esc ("%s · %s".printf (MacOS.texto_diseno (), MacOS.texto_codigo ())), "acerca-pie"), false, false, 0);
+            // «Credits» va en la misma fila que «License Agreement» (una fila más haría la pestaña Overview más alta que Displays): abre el About
+            // completo de mint-macos con el diseño, el código, las marcas de Apple y la lista de componentes con su «Based on …».
             var mas = new Gtk.Button.with_label ("Credits");
             mas.relief = Gtk.ReliefStyle.NONE;
             mas.get_style_context ().add_class ("acerca-enlace");
             mas.clicked.connect (() => { MacOS.dialogo_creditos ("About This Mac").present (); });
-            creditos.pack_start (mas, false, false, 0);
-            var todo = new Gtk.Box (Gtk.Orientation.VERTICAL, 2);
-            todo.pack_start (caja, false, false, 0);
-            todo.pack_start (creditos, false, false, 0);
-            return todo;
+            caja.pack_start (mas, false, false, 0);
+            return caja;
         }
 
         static void agregar_fila (Gtk.Box caja, string clave, string valor) {

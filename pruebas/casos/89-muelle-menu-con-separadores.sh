@@ -8,6 +8,8 @@ prueba() {
   local esq; esq="$(dirname "$(command -v muelle)")/../esquemas"
   [ -d "$esq" ] && export GSETTINGS_SCHEMA_DIR="$esq"
   local apps="$XDG_DATA_HOME/applications" lanz="$XDG_CONFIG_HOME/muelle/dock1/launchers"
+  # Partir de cero: lo que otro caso de la corrida dejó (lanzadores de 69, el dconf de Muelle) haría salir íconos «?» y otro menú
+  rm -rf "$XDG_CONFIG_HOME/muelle"; dconf reset -f /org/mintmacos/muelle/ 2>/dev/null || true
   mkdir -p "$apps" "$lanz"
   cat > "$apps/menu.desktop" <<EOF
 [Desktop Entry]
@@ -45,7 +47,7 @@ Name=Delta
 Exec=true
 EOF
   printf '[PlankDockItemPreferences]\nLauncher=file://%s/menu.desktop\n' "$apps" > "$lanz/menu.dockitem"
-  gsettings set org.mintmacos.muelle.dock.settings:/org/mintmacos/muelle/docks/dock1/ dock-items "['menu.dockitem']" 2>/dev/null || true
+  dconf write /org/mintmacos/muelle/docks/dock1/dock-items "['menu.dockitem']"   # (dconf directo: no depende de dónde esté el esquema)
   lanzar muelle
   local v; v="$(esperar_ventana '^[Mm]uelle$' 30)"
   sleep 3

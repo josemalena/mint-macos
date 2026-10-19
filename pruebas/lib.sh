@@ -68,7 +68,7 @@ bloqueo_pids() {
 despejar_pantalla() {
   case "$HOME" in */pruebas/home*) ;; *) return 0 ;; esac   # nunca fuera del sandbox: mataría los programas de José
   local p
-  for p in $(pgrep -u "$(id -u)" -x 'msedge|chrome|firefox|xed|nemo|fynder|kitty' 2>/dev/null); do
+  for p in $(pgrep -u "$(id -u)" -x 'msedge|chrome|firefox|xed|nemo|fynder|kitty|mac-forcequit|mac-acerca|mac-actividad|mac-tienda' 2>/dev/null); do
     if grep -qz "^HOME=$HOME$" "/proc/$p/environ" 2>/dev/null; then kill "$p" 2>/dev/null || true; fi
   done
   # Edge/Chrome no dejan leer su /proc/PID/environ (no son «dumpable»): se reconocen por su perfil de prueba, que va bajo el HOME del sandbox
