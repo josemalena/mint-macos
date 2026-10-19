@@ -3,7 +3,12 @@
 las casillas y los radios, sacados de los catálogos de apariencia del disco
 de la Mac.
 
-    controles.py <SystemAppearance.car> <DarkAquaAppearance.car> <tema>
+    controles.py <SystemAppearance.car> <DarkAquaAppearance.car> <tema> [--claro] [--acento ACENTO]
+
+--claro: las piezas de la apariencia clara (SystemAppearance) y los colores de Catalina claro.
+--acento: Purple, Pink, Red, Orange, Yellow, Green o Graphite; lo que en Catalina va del color de
+acento (la doble flecha del menú desplegable, el interruptor encendido, la pista llena del
+deslizador) se tiñe con ese color. Sin --acento, el azul de siempre.
 
 <tema> es la carpeta del tema ya construido (~/.themes/Constanza-Oscuro).
 Cambia:
@@ -217,11 +222,11 @@ def tres(selector, imagen, borde, vertical=False, extra=""):
             f"center / 100% 100% no-repeat;\n  background-clip: padding-box;{extra} }}\n")
 
 
-def hoja_css():
+def hoja_css(claro=False):
     c = """/* Controles de Catalina (controles.py). Las imágenes se generan en local
    desde el disco de la Mac; nada de Apple va al repo. */
-@define-color catalina_texto #e5e5e5;
-
+@define-color catalina_texto %s;
+""" % ('#262626' if claro else '#e5e5e5') + """
 /* Menús desplegables: el botón con la flecha doble azul. */
 """
     combo = "combobox button.combo"
@@ -265,7 +270,7 @@ def hoja_css():
               "barra-v", 8, vertical=True, extra=" margin: 0; min-width: 12px; min-height: 24px;")
     c += tres("scrollbar.horizontal slider, scrollbar.overlay-indicator:not(.dragging):not(.hovering).horizontal slider",
               "barra-h", 8, extra=" margin: 0; min-height: 12px; min-width: 24px;")
-    c += COLORES
+    c += COLORES_CLARO if claro else COLORES
     return c
 
 
@@ -344,7 +349,90 @@ headerbar:last-child, headerbar:last-child:backdrop { border-top-right-radius: 4
 """
 
 
-def css(tema, oscuros):
+# Los colores de Catalina claro. Los de sistema, medidos en la Monterey de Vega Real (extraer-mac,
+# medidas.json: windowBackgroundColor #ECECEC, controlBackground #FFFFFF, separador 10 % negro);
+# la barra de título, aproximada hasta tener la captura clara de Catalina.
+COLORES_CLARO = """
+/* Colores de Catalina claro */
+@define-color titlebar_gradient_a #e8e6e8;
+@define-color titlebar_gradient_b #d3d1d3;
+@define-color wm_bg #dcdadc;
+@define-color wm_bg_unfocused #f6f6f6;
+@define-color wm_highlight #ffffff;
+@define-color wm_border_focused #b3b3b3;
+@define-color wm_border_unfocused #c6c6c6;
+.background { background-color: #ececec; }
+.view, iconview, treeview.view, textview text,
+.nemo-window .view, .nemo-window iconview, .nemo-window treeview.view { background-color: #ffffff; }
+.sidebar, .nemo-window .sidebar, placessidebar, placessidebar list,
+.nemo-window .places-treeview, .nemo-window treeview.places-treeview { background-color: #e6e6e6; }
+
+headerbar, .csd headerbar, headerbar.default-decoration, .titlebar:not(headerbar),
+.maximized headerbar, .tiled headerbar {
+  background-color: #dcdadc;
+  background-image: linear-gradient(to bottom, #e8e6e8, #d3d1d3);
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.6);
+  border-bottom: 1px solid #b3b3b3; }
+headerbar:backdrop, .csd headerbar:backdrop, headerbar.default-decoration:backdrop,
+.titlebar:not(headerbar):backdrop, .maximized headerbar:backdrop {
+  background-color: #f6f6f6; background-image: none; box-shadow: none;
+  border-bottom-color: #d1d1d1; }
+
+menu menuitem, .menu menuitem, .context-menu menuitem, popover.menu modelbutton { font-size: 10.5pt; }
+headerbar.default-decoration, .titlebar:not(headerbar), headerbar.default-decoration:backdrop,
+.titlebar:not(headerbar):backdrop { border-bottom: none; }
+headerbar.default-decoration, .csd headerbar.default-decoration { min-height: 22px; padding: 0 6px; }
+headerbar.default-decoration button.titlebutton { margin: 0 -1px; }
+.ssd decoration { border-radius: 4px 4px 0 0; }
+separator:first-child + headerbar, headerbar:first-child,
+separator:first-child + headerbar:backdrop, headerbar:first-child:backdrop { border-top-left-radius: 4px; }
+headerbar:last-child, headerbar:last-child:backdrop { border-top-right-radius: 4px; }
+.maximized headerbar:first-child, .tiled headerbar:first-child,
+.maximized headerbar:last-child, .tiled headerbar:last-child { border-radius: 0; }
+
+.nemo-window headerbar, .nemo-window .titlebar:not(headerbar) {
+  background-image: linear-gradient(to bottom, #e8e6e8, #dcdadc);
+  border-bottom: none; }
+.nemo-window .primary-toolbar:not(.libreoffice-toolbar) {
+  background-color: #d6d4d6;
+  background-image: linear-gradient(to bottom, #dcdadc, #d3d1d3);
+  border-image: none; border-style: solid; border-width: 0 0 1px 0; border-color: #b3b3b3; }
+.nemo-window:backdrop headerbar, .nemo-window:backdrop .titlebar:not(headerbar),
+.nemo-window:backdrop .primary-toolbar:not(.libreoffice-toolbar) {
+  background-color: #f6f6f6; background-image: none; }
+"""
+
+# Los colores de acento de Catalina (los de sistema, medidos en Monterey: medidas.json).
+ACENTOS = {'Blue': '#007AFF', 'Purple': '#AF52DE', 'Pink': '#FF2D55', 'Red': '#FF3B30',
+           'Orange': '#FF9500', 'Yellow': '#FFCC00', 'Green': '#28CD41', 'Graphite': '#8E8E93'}
+# Las piezas que en Catalina van del color de acento.
+DE_ACENTO = ('popup', 'popup-apretado', 'pista-llena', 'sw-encendido', 'sw-encendido-desactivado')
+
+
+def tenir(img, acento):
+    """Pasa los píxeles azules (los del acento) al color dado, con su misma luz: el tono y la
+    saturación del acento, la luminosidad de cada píxel. Graphite queda en gris."""
+    import colorsys
+    h = ACENTOS[acento].lstrip('#')
+    r0, g0, b0 = (int(h[i:i + 2], 16) / 255 for i in (0, 2, 4))
+    ht, lt, st = colorsys.rgb_to_hls(r0, g0, b0)
+    _hb, lb, _sb = colorsys.rgb_to_hls(0, 0.478, 1)
+    px = img.load()
+    for y in range(img.height):
+        for x in range(img.width):
+            r, g, b, a = px[x, y]
+            if a == 0:
+                continue
+            hh, ll, ss = colorsys.rgb_to_hls(r / 255, g / 255, b / 255)
+            if ss > 0.35 and 0.52 < hh < 0.72:  # azul
+                # La luz relativa al azul de referencia, llevada a la del acento.
+                l2 = min(1, max(0, ll * (lt / lb)))
+                nr, ng, nb = colorsys.hls_to_rgb(ht, l2, st * min(1, ss / 0.9))
+                px[x, y] = (int(nr * 255), int(ng * 255), int(nb * 255), a)
+    return img
+
+
+def css(tema, oscuros, claro=False, acento=None):
     """Escribe gtk-3.0/catalina/*.png y catalina.css, y lo importa."""
     p = piezas(oscuros)
     if not p:
@@ -384,6 +472,8 @@ def css(tema, oscuros):
         for nombre, img in imagenes.items():
             if img is None:
                 continue
+            if acento and acento != 'Blue' and nombre in DE_ACENTO:
+                img = tenir(img.copy(), acento)
             img.save(os.path.join(carpeta, nombre + sufijo + ".png"))
             hechos += 1
             if nombre in tres_partes:
@@ -392,7 +482,7 @@ def css(tema, oscuros):
                 caja = (0, a, img.width, img.height - b) if vertical else (a, 0, img.width - b, img.height)
                 img.crop(caja).save(os.path.join(carpeta, nombre + "-centro" + sufijo + ".png"))
     with open(os.path.join(tema, "gtk-3.0", "catalina.css"), "w") as f:
-        f.write(hoja_css())
+        f.write(hoja_css(claro))
     for hoja in ("gtk.css", "gtk-dark.css"):
         ruta = os.path.join(tema, "gtk-3.0", hoja)
         texto = open(ruta).read()
@@ -436,7 +526,11 @@ def marco(tema):
 
 
 def main():
-    if len(sys.argv) != 4:
+    claro = '--claro' in sys.argv
+    acento = sys.argv[sys.argv.index('--acento') + 1] if '--acento' in sys.argv else None
+    sys.argv = [a for i, a in enumerate(sys.argv)
+                if a != '--claro' and a != '--acento' and not (i > 0 and sys.argv[i - 1] == '--acento')]
+    if len(sys.argv) != 4 or (acento and acento not in ACENTOS):
         sys.exit(__doc__)
     claros, oscuros = semaforos(sys.argv[1]), semaforos(sys.argv[2])
     if not oscuros:
@@ -445,7 +539,8 @@ def main():
     claras, oscuras = marcas(sys.argv[1]), marcas(sys.argv[2])
     g = gresource(sys.argv[3], claros or oscuros, oscuros, claras or oscuras, oscuras)
     marco(sys.argv[3])
-    c = css(sys.argv[3], sys.argv[2])
+    # Las piezas de la apariencia de la variante: la clara para Constanza-Claro.
+    c = css(sys.argv[3], sys.argv[1] if claro else sys.argv[2], claro, acento)
     print(f"  controles de Catalina: {m} semáforos en metacity-1, {g} imágenes en gtk.gresource"
           f" y {c} piezas en catalina/")
 

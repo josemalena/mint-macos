@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
-# Tema GTK «Constanza-Oscuro» en ~/.themes: ventanas (GTK 2, 3 y 4), panel y
+# Tema GTK «Constanza» en ~/.themes, en sus 16 variantes (José, 18-10-2026: Light, Dark y el color
+# de acento cambian el tema activo): Constanza-Oscuro y Constanza-Claro (acento azul, el de
+# siempre: el nombre del oscuro no cambia) y Constanza-<Oscuro|Claro>-<Acento> para los otros siete
+# de Catalina (Purple, Pink, Red, Orange, Yellow, Green, Graphite). Cada una: ventanas (GTK 2, 3 y 4), panel y
 # menús de Cinnamon, bordes con semáforos (metacity-1 para Muffin) y Plank.
 # Parte de Mojave-gtk-theme (vinceliuice, GPL-3.0) en una versión fijada: se
 # clona y se compila con su propio instalador, sin copiar su CSS al repo, y
@@ -9,7 +12,8 @@ set -euo pipefail
 AQUI="$(cd "$(dirname "$0")" && pwd)"
 # MOJAVE_REPO y MOJAVE_COMMIT: el manifiesto.
 source "$(dirname "$(dirname "$AQUI")")/versiones.sh"
-NOMBRE=Constanza-Oscuro
+# CONSTANZA_VARIANTES: cuáles armar («Oscuro», «Claro-Green»…); por defecto, todas.
+ACENTOS="blue purple pink red orange yellow green grey"
 DEST="${CONSTANZA_TEMAS:-$HOME/.themes}"        # CONSTANZA_TEMAS y CONSTANZA_PLANK: para probar sin tocar los activos
 TMP="$(mktemp -d)"
 trap 'desmontar_mac 2>/dev/null; rm -rf "${TMP:?}"' EXIT
@@ -21,9 +25,22 @@ done
 echo "  Mojave-gtk-theme ${MOJAVE_COMMIT:0:7}"
 git clone -q "$MOJAVE_REPO" "$TMP/mojave"
 git -C "$TMP/mojave" checkout -q "$MOJAVE_COMMIT"
-mkdir -p "$TMP/salida"
-"$TMP/mojave/install.sh" -d "$TMP/salida" -n Constanza -c dark -o standard -a standard -s standard >/dev/null 2>&1
-BASE="$TMP/salida/Constanza-Dark"
+# Los semáforos de Catalina, si hay disco de Mac: controles.py los saca de los catálogos de
+# apariencia (car.py, con liblzfse) y los pone en metacity-1 y en gtk.gresource. Nada de Apple
+# entra al repo. El disco se monta una vez para todas las variantes.
+source "$AQUI/../comun.sh"
+AP=""
+if montar_mac_sistema; then
+  AP="$MAC_SISTEMA/System/Library/CoreServices/SystemAppearance.bundle/Contents/Resources"
+fi
+
+armar() {  # COLOR (dark|light) ACENTO (de Mojave) NOMBRE
+COLOR="$1"; ACENTO="$2"; NOMBRE="$3"
+rm -rf "$TMP/salida"; mkdir -p "$TMP/salida"
+# El azul es el de Mojave sin -t («MacOS blue», el de siempre): -t blue es otro azul.
+"$TMP/mojave/install.sh" -d "$TMP/salida" -n Constanza -c "$COLOR" $([ "$ACENTO" = blue ] || echo "-t $ACENTO") \
+  -o standard -a standard -s standard >/dev/null 2>&1
+BASE="$(ls -d "$TMP/salida/Constanza-"* 2>/dev/null | head -1)"
 [ -f "$BASE/gtk-3.0/gtk.gresource" ] || { echo "  ✗ no se compiló el tema base"; exit 1; }
 
 # Lo propio encima, en GTK 3 (es lo que usan Nemo y casi todo en Cinnamon).
@@ -53,19 +70,17 @@ sed -i -e "0,/font-family: Futura[^;]*;/s//font-family: $SHELL_FUENTE, sans-seri
 sed -i -e "s/^Name=.*/Name=$NOMBRE/" -e "s/^GtkTheme=.*/GtkTheme=$NOMBRE/" \
        -e "s/^MetacityTheme=.*/MetacityTheme=$NOMBRE/" -e "s/^IconTheme=.*/IconTheme=Constanza/" \
        -e "s/^CursorTheme=.*/CursorTheme=$([ -d "$HOME/.local/share/icons/Constanza/cursors" ] && echo Constanza || echo McMojave-cursors)/" \
-       -e "s/^Comment=.*/Comment=Constanza oscuro: Mojave-gtk-theme (GPL-3.0) con retoques propios/" \
+       -e "s/^Comment=.*/Comment=$NOMBRE: Mojave-gtk-theme (GPL-3.0) con retoques propios/" \
        "$BASE/index.theme"
 cp "$AQUI/../CREDITOS.md" "$BASE/CREDITOS.md"
 
 # Los semáforos de Catalina, si hay disco de Mac: controles.py los saca de
 # los catálogos de apariencia (car.py, con liblzfse) y los pone en
 # metacity-1 y en gtk.gresource. Nada de Apple entra al repo.
-source "$AQUI/../comun.sh"
-if montar_mac_sistema; then
-  ap="$MAC_SISTEMA/System/Library/CoreServices/SystemAppearance.bundle/Contents/Resources"
-  python3 "$AQUI/controles.py" "$ap/SystemAppearance.car" "$ap/DarkAquaAppearance.car" "$BASE" \
-    || echo "  ⚠ sin semáforos de Catalina (quedan los de Mojave)"
-  desmontar_mac
+if [ -n "${AP:-}" ]; then
+  python3 "$AQUI/controles.py" "$AP/SystemAppearance.car" "$AP/DarkAquaAppearance.car" "$BASE" \
+    $([ "$COLOR" = light ] && echo --claro) ${ACENTO_MAC[$ACENTO]:+--acento ${ACENTO_MAC[$ACENTO]}} >/dev/null \
+    || echo "  ⚠ $NOMBRE sin semáforos de Catalina (quedan los de Mojave)"
 fi
 
 # El tema nuevo se copia al lado y se cambia de un golpe por el de siempre (el activo no se
@@ -76,11 +91,13 @@ if [ -e "$DEST/$NOMBRE" ]; then mv "$DEST/$NOMBRE" "$DEST/$NOMBRE.viejo-$$"; fi
 mv "$DEST/$NOMBRE.nuevo-$$" "$DEST/$NOMBRE"
 rm -rf "${DEST:?}/${NOMBRE:?}.viejo-$$"
 
-# Dock: el tema de Plank oscuro de Mojave con el nombre de Constanza.
+# Dock: el tema de Plank de Mojave con el nombre de Constanza; uno por apariencia (el acento no
+# cambia el Dock), con el nombre de la variante azul.
+[ "$ACENTO" = blue ] || { echo "  tema: $DEST/$NOMBRE"; return 0; }
 PLANK_FINAL="${CONSTANZA_PLANK:-$HOME/.local/share/plank/themes}/${NOMBRE:?}"
 PLANK="$PLANK_FINAL.nuevo-$$"          # se arma al lado y se cambia al final
 rm -rf "${PLANK:?}"; mkdir -p "$PLANK"
-cp "$TMP/mojave/src/other/plank/Theme-Dark/"* "$PLANK/"
+cp "$TMP/mojave/src/other/plank/Theme-$([ "$COLOR" = dark ] && echo Dark || echo Light)/"* "$PLANK/"
 # El Dock de Catalina, medido por la sesión de Plank contra las capturas de
 # José (alto 73 con íconos de 56, paso de 60, el punto de 4 px). Las claves
 # nuevas de plank-reloaded (IndicatorStyle=4 es el punto, BlurRadius,
@@ -133,3 +150,16 @@ if [ -e "$PLANK_FINAL" ]; then mv "$PLANK_FINAL" "$PLANK_FINAL.viejo-$$"; fi
 mv "$PLANK" "$PLANK_FINAL"
 rm -rf "${PLANK_FINAL:?}.viejo-$$"
 echo "  tema: $DEST/$NOMBRE"
+}
+
+declare -A ACENTO_MAC=([blue]="" [purple]=Purple [pink]=Pink [red]=Red [orange]=Orange [yellow]=Yellow [green]=Green [grey]=Graphite)
+for color in dark light; do
+  base=$([ "$color" = dark ] && echo Oscuro || echo Claro)
+  for a in $ACENTOS; do
+    nombre="Constanza-$base${ACENTO_MAC[$a]:+-${ACENTO_MAC[$a]}}"
+    v="${nombre#Constanza-}"
+    case " ${CONSTANZA_VARIANTES:-todas} " in *" todas "*|*" $v "*) ;; *) continue ;; esac
+    armar "$color" "$a" "$nombre"
+  done
+done
+[ -n "$AP" ] && desmontar_mac
