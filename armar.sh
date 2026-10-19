@@ -187,6 +187,11 @@ callado ninja -j2 -C "$T/build/nativo"
 install -d "$RAIZ$PREFIJO/bin"
 find "$T/build/nativo" -mindepth 2 -maxdepth 2 -type f -executable -name 'mac-*' -exec install -m 755 {} "$RAIZ$PREFIJO/bin/" \;
 install -m 755 "$M"/nativo/mac-*-lanzar "$RAIZ$PREFIJO/bin/"
+# El módulo GTK3 del parpadeo de los menús, donde lo pone compilar-desde-head.sh (el caso 96 lo busca ahí; sin él
+# salía «saltado»). No entra en GTK_MODULES: eso se hace al activarlo.
+if [ -f "$T/build/nativo/gtkmenu-flash/libmint-macos-menu-flash.so" ]; then
+  install -D -m 755 "$T/build/nativo/gtkmenu-flash/libmint-macos-menu-flash.so" "$RAIZ$PREFIJO/lib/mint-macos/libmint-macos-menu-flash.so"
+fi
 echo "  $(ls "$RAIZ$PREFIJO/bin" | grep -c '^mac-') programas de nativo/"
 
 # meson test de Fynder y del Dock en un X, bus y XDG propios: nada de lo de
