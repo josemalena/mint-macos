@@ -141,6 +141,9 @@ paso "Compilar Fynder"
 N_FYNDER="$(git -C "$S_FYNDER" rev-list --count --no-merges "$FYNDER_BASE..HEAD")"
 echo "$N_FYNDER" > "$T/fynder-build-number"
 export FYNDER_BUILD_COUNTER="$T/fynder-build-number"
+# La versión propia de Fynder para su About (regla de José, 19-10-2026): 1.0.<parches sobre Nemo>, la misma cuenta
+# que instalar-fynder.sh; se pasa por el entorno porque src/gen-build-number.sh no la saca sin .git.
+export FYNDER_VERSION="1.0.$N_FYNDER"
 export SOURCE_DATE_EPOCH="$(git -C "$S_FYNDER" log -1 --format=%ct HEAD)"
 callado meson setup "$T/build/fynder" "$S_FYNDER" --prefix="$PREFIJO"
 callado ninja -j2 -C "$T/build/fynder"
