@@ -8,15 +8,15 @@
     </key>
     <key name="flash-count" type="i">
       <default>2</default>
-      <range min="1" max="6"/>
-      <summary>Cuántas veces parpadea</summary>
-      <description>PROVISIONAL: sin medir. Infra lo mide por VNC en High Sierra.</description>
+      <range min="0" max="6"/>
+      <summary>Cuántas veces se apaga y se enciende el ítem antes de ejecutarse</summary>
+      <description>PROVISIONAL hasta tener la grabación de QuickTime de la Mac (con todos los cuadros). 0 = el ítem queda resaltado fijo flash-duration-ms y se ejecuta, sin apagarse (es lo que se vio por VNC desde el clic, pero por VNC no se ve el resaltado al pasar el ratón, así que no prueba que no haya apagado). Más de 0 = parpadeo de verdad.</description>
     </key>
     <key name="flash-duration-ms" type="i">
       <default>60</default>
       <range min="20" max="400"/>
-      <summary>Cuánto dura cada fase (encendido o apagado), en milisegundos</summary>
-      <description>PROVISIONAL: sin medir.</description>
+      <summary>Cuánto dura cada fase (con flash-count 0, cuánto queda resaltado fijo), en milisegundos</summary>
+      <description>PROVISIONAL. Por VNC en High Sierra: resaltado fijo de 100–150 ms desde el clic y fundido del menú de ~200–250 ms (el fundido no se hace aquí).</description>
     </key>
   </schema>
 </schemalist>

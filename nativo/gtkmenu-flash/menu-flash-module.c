@@ -71,6 +71,12 @@ static gboolean
 paso_de_parpadeo (gpointer dato)
 {
     Parpadeo *p = dato;
+    if (p->total == 0) {                                        // sin apagar: se quedó resaltado fijo y ahora se ejecuta
+        if (gtk_widget_get_mapped (GTK_WIDGET (p->shell)))
+            gtk_menu_shell_activate_item (p->shell, p->item, TRUE);
+        liberar_parpadeo (p);
+        return G_SOURCE_REMOVE;
+    }
     if (!gtk_widget_get_mapped (GTK_WIDGET (p->shell))) {      // lo cerraron mientras tanto (Esc, clic fuera)
         liberar_parpadeo (p);
         return G_SOURCE_REMOVE;

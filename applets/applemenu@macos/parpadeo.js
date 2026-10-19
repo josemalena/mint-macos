@@ -44,6 +44,14 @@ function activar() {
     // El ítem ya está resaltado: se apaga, se enciende, … y al final queda encendido un instante antes de cerrar
     let paso = 0;
     let total = veces * 2;
+    if (total === 0) {   // sin apagar: queda resaltado fijo `fase` ms y luego se ejecuta (lo medido en High Sierra)
+      GLib.timeout_add(GLib.PRIORITY_DEFAULT, fase, () => {
+        this._parpadeando = false;
+        try { original.call(this, event, keepMenu); } catch (e) { global.logError("parpadeo: " + e); }
+        return GLib.SOURCE_REMOVE;
+      });
+      return undefined;
+    }
     GLib.timeout_add(GLib.PRIORITY_DEFAULT, fase, () => {
       try {
         paso++;
