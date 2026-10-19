@@ -77,6 +77,7 @@ existe, no viene.
 - `alterno_de`: el ítem aparece en lugar de ese otro mientras se aprieta ⌥ (System Information en
   lugar de About This Mac). `mods_alterno`: con qué teclas.
 - `oculto`: existe pero la Mac no lo enseña salvo en un caso (Location, solo con más de una).
+- `ocultar` (con `motivo`): lo quitamos nosotros, por adaptaciones.json («menus», `menu-apple:<id>`); no se enseña nunca.
 - `icono`: en las versiones que ponen íconos en los menús (macOS 27), el nombre del símbolo.
 - `fuente`: de qué archivo de la Mac salió, o `captura <archivo>` si lo dice una captura. **Si una
   captura contradice un archivo, gana la captura** y se anota.

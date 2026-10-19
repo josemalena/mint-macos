@@ -37,8 +37,8 @@
    ],
    "ocultar": true,
    "estado": "aprobado",
-   "fuente": "José, 18-10-2026",
-   "motivo": "Handoff necesita la continuidad con dispositivos de Apple; no hay cómo integrarlo hoy."
+   "fuente": "José, 18-10-2026; descartado por José, 19-10-2026 (vía Planner)",
+   "motivo": "Descartado por José, 19-10-2026. (Handoff necesita la continuidad con dispositivos de Apple.)"
   },
   {
    "ids": [
@@ -229,6 +229,17 @@
    "estado": "aprobado",
    "fuente": "José, 19-10-2026 («Pausa y oculta screen time», vía Planner)",
    "motivo": "En pausa, José 19-10-2026. El estimado para hacerlo (servicio TiempoDeUso1: uso por app con BAMF, Downtime y App Limits) es de 2.5 a 3 días de Infra más la hoja «Time Limit» de Dev-Dock."
+  }
+ ],
+ "menus": [
+  {
+   "ids": [
+    "menu-apple:loca"
+   ],
+   "ocultar": true,
+   "estado": "aprobado",
+   "fuente": "José, 19-10-2026 (vía Planner)",
+   "motivo": "Descartado por José, 19-10-2026: Location no sale en el menú Apple, ni con varias ubicaciones de red."
   }
  ]
 }

@@ -466,11 +466,18 @@ def generar(version, raices=None, medidas=None):
             json.dump(datos, f, ensure_ascii=False, indent=1)
         partes[nombre] = 'ok'
 
-    guardar('menu-apple', menu_apple(version, raices))
+    ad = adaptaciones()
+    apple = menu_apple(version, raices)
+    # Lo que José quitó del menú Apple (adaptaciones.json, «menus»: «menu-apple:<id>»).
+    quitar = {i.split(':', 1)[1]: r.get('motivo') for r in ad.get('menus', []) if r.get('estado') == 'aprobado'
+              and r.get('ocultar') for i in r['ids'] if i.startswith('menu-apple:')}
+    for e in (apple or {}).get('items', []):
+        if e.get('id') in quitar:
+            e['ocultar'], e['motivo'] = True, quitar[e['id']]
+    guardar('menu-apple', apple)
     guardar('menus-estandar', menus_estandar(version, raices))
     indice = system_preferences(version, raices)
     n = contenidos_paneles(version, raices, indice)
-    ad = adaptaciones()
     if indice:
         aprob = [r for r in ad.get('paneles', []) if r.get('estado') == 'aprobado']
         for g in indice['grupos']:
