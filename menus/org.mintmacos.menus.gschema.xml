@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="org.mintmacos.menus" path="/org/mintmacos/menus/">
+    <key name="menu-flash" type="b">
+      <default>false</default>
+      <summary>Parpadeo al escoger un ítem de menú</summary>
+      <description>Como la Mac desde System 6: al escoger un ítem, su resaltado parpadea antes de que el menú se cierre y la acción corra. Lo leen el parche de los menús de Cinnamon (applemenu@macos/parpadeo.js) y el módulo GTK3. Apagado hasta que haya medidas de la Mac.</description>
+    </key>
+    <key name="flash-count" type="i">
+      <default>2</default>
+      <range min="1" max="6"/>
+      <summary>Cuántas veces parpadea</summary>
+      <description>PROVISIONAL: sin medir. Infra lo mide por VNC en High Sierra.</description>
+    </key>
+    <key name="flash-duration-ms" type="i">
+      <default>60</default>
+      <range min="20" max="400"/>
+      <summary>Cuánto dura cada fase (encendido o apagado), en milisegundos</summary>
+      <description>PROVISIONAL: sin medir.</description>
+    </key>
+  </schema>
+</schemalist>

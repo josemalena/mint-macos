@@ -116,6 +116,7 @@ class AppleMenuApplet extends Applet.IconApplet {
     this.setAllowedLayout(Applet.AllowedLayout.BOTH);
 
     // Una app que no contesta abre Force Quit Applications con ella escogida, no el diálogo de Cinnamon (colgadas.js)
+    try { imports.ui.appletManager.applets["applemenu@macos"].parpadeo.activar(); } catch (e) { global.logError("applemenu: parpadeo: " + e); }
     try { imports.ui.appletManager.applets["applemenu@macos"].colgadas.activar(); } catch (e) { global.logError("applemenu: colgadas: " + e); }
 
     this.settings = new Settings.AppletSettings(this, metadata.uuid, instance_id);
@@ -697,6 +698,7 @@ class AppleMenuApplet extends Applet.IconApplet {
 
   on_applet_removed_from_panel() {
     try { imports.ui.appletManager.applets["applemenu@macos"].colgadas.desactivar(); } catch (e) {}
+    try { imports.ui.appletManager.applets["applemenu@macos"].parpadeo.desactivar(); } catch (e) {}
     this._cerrarRecientes();
     if (this._focoId) {
       global.display.disconnect(this._focoId);
