@@ -144,11 +144,25 @@ def plan(m):
     acentos = {-1: "Graphite", 0: "Red", 1: "Orange", 2: "Yellow", 3: "Green", 4: "Blue", 5: "Purple", 6: "Pink"}
     ac = acentos.get(g.get("AppleAccentColor"), "Blue") if "AppleAccentColor" in g else "Blue"
     nota = "" if "AppleAccentColor" not in g else " (número de acento → color: tabla de la comunidad, sin fuente de Apple; hipótesis)"
-    p.append(("apariencia %s, acento %s%s" % (ap, ac, nota),
-              ("cmd", ["gdbus", "call", "--session", "-d", "org.mintmacos.Apariencia1", "-o", "/org/mintmacos/Apariencia1",
-                       "-m", "org.mintmacos.Apariencia1.Poner", ap, ac, ""], "apariencia"), ""))
+
+    resaltado, nota_r = "", ""
     if "AppleHighlightColor" in g:
-        p.append(("color de resaltado «%s»" % g["AppleHighlightColor"], None, "sin convertir todavía: va a mano en General"))
+        # «R G B Nombre» (0..1). Con nombre de la Mac va el color base de ese nombre (el que Apariencia1
+        # aclara con transparencia, rust/apariencia COLORES); con «Other», el RGB tal cual.
+        partes = str(g["AppleHighlightColor"]).split()
+        base = {"Blue": "#007AFF", "Purple": "#AF52DE", "Pink": "#FF2D55", "Red": "#FF3B30", "Orange": "#FF9500",
+                "Yellow": "#FFCC00", "Green": "#28CD41", "Graphite": "#8E8E93"}
+        if len(partes) >= 4 and partes[3] in base:
+            resaltado = "acento" if partes[3] == ac else base[partes[3]]
+        elif len(partes) >= 3:
+            try:
+                resaltado = "#%02X%02X%02X" % tuple(round(float(x) * 255) for x in partes[:3])
+                nota_r = " (Other: el RGB de la Mac tal cual)"
+            except ValueError:
+                nota_r = " (no se entiende «%s»: queda el del acento)" % g["AppleHighlightColor"]
+    p.append(("apariencia %s, acento %s, resaltado %s%s%s" % (ap, ac, resaltado or "el del acento", nota, nota_r),
+              ("cmd", ["gdbus", "call", "--session", "-d", "org.mintmacos.Apariencia1", "-o", "/org/mintmacos/Apariencia1",
+                       "-m", "org.mintmacos.Apariencia1.Poner", ap, ac, resaltado or "acento"], "apariencia"), ""))
     # General y Mouse
     sb = {"Always": "false", "WhenScrolling": "true"}.get(g.get("AppleShowScrollBars"))
     if sb:
@@ -231,6 +245,16 @@ class Deshacer:
         self.lineas.insert(0, linea)
         with open(self.archivo, "w") as f:
             f.write("#!/bin/bash\n# Vuelta atrás de migrar-config.sh (en orden inverso).\nset -u\n" + "\n".join(self.lineas) + "\n")
+
+
+def apariencia_actual():
+    """(apariencia, acento, resaltado) de Apariencia1, o None."""
+    r = correr([os.path.join(HOGAR, ".local/lib/mint-macos/mint-macos-apariencia"), "--estado"])
+    try:
+        j = json.loads(r.stdout)
+        return (j["apariencia"], j["acento"], j["resaltado"])
+    except (ValueError, KeyError):
+        return None
 
 
 def correr(cmd):
@@ -323,7 +347,8 @@ def informe(m, p, hechos, ruta):
     for que, acc, nota in p:
         res = estado.get(que)
         if res is None and acc and hechos is None:
-            res = "ya está" if acc[0] == "gs" and gs_get(acc[1], acc[2]) == acc[3] else "se haría"
+            res = "ya está" if (acc[0] == "gs" and gs_get(acc[1], acc[2]) == acc[3]) or \
+                (acc[0] == "cmd" and acc[2] == "apariencia" and apariencia_actual() == tuple(acc[1][-3:])) else "se haría"
         res = res or ("solo informe" if acc is None else "—")
         l.append("| %s | %s | %s |" % (que, res, nota))
     texto = "\n".join(l) + "\n"
