@@ -35,7 +35,11 @@ Shortcuts, Modifier Keys y Hot Corners con su menú abierto, Screen Saver Option
 Notifications con una app); alertas y diálogos (Save, Save expandido, Open,
 «¿guardar cambios?», la clave de administrador, que se cancela sola); About
 This Mac con sus pestañas; Force Quit; la barra de ⇧⌘5; ⌘Tab; Mission Control
-y la primera pantalla de Migration Assistant.
+y la primera pantalla de Migration Assistant; y los Stacks del escritorio (bloque 17, de
+Mojave en adelante): las pilas cerradas, una abierta y Group Stacks By. Para eso pone en el
+Desktop unos archivos `extraer-pila-*` (imágenes, PDF y capturas) que borra al terminar, y deja
+«Use Stacks» como estaba. Estas capturas llevan la versión en el nombre
+(`17-stacks-cerradas-macos<versión>-<modo>.png`). Solo ese bloque: `BLOQUES="17" bash extraer.sh capturas`.
 
 ## Pasos
 

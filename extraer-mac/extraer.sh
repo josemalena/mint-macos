@@ -5,7 +5,8 @@
 # Lo lanza «Extraer Mac.applescript»; también corre solo desde Terminal:
 #
 #   bash extraer.sh [permisos] [recursos] [medidas] [capturas] [videos] [entregar]   (sin nada: todo)
-#   BLOQUES="08 09" bash extraer.sh capturas      (solo esos bloques de la tanda: 01 03 05 06 07 08 09 12 13 14 15 16)
+#   BLOQUES="08 09" bash extraer.sh capturas      (solo esos bloques de la tanda: 01 03 05 06 07 08 09 12 13 14 15 16 17)
+#   BLOQUES="17" bash extraer.sh capturas         Stacks del escritorio (Mojave en adelante): pilas cerradas, una abierta y Group Stacks By
 #   BLOQUES="16" bash extraer.sh capturas         solo lo que faltaba de la lista de Catalina (en oscuro; pide la clave para el candado)
 #
 #   «permisos» va primero y pide DE UNA VEZ todo lo que el guion va a usar
@@ -269,7 +270,16 @@ ORI_ORIG="$(leer_def com.apple.dock orientation)"; DESK_ORIG="$(leer_def com.app
 STATUS_ORIG="$(leer_def com.apple.finder ShowStatusBar)"; AUTOHIDE_ORIG="$(leer_def com.apple.dock autohide)"
 SS_ORIG="$(defaults -currentHost read com.apple.screensaver idleTime 2>/dev/null || echo __sin__)"
 MUESTRA_CREADA=false
+# Bloque 17 (Stacks): los archivos de prueba que puso en el Desktop y si cambió «Use Stacks».
+PILA_LISTA="$SAL/pila-archivos.txt"; : > "$PILA_LISTA"; STACKS_TOCADO=false
+usar_stacks_marca() { # «si» o «no»: si «Use Stacks» del menú View del escritorio está marcado
+  local m; m="$(osa -e 'tell application "System Events" to tell process "Finder" to get value of attribute "AXMenuItemMarkChar" of menu item "Use Stacks" of menu 1 of menu bar item "View" of menu bar 1')"
+  case "$m" in ""|missing\ value) echo no ;; *) echo si ;; esac; }
+usar_stacks_clic() { osa -e 'tell application "System Events" to tell process "Finder" to click menu item "Use Stacks" of menu 1 of menu bar item "View" of menu bar 1'; }
+borrar_pila() { local f; while IFS= read -r f; do case "$f" in "$HOME/Desktop/extraer-pila-"*) rm -f "$f" ;; esac; done < "$PILA_LISTA"; : > "$PILA_LISTA"; }
 devolver() {
+  if $STACKS_TOCADO; then osa -e 'tell application "Finder" to activate'; usar_stacks_clic; STACKS_TOCADO=false; log "17: Use Stacks devuelto en devolver"; fi
+  borrar_pila
   poner_def com.apple.dock magnification "$MAG_ORIG" bool; poner_def com.apple.dock largesize "$LARGE_ORIG" int
   poner_def com.apple.dock orientation "$ORI_ORIG" string; poner_def com.apple.finder CreateDesktop "$DESK_ORIG" bool
   poner_def com.apple.finder ShowStatusBar "$STATUS_ORIG" bool
@@ -853,6 +863,53 @@ tanda() { # claro | oscuro
   osa -e 'tell application "System Events"' -e 'key down option' -e 'try' -e 'delay 1.5' \
       -e "do shell script \"screencapture -x '$CAP/16-launchpad-edicion-$M.png'\"" -e 'end try' -e 'key up option' -e 'end tell' && log "cap 16-launchpad-edicion-$M"
   esc; sleep 1; raton_fuera
+  fi
+  # 17 Stacks del escritorio (Mojave en adelante; High Sierra no los tiene). Lo pide Dev para Fynder
+  # (Planner, 19-10-2026): las pilas cerradas, una abierta y Group Stacks By. Los archivos de prueba van
+  # al Desktop con el prefijo extraer-pila- y se borran al final (y en devolver); «Use Stacks» queda como
+  # estaba. Las capturas llevan la versión: son de 27 o de Monterey hasta confirmarlas en Catalina.
+  if bloque 17; then
+  V17="macos$VERSION"
+  # los archivos: imágenes, PDF y capturas de pantalla (estas con su marca de captura, por screencapture)
+  mkdir -p "$HOME/Desktop"
+  i=0; for f in $(ls "/System/Library/Desktop Pictures/"*.heic 2>/dev/null | head -3 | tr ' ' '?'); do
+    i=$((i+1)); sips -s format jpeg -Z 1200 "$(echo "$f" | tr '?' ' ')" --out "$HOME/Desktop/extraer-pila-imagen-$i.jpg" >/dev/null 2>&1 \
+      && echo "$HOME/Desktop/extraer-pila-imagen-$i.jpg" >> "$PILA_LISTA"; done
+  for n in 1 2; do printf 'Documento de prueba %s (extraer-mac)\n' "$n" > "$SAL/pila-$n.txt"
+    /usr/sbin/cupsfilter -m application/pdf "$SAL/pila-$n.txt" > "$HOME/Desktop/extraer-pila-documento-$n.pdf" 2>/dev/null \
+      && echo "$HOME/Desktop/extraer-pila-documento-$n.pdf" >> "$PILA_LISTA"; done
+  for n in 1 2; do screencapture -x -R 0,0,400,300 "$HOME/Desktop/extraer-pila-captura-$n.png" \
+      && echo "$HOME/Desktop/extraer-pila-captura-$n.png" >> "$PILA_LISTA"; done
+  log "17: $(wc -l < "$PILA_LISTA" | tr -d ' ') archivos de prueba en el Desktop"
+  defaults write com.apple.finder CreateDesktop -bool true; killall Finder; sleep 3; cerrar_finder
+  finder_activar; ocultar; raton_fuera
+  STACKS_ORIG="$(usar_stacks_marca)"; log "17: Use Stacks antes: ${STACKS_ORIG:-?}"
+  if [ "$STACKS_ORIG" != si ]; then usar_stacks_clic && STACKS_TOCADO=true; sleep 2.5; fi
+  raton_fuera; cap_full 17-stacks-cerradas-$V17-$M
+  # una pila abierta: la de imágenes si se encuentra; si no, el primer ícono del escritorio
+  P="$(osa -e 'tell application "System Events" to tell process "Finder"' \
+      -e 'set r to ""' -e 'repeat with e in (every UI element of group 1 of scroll area 1)' \
+      -e 'if r is "" and (name of e contains "Image" or name of e contains "Imagen") then set r to ((item 1 of (position of e)) + (item 1 of (size of e)) div 2) & "," & ((item 2 of (position of e)) + (item 2 of (size of e)) div 3)' \
+      -e 'end repeat' -e 'if r is "" then set e to UI element 1 of group 1 of scroll area 1' \
+      -e 'if r is "" then set r to ((item 1 of (position of e)) + (item 1 of (size of e)) div 2) & "," & ((item 2 of (position of e)) + (item 2 of (size of e)) div 3)' \
+      -e 'return r as text' -e 'end tell')"
+  P="${P//, /,}"
+  if [ -n "$P" ]; then p=(${P//,/ }); $H raton clic "${p[0]}" "${p[1]}"; sleep 2; $H raton mover $((W/5)) $((HH*85/100)); sleep 0.5
+    cap_full 17-stack-abierta-$V17-$M
+    $H raton clic "${p[0]}" "${p[1]}"; sleep 1.5
+  else log "17: no encontré una pila en el escritorio"; fi
+  raton_fuera
+  # Group Stacks By, desde el menú contextual del escritorio
+  $H raton derecho $((W/5)) $((HH*55/100)); sleep 1
+  P="$(osa -e 'tell application "System Events" to tell process "Finder" to get position of menu item "Group Stacks By" of menu 1 of group 1 of scroll area 1' 2>/dev/null)"
+  [ -z "$P" ] && P="$(osa -e 'tell application "System Events" to tell process "Finder" to get position of menu item "Group Stacks By" of menu 1' 2>/dev/null)"
+  if [ -n "$P" ]; then P="${P//, /,}"; p=(${P//,/ }); $H raton mover $(( ${p[0]} + 60 )) $(( ${p[1]} + 8 )); sleep 1.2
+  else tecla Finder 'keystroke "Group Stacks"'; sleep 0.5; tecla Finder 'key code 124'; sleep 1; fi
+  cap_full 17-group-stacks-by-$V17-$M; esc; esc; raton_fuera
+  # devolver: Use Stacks como estaba, los archivos fuera y los íconos del escritorio como en la tanda
+  if $STACKS_TOCADO; then finder_activar; cerrar_finder; usar_stacks_clic && STACKS_TOCADO=false; sleep 1.5; fi
+  borrar_pila
+  poner_def com.apple.finder CreateDesktop "$DESK_ORIG" bool; killall Finder; sleep 2.5
   fi
   log "=== fin tanda $M ==="
 }
