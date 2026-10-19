@@ -150,6 +150,12 @@ export MAC_SISTEMA="$MAC"
 "$REPO/icloud/apps-web.sh"
 # Los perfiles de versión de macOS (perfiles/ESQUEMA.md): lo que haya aquí del disco de la Mac y
 # de las referencias, mint-macos-version y el autoarranque que aplica la versión escogida al entrar.
+# Los que vienen en el paquete primero: aquí no están las referencias de Monterey ni de Sequoia,
+# y generar.py no pisa un perfil que no puede rehacer.
+if [ -f "$AQUI/perfiles.tar.gz" ]; then
+  mkdir -p "$HOME/.local/share/mint-macos/macos"
+  tar -xzf "$AQUI/perfiles.tar.gz" -C "$HOME/.local/share/mint-macos/macos"
+fi
 "$REPO/perfiles/instalar.sh"
 # rclone en ~/.local/bin (versión fija, con checksum): lo usan el panel Apple ID
 # de System Preferences y iCloud Drive. El alta de la cuenta la hace José.

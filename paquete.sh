@@ -17,6 +17,8 @@
 #   cursores-base.tar.gz  McMojave-cursors, la base de los cursores de Constanza
 #   spotlyte.tar.gz     Spotlyte (el Spotlight), y spotlyte-config.tar.gz su configuración
 #   fynder-ajustes.dconf  los ajustes de Fynder del usuario (etiquetas, menú global…)
+#   perfiles.tar.gz    los perfiles de versión de macOS ya generados aquí (perfiles/ESQUEMA.md):
+#                       la otra computadora no tiene las referencias de Monterey ni de Sequoia
 #   nativo-binarios.tar.gz  mac-sesion y su lanzador (nativo/, Vala), a ~/.local/bin
 #   rust-binarios.tar.gz  los ayudantes de root en Rust (rust/target/release)
 #   greeter.tar.gz      el fork de la pantalla de inicio, en el hash de versiones.sh
@@ -113,6 +115,15 @@ for l in sys.stdin:
         print(l)
 ' > "$DEST/fynder-ajustes.dconf"
 echo "  $(grep -c = "$DEST/fynder-ajustes.dconf") ajustes"
+
+paso "Perfiles de versión de macOS"
+PERFILES="$HOME/.local/share/mint-macos/macos"
+if [ -d "$PERFILES" ]; then
+  tar_fijo -cf - -C "$PERFILES" . | gzip -n > "$DEST/perfiles.tar.gz"
+  echo "  $(ls "$PERFILES" | tr '\n' ' ')"
+else
+  echo "  ⚠ sin perfiles (perfiles/instalar.sh no se ha corrido aquí): la otra computadora queda en Catalina"
+fi
 
 # BINARIOS_DESDE: un «home» de montaje (meson install --destdir) con Fynder y el
 # Dock compilados del HEAD commiteado, para no llevar lo que haya instalado aquí

@@ -431,6 +431,12 @@ def generar(version, raices=None, medidas=None):
     v = VERSIONES.get(version, {'nombre': version, 'numero': '', 'raices': [], 'medidas': None})
     raices = [r for r in (raices or v['raices']) if os.path.isdir(r)]
     destino = os.path.join(SALIDA, version)
+    viejo = os.path.join(destino, 'version.json')
+    if not raices and os.path.exists(viejo):
+        # Sin fuente aquí (otra computadora, que recibió el perfil en el paquete): no se pisa.
+        info = json.load(open(viejo))
+        info['partes'] = dict(info.get('partes', {}), nota='sin fuente aquí: se queda el que vino en el paquete')
+        return info
     os.makedirs(os.path.join(destino, 'apps'), exist_ok=True)
     partes = {}
 
