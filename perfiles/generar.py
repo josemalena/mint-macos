@@ -451,14 +451,18 @@ def generar(version, raices=None, medidas=None):
         aprob = [r for r in ad.get('paneles', []) if r.get('estado') == 'aprobado']
         for g in indice['grupos']:
             for p in g['paneles']:
-                for r in ad.get('paneles', []):
-                    if (p.get('id_propio') or p['id']) in r['ids']:
-                        if r in aprob and r.get('ocultar_parte'):
-                            p['ocultar_parte'], p['motivo'] = r['ocultar_parte'], r.get('motivo')
-                        elif r in aprob:
-                            p['ocultar'], p['motivo'] = True, r.get('motivo')
-                        else:
-                            p.setdefault('propuestas', []).append({'ocultar': True, 'motivo': r.get('motivo')})
+                # Por el id propio, o por el viejo cuando el panel viene de uno solo (Spotlight de
+                # Sequoia junta varios viejos, entre ellos el de Siri). La del id propio gana: Touch ID
+                # & Password de Sequoia se queda con la clave aunque el Touch ID de Catalina se oculte.
+                propias = [r for r in ad.get('paneles', []) if p.get('id_propio') in r['ids']]
+                viejas = [r for r in ad.get('paneles', []) if p['id'] in r['ids'] and not p.get('ids_viejos')]
+                for r in propias or viejas:
+                    if r in aprob and r.get('ocultar_parte'):
+                        p['ocultar_parte'], p['motivo'] = r['ocultar_parte'], r.get('motivo')
+                    elif r in aprob:
+                        p['ocultar'], p['motivo'] = True, r.get('motivo')
+                    else:
+                        p.setdefault('propuestas', []).append({'ocultar': True, 'motivo': r.get('motivo')})
         controles = [r for r in ad.get('controles', []) if r.get('estado') == 'aprobado']
         carpeta = os.path.join(SALIDA, version, 'apps', 'system-preferences')
         for f in os.listdir(carpeta) if os.path.isdir(carpeta) else []:
