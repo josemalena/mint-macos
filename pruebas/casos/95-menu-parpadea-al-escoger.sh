@@ -60,7 +60,12 @@ prueba() {
       for _ in 1 2 3 4 5 6 7 8; do sleep 0.3; menu_abierto && break 2; done
       xdotool key Escape; sleep 0.5      # no salió: se cierra lo que haya y se reintenta
     done
-    menu_abierto || falla "el menú de la manzana no se abrió en 6 intentos"
+    if ! menu_abierto; then
+      # Diagnóstico para el armado completo: la pantalla entera, el estado del salvapantallas y las ventanas
+      captura "sin-menu-pantalla-completa"
+      { echo "--- xset q:"; xset q 2>&1 | grep -A3 "Screen Saver\|DPMS"; echo "--- ventanas:"; wmctrl -l 2>&1; echo "--- applets de Cinnamon:"; gsettings get org.cinnamon enabled-applets; } >&2
+      falla "el menú de la manzana no se abrió en 6 intentos"
+    fi
     captura "menu-sin-escoger-$modo"
     xdotool key Down; sleep 0.5
     captura "menu-abierto-$modo"
