@@ -21,4 +21,7 @@ if [ -x "$T/nativo/build/polkit/mac-polkit" ]; then
 else
   echo "sin libpolkit-agent-1-dev: no se compiló mac-polkit (el agente sigue siendo el de Python)"
 fi
+# La pantalla de bloqueo en la sesión: se instala el binario, pero no se cablea; eso lo hace
+# login/bloqueo.sh --en-sesion, con el sí de José (nativo/bloqueo/LEEME.md).
+[ -x "$T/nativo/build/bloqueo/mac-bloqueo" ] && install -m 755 "$T/nativo/build/bloqueo/mac-bloqueo" "$RAIZ/.local/bin/"
 echo "compilado del HEAD $(git -C "$REPO" rev-parse --short HEAD)"

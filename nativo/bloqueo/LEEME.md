@@ -63,6 +63,10 @@ una consola en esta máquina y que ssh a la Mac mini entra.
 - Servicio de usuario `mac-bloqueo-vigilante.service`: `ExecStart=%h/.local/bin/mac-bloqueo --vigilar`, `Restart=always`, `RestartSec=1`.
 - Quitar de `login/bloqueo.sh` el custom-screensaver-command de `dm-tool lock` cuando se active.
 
+**Hecho (Infra, 19-10-2026), sin activar:** `login/bloqueo.sh --en-sesion` cablea todo lo de arriba (custom-screensaver-command →
+`mac-bloqueo`, que cubre ⌃⌘Q, Lock Screen, la esquina y la suspensión; xss-lock → `mac-bloqueo`; `mac-bloqueo-vigilante.service`).
+`login/bloqueo.sh` sin nada vuelve a `dm-tool lock` y quita el vigilante. `nativo/compilar-desde-head.sh` instala el binario.
+
 ## Pruebas
 
 - 92: clave mala, matar la pantalla (vuelve en menos de 1 s) y clave buena. PAM de mentira por `LD_PRELOAD` (`pruebas/ayudantes/pam-falso.c`): solo en pruebas; el binario no trae ninguna clave ni atajo.
