@@ -2,6 +2,10 @@
 //! el de José: los eventos son de mentira.
 use super::*;
 
+/// Las variables de entorno son del proceso y las pruebas corren en hilos: van de una en una
+/// (CALENDARIO_PERFIL de una pisaba la de la otra).
+static ENTORNO: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 fn us(s: &str) -> i64 {
     // «2026-10-18T23:30:00Z» → µs.
     DateTime::parse_from_rfc3339(s).unwrap().timestamp_micros()
@@ -74,6 +78,7 @@ mod tempdir {
 
 #[test]
 fn eventos_con_zonas_recurrencias_y_excepciones() {
+    let _turno = ENTORNO.lock().unwrap_or_else(|e| e.into_inner());
     // La hora local de la prueba es la de José (GMT-4, sin horario de verano).
     std::env::set_var("TZ", "America/Santo_Domingo");
     let d = perfil_de_mentira();
@@ -118,6 +123,7 @@ fn eventos_con_zonas_recurrencias_y_excepciones() {
 
 #[test]
 fn sin_perfil_ninguno() {
+    let _turno = ENTORNO.lock().unwrap_or_else(|e| e.into_inner());
     std::env::set_var("CALENDARIO_PERFIL", "/no/existe");
     assert!(eventos(0, i64::MAX / 2).is_empty());
 }

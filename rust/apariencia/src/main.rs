@@ -557,6 +557,10 @@ fn main() {
 mod pruebas {
     use super::*;
 
+    /// Las variables de entorno son del proceso y las pruebas corren en hilos: las que las tocan
+    /// van de una en una (en el armado, la de los temas pisaba APARIENCIA_SIMULAR de Night Shift).
+    static ENTORNO: Mutex<()> = Mutex::new(());
+
     #[test]
     fn sol_en_santo_domingo() {
         // 18-10-2026 (1792281600 = 00:00 UTC). En Santo Domingo el sol sale cerca de las 6:50 y se
@@ -570,6 +574,7 @@ mod pruebas {
     /// Night Shift en una sola prueba: las variables de entorno son del proceso.
     #[test]
     fn night_shift_hasta_manana() {
+        let _turno = ENTORNO.lock().unwrap_or_else(|e| e.into_inner());
         let dir = std::env::temp_dir().join(format!("apariencia-noche-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
@@ -616,6 +621,7 @@ mod pruebas {
 
     #[test]
     fn tema_por_apariencia_y_acento() {
+        let _turno = ENTORNO.lock().unwrap_or_else(|e| e.into_inner());
         std::env::set_var("APARIENCIA_SIMULAR", "/dev/null");
         assert_eq!(tema(true, "Blue"), "Constanza-Oscuro");
         assert_eq!(tema(false, "Blue"), "Constanza-Claro");
