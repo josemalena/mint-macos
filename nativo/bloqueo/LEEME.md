@@ -22,6 +22,10 @@ y es lo que asustaba con mensajes FATAL). Decisión de José, 19-10-2026. Por ah
 - **Pantalla.** Una ventana sin gestor (override-redirect) por monitor con grab de teclado y ratón (reintenta sin parar, y si lo pierde lo retoma) y
   subida al frente cada medio segundo: ninguna notificación, menú ni el Dock queda encima, y nada de lo que se teclea llega a la app del frente
   (caso 93).
+- **Menús abiertos.** Mientras hay un menú de Cinnamon abierto, Muffin tiene agarrados el teclado y el ratón (begin_modal) y el grab de la pantalla falla con
+  ALREADY_GRABBED: se vería bloqueada pero la clave iría al menú. Por eso, si el grab falla, la pantalla le pide a Cinnamon por `org.Cinnamon.Eval` que haga
+  popModal de cada modal y reintenta (caso 93, con un menú abierto antes de bloquear). Depende de que ese Eval esté disponible; si no lo está, la
+  salida de emergencia de abajo sigue funcionando.
 - **Clave.** PAM con el servicio `cinnamon-screensaver` del sistema (pam_unix → unix_chkpwd, sin setuid propio). La clave no se guarda: se pasa a PAM
   y se borra la copia. `pam_ayuda.c` declara la ABI mínima de PAM, así que no hace falta `libpam0g-dev` para compilar.
 - **Aspecto.** Fondo de escritorio desenfocado, avatar de 144 px, nombre en negrita y «Enter Password» (cadena de LoginUICore). Las medidas son las del
