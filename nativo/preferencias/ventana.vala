@@ -63,6 +63,7 @@ namespace Preferencias {
         Gtk.Button b_atras;
         Gtk.Button b_adelante;
         Gtk.Image i_atras;
+        Gtk.Image i_todo;
         Gtk.Image i_adelante;
         public Gtk.SearchEntry buscar;
         ListaResultados resultados;
@@ -159,6 +160,7 @@ namespace Preferencias {
                 return;
             }
             claro_aplicado = claro;
+            repintar_glifos ();
             try {
                 if (claro) {
                     css_claro.load_from_path (Path.build_filename (carpeta_python (), "estilo", "catalina-claro.css"));
@@ -167,6 +169,18 @@ namespace Preferencias {
                 }
             } catch (Error e) {
                 warning ("CSS claro: %s", e.message);
+            }
+        }
+
+        /** Los glifos de la barra toman el color del tema: se repintan al cambiar de claro a oscuro, sin reabrir la ventana. */
+        void repintar_glifos () {
+            var color = color_de_glifo (this);
+            Gtk.Image[] imagenes = { i_atras, i_adelante, i_todo };
+            string[] nombres = { "GoBack", "GoForward", "ToolbarTopSites" };
+            for (int i = 0; i < imagenes.length; i++) {
+                if (imagenes[i] == null) continue;
+                var sup = superficie_de_glifo (nombres[i], color);
+                if (sup != null) imagenes[i].set_from_surface (sup);
             }
         }
 
@@ -191,8 +205,8 @@ namespace Preferencias {
             b_atras = new Gtk.Button ();
             b_adelante = new Gtk.Button ();
             var b_todo = new Gtk.Button ();
-            i_atras = glifo ("GoBack", "go-previous-symbolic");
-            i_adelante = glifo ("GoForward", "go-next-symbolic");
+            i_atras = glifo ("GoBack", "go-previous-symbolic", this);
+            i_adelante = glifo ("GoForward", "go-next-symbolic", this);
             b_atras.add (i_atras);
             b_adelante.add (i_adelante);
             b_atras.set_tooltip_text ("Back");
@@ -203,7 +217,8 @@ namespace Preferencias {
             flechas.pack_start (b_adelante, false, false, 0);
             barra.pack_start (flechas);
 
-            b_todo.add (glifo ("ToolbarTopSites", "view-grid-symbolic"));
+            i_todo = glifo ("ToolbarTopSites", "view-grid-symbolic", this);
+            b_todo.add (i_todo);
             b_todo.set_tooltip_text ("Show All");
             b_todo.clicked.connect (() => mostrar_todo ());
             barra.pack_start (b_todo);

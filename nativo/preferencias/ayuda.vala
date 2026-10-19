@@ -66,10 +66,23 @@ namespace Preferencias {
     }
 
     /**
-     * Un glifo de la barra de herramientas de Apple, pintado del color dado. Salen en negro de la Mac
-     * (settings/desde-mac.sh): aquí se usan como máscara. Sin ellos se usa el ícono simbólico del tema.
+     * El color de los glifos de la barra de herramientas: el del texto del tema (blanco con un tema oscuro, gris oscuro con uno claro; en claro la
+     * Catalina usa un gris, no el negro del texto, y baja la opacidad). Sin tema que lo diga, el blanco de siempre.
      */
-    public Gtk.Image glifo (string nombre, string respaldo, double r = 1.0, double g = 1.0, double b = 1.0, double a = 0.85) {
+    public Gdk.RGBA color_de_glifo (Gtk.Widget referencia) {
+        Gdk.RGBA c = Gdk.RGBA ();
+        c.red = 1.0; c.green = 1.0; c.blue = 1.0; c.alpha = 0.85;
+        Gdk.RGBA fg;
+        if (referencia.get_style_context ().lookup_color ("theme_fg_color", out fg)) {
+            bool claro = 0.2126 * fg.red + 0.7152 * fg.green + 0.0722 * fg.blue < 0.5;    // texto oscuro = tema claro
+            c.red = fg.red; c.green = fg.green; c.blue = fg.blue;
+            c.alpha = claro ? 0.72 : 0.85;
+        }
+        return c;
+    }
+
+    /** La superficie de un glifo de Apple pintada de ese color (null si el glifo no está en el disco). */
+    public Cairo.ImageSurface? superficie_de_glifo (string nombre, Gdk.RGBA color) {
         int escala = Gdk.Screen.get_default ().get_monitor_scale_factor (0);
         escala = escala >= 2 ? 2 : 1;
         var ruta = Path.build_filename (carpeta_apps (), "glifos", "%s@%dx.png".printf (nombre, escala));
@@ -77,7 +90,7 @@ namespace Preferencias {
         try {
             pb = new Gdk.Pixbuf.from_file (ruta);
         } catch (Error e) {
-            return new Gtk.Image.from_icon_name (respaldo, Gtk.IconSize.MENU);
+            return null;
         }
         int ancho = pb.get_width (), alto = pb.get_height ();
         var mascara = new Cairo.ImageSurface (Cairo.Format.ARGB32, ancho, alto);
@@ -86,10 +99,23 @@ namespace Preferencias {
         cr.paint ();
         var pintado = new Cairo.ImageSurface (Cairo.Format.ARGB32, ancho, alto);
         cr = new Cairo.Context (pintado);
-        cr.set_source_rgba (r, g, b, a);
+        cr.set_source_rgba (color.red, color.green, color.blue, color.alpha);
         cr.mask_surface (mascara, 0, 0);
         pintado.set_device_scale (escala, escala);
-        return new Gtk.Image.from_surface (pintado);
+        return pintado;
+    }
+
+    /**
+     * Un glifo de la barra de herramientas de Apple, pintado del color del tema de `referencia` (o del dado). Salen en negro de la Mac
+     * (settings/desde-mac.sh): aquí se usan como máscara. Sin ellos se usa el ícono simbólico del tema.
+     */
+    public Gtk.Image glifo (string nombre, string respaldo, Gtk.Widget? referencia = null) {
+        Gdk.RGBA color = referencia != null ? color_de_glifo (referencia) : Gdk.RGBA () { red = 1.0, green = 1.0, blue = 1.0, alpha = 0.85 };
+        var sup = superficie_de_glifo (nombre, color);
+        if (sup == null) {
+            return new Gtk.Image.from_icon_name (respaldo, Gtk.IconSize.MENU);
+        }
+        return new Gtk.Image.from_surface (sup);
     }
 
     /** La etiqueta de una fila («Size:»), a la derecha. */
