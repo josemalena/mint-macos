@@ -18,6 +18,9 @@ import sys
 AQUI = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(os.path.dirname(AQUI), 'herramientas', 'visor-nib'))
 import nib  # noqa: E402
+import swiftui  # noqa: E402
+sys.path.insert(0, AQUI)
+import vocabulario  # noqa: E402
 
 MM = os.path.expanduser('~/.local/share/mint-macos')
 REF = os.path.join(MM, 'referencias')
@@ -219,7 +222,15 @@ def panel_de(ruta, info, id_propio):
     attrs = (info.get('EXAppExtensionAttributes') or {}).get('SettingsExtensionAttributes') or {}
     nombre = info.get('NSPrefPaneIconLabel') or info.get('CFBundleDisplayName') or info.get('CFBundleName')
     nombre = ' '.join((nombre or '').replace('\\n', ' ').split())
-    p = {'id': attrs.get('legacyBundleIdentifier') or id_propio, 'nombre': nombre, 'bundle': os.path.basename(ruta)}
+    viejo = attrs.get('legacyBundleIdentifier')
+    if isinstance(viejo, list):
+        # Un panel nuevo que junta varios viejos (General de Sequoia): el primero es su id.
+        viejos, viejo = viejo, (viejo[0] if viejo else None)
+    else:
+        viejos = None
+    p = {'id': viejo or id_propio, 'nombre': nombre, 'bundle': os.path.basename(ruta)}
+    if viejos and len(viejos) > 1:
+        p['ids_viejos'] = viejos
     if not (info.get('NSPrefPaneIconLabel') or info.get('CFBundleDisplayName')):
         # Sin nombre visible en los archivos (la batería de Sequoia se llama según el equipo): el
         # interno, marcado; lo corrige una captura.
@@ -295,6 +306,99 @@ def system_preferences(version, raices):
     return {'id': 'system-preferences', 'tipo': 'rejilla', 'nombre': 'System Preferences', 'grupos': grupos, 'fuente': fuente}
 
 
+def textos_de(rec):
+    """Los textos en inglés de un bundle: Localizable.loctable (Ventura en adelante) o .strings."""
+    en = {}
+    for f in sorted(os.listdir(rec)) if os.path.isdir(rec) else []:
+        if f.endswith('.loctable') and f != 'InfoPlist.loctable':
+            en.update(loctable(os.path.join(rec, f)))
+    if not en:
+        for carpeta in ('en.lproj', 'English.lproj', 'Base.lproj'):
+            d = os.path.join(rec, carpeta)
+            for f in sorted(os.listdir(d)) if os.path.isdir(d) else []:
+                if f.endswith('.strings') and f != 'InfoPlist.strings':
+                    en.update(nib.cadenas_de(os.path.join(d, f)))
+    return {k: v for k, v in en.items() if isinstance(v, str)}
+
+
+def nibs_de(bundle):
+    rec = os.path.join(bundle, 'Contents', 'Resources')
+    out = []
+    for carpeta in ('Base.lproj', 'en.lproj', 'English.lproj', ''):
+        d = os.path.join(rec, carpeta)
+        for f in sorted(os.listdir(d)) if os.path.isdir(d) else []:
+            if f.endswith('.nib') and f[:-4] not in [x[0] for x in out]:
+                r = os.path.join(d, f)
+                if os.path.isdir(r):
+                    k = [x for x in os.listdir(r) if x.startswith('keyedobjects')]
+                    r = os.path.join(r, k[0]) if k else None
+                if r:
+                    out.append((f[:-4], r))
+    return out
+
+
+def contenido_panel(bundle, info):
+    """Lo que tiene un panel en el vocabulario común: sus vistas de nib (Catalina, Monterey) o de
+    SwiftUI (Sequoia en adelante), con sus textos."""
+    rec = os.path.join(bundle, 'Contents', 'Resources')
+    out = {'textos': textos_de(rec), 'vistas': []}
+    principal = info.get('NSMainNibFile')
+    for nombre, ruta in nibs_de(bundle):
+        try:
+            raices = nib.abrir(ruta).raices()
+        except Exception as e:  # pylint: disable=broad-except
+            out['vistas'].append({'nib': nombre, 'error': str(e)})
+            continue
+        for r in raices:
+            if r['clase'] == 'NSMenu':
+                continue
+            v = vocabulario.desde_nib(r)
+            if v:
+                out['vistas'].append({'nib': nombre, 'principal': nombre == principal and r['clase'] == 'NSWindowTemplate',
+                                      'raiz': v})
+    exe = os.path.join(bundle, 'Contents', 'MacOS', info.get('CFBundleExecutable', ''))
+    if not out['vistas'] and info.get('CFBundleExecutable') and os.path.isfile(exe):
+        try:
+            vistas, raices = swiftui.app_swiftui(exe)
+        except (ValueError, KeyError, OSError):
+            vistas, raices = {}, []
+        por_vista = swiftui.textos_swiftui(exe, out['textos'])
+        for i, nombre in enumerate(raices):
+            v = vocabulario.desde_swiftui(swiftui.a_ui(vistas[nombre], vistas, nombre.split('.')[0], textos=dict(por_vista)))
+            if v:
+                out['vistas'].append({'swiftui': nombre, 'principal': i == 0, 'raiz': v})
+        out['nota'] = ('SwiftUI: cada Text toma, en orden, las claves que usa el body de su vista (leído del '
+                       'código con la excepción de José); un control sin texto no lo encontró.')
+    return out
+
+
+def contenidos_paneles(version, raices, indice):
+    """apps/system-preferences/<id>.json por cada panel del índice."""
+    if not indice:
+        return 0
+    destino = os.path.join(SALIDA, version, 'apps', 'system-preferences')
+    os.makedirs(destino, exist_ok=True)
+    rutas = {}
+    for r in raices:
+        for carpeta in ('System/Library/PreferencePanes', 'System/Library/ExtensionKit/Extensions',
+                        os.path.join(os.path.dirname(SETTINGSAPP), 'PlugIns')):
+            d = os.path.join(r, carpeta)
+            for n in os.listdir(d) if os.path.isdir(d) else []:
+                rutas.setdefault(n, os.path.join(d, n))
+    hechos = 0
+    for g in indice['grupos']:
+        for p in g['paneles']:
+            b = rutas.get(p.get('bundle'))
+            if not b:
+                continue
+            datos = dict(p, **contenido_panel(b, info_bundle(b)))
+            with open(os.path.join(destino, p['id'] + '.json'), 'w') as f:
+                json.dump(datos, f, ensure_ascii=False, indent=1)
+            p['archivo'] = 'system-preferences/%s.json' % p['id']
+            hechos += 1
+    return hechos
+
+
 def generar(version, raices=None, medidas=None):
     v = VERSIONES.get(version, {'nombre': version, 'numero': '', 'raices': [], 'medidas': None})
     raices = [r for r in (raices or v['raices']) if os.path.isdir(r)]
@@ -312,7 +416,11 @@ def generar(version, raices=None, medidas=None):
 
     guardar('menu-apple', menu_apple(version, raices))
     guardar('menus-estandar', menus_estandar(version, raices))
-    guardar('system-preferences', system_preferences(version, raices))
+    indice = system_preferences(version, raices)
+    n = contenidos_paneles(version, raices, indice)
+    guardar('system-preferences', indice)
+    if indice:
+        partes['paneles'] = '%d con contenido' % n
     med = medidas or v.get('medidas')
     try:
         datos = json.load(open(med)) if med else None

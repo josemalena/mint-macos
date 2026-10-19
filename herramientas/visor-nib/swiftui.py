@@ -63,6 +63,31 @@ class MachO:
                 fix = struct.unpack_from('<II', b, p + 8)
             p += tam
         self.imports = self._imports(fix) if fix else []
+        self.inicios = self._inicios()
+
+    def _inicios(self):
+        """LC_FUNCTION_STARTS: dónde empieza cada función (para saber dónde termina una)."""
+        b, p, out = self.b, 32, []
+        for _ in range(struct.unpack_from('<I', b, 16)[0]):
+            cmd, tam = struct.unpack_from('<II', b, p)
+            if cmd == 0x26:
+                off, sz = struct.unpack_from('<II', b, p + 8)
+                i, va = off, 0x100000000
+                while i < off + sz:
+                    v = sh = 0
+                    while True:
+                        c = b[i]
+                        i += 1
+                        v |= (c & 0x7f) << sh
+                        sh += 7
+                        if not c & 0x80:
+                            break
+                    if v == 0:
+                        break
+                    va += v
+                    out.append(va)
+            p += tam
+        return out
 
     def _imports(self, fix):
         fo = fix[0]
@@ -272,6 +297,180 @@ class Lector:
             except (ValueError, struct.error):
                 return '?'
         return '?'
+
+    # --- los textos de cada vista (excepción de José, 18-10-2026: solo para saber qué texto
+    # lleva cada control; nada de esto va al repo) ---
+
+    def bodies(self):
+        """{vista: dirección del getter de su body}, de los testigos de la conformidad a View
+        (__swift5_proto: la conformidad lleva sus testigos resilientes y uno es «body.getter»)."""
+        out = {}
+        a, t = self.m.secs.get('__swift5_proto', (0, 0))
+        for va in range(a, a + t, 4):
+            cd = self.m.rel(va)
+            proto = self.m.rel_ind(cd)
+            if not proto or proto[0] != 'simbolo' or proto[1] != '_$s7SwiftUI4ViewMp':
+                continue
+            flags = self.m.u32(cd + 12)
+            tref = self.m.rel(cd + 4)
+            d = self.m.ranura(tref) if (flags >> 3) & 7 == 1 else ('local', tref)
+            try:
+                tipo = self.nombre_de(d)
+            except (ValueError, struct.error):
+                continue
+            p = cd + 16 + (4 if flags & (1 << 6) else 0) + 12 * ((flags >> 8) & 0xFF)
+            if not flags & (1 << 16):
+                continue
+            for i in range(self.m.u32(p)):
+                q = p + 4 + 8 * i
+                req = self.m.rel_ind(q)
+                if req and req[0] == 'simbolo' and '4body' in req[1]:
+                    out[tipo] = self.m.rel(q + 4)
+        return out
+
+    def _ensamblado(self):
+        """El __text desensamblado una vez (llvm-objdump), por función."""
+        if hasattr(self, '_asm'):
+            return self._asm
+        import bisect
+        import hashlib
+        import tempfile
+        cache = os.path.expanduser('~/.cache/mint-macos/swiftui')
+        os.makedirs(cache, exist_ok=True)
+        clave = hashlib.sha1(self.m.b[:4096] + str(len(self.m.b)).encode()).hexdigest()
+        asm = os.path.join(cache, clave + '.asm')
+        if not os.path.exists(asm):
+            with tempfile.NamedTemporaryFile(dir=cache, suffix='.bin') as f:
+                f.write(self.m.b)
+                f.flush()
+                r = subprocess.run(['llvm-objdump-18', '-d', '--no-show-raw-insn', '-M', 'intel', f.name],
+                                   capture_output=True, text=True)
+            open(asm, 'w').write(r.stdout)
+        ini = self.m.inicios
+        por = {}
+        for ln in open(asm):
+            mm = re.match(r'\s*([0-9a-f]+):\s+(.*)', ln)
+            if mm:
+                a = int(mm.group(1), 16)
+                k = bisect.bisect_right(ini, a) - 1
+                if k >= 0:
+                    por.setdefault(ini[k], []).append(mm.group(2))
+        self._asm = por
+        return por
+
+    def stubs(self):
+        """{dirección del stub: la función importada, ya legible}: a quién llama el código."""
+        if hasattr(self, '_stubs'):
+            return self._stubs
+        out = {}
+        a, t = self.m.secs.get('__stubs', (0, 0))
+        crudos = {}
+        for va in range(a, a + t, 6):
+            o = self.m.off(va)
+            if self.m.b[o:o + 2] == b'\xff\x25':
+                d = self.m.ranura(va + 6 + struct.unpack_from('<i', self.m.b, o + 2)[0])
+                if d[0] == 'simbolo':
+                    crudos[va] = d[1]
+        swift = [(k, v) for k, v in crudos.items() if v.startswith('_$s')]
+        for (k, _v), t_ in zip(swift, demangle([v[1:] for _k, v in swift])):
+            out[k] = t_
+        self._stubs = out
+        return out
+
+    # A quién se le pasa un texto: el tipo de control que lo pone, o «oculto» si no se ve.
+    # Solo los que reciben el texto: accessibilityIdentifier o AddTraits no cuentan, y si se
+    # tomaran se llevarían el título de un Picker cuya etiqueta se arma en un closure aparte.
+    CONSUMIDORES = [('accessibilityLabel', 'oculto'), ('accessibility(label', 'oculto'), ('accessibilityHint', 'oculto'),
+                    ('accessibilityValue', 'oculto'), ('.help(', 'oculto'), ('Text.init', 'Text'),
+                    ('Toggle.init', 'Toggle'), ('Picker.init', 'Picker'), ('Button.init', 'Button'),
+                    ('Label.init', 'Label'), ('LabeledContent.init', 'LabeledContent'),
+                    ('Section.init', 'Section'), ('Slider.init', 'Slider'), ('Stepper.init', 'Stepper'),
+                    ('Link.init', 'Link'), ('Menu.init', 'Menu'), ('TextField.init', 'TextField'),
+                    ('DisclosureGroup.init', 'DisclosureGroup'), ('navigationTitle', 'titulo')]
+
+    def consumidor(self, nombre):
+        for k, v in self.CONSUMIDORES:
+            if k in nombre:
+                return v
+        return None
+
+    def cadenas(self, f, prof=0, vistos=None):
+        """Las cadenas que usa una función y las que llama o pasa como closure, en orden: las
+        largas por su dirección en __cstring, las cortas (hasta 15 bytes) por los dos inmediatos
+        de 64 bits con que Swift las arma."""
+        vistos = set() if vistos is None else vistos
+        if f in vistos or prof > 6:
+            return []
+        vistos.add(f)
+        asm = self._ensamblado()
+        cs_a, cs_t = self.m.secs.get('__cstring', (0, 0))
+        tx_a, tx_t = self.m.secs.get('__text', (0, 0))
+        inicios = set(self.m.inicios)
+        res, inm = [], []
+        stubs = self.stubs()
+        pendientes = []  # índices en res de las cadenas que todavía no se le pasaron a nadie
+
+        def agregar(c):
+            pendientes.append(len(res))
+            res.append([c, None])
+
+        def vaciar():
+            for k, v in enumerate(inm):
+                if v >> 60 == 0xE:
+                    otro = inm[k - 1] if k > 0 and inm[k - 1] >> 60 != 0xE else (
+                        inm[k + 1] if k + 1 < len(inm) and inm[k + 1] >> 60 != 0xE else 0)
+                    try:
+                        agregar((otro.to_bytes(8, 'little') + v.to_bytes(8, 'little')[:7])[:(v >> 56) & 0x0F].decode())
+                    except UnicodeDecodeError:
+                        pass
+            inm.clear()
+        for ln in asm.get(f, []):
+            mm = re.match(r'(?:movabs|mov)\s+\w+, (-?0x[0-9a-f]+)$', ln.strip())
+            if mm:
+                inm.append(int(mm.group(1), 16) & 0xFFFFFFFFFFFFFFFF)
+                continue
+            mm = re.search(r'#+ (0x[0-9a-f]+)', ln)
+            if ln.startswith(('call', 'jmp')) or mm:
+                vaciar()
+            if mm and ln.startswith('lea'):
+                t = int(mm.group(1), 16)
+                for c in (t + 32, t):
+                    if cs_a <= c < cs_a + cs_t:
+                        agregar(self.m.cstr(c))
+                        break
+                else:
+                    if tx_a <= t < tx_a + tx_t and t in inicios:
+                        res += self.cadenas(t, prof + 1, vistos)
+                continue
+            mm = re.match(r'(?:call|jmp)\s+(0x[0-9a-f]+)', ln)
+            if mm:
+                t = int(mm.group(1), 16)
+                if t in stubs:
+                    tipo = self.consumidor(stubs[t])
+                    if tipo:
+                        for i in pendientes:
+                            res[i][1] = tipo
+                        pendientes.clear()
+                elif tx_a <= t < tx_a + tx_t and t in inicios:
+                    res += self.cadenas(t, prof + 1, vistos)
+        vaciar()
+        return res
+
+    def claves_por_vista(self, tabla):
+        """{vista: [claves de texto en el orden en que su body las usa]}, solo las que están en la
+        tabla de textos del bundle y se ven (sin las de deshacer, ayuda ni accesibilidad)."""
+        if not tabla:
+            return {}
+        # Las de deshacer (en Sequoia la clave es el texto: «Change Dock position»), ayudas y accesibilidad.
+        oculta = re.compile(r'(_UNDO|_TOOLTIP|_HELP|_AX|_ACCESSIBILITY|\.accessibility|^Change )')
+        out = {}
+        for vista, f in self.bodies().items():
+            ks = []
+            for c, tipo in self.cadenas(f):
+                if c in tabla and not oculta.search(c) and tipo != 'oculto':
+                    ks.append((c, tipo))
+            out[vista] = ks
+        return out
 
     # --- las vistas ---
 
@@ -547,7 +746,7 @@ def es_estilo(n):
     return n.nombre.endswith('Style') or n.nombre.endswith('Modifier') or n.nombre.startswith('_') and n.nombre not in ENVOLTORIOS
 
 
-def a_ui(n, vistas, modulo, prof=0, mods=None):
+def a_ui(n, vistas, modulo, prof=0, mods=None, textos=None, cursor=None):
     """Un Nodo de tipo → {'clase', 'props', 'hijos'} para el visor, con las vistas del módulo
     expandidas a su body y los modificadores juntados en la vista que modifican."""
     mods = list(mods or [])
@@ -555,30 +754,40 @@ def a_ui(n, vistas, modulo, prof=0, mods=None):
         return {'clase': '…', 'props': {}, 'hijos': []}
     nom = n.nombre
     if n.clase == 'incompleto':
-        hijos = [a_ui(a, vistas, modulo, prof + 1) for a in n.args]
+        hijos = [a_ui(a, vistas, modulo, prof + 1, textos=textos, cursor=cursor) for a in n.args]
         return {'clase': 'Incompleto', 'props': {'aviso': nom}, 'hijos': hijos}
     if n.clase == 'tupla':
-        return {'clase': 'Tupla', 'props': {}, 'hijos': [a_ui(a, vistas, modulo, prof + 1) for a in n.args if es_vista(a)]}
+        return {'clase': 'Tupla', 'props': {}, 'hijos': [a_ui(a, vistas, modulo, prof + 1, textos=textos, cursor=cursor) for a in n.args if es_vista(a)]}
     if n.clase == 'opcional':
         # Un «if» sin else: la vista sale solo a veces (el aviso de un perfil que administra el ajuste).
-        r = a_ui(n.args[0], vistas, modulo, prof + 1, mods)
+        r = a_ui(n.args[0], vistas, modulo, prof + 1, mods, textos, cursor)
         r['props'] = dict(r['props'], condicional=True)
         return r
     if n.clase == 'modificador':
         if not n.args:
             return {'clase': 'Vista', 'props': {'modificadores': mods + [nom]}, 'hijos': []}
         resto = [a.nombre for a in n.args[1:] if a.nombre]
-        return a_ui(n.args[0], vistas, modulo, prof + 1, mods + [nom + ('(%s)' % ', '.join(map(corto, resto)) if resto else '')])
+        return a_ui(n.args[0], vistas, modulo, prof + 1, mods + [nom + ('(%s)' % ', '.join(map(corto, resto)) if resto else '')],
+                    textos, cursor)
     base = corto(nom)
     # Una vista de la app: se expande a su body.
     if nom in vistas and prof < 40:
-        sub = a_ui(vistas[nom], vistas, modulo, prof + 1, mods)
+        # Los Text de esta vista toman sus claves en orden (textos: {vista: [(clave, texto)]}); las
+        # copias de una misma vista siguen la lista donde quedó la anterior (los tres botones de
+        # tema de Appearance: Light, Dark, Auto).
+        cursores = (textos or {}).setdefault('_cursores', {})
+        if nom not in cursores:
+            cursores[nom] = {'lista': list((textos or {}).get(nom, [])), 'i': 0}
+        elif cursores[nom]['i'] >= len(cursores[nom]['lista']):
+            cursores[nom]['i'] = 0
+        sub = a_ui(vistas[nom], vistas, modulo, prof + 1, mods, textos, cursores[nom])
         sub['props'] = dict(sub['props'], vista=nom)
         return sub
     if base == 'ModifiedContent' and n.args:
-        return a_ui(n.args[0], vistas, modulo, prof + 1, mods + [corto(n.args[1].nombre) if len(n.args) > 1 else ''])
+        return a_ui(n.args[0], vistas, modulo, prof + 1, mods + [corto(n.args[1].nombre) if len(n.args) > 1 else ''],
+                    textos, cursor)
     if base in ENVOLTORIOS or base.startswith('_ConditionalContent'):
-        hijos = [a_ui(a, vistas, modulo, prof + 1) for a in n.args if es_vista(a)]
+        hijos = [a_ui(a, vistas, modulo, prof + 1, textos=textos, cursor=cursor) for a in n.args if es_vista(a)]
         if base == '_ConditionalContent' and hijos:
             # Las dos ramas del if: se pinta la primera; la otra queda anotada.
             h = hijos[0]
@@ -597,14 +806,78 @@ def a_ui(n, vistas, modulo, prof=0, mods=None):
         props['modificadores'] = mods
     if base == 'ForEach' and len(n.args) >= 3:
         # ForEach<Datos, Id, Contenido>: el contenido, que se repite.
-        h = a_ui(n.args[2], vistas, modulo, prof + 1)
+        # Lo que repite un ForEach sale de datos (los casos de un enum), no de las claves del body
+        # de esta vista: no toma de su lista.
+        h = a_ui(n.args[2], vistas, modulo, prof + 1, textos=textos, cursor=None)
         return {'clase': 'ForEach', 'props': props, 'hijos': [h]}
     if base in CONTENEDORES or base not in CONTROLES:
-        hijos = [a_ui(a, vistas, modulo, prof + 1) for a in n.args if es_vista(a)]
+        hijos = [a_ui(a, vistas, modulo, prof + 1, textos=textos, cursor=cursor) for a in n.args if es_vista(a)]
         return {'clase': base, 'props': props, 'hijos': hijos}
-    # Un control: sus argumentos de vista son su etiqueta.
-    hijos = [a_ui(a, vistas, modulo, prof + 1) for a in n.args if es_vista(a)]
+    if cursor is not None:
+        tomar(cursor, base, props)
+    # Un control: sus argumentos de vista son su etiqueta. En un Picker el primero es la etiqueta y
+    # el resto las opciones; en el código las opciones van antes que el título (ver tomar).
+    if base == 'Picker' and cursor is not None:
+        hijos = []
+        for k, a in enumerate(x for x in n.args if es_vista(x)):
+            anterior = cursor.get('modo')
+            cursor['modo'] = 'etiqueta' if k == 0 else 'opcion'
+            hijos.append(a_ui(a, vistas, modulo, prof + 1, textos=textos, cursor=cursor))
+            cursor['modo'] = anterior
+        if cursor.get('opciones'):
+            props['opciones'] = cursor.pop('opciones')
+        return {'clase': base, 'props': props, 'hijos': hijos}
+    hijos = [a_ui(a, vistas, modulo, prof + 1, textos=textos, cursor=cursor) for a in n.args if es_vista(a)]
     return {'clase': base, 'props': props, 'hijos': hijos}
+
+
+def tomar(cursor, base, props):
+    """Le pone a un control el texto que el código le pasa: el siguiente de la lista de su vista
+    que se le pasó a ese tipo de control (Toggle.init → Toggle). Un Text toma los que se le pasaron
+    a Text.init; si un control ya tomó su título, su Text de adentro (la etiqueta) no toma otro."""
+    lista = cursor['lista']
+    if base == 'Text' and cursor.get('saltar_texto'):
+        cursor['saltar_texto'] = False
+        return
+    i = cursor['i']
+    while i < len(lista) and lista[i][2] in ('Slider', 'Stepper', 'titulo'):
+        i += 1  # títulos que no se pintan como texto (el de un deslizador va oculto)
+    if i >= len(lista):
+        return
+    clave, texto, tipo = lista[i]
+    if base in ('Slider', 'Stepper', 'Gauge'):
+        # Su etiqueta va escondida (.labelsHidden) y no sale en el tipo, pero el código la arma:
+        # se la come para no correr las de abajo («Dock Size» en Desktop & Dock).
+        if tipo in ('Text', None, base):
+            props['etiqueta_oculta'] = texto
+            cursor['i'] = i + 1
+        return
+    modo = cursor.get('modo')
+    if base == 'Text' and modo in ('etiqueta', 'opcion'):
+        # La etiqueta de un Picker: el siguiente que se le pasó a Text.init (o al Picker); una opción:
+        # el siguiente sin tipo. Se sacan de la lista sin correr el cursor sobre los otros.
+        quiere = ('Text', 'Picker', 'Label') if modo == 'etiqueta' else (None,)
+        for j in range(i, len(lista)):
+            if lista[j][2] in quiere:
+                props['clave'], props['texto'] = lista[j][0], lista[j][1]
+                if modo == 'etiqueta':
+                    # Lo que el código armó antes del título y sin tipo son las opciones del Picker.
+                    ops = [k for k in range(i, j) if lista[k][2] is None]
+                    cursor['opciones'] = [{'clave': lista[k][0], 'texto': lista[k][1]} for k in ops]
+                    for k in reversed(ops + [j]):
+                        lista.pop(k)
+                else:
+                    lista.pop(j)
+                return
+        return
+    if base == 'Text' and tipo in ('Text', None, 'Label'):
+        props['clave'], props['texto'] = clave, texto
+        cursor['i'] = i + 1
+    elif base == tipo and base in ('Toggle', 'Picker', 'Button', 'Label', 'LabeledContent', 'Section', 'Link', 'Menu',
+                                   'TextField', 'DisclosureGroup'):
+        props['clave'], props['texto'] = clave, texto
+        cursor['i'] = i + 1
+        cursor['saltar_texto'] = True
 
 
 def es_vista(n):
@@ -658,6 +931,18 @@ def app_swiftui(ejecutable):
         return r
     raices = sorted((v for v in vistas if v not in usadas), key=lambda v: -tam(v))
     return vistas, raices
+
+
+def textos_swiftui(ejecutable, tabla):
+    """{vista: [(clave, texto)]} para a_ui: los textos que usa el body de cada vista, en orden,
+    con su texto en inglés de la tabla del bundle (Localizable.loctable o .strings)."""
+    if not tabla:
+        return {}
+    try:
+        lec = Lector(ejecutable)
+        return {v: [(k, tabla[k], tipo) for k, tipo in ks] for v, ks in lec.claves_por_vista(tabla).items()}
+    except (ValueError, KeyError, OSError, struct.error, subprocess.SubprocessError):
+        return {}
 
 
 def demangle(nombres):

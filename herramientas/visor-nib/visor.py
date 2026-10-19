@@ -197,15 +197,16 @@ class VistaSwiftUI(dict):
     """Una vista SwiftUI como raíz del visor; sus hijos (el árbol de swiftui.a_ui) se arman al
     pedirlos la primera vez."""
 
-    def __init__(self, nombre, vistas, titulo, textos):
+    def __init__(self, nombre, vistas, titulo, textos, por_vista=None):
         super().__init__(id=None, clase='SwiftUI', props={'titulo': titulo, 'vista': nombre,
                                                           'clase_propia': nombre, 'textos': textos})
-        self._vistas, self._nombre = vistas, nombre
+        self._vistas, self._nombre, self._textos = vistas, nombre, por_vista or {}
 
     def __getitem__(self, k):
         if k == 'hijos' and not dict.__contains__(self, 'hijos'):
             import swiftui  # pylint: disable=import-outside-toplevel
-            dict.__setitem__(self, 'hijos', [swiftui.a_ui(self._vistas[self._nombre], self._vistas, self._nombre.split('.')[0])])
+            dict.__setitem__(self, 'hijos', [swiftui.a_ui(self._vistas[self._nombre], self._vistas, self._nombre.split('.')[0],
+                                                          textos=dict(self._textos))])
         return dict.__getitem__(self, k)
 
     def get(self, k, d=None):
@@ -294,10 +295,23 @@ class AppMac:
             import swiftui  # pylint: disable=import-outside-toplevel
             vistas, raices, _exe = self.swiftui
             titulo, textos = self.titulo_swiftui(), self.textos_swiftui()
+            # Qué texto lleva cada Text, del código de cada body (excepción de José, 18-10-2026).
+            rec = os.path.join(self.ruta, 'Contents', 'Resources')
+            # Todas las tablas del bundle (un panel puede tener la suya aparte de Localizable).
+            tabla = {}
+            for f in sorted(glob.glob(os.path.join(glob.escape(rec), '*.loctable'))):
+                try:
+                    tabla.update(plistlib.load(open(f, 'rb')).get('en', {}))
+                except (OSError, ValueError):
+                    pass
+            for f in sorted(glob.glob(os.path.join(glob.escape(rec), 'en.lproj', '*.strings'))):
+                tabla.update(nib.cadenas_de(f))
+            tabla.pop('CFBundleDisplayName', None)
+            por_vista = swiftui.textos_swiftui(_exe, tabla)
             for nombre in list(raices) + [v for v in sorted(vistas) if v not in raices]:
                 # El árbol se arma al abrir la vista (VistaSwiftUI.hijos): armar todas al empezar
                 # tardaba en las extensiones grandes.
-                raiz = VistaSwiftUI(nombre, vistas, titulo, textos)
+                raiz = VistaSwiftUI(nombre, vistas, titulo, textos, por_vista)
                 e = {'etiqueta': 'SwiftUI: %s' % nombre.split('.', 1)[-1], 'nib': None, 'raiz': raiz, 'imgs': None}
                 if nombre in raices:
                     out.append(e)
@@ -647,13 +661,11 @@ def hijos_planos(n):
 
 
 def texto_de(n):
-    """La etiqueta de un control: no hay cadenas en la metadata, así que dice qué es."""
+    """La etiqueta de un control: el texto de su primer Text (si se pudo atar) o qué es."""
     for h in hijos_planos(n):
-        if h['clase'] == 'Text':
-            return 'Text'
-        if h['clase'] == 'Label':
-            return 'Label'
-    return n['clase']
+        if h['clase'] in ('Text', 'Label'):
+            return h['props'].get('texto') or h['clase']
+    return n['props'].get('texto') or n['clase']
 
 
 def fila(etiqueta, control):
@@ -692,7 +704,8 @@ def ui_gtk(n, marcar, horizontal=False):
         cont = partes[1] if len(partes) == 3 else n
         pie = partes[2] if len(partes) == 3 else None
         if cab and cab['clase'] != 'EmptyView':
-            w.pack_start(etiqueta('Section header', 'visor-swiftui-cabecera'), False, False, 0)
+            w.pack_start(etiqueta(texto_de({'clase': 'Section', 'props': {}, 'hijos': [cab]}) if cab['clase'] != 'Text'
+                                  else cab['props'].get('texto') or 'Section header', 'visor-swiftui-cabecera'), False, False, 0)
         caja = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         caja.get_style_context().add_class('visor-swiftui-seccion')
         filas = hijos_planos(cont) if cont is not n else hijos
@@ -707,7 +720,8 @@ def ui_gtk(n, marcar, horizontal=False):
             caja.pack_start(f, False, False, 0)
         w.pack_start(caja, False, False, 0)
         if pie and pie['clase'] != 'EmptyView':
-            w.pack_start(etiqueta('Section footer', 'visor-swiftui-pie'), False, False, 0)
+            w.pack_start(etiqueta(pie['props'].get('texto') or texto_de({'clase': 'Section', 'props': {}, 'hijos': [pie]}),
+                                  'visor-swiftui-pie'), False, False, 0)
     elif c in ('VStack', 'LazyVStack', 'ForEach', 'Grid', 'GroupBox', 'DisclosureGroup', 'NavigationStack', 'Vista',
                'Incompleto', 'ZStack', 'GeometryReader'):
         w = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
@@ -734,13 +748,14 @@ def ui_gtk(n, marcar, horizontal=False):
             w = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
             w.pack_start(etiqueta(texto_de(n)), False, False, 0)
             g = None
-            for k in range(2):
-                r = Gtk.RadioButton.new_with_label_from_widget(g, 'Option %d' % (k + 1))
+            for k, o in enumerate(n['props'].get('opciones') or [{'texto': 'Option 1'}, {'texto': 'Option 2'}]):
+                r = Gtk.RadioButton.new_with_label_from_widget(g, o['texto'])
                 g = g or r
                 w.pack_start(r, False, False, 0)
         else:
             combo = Gtk.ComboBoxText()
-            combo.append_text('Option')
+            for o in n['props'].get('opciones') or [{'texto': 'Option'}]:
+                combo.append_text(o['texto'])
             combo.set_active(0)
             w = fila(etiqueta(texto_de(n)), combo)
     elif c == 'Button':
@@ -757,7 +772,7 @@ def ui_gtk(n, marcar, horizontal=False):
         w.get_style_context().add_class('visor-swiftui-ayuda')
         w.set_halign(Gtk.Align.END)
     elif c == 'Text':
-        w = etiqueta('Text')
+        w = etiqueta(n['props'].get('texto') or 'Text')
     elif c == 'Label':
         w = Gtk.Box(spacing=6)
         w.pack_start(Gtk.Image.new_from_icon_name('image-x-generic-symbolic', Gtk.IconSize.MENU), False, False, 0)

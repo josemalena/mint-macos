@@ -168,7 +168,7 @@ if quiere recursos; then
       # Los ejecutables de los paneles de Settings y de System Settings: las vistas SwiftUI salen
       # de su metadata de tipos (herramientas/visor-nib/swiftui.py; excepción de José, solo interfaz).
       case "$d" in
-        System/Library/ExtensionKit) find "$d" -path '*/Contents/MacOS/*' -type f -print 2>/dev/null ;;
+        System/Library/ExtensionKit|System/Library/PreferencePanes) find "$d" -path '*/Contents/MacOS/*' -type f -print 2>/dev/null ;;
         System/Applications) find "$d/System Settings.app/Contents/MacOS" -type f -print 2>/dev/null ;;
       esac ) \
       | sort -u > "$STAGE/$nombre.lista"

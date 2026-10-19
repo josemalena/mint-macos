@@ -159,7 +159,13 @@ class Nib:
         # La acción de cada control (NSNibControlConnector: fuente → selector, «terminate:»): es el
         # id que no cambia entre versiones de macOS aunque cambie el texto.
         self.acciones = {}
+        self.enlaces = {}
         for con in self.lista(self.get(self.top, 'NSConnections')):
+            if 'Binding' in (self.clase(con) or ''):
+                fuente = self.res(self.get(con, 'NSSource'))
+                ruta = self.texto(self.get(con, 'NSKeyPath'))
+                if isinstance(fuente, dict) and ruta:
+                    self.enlaces.setdefault(id(fuente), []).append((self.texto(self.get(con, 'NSBinding')) or '', ruta))
             if self.clase(con) in ('NSNibControlConnector', 'NSNibAXRelationshipConnector') or 'Control' in (self.clase(con) or ''):
                 fuente = self.res(self.get(con, 'NSSource'))
                 sel = self.texto(self.get(con, 'NSLabel'))
@@ -180,6 +186,16 @@ class Nib:
     def get(self, x, k):
         x = self.res(x)
         return self.res(x.get(k)) if isinstance(x, dict) else None
+
+    def clave(self, x):
+        """La clave de localización de un texto («100365.title» → «100365»): el id que no cambia
+        entre versiones mientras Apple no rehaga el control."""
+        x = self.res(x)
+        if self.clase(x) == 'NSLocalizableString':
+            k = self.texto(self.get(x, 'NSKey'))
+            if k:
+                return k[:-6] if k.endswith('.title') else k
+        return None
 
     def texto(self, x):
         x = self.res(x)
@@ -251,6 +267,10 @@ class Nib:
             t = self.texto(self.get(x, clave))
             if t:
                 p[nombre] = t
+                if nombre == 'titulo' and 'clave' not in p:
+                    k = self.clave(self.get(x, clave))
+                    if k:
+                        p['clave'] = k
         # El marco, con el origen arriba a la izquierda (AppKit lo tiene abajo).
         m = rect(self.texto(self.get(x, 'NSFrame'))) or rect(self.texto(self.get(x, 'NSFrameSize')))
         if clase == 'NSWindowTemplate':
@@ -279,6 +299,14 @@ class Nib:
             t = self.texto(self.get(celda, 'NSContents'))
             if t:
                 p['texto'] = t
+                k = self.clave(self.get(celda, 'NSContents'))
+                if k:
+                    p['clave'] = k
+            # Casilla o radio: la imagen alterna de la celda (NSSwitch, NSRadioButton).
+            alt = self.res(self.get(celda, 'NSAlternateImage'))
+            if self.clase(alt) == 'NSButtonImageSource':
+                nombre = self.texto(self.get(alt, 'NSImageName')) or ''
+                p['tipo_boton'] = 'casilla' if 'Switch' in nombre else 'radio' if 'Radio' in nombre else nombre
             im = self.imagen(self.get(celda, 'NSNormalImage')) or self.imagen(self.get(celda, 'NSContents'))
             if im:
                 p['imagen'] = im
@@ -303,6 +331,14 @@ class Nib:
                     n['hijos'].append(hijo)
         if id(x) in self.acciones:
             p['accion'] = self.acciones[id(x)]
+        if id(x) in self.enlaces:
+            # Todos los enlaces («enabled ← self.sizeEnabled»…) y aparte el del valor: el ajuste que
+            # cambia el control, el id de su comportamiento.
+            p['enlaces'] = ['%s ← %s' % e for e in self.enlaces[id(x)]]
+            valor = next((r for b, r in self.enlaces[id(x)] if b in ('value', 'selectedIndex', 'selectedTag',
+                                                                      'selectedValue', 'selectedObject')), None)
+            if valor:
+                p['ajuste'] = valor
         if clase == 'NSMenuItem':
             a = atajo(self.texto(self.get(x, 'NSKeyEquiv')), self.num(x, 'NSKeyEquivModMask'))
             if a:
@@ -323,6 +359,23 @@ class Nib:
                 hijo = self.nodo(it, None, visto)
                 if hijo:
                     n['hijos'].append(hijo)
+        if clase == 'NSMatrix':
+            celdas = self.lista(self.get(x, 'NSCells'))
+            sel = self.get(x, 'NSSelectedRow')
+            ops = []
+            for i, cel in enumerate(celdas):
+                o = {'texto': self.texto(self.get(cel, 'NSContents'))}
+                k = self.clave(self.get(cel, 'NSContents'))
+                if k:
+                    o['clave'] = k
+                if i == sel:
+                    o['elegida'] = True
+                alt = self.res(self.get(cel, 'NSAlternateImage'))
+                if self.clase(alt) == 'NSButtonImageSource' and 'Radio' in (self.texto(self.get(alt, 'NSImageName')) or ''):
+                    p['tipo_boton'] = 'radio'
+                ops.append(o)
+            p['opciones'] = ops
+            p['filas'], p['columnas_matriz'] = self.get(x, 'NSNumRows'), self.get(x, 'NSNumCols')
         if clase in ('NSTableView', 'NSOutlineView'):
             cols = []
             for c in self.lista(self.get(x, 'NSTableColumns')):
