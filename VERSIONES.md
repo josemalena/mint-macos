@@ -7,9 +7,9 @@ Cada fork, el commit que se compila y los parches que lleva encima de su upstrea
 
 - Fork: https://github.com/josemalena/fynder.git
 - Upstream: https://github.com/linuxmint/nemo.git, rama `master`
-- Commit: `bed97e67914fccac100b691197e3d0476af1b597` (2026-10-19, feat(dock): el menú del Finder en el Dock — fynder --finder-action y X-Muelle-Actions)
+- Commit: `f88274b4940097170dbc0590051fc1d09ddc87d9` (2026-10-19, fix(statusbar): en el diseño Finder no van los botones de abajo de la barra lateral)
 - Base: `66eabf459bc86d03c24797274d0e3f60b9b7a7d8` (master.lmde7), 2026-10-06, nemo-icon-dnd.c: Fix reporting a successful drag result.
-- Parches: 240
+- Parches: 241
 
 | Commit | Fecha | Asunto |
 |---|---|---|
@@ -253,6 +253,7 @@ Cada fork, el commit que se compila y los parches que lleva encima de su upstrea
 | `7a8c85cb` | 2026-10-19 | tema claro: los colores del Finder salen de nombres (@fynder_*) y, con un tema claro, de los colores del tema |
 | `20809432` | 2026-10-19 | tema claro: glifos y segmento escogido medidos contra Catalina clara (gris #4f4f4f, escogido #666 con glifo blanco) |
 | `bed97e67` | 2026-10-19 | feat(dock): el menú del Finder en el Dock — fynder --finder-action y X-Muelle-Actions |
+| `f88274b4` | 2026-10-19 | fix(statusbar): en el diseño Finder no van los botones de abajo de la barra lateral |
 
 ## mint-macos-dock
 
