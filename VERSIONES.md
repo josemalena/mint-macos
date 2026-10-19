@@ -7,9 +7,9 @@ Cada fork, el commit que se compila y los parches que lleva encima de su upstrea
 
 - Fork: https://github.com/josemalena/fynder.git
 - Upstream: https://github.com/linuxmint/nemo.git, rama `master`
-- Commit: `36730fb87737f08aa0f6571a1b51f1612839789e` (2026-10-19, feat(sonidos): los sonidos del Finder al terminar copiar, mandar a la papelera y vaciarla)
+- Commit: `48b003e96a37c4a0958115365a60184b25123df0` (2026-10-19, feat(toolbar): el menú del clic secundario en la barra del Finder)
 - Base: `66eabf459bc86d03c24797274d0e3f60b9b7a7d8` (master.lmde7), 2026-10-06, nemo-icon-dnd.c: Fix reporting a successful drag result.
-- Parches: 244
+- Parches: 245
 
 | Commit | Fecha | Asunto |
 |---|---|---|
@@ -257,6 +257,7 @@ Cada fork, el commit que se compila y los parches que lleva encima de su upstrea
 | `4b01cfad` | 2026-10-19 | tema claro: la barra de título y la toolbar, un solo degradado sin costura |
 | `9d26af5e` | 2026-10-19 | fynder-desktop: teclear selecciona el icono sin cuadro de búsqueda |
 | `36730fb8` | 2026-10-19 | feat(sonidos): los sonidos del Finder al terminar copiar, mandar a la papelera y vaciarla |
+| `48b003e9` | 2026-10-19 | feat(toolbar): el menú del clic secundario en la barra del Finder |
 
 ## muelle
 
