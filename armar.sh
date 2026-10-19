@@ -233,7 +233,12 @@ for b in fynder plank; do
     if [ "$b" = fynder ] && printf '%s\n' "${SIN_FIN_FYNDER[@]}" | grep -qxF "$p"; then continue; fi
     PRUEBAS+=("$p")
   done < <(meson test -C "$T/build/$b" --list 2>/dev/null)
-  callado aparte meson test -C "$T/build/$b" --print-errorlogs "${PRUEBAS[@]}"
+  # Las librerías recién compiladas primero: el rpath del paquete apunta a ~/.local/lib, y si allí
+  # hay una libplank más nueva que el hash fijado, las pruebas cargaban esa y GObject abortaba por el
+  # tamaño de la clase (18-10-2026, is_launching de 852396173 contra las pruebas de 68d01f049).
+  LIBS="$(find "$T/build/$b" \( -type f -o -type l \) -name '*.so*' -not -path '*.p/*' -printf '%h\n' | sort -u | paste -sd:)"
+  callado aparte env LD_LIBRARY_PATH="$LIBS${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
+    meson test -C "$T/build/$b" --print-errorlogs "${PRUEBAS[@]}"
   echo "  $b: $(grep -E '^Ok:' "$T/ultimo.log" | awk '{print $2}') pasan de ${#PRUEBAS[@]} ($(printf '%s, ' "${PRUEBAS[@]}" | sed 's/, $//'))"
 done
 echo "  sin correr (no terminan solas, ver arriba): $(printf '%s, ' "${SIN_FIN_FYNDER[@]}" | sed 's/, $//')"
