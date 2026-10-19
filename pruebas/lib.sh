@@ -69,11 +69,11 @@ despejar_pantalla() {
   case "$HOME" in */pruebas/home*) ;; *) return 0 ;; esac   # nunca fuera del sandbox: mataría los programas de José
   local p
   for p in $(pgrep -u "$(id -u)" -x 'msedge|chrome|firefox|xed|nemo|fynder|kitty' 2>/dev/null); do
-    grep -qz "^HOME=$HOME$" "/proc/$p/environ" 2>/dev/null && kill "$p" 2>/dev/null
+    if grep -qz "^HOME=$HOME$" "/proc/$p/environ" 2>/dev/null; then kill "$p" 2>/dev/null || true; fi
   done
   # Edge/Chrome no dejan leer su /proc/PID/environ (no son «dumpable»): se reconocen por su perfil de prueba, que va bajo el HOME del sandbox
   # (--user-data-dir=$HOME/edge-prueba). Nunca por el nombre: el Edge de José también se llama msedge.
-  pkill -u "$(id -u)" -f -- "--user-data-dir=$HOME/edge-prueba" 2>/dev/null
+  pkill -u "$(id -u)" -f -- "--user-data-dir=$HOME/edge-prueba" 2>/dev/null || true   # (pkill sale con 1 si no hay nada: con errexit mataría al caso)
   sleep 1
 }
 
