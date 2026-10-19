@@ -7,6 +7,7 @@ parpadeos() {   # parpadeos NOMBRE CAJA TECLA_O_CLIC: graba la pantalla, escoge 
   ffmpeg -loglevel error -y -f x11grab -framerate 30 -video_size "${PRUEBAS_ANCHO}x${PRUEBAS_ALTO}" -t 2.2 -i "$DISPLAY" "$video" &
   local ff=$!
   sleep 0.6
+  date +%s.%N > "$PRUEBAS_RES/$PRUEBAS_CASO-pulsado.txt"
   if [ "$3" = tecla ]; then xdotool key Return; else xdotool click 1; fi
   wait "$ff"
   ffmpeg -loglevel error -y -i "$video" "$carpeta/%03d.png"
@@ -60,6 +61,18 @@ prueba() {
       sleep 1
       [ -s "$salida" ] || falla "el ítem no se activó ($modo, $via)"
       paso "el ítem se activó: $(head -1 "$salida")"
+      # Con parpadeo la acción llega después de 2 parpadeos de 150 ms (≥ 0.5 s); sin él, enseguida
+      local demora; demora="$(python3 -c "
+import sys
+p = float(open('$PRUEBAS_RES/$PRUEBAS_CASO-pulsado.txt').read())
+a = float(open('$salida').read().split()[1])
+print('%.2f' % (a - p))")"
+      paso "la acción llegó $demora s después de escoger"
+      if [ "$modo" = true ]; then
+        python3 -c "import sys; sys.exit(0 if $demora >= 0.5 else 1)" || falla "con menu-flash encendido la acción llegó demasiado pronto ($demora s): no esperó al parpadeo"
+      else
+        python3 -c "import sys; sys.exit(0 if $demora < 0.3 else 1)" || falla "con menu-flash apagado la acción tardó $demora s"
+      fi
       xdotool key Escape; sleep 0.5
     done
   done
