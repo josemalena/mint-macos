@@ -20,6 +20,10 @@ prueba() {
   requiere muelle xed xdotool import convert
   # los xed de una corrida anterior contestarían por el bus en vez de abrir ventana (xed es de instancia única)
   for p in $(pgrep -x xed); do grep -qz "^HOME=$HOME\$" "/proc/$p/environ" 2>/dev/null && kill "$p"; done
+  # el dock parte de cero: con los lanzadores y el dconf de otros casos de la corrida (rhythmbox, etc.) el clic caía en otro ícono
+  for p in $(pgrep -x muelle); do grep -qz "^HOME=$HOME\$" "/proc/$p/environ" 2>/dev/null && kill "$p"; done
+  rm -rf "$XDG_CONFIG_HOME/muelle" "$XDG_DATA_HOME/muelle"
+  dconf reset -f /org/mintmacos/muelle/
   local apps="$XDG_DATA_HOME/applications" lanz="$XDG_CONFIG_HOME/muelle/dock1/launchers"
   mkdir -p "$apps" "$lanz"
   # el lanzador lento: a los 12 s abre xed y deja en 69-xed.log qué pasó (cuántos xed vivos y lo que diga xed)
