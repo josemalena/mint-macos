@@ -249,9 +249,9 @@ Cada fork, el commit que se compila y los parches que lleva encima de su upstrea
 
 - Fork: https://github.com/josemalena/mint-macos-dock.git
 - Upstream: https://github.com/zquestz/plank-reloaded.git, rama `master`
-- Commit: `554bf6e14ff20b845b44f065737f06929bc38f0e` (2026-10-19, fix(esquema): enums propios de Muelle para convivir con el esquema de Plank)
+- Commit: `36f74e734dc4fd0c4897c00561406f8b9681ac44` (2026-10-19, Dock: el punto de la app activa va en el color de acento del tema)
 - Base: `e8e2b1fe2e9b13664b1402e2e68246a974ea1a4b` (0.11.176), 2026-10-09, Bump version to 0.11.176
-- Parches: 26
+- Parches: 27
 
 | Commit | Fecha | Asunto |
 |---|---|---|
@@ -281,6 +281,7 @@ Cada fork, el commit que se compila y los parches que lleva encima de su upstrea
 | `7f846e35b` | 2026-10-19 | Muelle: el fork se llama muelle (ejecutable, esquema org.mintmacos.muelle, D-Bus org.mintmacos.Muelle, .desktop y carpetas) |
 | `de8ba7235` | 2026-10-19 | abi: la línea base con LaunchBounceStart e is_launching (el rebote de abrir) |
 | `554bf6e14` | 2026-10-19 | fix(esquema): enums propios de Muelle para convivir con el esquema de Plank |
+| `36f74e734` | 2026-10-19 | Dock: el punto de la app activa va en el color de acento del tema |
 
 ## slick-greeter-mac
 
