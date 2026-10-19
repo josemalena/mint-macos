@@ -21,7 +21,8 @@ prueba() {
     captura "fynder-$modo"
     local X Y WIDTH HEIGHT
     eval "$(xdotool getwindowgeometry --shell "$v")"
-    local lateral; lateral="$(muestra "$v" 60 $((HEIGHT / 2)))"
+    # a 6 px del borde: más adentro cae en el texto o el icono de una fila (#858787 era la letra de «gvfs», 19-10-2026)
+    local lateral; lateral="$(muestra "$v" 6 $((HEIGHT / 2)))"
     paso "con $modo el lateral es $lateral (ventana ${WIDTH}x${HEIGHT})"
     if [ "$modo" = "Adwaita" ]; then
       [ "$(luz "$lateral")" -gt 600 ] || falla "con un tema claro el lateral sigue oscuro ($lateral)"

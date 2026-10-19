@@ -8,7 +8,12 @@ prueba() {
   for n in Alfa Beta Bravo Zeta; do echo x > "$HOME/Desktop/$n.txt"; done
   lanzar fynder-desktop
   sleep 8
-  xdotool mousemove 300 400 click 1; sleep 1; xdotool mousemove 300 400 click 1; sleep 1   # foco en el escritorio, sin tocar ningún icono
+  # foco en el escritorio, sin tocar ningún icono: el clic va abajo, a la izquierda de la columna de iconos, y antes se le da
+  # el foco a la ventana del escritorio (el 19-10-2026 una ventana de otro caso tapaba (300,400) y «br» se tecleó en ella)
+  local SW SH; read -r SW SH < <(xdotool getdisplaygeometry)
+  local esc; esc="$(xdotool search --class nemo-desktop | head -1)"
+  [ -n "$esc" ] && xdotool windowfocus --sync "$esc" 2>/dev/null
+  xdotool mousemove $((SW - 400)) $((SH - 100)) click 1; sleep 1
   local antes="$PRUEBAS_RES/$PRUEBAS_CASO-antes.png" despues="$PRUEBAS_RES/$PRUEBAS_CASO-despues.png"
   import -display "$DISPLAY" -window root "$antes"
   xdotool type --delay 150 "br"; sleep 1.5
