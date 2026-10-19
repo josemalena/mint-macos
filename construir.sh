@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Compila e instala en ~/.local, sin sudo, los dos programas propios:
 #   - Fynder: el administrador de archivos con la cara del Finder (fork de Nemo)
-#   - mint-macos-dock: el Dock de Catalina (fork de zquestz/plank-reloaded;
-#     se instala como plank, igual que el original)
+#   - mint-macos-dock: el Dock de Catalina (fork de zquestz/plank-reloaded), que desde el
+#     19-10-2026 se instala como «muelle» (Muelle, el nombre que le dio José). El plank de antes
+#     queda como «plank-viejo», con su libplank y sus docklets, para volver atrás.
 # Cada uno se clona de su repo público en el hash fijado en versiones.sh: lo
 # que se instala es exactamente lo que se probó. Necesita los paquetes de requisitos.sh.
 #
@@ -61,17 +62,48 @@ if [ "$QUE" = todo ] || [ "$QUE" = fynder ]; then
   echo "  instalado: $PREFIJO/bin/fynder"
 fi
 
+# El plank de antes, para volver atrás una semana (Dev-Dock, 19-10-2026): el hash anterior del fork
+# (PLANK_VIEJO_HASH) compilado en su propio prefijo, ~/.local/lib/mint-macos/plank-viejo, con su
+# libplank, sus docklets y su rpath. No puede compartir nada con Muelle: la libplank nueva cambia el
+# tamaño de las clases y Plank carga siempre los docklets de su carpeta compilada.
+guardar_plank_viejo() {
+  local d="$PREFIJO/lib/mint-macos/plank-viejo"
+  [ -n "${PLANK_VIEJO_HASH:-}" ] && [ ! -x "$d/bin/plank" ] || return 0
+  paso "El Dock de antes como plank-viejo ($PLANK_VIEJO_HASH)"
+  clonar "$PLANK_REPO" "$PLANK_VIEJO_HASH" "$CACHE/src/plank-viejo"
+  local bv="$CACHE/build/plank-viejo"
+  [ -f "$bv/build.ninja" ] || LDFLAGS="-Wl,-rpath,$d/lib/$ARCH" \
+    callado meson setup "$bv" "$CACHE/src/plank-viejo" --prefix="$d" -Denable-apport=false
+  callado ninja -C "$bv"
+  callado ninja -C "$bv" install
+  cat > "$PREFIJO/bin/plank-viejo" <<'EOF'
+#!/bin/sh
+# El Dock de antes de Muelle, en su propio prefijo (construir.sh, 19-10-2026). Se quita con
+# rm -rf ~/.local/lib/mint-macos/plank-viejo ~/.local/bin/plank-viejo.
+exec "$HOME/.local/lib/mint-macos/plank-viejo/bin/plank" "$@"
+EOF
+  chmod 755 "$PREFIJO/bin/plank-viejo"
+  echo "  el plank de antes: $PREFIJO/bin/plank-viejo"
+}
+
 if [ "$QUE" = todo ] || [ "$QUE" = plank ]; then
   paso "mint-macos-dock ($PLANK_HASH)"
   clonar "$PLANK_REPO" "$PLANK_HASH" "$CACHE/src/plank-reloaded"
   B="$CACHE/build/plank-reloaded"
+  guardar_plank_viejo
   # Sin el rpath el binario carga la libplank del sistema y no la del fork.
   [ -f "$B/build.ninja" ] || LDFLAGS="-Wl,-rpath,$PREFIJO/lib/$ARCH" \
     callado meson setup "$B" "$CACHE/src/plank-reloaded" --prefix="$PREFIJO" -Denable-apport=false
   callado ninja -C "$B"
   callado ninja -C "$B" install
   glib-compile-schemas "$PREFIJO/share/glib-2.0/schemas" 2>/dev/null || true
-  echo "  instalado: $PREFIJO/bin/plank"
+  # «plank» sigue funcionando en la transición: apunta a muelle.
+  if [ -x "$PREFIJO/bin/muelle" ]; then
+    ln -sfn muelle "$PREFIJO/bin/plank"
+    echo "  instalado: $PREFIJO/bin/muelle (plank → muelle)"
+  else
+    echo "  instalado: $PREFIJO/bin/plank"
+  fi
 fi
 
 paso "Listo"

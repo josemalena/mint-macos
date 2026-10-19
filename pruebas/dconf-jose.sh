@@ -11,7 +11,7 @@
 
 # Los esquemas que tocan las pruebas: Cinnamon y sus atajos, el Dock, Fynder (y
 # Nemo, de donde viene), GNOME y GTK, y las de XApp.
-PREFIJOS_FUGA='^/(org/cinnamon|net/launchpad/plank|io/github/josemalena|org/nemo|org/gnome/desktop|org/gtk|org/x)/'
+PREFIJOS_FUGA='^/(org/cinnamon|net/launchpad/plank|org/mintmacos/muelle|io/github/josemalena|org/nemo|org/gnome/desktop|org/gtk|org/x)/'
 
 # dconf dump de una copia: lee el archivo directo (sin dconf-service) con un
 # perfil que solo tiene esa base.

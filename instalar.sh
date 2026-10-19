@@ -72,9 +72,10 @@ if $DESHACER; then
   [ -f "$R/sin-mimeapps" ] && rm -f "$HOME/.config/mimeapps.list"
   if [ -f "$R/autostart-plank.desktop" ]; then cp -a "$R/autostart-plank.desktop" "$HOME/.config/autostart/plank.desktop"
   elif [ -f "$R/sin-autostart-plank" ]; then rm -f "$HOME/.config/autostart/plank.desktop"; fi
+  [ -f "$R/sin-autostart-muelle" ] && rm -f "$HOME/.config/autostart/muelle.desktop"
   if [ -f "$R/nemo-autostart.desktop" ]; then cp -a "$R/nemo-autostart.desktop" "$HOME/.local/share/applications/"
   elif [ -f "$R/sin-nemo-autostart" ]; then rm -f "$HOME/.local/share/applications/nemo-autostart.desktop"; fi
-  echo; echo "Listo. Cierra sesión y vuelve a entrar. Fynder y el Plank del fork quedan"
+  echo; echo "Listo. Cierra sesión y vuelve a entrar. Fynder y el Dock del fork quedan"
   echo "instalados en ~/.local, pero ya no son los de por defecto. keyd y lo de"
   echo "requisitos.sh (sudo) no se quitan; /Users, /Volumes y /Applications vacía,"
   echo "con sudo ./requisitos.sh --quitar-rutas-mac."
@@ -93,7 +94,8 @@ for c in fsapfsmount keyd sassc convert rsync git $($SIN_COMPILAR || echo meson 
 
 if $SIN_COMPILAR; then
   paso "1. Fynder y mint-macos-dock: ya instalados (--sin-compilar)"
-  for b in fynder plank; do [ -x "$HOME/.local/bin/$b" ] || { echo "  ✗ falta ~/.local/bin/$b"; exit 1; }; done
+  source "$REPO/tema/dock.sh"
+  for b in fynder "$DOCK_BIN"; do [ -x "$HOME/.local/bin/$b" ] || { echo "  ✗ falta ~/.local/bin/$b"; exit 1; }; done
 else
   paso "1. Compilar Fynder y mint-macos-dock";  "$REPO/construir.sh"
 fi
@@ -152,16 +154,22 @@ echo "  escritorio: $(sed -n 's/^Exec=//p' "$AUTO_ESC" | awk '{print $NF}' | xar
 [ -x "$HOME/.cache/mint-macos/src/fynder/utils/migrar-ajustes-a-fynder.sh" ] && \
   "$HOME/.cache/mint-macos/src/fynder/utils/migrar-ajustes-a-fynder.sh" || true
 mkdir -p "$HOME/.config/autostart"
+# El Dock al entrar: Muelle (o el Plank de antes si Muelle no está; tema/dock.sh). Un solo
+# autoarranque: con Muelle, el de plank se respalda y se quita para que no arranquen los dos.
+source "$REPO/tema/dock.sh"
 if [ -f "$HOME/.config/autostart/plank.desktop" ]; then cp -a "$HOME/.config/autostart/plank.desktop" "$R/autostart-plank.desktop"; else touch "$R/sin-autostart-plank"; fi
-cat > "$HOME/.config/autostart/plank.desktop" <<EOF
+[ -f "$HOME/.config/autostart/muelle.desktop" ] || touch "$R/sin-autostart-muelle"
+[ "$DOCK" = muelle ] && rm -f "$HOME/.config/autostart/plank.desktop"
+NOMBRE_DOCK=Plank; [ "$DOCK" = muelle ] && NOMBRE_DOCK=Muelle
+cat > "$HOME/.config/autostart/$DOCK_BIN.desktop" <<EOF
 [Desktop Entry]
 Type=Application
-Name=Plank
-Comment=El dock (mint-macos-dock)
-Exec=$HOME/.local/bin/plank
+Name=$NOMBRE_DOCK
+Comment=El Dock (mint-macos-dock)
+Exec=$HOME/.local/bin/$DOCK_BIN
 X-GNOME-Autostart-enabled=true
 EOF
-echo "  dock: $HOME/.local/bin/plank al entrar"
+echo "  dock: $HOME/.local/bin/$DOCK_BIN al entrar"
 
 if $LOGIN; then
   paso "7. Pantalla de inicio"

@@ -77,7 +77,7 @@ CONFIG = os.path.expanduser("~/.config/mint-macos/aplicaciones.conf")
 # José abra a mano. Se pueden volver a mostrar con «mostrar» en la configuración.
 OCULTAR = {
     "fynder.desktop", "nemo.desktop", "nemo-mac.desktop", "org.gnome.Nautilus.desktop",
-    "plank.desktop", "net.launchpad.plank.desktop",
+    "plank.desktop", "net.launchpad.plank.desktop", "muelle.desktop",
     "rofi.desktop", "rofi-theme-selector.desktop",
 }
 

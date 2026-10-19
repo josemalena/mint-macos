@@ -39,7 +39,7 @@ const LISTA: &str = ".mint-macos-aplicaciones";
 
 const OCULTAR: &[&str] = &[
     "fynder.desktop", "nemo.desktop", "nemo-mac.desktop", "org.gnome.Nautilus.desktop",
-    "plank.desktop", "net.launchpad.plank.desktop",
+    "plank.desktop", "net.launchpad.plank.desktop", "muelle.desktop",
     "rofi.desktop", "rofi-theme-selector.desktop",
 ];
 const ARRIBA: &[&str] = &["cinnamon-settings.desktop", "mintinstall.desktop", "mint-macos-settings.desktop"];

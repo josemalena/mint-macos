@@ -35,7 +35,7 @@ Señal: `Cambio()`, después de cada `Poner` que cambió algo.
   - La base es el tema de la versión de macOS activa (`version.json` del perfil): Constanza, Samana, ValleNuevo u Ozama.
   - Si esa base o esa variante no están construidas, cae a Constanza o a la variante azul.
 - **El portal:** `org.x.apps.portal color-scheme` (`prefer-dark` o `default`), para las apps de GTK 4 y Flatpak.
-- **El Dock:** `/net/launchpad/plank/docks/dock1/theme`, un tema por apariencia; el acento no cambia el Dock.
+- **El Dock:** `/org/mintmacos/muelle/docks/dock1/theme` (Muelle) y `/net/launchpad/plank/docks/dock1/theme` (el Plank de antes, mientras dure la vuelta atrás), un tema por apariencia; el acento no cambia el Dock.
 - **El resaltado:** `~/.config/gtk-3.0/mint-macos-resaltado.css`, que el `gtk.css` del usuario importa en una línea marcada. Lo demás de ese archivo, como la línea de cinnamon-settings, no se toca.
 - **Lo escogido:** se guarda en `~/.config/mint-macos/apariencia.json`.
 

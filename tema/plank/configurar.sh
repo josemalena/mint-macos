@@ -1,12 +1,13 @@
 #!/bin/bash
-# Configura el dock (Plank) como el Dock de macOS Catalina.
+# Configura el Dock (Muelle, o el Plank de antes si Muelle no está: tema/dock.sh) como el Dock de
+# macOS Catalina.
 #
 # Lo llama instalar.sh en el paso «Activando», después del respaldo, que ya
-# cubre /net/launchpad/plank/docks/ y los .dockitem: --deshacer devuelve el
+# cubre el árbol de dconf del Dock y los .dockitem: --deshacer devuelve el
 # dock anterior. Se puede correr solo. No reinicia Plank: eso lo hace
 # instalar.sh al final.
 #
-# Escribe las claves de /net/launchpad/plank/docks/dock1/ menos «theme», que
+# Escribe las claves de $DOCK_DCONF/docks/dock1/ menos «theme», que
 # es del tema (Constanza-Oscuro, de Infra), y los lanzadores del separador y
 # de la pila de Descargas.
 #
@@ -30,8 +31,9 @@
 #                   momento (lo de antes, que se quedaba en el otro monitor).
 set -euo pipefail
 
-CLAVES=/net/launchpad/plank/docks/dock1
-LANZADORES="$HOME/.config/plank/dock1/launchers"
+source "$(cd "$(dirname "$0")/.." && pwd)/dock.sh"
+CLAVES="$DOCK_DCONF/docks/dock1"
+LANZADORES="$DOCK_CONFIG/dock1/launchers"
 DOCKLETS="$HOME/.local/lib/x86_64-linux-gnu/plank/docklets"
 
 # El orden del Dock de la Mac (c17): Finder, Siri, Launchpad, Spark, Calendar…
@@ -82,7 +84,7 @@ if [ -f "$DOCKLETS/libdocklet-separator.so" ] && [ -f "$DOCKLETS/libdocklet-stac
   # La pila reemplaza a la carpeta Descargas suelta.
   rm -f "$LANZADORES/downloads.dockitem"
 else
-  echo "Plank: sin plank-reloaded en ~/.local; van sin separador ni pila." >&2
+  echo "$DOCK_BIN: sin el fork en ~/.local; van sin separador ni pila." >&2
   DESPUES=(trash)
 fi
 
@@ -151,4 +153,4 @@ dconf write "$CLAVES/hide-mode" "'none'"
 dconf write "$CLAVES/lock-items" false
 dconf write "$CLAVES/monitor" "'$PLANK_MONITOR'"
 
-echo "Plank: Finder $(basename "$FINDER_DESKTOP" .desktop), ${#lista[@]} ítems, ícono 56, ampliación 170 %, monitor «${PLANK_MONITOR:-el principal}»."
+echo "$DOCK_BIN: Finder $(basename "$FINDER_DESKTOP" .desktop), ${#lista[@]} ítems, ícono 56, ampliación 170 %, monitor «${PLANK_MONITOR:-el principal}»."

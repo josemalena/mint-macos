@@ -257,9 +257,11 @@ fn aplicar(e: &Escogido, t: i64) -> (bool, Option<i64>) {
     correr("gsettings", &["set", "org.cinnamon.desktop.wm.preferences", "theme", &nombre]);
     correr("gsettings", &["set", "org.cinnamon.theme", "name", &nombre]);
     correr("gsettings", &["set", "org.x.apps.portal", "color-scheme", if oscuro { "prefer-dark" } else { "default" }]);
-    // El Dock: un tema por apariencia (el acento no cambia el Dock).
-    let plank = format!("'{}-{}'", tema_base(), if oscuro { "Oscuro" } else { "Claro" });
-    correr("dconf", &["write", "/net/launchpad/plank/docks/dock1/theme", &plank]);
+    // El Dock: un tema por apariencia (el acento no cambia el Dock). En los dos árboles: Muelle y el
+    // Plank de antes, que queda una semana para volver atrás (tema/dock.sh, 19-10-2026).
+    let dock = format!("'{}-{}'", tema_base(), if oscuro { "Oscuro" } else { "Claro" });
+    correr("dconf", &["write", "/org/mintmacos/muelle/docks/dock1/theme", &dock]);
+    correr("dconf", &["write", "/net/launchpad/plank/docks/dock1/theme", &dock]);
     // Auto: el próximo cambio, con un temporizador de systemd del usuario (nada esperando).
     correr("systemctl", &["--user", "stop", &format!("{UNIDAD_AUTO}.timer")]);
     if let Some(p) = proximo {

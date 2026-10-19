@@ -7,22 +7,24 @@
 set -euo pipefail
 AQUI="$(cd "$(dirname "$0")" && pwd)"
 source "$AQUI/comun.sh"
+source "$AQUI/dock.sh"   # Muelle o el Plank de antes
 RESP_BASE="$HOME/.mint-macos-respaldo"
 ULTIMO="$RESP_BASE/ultimo-constanza"
 KITTY="$HOME/.config/kitty/kitty.conf"
 GTKCSS="$HOME/.config/gtk-3.0/gtk.css"
-LANZADORES="$HOME/.config/plank/dock1/launchers"
+LANZADORES="$DOCK_CONFIG/dock1/launchers"
 paso() { printf '\n▸ %s\n' "$*"; }
 
 DCONF_RUTAS=(/org/cinnamon/desktop/interface/ /org/gnome/desktop/interface/ \
              /org/cinnamon/desktop/wm/preferences/ /org/cinnamon/theme/ \
-             /net/launchpad/plank/docks/ /org/nemo/ \
+             "$DOCK_DCONF/docks/" /org/nemo/ \
              /org/cinnamon/desktop/background/ \
              /org/cinnamon/settings-daemon/plugins/xsettings/)
 
-reiniciar_plank() {
-  for p in $(pgrep -x plank); do kill "$p"; done; sleep 1
-  setsid nohup plank >/dev/null 2>&1 < /dev/null &
+reiniciar_plank() {   # el Dock que toque (Muelle o Plank); para cualquiera de los dos que corra
+  local n p
+  for n in $DOCK_PROCESOS; do for p in $(pgrep -x "$n"); do kill "$p"; done; done; sleep 1
+  setsid nohup "$DOCK_BIN" >/dev/null 2>&1 < /dev/null &
 }
 
 if [ "${1:-}" = "--deshacer" ]; then
@@ -94,7 +96,7 @@ if [ ! -e "$DEF" ] || grep -q '^# mint-macos' "$DEF"; then
   printf '# mint-macos (tema/instalar.sh)\n[Icon Theme]\nInherits=%s\n' "$CURSORES" > "$DEF"
 fi
 gsettings set org.cinnamon.desktop.wm.preferences button-layout 'close,minimize,maximize:'
-dconf write /net/launchpad/plank/docks/dock1/theme "'Constanza-Oscuro'"
+dconf write "$DOCK_DCONF/docks/dock1/theme" "'Constanza-Oscuro'"
 # El resto del dock (tamaño, zoom, posición, monitor, lanzadores) lo pone
 # plank/configurar.sh, de la sesión de Plank.
 "$AQUI/plank/configurar.sh" || echo "  ✗ plank/configurar.sh falló; el dock queda como estaba"

@@ -29,14 +29,17 @@ FYNDER_UPSTREAM=https://github.com/linuxmint/nemo.git
 FYNDER_RAMA=master
 FYNDER_BASE=66eabf459bc86d03c24797274d0e3f60b9b7a7d8
 
-# mint-macos-dock: el Dock de Catalina (se instala como plank)
+# mint-macos-dock: el Dock de Catalina (se instala como muelle desde el 19-10-2026; antes, plank)
 PLANK_NOMBRE=mint-macos-dock
 PLANK_REPO=https://github.com/josemalena/mint-macos-dock.git
-PLANK_HASH=c45620f9ee6949e2cb82079471f06f36b63fc69a
+PLANK_HASH=de8ba72359aea3f6edbb1e59849faaa0dbb6ef3f
 PLANK_LOCAL=plank-reloaded
 PLANK_UPSTREAM=https://github.com/zquestz/plank-reloaded.git
 PLANK_RAMA=master
 PLANK_BASE=e8e2b1fe2e9b13664b1402e2e68246a974ea1a4b
+# El Dock de antes del renombre a Muelle, para volver atrás una semana (construir.sh lo compila aparte
+# como plank-viejo; Dev-Dock, 19-10-2026). Se quita después del 26-10-2026.
+PLANK_VIEJO_HASH=c45620f9ee6949e2cb82079471f06f36b63fc69a
 
 # slick-greeter-mac: la pantalla de inicio (login/instalar.sh)
 GREETER_NOMBRE=slick-greeter-mac

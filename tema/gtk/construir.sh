@@ -123,7 +123,10 @@ cambiar_de_golpe "$DEST/$NOMBRE.nuevo-$$" "$DEST/$NOMBRE"
 # Dock: el tema de Plank de Mojave con el nombre de Constanza; uno por apariencia (el acento no
 # cambia el Dock), con el nombre de la variante azul.
 [ "$ACENTO" = blue ] || { echo "  tema: $DEST/$NOMBRE"; return 0; }
-PLANK_FINAL="${CONSTANZA_PLANK:-$HOME/.local/share/plank/themes}/${NOMBRE:?}"
+# Va a la carpeta de temas de Muelle; durante la transición también a la de Plank si existe, para
+# que la vuelta atrás (plank-viejo) siga teniendo su tema (tema/dock.sh).
+PLANK_FINAL="${CONSTANZA_PLANK:-$HOME/.local/share/muelle/themes}/${NOMBRE:?}"
+mkdir -p "$(dirname "$PLANK_FINAL")"
 PLANK="$PLANK_FINAL.nuevo-$$"          # se arma al lado y se cambia al final
 rm -rf "${PLANK:?}"; mkdir -p "$PLANK"
 cp "$TMP/mojave/src/other/plank/Theme-$([ "$COLOR" = dark ] && echo Dark || echo Light)/"* "$PLANK/"
@@ -181,6 +184,10 @@ for l in lineas:
 cerrar(seccion)
 open(ruta, 'w').write('\n'.join(salida) + '\n')
 PY
+if [ -z "${CONSTANZA_PLANK:-}" ] && [ -d "$HOME/.local/share/plank/themes" ]; then
+  rm -rf "$HOME/.local/share/plank/themes/$NOMBRE.nuevo-$$"; cp -a "$PLANK" "$HOME/.local/share/plank/themes/$NOMBRE.nuevo-$$"
+  cambiar_de_golpe "$HOME/.local/share/plank/themes/$NOMBRE.nuevo-$$" "$HOME/.local/share/plank/themes/$NOMBRE"
+fi
 cambiar_de_golpe "$PLANK" "$PLANK_FINAL"
 echo "  tema: $DEST/$NOMBRE"
 }
