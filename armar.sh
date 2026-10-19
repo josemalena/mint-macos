@@ -247,6 +247,9 @@ kill $XPID 2>/dev/null || true
 # Las tareas reales (pruebas/), con lo recién compilado: los programas de
 # $RAIZ$PREFIJO/bin antes que los instalados.
 paso "Pruebas: tareas reales (pruebas/correr.sh, en Xvfb)"
+# Si otra sesión está corriendo sus pruebas, se espera el turno (correr.sh no admite dos corridas): el
+# 19-10-2026 un armado de 25 min se perdió por llegar a este paso mientras otra corrida seguía viva.
+while ps -u "$USER" -o args= | grep -qE '^(timeout [0-9]+ )?bash ([^ ]*/)?pruebas/correr\.sh'; do sleep 20; done
 PRUEBAS_RUST="$T/build/rust/debug" "$M/pruebas/correr.sh" --prefijo "$RAIZ$PREFIJO" --resultados "$T/pruebas" \
   || { echo "  ✗ fallan pruebas de tareas reales (registros en $T/pruebas; ARMAR_GUARDAR=1 los deja)"; exit 1; }
 
