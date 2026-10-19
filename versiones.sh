@@ -54,7 +54,7 @@ GREETER_BASE=d1f81b4406d5a756d2274c3dbbbd39bd1bd0f6d4
 # hash fijado todavía: paquete.sh toma el HEAD de ../spotlyte.
 SPOTLYTE_NOMBRE=Spotlyte
 SPOTLYTE_REPO=https://github.com/josemalena/spotlyte.git
-SPOTLYTE_HASH=0a6a4c4878936a4c611098397f7f0e0b5b6e4f78
+SPOTLYTE_HASH=d0168032a69e957a334373c63d5c68ec86f8fe43
 SPOTLYTE_LOCAL=spotlyte
 SPOTLYTE_UPSTREAM=https://github.com/Ulauncher/Ulauncher.git
 SPOTLYTE_RAMA=v5
