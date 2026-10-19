@@ -28,7 +28,11 @@ MAGIC_LAMP = "CinnamonMagicLamp@klangman"
 
 
 def _plank():
-    """El dock1 de Plank (nuestro fork): dconf, ruta relocatable."""
+    """El dock1 del Dock (Muelle si ya corrió en esta cuenta; si no, el Plank de antes): dconf, ruta relocatable."""
+    fuente = Gio.SettingsSchemaSource.get_default()
+    if fuente.lookup("org.mintmacos.muelle.dock.settings", True) is not None \
+            and os.path.isdir(os.path.expanduser("~/.config/muelle/dock1")):
+        return Gio.Settings.new_with_path("org.mintmacos.muelle.dock.settings", "/org/mintmacos/muelle/docks/dock1/")
     return Gio.Settings.new_with_path("net.launchpad.plank.dock.settings", "/net/launchpad/plank/docks/dock1/")
 
 

@@ -17,16 +17,19 @@ rango_alto() {   # rango_alto SEGUNDOS: máximo - mínimo de la altura dibujada
   echo "$((mx - mn))"
 }
 prueba() {
-  requiere plank xed xdotool import convert
-  local apps="$XDG_DATA_HOME/applications" lanz="$XDG_CONFIG_HOME/plank/dock1/launchers"
+  requiere muelle xed xdotool import convert
+  local apps="$XDG_DATA_HOME/applications" lanz="$XDG_CONFIG_HOME/muelle/dock1/launchers"
   mkdir -p "$apps" "$lanz"
   for n in lento launchpad; do
     printf '[Desktop Entry]\nType=Application\nName=%s\nExec=sh -c "sleep 12; exec xed"\nIcon=xed\n' "$n" > "$apps/$n.desktop"
     printf '[PlankDockItemPreferences]\nLauncher=file://%s/%s.desktop\n' "$apps" "$n" > "$lanz/$n.dockitem"
   done
-  gsettings set net.launchpad.plank.dock.settings:/net/launchpad/plank/docks/dock1/ dock-items "['lento.dockitem', 'launchpad.dockitem']" 2>/dev/null || true
-  lanzar plank
-  esperar_ventana '^[Pp]lank$' 30 >/dev/null
+  # (con un prefijo de pruebas sin instalar, el esquema de Muelle está en ../esquemas)
+  local esq; esq="$(dirname "$(command -v muelle)")/../esquemas"
+  [ -d "$esq" ] && export GSETTINGS_SCHEMA_DIR="$esq"
+  gsettings set org.mintmacos.muelle.dock.settings:/org/mintmacos/muelle/docks/dock1/ dock-items "['lento.dockitem', 'launchpad.dockitem']" 2>/dev/null || true
+  lanzar muelle
+  esperar_ventana '^[Mm]uelle$' 30 >/dev/null
   sleep 3
   local f="$PRUEBAS_RES/$PRUEBAS_CASO-franja.png" W H
   captura dock-lento-y-launchpad

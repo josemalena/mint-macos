@@ -130,6 +130,34 @@ namespace Preferencias {
 }
 
 namespace Preferencias {
+    /** ¿El Dock en uso es Muelle? Sí si su esquema está instalado y ya corrió en esta cuenta (tiene su carpeta de configuración);
+     *  antes del cambio sigue siendo el Plank de antes. */
+    public bool dock_es_muelle () {
+        var fuente = SettingsSchemaSource.get_default ();
+        return fuente != null && fuente.lookup ("org.mintmacos.muelle.dock.settings", true) != null
+               && FileUtils.test (Path.build_filename (Environment.get_user_config_dir (), "muelle", "dock1"), FileTest.IS_DIR);
+    }
+
+    /** Los ajustes del dock1 del Dock en uso (Muelle o Plank); null si ninguno está instalado. */
+    public Settings? abrir_dock () {
+        var fuente = SettingsSchemaSource.get_default ();
+        if (fuente == null) {
+            return null;
+        }
+        if (dock_es_muelle ()) {
+            return new Settings.with_path ("org.mintmacos.muelle.dock.settings", "/org/mintmacos/muelle/docks/dock1/");
+        }
+        if (fuente.lookup ("net.launchpad.plank.dock.settings", true) != null) {
+            return new Settings.with_path ("net.launchpad.plank.dock.settings", "/net/launchpad/plank/docks/dock1/");
+        }
+        return null;
+    }
+
+    /** La carpeta de temas del usuario del Dock en uso. */
+    public string carpeta_temas_dock () {
+        return Path.build_filename (Environment.get_user_data_dir (), dock_es_muelle () ? "muelle" : "plank", "themes");
+    }
+
     /** Settings del esquema si está instalado; null si no (g_settings_new con un esquema que falta aborta el programa). */
     public Settings? abrir_settings (string esquema) {
         var fuente = SettingsSchemaSource.get_default ();

@@ -62,9 +62,7 @@ namespace Preferencias {
 
         string? archivo_tema () {
             var tema = plank.get_string ("theme");
-            var home = Environment.get_home_dir ();
-            foreach (var base_ in new string[] { Path.build_filename (home, ".local", "share", "plank", "themes"),
-                                                 "/usr/local/share/plank/themes", "/usr/share/plank/themes" }) {
+            foreach (var base_ in new string[] { carpeta_temas_dock (), "/usr/local/share/plank/themes", "/usr/share/plank/themes" }) {
                 var ruta = Path.build_filename (base_, tema, "dock.theme");
                 if (FileUtils.test (ruta, FileTest.EXISTS)) {
                     return ruta;
@@ -149,13 +147,12 @@ namespace Preferencias {
 
         // ── la página ────────────────────────────────────────────────────
         public override Gtk.Widget? construir () {
-            var fuente = SettingsSchemaSource.get_default ();
-            if (fuente == null || fuente.lookup ("net.launchpad.plank.dock.settings", true) == null) {
-                var l = new Gtk.Label ("Plank is not installed.");
+            plank = abrir_dock ();
+            if (plank == null) {
+                var l = new Gtk.Label ("The Dock is not installed.");
                 l.show ();
                 return l;
             }
-            plank = new Settings.with_path ("net.launchpad.plank.dock.settings", "/net/launchpad/plank/docks/dock1/");
             var p = plank;
             var cuadro = new Gtk.Grid ();
             cuadro.column_spacing = 14;

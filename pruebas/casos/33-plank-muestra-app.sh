@@ -8,9 +8,9 @@ ancho_dibujado() {
   convert "$f" -fuzz 4% -trim -format '%w' info:
 }
 prueba() {
-  requiere plank xed xdotool import convert
-  lanzar plank
-  local d; d="$(esperar_ventana '^[Pp]lank$' 30)"
+  requiere muelle xed xdotool import convert
+  lanzar muelle
+  local d; d="$(esperar_ventana '^[Mm]uelle$' 30)"
   local X Y WIDTH HEIGHT
   eval "$(xdotool getwindowgeometry --shell "$d")"
   [ "$Y" -gt 600 ] || falla "el dock no está abajo de la pantalla (y=$Y)"

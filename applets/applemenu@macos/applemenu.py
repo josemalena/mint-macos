@@ -141,7 +141,7 @@ def _parse_wmctrl(text: str) -> List[Tuple[str, int, str, str]]:
         title = parts[8] or ""
 
         # Ignore Plank (any variant)
-        if "plank" in wmclass.lower() or "plank" in title.lower():
+        if any(n in wmclass.lower() or n in title.lower() for n in ("plank", "muelle")):
             continue
 
         try:
@@ -206,13 +206,13 @@ def collect_apps() -> List[AppEntry]:
 
     grouped: Dict[str, Set[int]] = {}
     for _wid, pid, wmclass, _title in rows:
-        if "plank" in (wmclass or "").lower():
+        if any(n in (wmclass or "").lower() for n in ("plank", "muelle")):
             continue
         grouped.setdefault(wmclass, set()).add(pid)
 
     apps: List[AppEntry] = []
     for wmclass, pids_set in grouped.items():
-        if "plank" in (wmclass or "").lower():
+        if any(n in (wmclass or "").lower() for n in ("plank", "muelle")):
             continue
         icon_name, name = _resolve_icon_and_name(wmclass)
         pids = sorted(list(pids_set))
