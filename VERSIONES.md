@@ -7,9 +7,9 @@ Cada fork, el commit que se compila y los parches que lleva encima de su upstrea
 
 - Fork: https://github.com/josemalena/fynder.git
 - Upstream: https://github.com/linuxmint/nemo.git, rama `master`
-- Commit: `208094325ca7d2eae16c57550ba143d98e39a551` (2026-10-19, tema claro: glifos y segmento escogido medidos contra Catalina clara (gris #4f4f4f, escogido #666 con glifo blanco))
+- Commit: `bed97e67914fccac100b691197e3d0476af1b597` (2026-10-19, feat(dock): el menú del Finder en el Dock — fynder --finder-action y X-Muelle-Actions)
 - Base: `66eabf459bc86d03c24797274d0e3f60b9b7a7d8` (master.lmde7), 2026-10-06, nemo-icon-dnd.c: Fix reporting a successful drag result.
-- Parches: 239
+- Parches: 240
 
 | Commit | Fecha | Asunto |
 |---|---|---|
@@ -252,6 +252,7 @@ Cada fork, el commit que se compila y los parches que lleva encima de su upstrea
 | `7ea25688` | 2026-10-19 | fix(get info): el grupo privado del usuario sale como «staff» |
 | `7a8c85cb` | 2026-10-19 | tema claro: los colores del Finder salen de nombres (@fynder_*) y, con un tema claro, de los colores del tema |
 | `20809432` | 2026-10-19 | tema claro: glifos y segmento escogido medidos contra Catalina clara (gris #4f4f4f, escogido #666 con glifo blanco) |
+| `bed97e67` | 2026-10-19 | feat(dock): el menú del Finder en el Dock — fynder --finder-action y X-Muelle-Actions |
 
 ## mint-macos-dock
 
