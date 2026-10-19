@@ -54,6 +54,7 @@ screenshot-clip=@as []
 window-screenshot-clip=@as []
 
 [wm]
+minimize=['<Super>m']
 push-tile-left=@as []
 push-tile-right=@as []
 show-desktop=['F11']
