@@ -17,6 +17,16 @@ ACENTOS="blue purple pink red orange yellow green grey"
 # TEMA_BASE: el tema de la versión (perfiles: Constanza en Catalina; Samana, ValleNuevo y Ozama
 # cuando cada pasada lo pida; José, 18-10-2026). Por ahora solo se construye Constanza.
 TEMA_BASE="${TEMA_BASE:-Constanza}"
+# Los colores de la versión de ese tema: medidas.json de su perfil (extraer-mac). Constanza
+# (Catalina) no tiene todavía: quedan los medidos en capturas.
+MEDIDAS=""
+for v in "$HOME/.local/share/mint-macos/macos/"*/version.json; do
+  [ -f "$v" ] || continue
+  if python3 -c "import json,sys; sys.exit(0 if json.load(open(sys.argv[1])).get('tema') == sys.argv[2] else 1)" "$v" "$TEMA_BASE"; then
+    [ -s "$(dirname "$v")/medidas.json" ] && MEDIDAS="$(dirname "$v")/medidas.json" && break
+  fi
+done
+echo "  colores de la versión: ${MEDIDAS:-ninguno (los de las capturas de Catalina)}"
 DEST="${CONSTANZA_TEMAS:-$HOME/.themes}"        # CONSTANZA_TEMAS y CONSTANZA_PLANK: para probar sin tocar los activos
 TMP="$(mktemp -d)"
 trap 'desmontar_mac 2>/dev/null; rm -rf "${TMP:?}"' EXIT
@@ -82,7 +92,8 @@ cp "$AQUI/../CREDITOS.md" "$BASE/CREDITOS.md"
 # metacity-1 y en gtk.gresource. Nada de Apple entra al repo.
 if [ -n "${AP:-}" ]; then
   python3 "$AQUI/controles.py" "$AP/SystemAppearance.car" "$AP/DarkAquaAppearance.car" "$BASE" \
-    $([ "$COLOR" = light ] && echo --claro) ${ACENTO_MAC[$ACENTO]:+--acento ${ACENTO_MAC[$ACENTO]}} >/dev/null \
+    $([ "$COLOR" = light ] && echo --claro) ${ACENTO_MAC[$ACENTO]:+--acento ${ACENTO_MAC[$ACENTO]}} \
+    ${MEDIDAS:+--medidas "$MEDIDAS"} >/dev/null \
     || echo "  ⚠ $NOMBRE sin semáforos de Catalina (quedan los de Mojave)"
 fi
 

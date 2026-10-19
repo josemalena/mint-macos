@@ -6,6 +6,9 @@ de la Mac.
     controles.py <SystemAppearance.car> <DarkAquaAppearance.car> <tema> [--claro] [--acento ACENTO]
 
 --claro: las piezas de la apariencia clara (SystemAppearance) y los colores de Catalina claro.
+--medidas: el medidas.json de la versión (extraer-mac): sus colores de sistema reemplazan los fijos
+que tienen equivalente en la Mac (fondo de ventana, de las vistas, del texto). Sin él, o sin el color,
+quedan los medidos en capturas (Catalina) y se anota.
 --acento: Purple, Pink, Red, Orange, Yellow, Green o Graphite; lo que en Catalina va del color de
 acento (la doble flecha del menú desplegable, el interruptor encendido, la pista llena del
 deslizador) se tiñe con ese color. Sin --acento, el azul de siempre.
@@ -220,6 +223,36 @@ def tres(selector, imagen, borde, vertical=False, extra=""):
             f'  border-image: -gtk-scaled(url("catalina/{imagen}.png"), url("catalina/{imagen}@2.png")) {sl} stretch;\n'
             f'  background: -gtk-scaled(url("catalina/{imagen}-centro.png"), url("catalina/{imagen}-centro@2.png")) '
             f"center / 100% 100% no-repeat;\n  background-clip: padding-box;{extra} }}\n")
+
+
+def con_medidas(css, medidas, claro):
+    """Cambia en la hoja los colores fijos por los de medidas.json de la versión, por su papel:
+    windowBackgroundColor (.background), controlBackgroundColor (las vistas) y labelColor (el texto
+    de los controles)."""
+    if not medidas:
+        return css, []
+    import json
+    try:
+        c = json.load(open(medidas))['colores']['claro' if claro else 'oscuro']
+    except (OSError, ValueError, KeyError):
+        return css, ['medidas sin leer']
+    def hexa(k):
+        v = c.get(k) or {}
+        h, a = v.get('hex'), v.get('alfa', 1)
+        if not h:
+            return None
+        return h if a >= 0.999 else 'rgba(%d, %d, %d, %.2f)' % (int(h[1:3], 16), int(h[3:5], 16), int(h[5:7], 16), a)
+    hechos = []
+    fondo, vista, texto = hexa('windowBackgroundColor'), hexa('controlBackgroundColor'), hexa('labelColor')
+    viejo_fondo, viejo_vista, viejo_texto = ('#ececec', '#ffffff', '#262626') if claro else ('#303031', '#1b1d1f', '#e5e5e5')
+    for viejo, nuevo, k in ((viejo_fondo, fondo, 'windowBackgroundColor'), (viejo_vista, vista, 'controlBackgroundColor')):
+        if nuevo:
+            css = css.replace('background-color: %s;' % viejo, 'background-color: %s;' % nuevo)
+            hechos.append(k)
+    if texto:
+        css = css.replace('@define-color catalina_texto %s;' % viejo_texto, '@define-color catalina_texto %s;' % texto)
+        hechos.append('labelColor')
+    return css, hechos
 
 
 def hoja_css(claro=False):
@@ -481,8 +514,11 @@ def css(tema, oscuros, claro=False, acento=None):
                 a, b = a * esc, b * esc
                 caja = (0, a, img.width, img.height - b) if vertical else (a, 0, img.width - b, img.height)
                 img.crop(caja).save(os.path.join(carpeta, nombre + "-centro" + sufijo + ".png"))
+    hoja, hechos = con_medidas(hoja_css(claro), MEDIDAS, claro)
     with open(os.path.join(tema, "gtk-3.0", "catalina.css"), "w") as f:
-        f.write(hoja_css(claro))
+        f.write(hoja)
+        f.write('\n/* Colores de la versión (medidas.json): %s */\n' % (', '.join(hechos) or
+                                                                     'ninguno: los de las capturas de Catalina'))
     for hoja in ("gtk.css", "gtk-dark.css"):
         ruta = os.path.join(tema, "gtk-3.0", hoja)
         texto = open(ruta).read()
@@ -525,7 +561,15 @@ def marco(tema):
     return True
 
 
+MEDIDAS = None
+
+
 def main():
+    global MEDIDAS
+    if '--medidas' in sys.argv:
+        i = sys.argv.index('--medidas')
+        MEDIDAS = sys.argv[i + 1]
+        del sys.argv[i:i + 2]
     claro = '--claro' in sys.argv
     acento = sys.argv[sys.argv.index('--acento') + 1] if '--acento' in sys.argv else None
     sys.argv = [a for i, a in enumerate(sys.argv)
