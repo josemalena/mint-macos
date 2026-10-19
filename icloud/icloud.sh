@@ -11,6 +11,10 @@
 #   ./icloud.sh fotos        además, Fotos en solo lectura (~/Pictures/iCloud Photos)
 #   ./icloud.sh estado       qué hay y cuándo vence la sesión
 #   ./icloud.sh renovar      rclone reconnect (cada 30 días lo pide Apple)
+#   ./icloud.sh cifrar       rclone.conf entero cifrado, con su clave (al azar) en el
+#                            llavero (José, 18-10-2026): la contraseña del Apple ID
+#                            deja de estar recuperable en el disco
+#   ./icloud.sh descifrar    la vuelta atrás: rclone.conf en claro otra vez
 #   ./icloud.sh deshacer     quita servicios, aviso y la entrada de Fynder
 #                            (el remoto queda en rclone.conf; se borra con
 #                            «rclone config delete icloud»)
@@ -28,7 +32,13 @@ set -euo pipefail
 # RCLONE_VERSION y RCLONE_SHA256 (por arquitectura): el manifiesto.
 source "$(cd "$(dirname "$0")/.." && pwd)/versiones.sh"
 YO="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
+# ~/.local/bin/rclone es un envoltorio: pone el --password-command (la clave de
+# rclone.conf sale del llavero, por mint-macos-appleid --clave-config) y corre el
+# binario de verdad. Así lo usa igual quien llame a rclone: el montaje, Spotlyte,
+# System Preferences y la terminal.
 BIN="$HOME/.local/bin/rclone"
+REAL="$HOME/.local/lib/mint-macos/rclone/rclone"
+AYUDANTE="$HOME/.local/lib/mint-macos/mint-macos-appleid"
 REMOTO="${ICLOUD_REMOTO:-icloud}"
 CARPETA="${ICLOUD_CARPETA:-$HOME/iCloud Drive}"
 FOTOS_REMOTO="${REMOTO}-fotos"
@@ -42,17 +52,35 @@ paso() { printf '\n▸ %s\n' "$*"; }
 
 arquitectura() { case "$(uname -m)" in x86_64) echo amd64 ;; aarch64) echo arm64 ;; *) echo "✗ arquitectura $(uname -m) sin binario fijado" >&2; exit 1 ;; esac; }
 
+envoltorio() {
+  # Un rclone de antes (el binario mismo en ~/.local/bin) pasa a su sitio.
+  if [ -f "$BIN" ] && ! grep -q 'mint-macos-appleid' "$BIN" 2>/dev/null; then
+    install -D -m 755 "$BIN" "$REAL"
+  fi
+  install -D -m 755 /dev/stdin "$BIN" <<'EOF'
+#!/bin/sh
+# rclone de mint-macos (lo pone icloud/icloud.sh): rclone.conf va cifrado y su clave
+# la da el llavero, por mint-macos-appleid --clave-config. Sin el ayudante, rclone a secas.
+A="$HOME/.local/lib/mint-macos/mint-macos-appleid"
+if [ -z "${RCLONE_PASSWORD_COMMAND:-}" ] && [ -x "$A" ]; then
+  RCLONE_PASSWORD_COMMAND="$A --clave-config"; export RCLONE_PASSWORD_COMMAND
+fi
+exec "$HOME/.local/lib/mint-macos/rclone/rclone" "$@"
+EOF
+}
+
 instalar() {
-  paso "rclone $RCLONE_VERSION en ~/.local/bin (el del sistema no se toca)"
-  if [ -x "$BIN" ] && "$BIN" version 2>/dev/null | head -1 | grep -q "rclone $RCLONE_VERSION$"; then
+  paso "rclone $RCLONE_VERSION en ~/.local/lib/mint-macos/rclone, con su envoltorio en ~/.local/bin (el del sistema no se toca)"
+  envoltorio
+  if [ -x "$REAL" ] && "$REAL" version 2>/dev/null | head -1 | grep -q "rclone $RCLONE_VERSION$"; then
     echo "  ya está"; return
   fi
   local a tmp; a="$(arquitectura)"; tmp="$(mktemp -d)"
   curl -fsSL -o "$tmp/r.zip" "https://downloads.rclone.org/$RCLONE_VERSION/rclone-$RCLONE_VERSION-linux-$a.zip"
   echo "${RCLONE_SHA256[$a]}  $tmp/r.zip" | sha256sum -c --quiet - || { echo "  ✗ el checksum no cuadra: no se instala"; exit 1; }
   unzip -q -j "$tmp/r.zip" "rclone-$RCLONE_VERSION-linux-$a/rclone" -d "$tmp"
-  install -D -m 755 "$tmp/rclone" "$BIN"
-  echo "  $("$BIN" version | head -1) (checksum verificado)"
+  install -D -m 755 "$tmp/rclone" "$REAL"
+  echo "  $("$REAL" version | head -1) (checksum verificado)"
 }
 
 alta() {
@@ -83,21 +111,12 @@ EOF
   "$BIN" config create "$REMOTO" iclouddrive apple_id="$id" password="$oscura" --no-obscure
   "$BIN" listremotes | grep -qx "$REMOTO:" || { echo "  ✗ no quedó el remoto «$REMOTO»"; exit 1; }
   mkdir -p "$ESTADO"; date +%F > "$ALTA"
-  if grep -q '^RCLONE_ENCRYPT_V0' "${RCLONE_CONFIG:-$HOME/.config/rclone/rclone.conf}" 2>/dev/null; then
-    if command -v secret-tool >/dev/null; then
-      echo "  La configuración está cifrada: escribe su clave para guardarla en el llavero (secret-tool)."
-      secret-tool store --label="rclone (mint-macos)" rclone config
-    else
-      echo "  ✗ la configuración está cifrada y falta secret-tool (sudo ./requisitos.sh): el montaje automático no podrá abrirla"
-    fi
-  fi
+  cifrar
   echo "  listo. Ahora: $0 montar"
 }
 
 unidad_montaje() { # nombre remoto carpeta extra
-  local nombre="$1" remoto="$2" carpeta="$3" extra="$4" clave=""
-  grep -q '^RCLONE_ENCRYPT_V0' "${RCLONE_CONFIG:-$HOME/.config/rclone/rclone.conf}" 2>/dev/null && \
-    clave='--password-command "secret-tool lookup rclone config"'
+  local nombre="$1" remoto="$2" carpeta="$3" extra="$4"
   mkdir -p "$UNIDADES" "$carpeta"
   # --rc en un socket Unix ($XDG_RUNTIME_DIR, 0700): Fynder lee de ahí el
   # progreso de subidas y bajadas (vfs/queue, core/stats). Sin clave porque
@@ -110,10 +129,13 @@ After=network-online.target
 [Service]
 Type=notify
 ${RCLONE_CONFIG:+Environment=RCLONE_CONFIG=$RCLONE_CONFIG}
+# rclone.conf va cifrado: la clave la da el envoltorio desde el llavero; si el
+# llavero sigue cerrado, el ayudante avisa y el montaje reintenta, nunca pregunta.
+Environment=RCLONE_ASK_PASSWORD=false
 # Si el primer arranque falla (sin red al encender, como tras un corte de luz),
 # rclone deja el socket del --rc y cada reintento choca con él: se borra antes.
 ExecStartPre=-/bin/rm -f %t/$nombre.sock
-ExecStart=$BIN mount "$remoto:" "$carpeta" $clave --vfs-cache-mode full --vfs-cache-max-size $CACHE_MAX --cache-dir "%h/.cache/rclone/$nombre" --dir-cache-time 1m --rc --rc-addr "unix://%t/$nombre.sock" --rc-no-auth $extra
+ExecStart=$BIN mount "$remoto:" "$carpeta" --vfs-cache-mode full --vfs-cache-max-size $CACHE_MAX --cache-dir "%h/.cache/rclone/$nombre" --dir-cache-time 1m --rc --rc-addr "unix://%t/$nombre.sock" --rc-no-auth $extra
 ExecStop=/bin/fusermount -u "$carpeta"
 Restart=on-failure
 RestartSec=30
@@ -228,6 +250,49 @@ renovar() {
   echo "  renovada el $(date +%F)"
 }
 
+conf_rclone() { "$BIN" config file | tail -1; }
+es_cifrada() { grep -q '^RCLONE_ENCRYPT_V0' "$1" 2>/dev/null; }
+
+# Los montajes guardan en rclone.conf la sesión que renuevan: si corren mientras se
+# cifra, escribirían la vieja en claro encima. Se paran antes y se levantan después.
+parar_montajes() { for u in "$SERVICIO" "$SERVICIO-fotos"; do systemctl --user stop "$u.service" 2>/dev/null || true; done; }
+levantar_montajes() { for u in "$SERVICIO" "$SERVICIO-fotos"; do [ -f "$UNIDADES/$u.service" ] && systemctl --user restart "$u.service"; done; true; }
+
+cifrar() {
+  instalar
+  paso "rclone.conf cifrado, con la clave en el llavero"
+  local conf antes resp; conf="$(conf_rclone)"
+  if es_cifrada "$conf"; then echo "  ya está cifrado ($conf)"; return; fi
+  [ -x "$AYUDANTE" ] || { echo "  ✗ falta $AYUDANTE (appleid/instalar.sh)"; exit 1; }
+  # Los mismos remotos con los mismos valores, antes y después.
+  antes="$("$BIN" config dump | sha256sum)"
+  # El respaldo en claro (0600) solo vive hasta comprobar el cifrado: dejarlo sería dejar la
+  # contraseña en el disco. La vuelta atrás es «$0 descifrar».
+  resp="$conf.antes-de-cifrar"; install -m 600 "$conf" "$resp"
+  parar_montajes
+  if "$AYUDANTE" --cifrar-config && es_cifrada "$conf" && [ "$("$BIN" config dump | sha256sum)" = "$antes" ] \
+     && ! env -u RCLONE_PASSWORD_COMMAND "$REAL" listremotes --ask-password=false >/dev/null 2>&1; then
+    shred -u "$resp" 2>/dev/null || rm -f "$resp"
+    echo "  cifrado: sin la clave del llavero no se lee ($conf)"
+  else
+    install -m 600 "$resp" "$conf"; shred -u "$resp" 2>/dev/null || rm -f "$resp"
+    levantar_montajes
+    echo "  ✗ no se pudo cifrar: rclone.conf quedó como estaba"; exit 1
+  fi
+  levantar_montajes
+}
+
+descifrar() {
+  instalar
+  paso "rclone.conf en claro otra vez"
+  local conf; conf="$(conf_rclone)"
+  es_cifrada "$conf" || { echo "  no está cifrado"; return; }
+  parar_montajes
+  "$BIN" config encryption remove
+  levantar_montajes
+  echo "  en claro ($conf). La clave sigue en el llavero; «$0 cifrar» la vuelve a usar."
+}
+
 deshacer() {
   paso "Quitando el montaje de iCloud"
   for u in "$SERVICIO-fotos.service" "$SERVICIO.service" "$SERVICIO-vence.timer"; do
@@ -251,5 +316,6 @@ deshacer() {
 case "${1:-}" in
   instalar) instalar ;; alta) alta ;; montar) montar ;; fotos) fotos ;;
   estado) estado ;; renovar) renovar ;; deshacer) deshacer ;;
-  *) sed -n '2,25p' "$0"; exit 2 ;;
+  cifrar) cifrar ;; descifrar) descifrar ;;
+  *) sed -n '2,29p' "$0"; exit 2 ;;
 esac

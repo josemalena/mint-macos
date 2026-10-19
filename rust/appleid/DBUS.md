@@ -29,32 +29,63 @@ Sale de `settings/apple_id.py`. La hoja de Sign In la hace Dev-Dock en Vala; mie
 
 ## Qué se guarda y dónde
 
+**Regla (José, 18-10-2026):** la contraseña del Apple ID no queda recuperable en el disco. `rclone.conf` va entero cifrado con el cifrado propio de rclone, y la clave de ese cifrado vive en el llavero.
+
 | Qué | Dónde | Notas |
 |---|---|---|
-| Contraseña del Apple ID | `rclone.conf`, sección `[icloud]`, campo `password` | **Ofuscada con `rclone obscure`, que es reversible.** El backend de iCloud la exige (`Required: true`) para renovar la sesión. El archivo queda en 0600 desde el primer byte. Si Apple la rechaza, se borra en el acto |
-| Sesión de iCloud (`trust_token`, `cookies`) | `rclone.conf`, sección `[icloud]` | La escribe rclone. Dura 30 días; después toca `icloud.sh renovar` |
-| Contraseña de app (Mail y Calendar) | El llavero de la sesión (Secret Service) | Atributos `xdg:schema=org.mintmacos.AppleID`, `servicio=mail` y `apple_id`: el mismo esquema que el panel de Python, así que lo que guardó él se encuentra |
+| Contraseña del Apple ID | `rclone.conf`, sección `[icloud]`, **cifrado entero** | El backend de iCloud la exige (`Required: true`) para renovar la sesión. Sin la clave del llavero, el archivo no se lee: ni esto ni los otros remotos. Si Apple la rechaza, se borra en el acto |
+| Sesión de iCloud (`trust_token`, `cookies`) | `rclone.conf`, cifrado | La escribe rclone. Dura 30 días; después toca `icloud.sh renovar` |
+| Clave de `rclone.conf` | El llavero (Secret Service) | Atributos `xdg:schema=org.mintmacos.AppleID` y `servicio=rclone-config`. Son 32 bytes al azar (`/dev/urandom`) en base64. Se crea una vez; Sign Out no la borra, porque el archivo sigue cifrado con los otros remotos |
+| Contraseña de app (Mail y Calendar) | El llavero | Atributos `xdg:schema=org.mintmacos.AppleID`, `servicio=mail` y `apple_id`: el mismo esquema que el panel de Python, así que lo que guardó él se encuentra |
 | Cuenta IMAP/SMTP y calendarios CalDAV | `user.js` del perfil de Thunderbird, entre las marcas `// >>> mint-macos Apple ID` | Sin claves: Thunderbird la pide la primera vez o la toma del llavero. Lo demás que haya en `user.js` no se toca |
 | Código de 2FA | En ningún lado | Solo pasa a rclone |
 | Estado del 2FA de rclone | En la memoria del servicio | Se pierde si el servicio se va |
 
-**La línea de comando nunca lleva secretos** (cualquiera la ve en `/proc/<pid>/cmdline`):
-- la contraseña va a `rclone obscure -` por stdin;
-- el estado y el código, por las variables `RCLONE_STATE` y `RCLONE_RESULT`. `/proc/<pid>/environ` solo lo lee el mismo usuario.
+**Cómo abre rclone su configuración:**
+- `~/.local/bin/rclone` es un envoltorio (lo pone `icloud.sh instalar`), y el binario de verdad está en `~/.local/lib/mint-macos/rclone/rclone`.
+- El envoltorio pone `RCLONE_PASSWORD_COMMAND="~/.local/lib/mint-macos/mint-macos-appleid --clave-config"`, salvo que ya venga uno.
+- Así lo usa igual cualquiera que llame a rclone:
+  - el montaje (`rclone-icloud.service`, que además lleva `RCLONE_ASK_PASSWORD=false`);
+  - el índice de Spotlyte (`rclone lsf`);
+  - el panel de Python;
+  - la terminal.
+- Fynder solo habla con el socket `--rc` del montaje y no lee la configuración.
 
-**Nada de secretos en el registro.** `~/.local/share/mint-macos/settings/apple-id.log` (0600, el mismo de `apple_id.py`) guarda solo la salida de rclone cuando un paso falla: nunca sus argumentos ni su entorno.
+**`--clave-config` (el ayudante):**
+- imprime la clave;
+- si el llavero está cerrado, pide abrirlo con el diálogo de gnome-keyring y espera hasta 2 minutos;
+- si no se abre, falla con «The keyring is locked.» en el journal y una notificación.
+
+El montaje reintenta a los 30 s (`Restart=on-failure`). Nunca se queda preguntando en silencio.
+
+**Migración y vuelta atrás:**
+- **`icloud.sh cifrar`:**
+  1. para los montajes, porque guardan la sesión que renuevan y la escribirían en claro;
+  2. crea la clave si no existe y cifra (`--cifrar-config`, que corre `rclone config encryption set`);
+  3. comprueba tres cosas: el archivo cifrado, el mismo `config dump` que antes y que sin la clave no se lea;
+  4. vuelve a levantar los montajes.
+
+  El respaldo en claro (`rclone.conf.antes-de-cifrar`, 0600) solo vive durante la operación: si algo falla se restaura, y si sale bien se borra con `shred`.
+- **`icloud.sh descifrar`:** la vuelta atrás (`rclone config encryption remove`). La clave se queda en el llavero.
+- **`IniciarSesion`:** también cifra, si el archivo todavía no lo está, antes de escribir la contraseña.
+
+**La línea de comando nunca lleva secretos** (cualquiera la ve en `/proc/<pid>/cmdline`):
+- la contraseña y el código van a la API de rclone (`rclone rcd` en un socket Unix propio, en `$XDG_RUNTIME_DIR/mint-macos-appleid-<pid>/`, con permisos 0700), en el cuerpo de `config/create` y `config/update`;
+- el `rcd` vive lo que dura la llamada, y su carpeta se borra al terminar.
+
+**Nada de secretos en el registro.** `~/.local/share/mint-macos/settings/apple-id.log` (0600, el mismo de `apple_id.py`) guarda solo la salida de rclone cuando cifrar falla.
 
 **El llavero, por D-Bus directo:**
 - con `plain`, como libsecret cuando no negocia; el bus es solo del usuario;
-- con tope de 5 s, para que `Estado` no se cuelgue si el llavero no contesta;
-- si el llavero está bloqueado, `ConfigurarMail` devuelve error y no guarda nada.
+- con tope de 5 s por llamada, para que `Estado` no se cuelgue.
 
 ## Cómo
 
 **iCloud Drive:**
-1. Se escribe la sección `[icloud]`: `type`, `apple_id` y la contraseña ofuscada. Las otras secciones de `rclone.conf` se respetan.
-2. Se corre `rclone config update icloud` con `RCLONE_NON_INTERACTIVE=true`; sin parámetros, rclone hace el alta del backend con lo que ya está en la sección.
-3. Si rclone devuelve `State`, se pide el código. El código va con `RCLONE_CONTINUE=true`, `RCLONE_STATE` y `RCLONE_RESULT`.
+1. `rclone.conf` se cifra si no lo está.
+2. Se borra el remoto `icloud` que hubiera.
+3. Se llama `config/create` con `apple_id` y `password`, y `opt` `{obscure, nonInteractive}`. rclone escribe la sección él mismo, cifrada, y respeta las otras.
+4. Si rclone devuelve `State`, se pide el código. El código va por `config/update`, con `opt` `{continue, state, result}`.
 
 **Mail y Calendar:**
 - **Antes:** si Thunderbird está abierto, se le pide cerrarlo, porque lee la configuración al abrir.
@@ -66,18 +97,29 @@ Sale de `settings/apple_id.py`. La hoja de Sign In la hace Dev-Dock en Vala; mie
 
 ## Pruebas
 
-- **`cargo test -p mint-macos-appleid`:** usa un rclone (bash), un systemctl, un CalDAV (HTTP en 127.0.0.1), un llavero (archivo) y un Thunderbird de mentira. Recorre:
+- **`cargo test -p mint-macos-appleid`:** usa un rclone (Python, con un `rcd` en socket Unix y un cifrado de mentira que exige el `--password-command`), un systemctl, un CalDAV (HTTP en 127.0.0.1), un llavero (archivo) y un Thunderbird de mentira. Recorre:
   - una clave mala, que no queda en `rclone.conf`, y el otro remoto intacto;
   - una clave buena, que pide el código: con un código malo da error, y con el bueno da `ok` y reinicia el montaje;
-  - `rclone.conf` en 0600;
+  - `rclone.conf` en 0600 y **cifrado**: no se leen la clave, su ofuscación, el Apple ID, la sesión, el código ni el host de otro remoto;
+  - sin la clave del llavero, `config dump` falla y `Estado` no ve sesión;
+  - la carpeta del socket de `rcd` no queda;
   - **ni la clave ni el código en argv ni en el registro**;
   - una clave de app mala, que no guarda nada;
   - la buena, con 2 calendarios (sin el buzón, con `&amp;` en el nombre y uno sin nombre, que sale como «iCloud»);
   - `user.js` sin perder lo de José y sin duplicar el bloque;
   - Sign Out.
 
-  Comprobado al revés: si el código va en argv, o si una clave rechazada se queda en el archivo, la prueba falla.
-- **`appleid/prueba-llavero.sh`:** el Secret Service de verdad, contra un gnome-keyring aparte con su propio HOME, `XDG_RUNTIME_DIR` y bus. Guarda, reemplaza sin duplicar, busca por Apple ID y borra.
+  Comprobado al revés: si el código va en argv, si una clave rechazada se queda en el archivo, o si no se cifra, la prueba falla.
+- **`appleid/prueba-llavero.sh`:** el Secret Service de verdad, contra un gnome-keyring aparte con su propio HOME, `XDG_RUNTIME_DIR` y bus. Guarda, reemplaza sin duplicar, busca por Apple ID y borra. Además crea la clave de `rclone.conf` una sola vez y la lee, y el Sign Out de Mail no la toca.
+- **A mano, el 18-10-2026,** en una caja con HOME, bus y gnome-keyring propios, con el rclone de verdad y sin red. Salió bien:
+  - `icloud.sh instalar` pone el envoltorio;
+  - `cifrar` deja el archivo ilegible y sin respaldo;
+  - con el envoltorio se lee y sin la clave no;
+  - un segundo `cifrar` no cambia nada;
+  - `Estado` responde con el archivo cifrado;
+  - `descifrar` lo devuelve en claro.
+
+  Con el llavero cerrado y sin pantalla, `--clave-config` falla a los 120 s con «The keyring is locked.».
 - **Nada contra la cuenta real de José sin su sí:** un 2FA le llega al teléfono.
 
 ## Costo
