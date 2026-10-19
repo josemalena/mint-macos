@@ -95,6 +95,8 @@ class AppleMenuApplet extends Applet.IconApplet {
     this.settings = new Settings.AppletSettings(this, metadata.uuid, instance_id);
     this.settings.bind("icon-path", "iconPath", this._syncIcon.bind(this));
     this.settings.bind("antes-logout", "antesLogout");
+    // Recent items (General ▸ Recent items de System Preferences): 0 = None.
+    this.settings.bind("recent-items", "recientesMax");
     this.settings.bind("antes-boton-encendido", "antesBotonEncendido");
     this.settings.bind("reemplazar-dialogo-sistema", "reemplazarSistema", () => this._syncReemplazo());
 
@@ -481,12 +483,18 @@ class AppleMenuApplet extends Applet.IconApplet {
     });
   }
 
+  // Cuántos recientes enseña el submenú (el ajuste de General ▸ Recent items); sin valor válido, RECIENTES.
+  _maxRecientes() {
+    let n = Number(this.recientesMax);
+    return Number.isInteger(n) && n >= 0 && n <= 50 ? n : RECIENTES;
+  }
+
   _llenarRecientes() {
     let menu = this._recientes;
     menu.removeAll();
 
     let docs = [];
-    try { docs = DocInfo.getDocManager()._infosByTimestamp.slice(0, RECIENTES); } catch (e) {}
+    try { docs = DocInfo.getDocManager()._infosByTimestamp.slice(0, this._maxRecientes()); } catch (e) {}
 
     let titulo = new PopupMenu.PopupMenuItem("Documents", { reactive: false });
     titulo.actor.add_style_class_name("applemenu-titulo");

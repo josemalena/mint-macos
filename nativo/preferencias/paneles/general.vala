@@ -4,9 +4,10 @@
  * Conectado de verdad: Default web browser (xdg-settings), Show scroll bars (gtk-overlay-scrollbars) y Appearance, Accent color y
  * Highlight color, que van al servicio org.mintmacos.Apariencia1 (rust/apariencia/DBUS.md): Light, Dark y Auto cambian el tema
  * activo al instante. Los acentos salen del perfil de la versión de macOS activa (Estado ▸ acentos). Sin el servicio esos controles
- * quedan en gris. El resto (Sidebar icon size, ocultar la barra de menús, Click in the scroll bar to, las casillas de documentos,
- * Recent items, Handoff y font smoothing) no tiene una clave que podamos escribir y comprobar aquí: se dibuja como en la captura,
- * en gris, como en una Mac sin esa función.
+ * quedan en gris. Con las claves que dice perfiles/adaptaciones.json: ocultar la barra de menús (panels-autohide del panel de arriba),
+ * Click in the scroll bar to (Gtk/PrimaryButtonWarpsSlider en xsettings), font smoothing (antialiasing en xsettings y en gnome) y
+ * Recent items (recent-items del applet del menú Apple). El resto (Sidebar icon size, las casillas de documentos y Handoff) no tiene
+ * una clave que podamos escribir y comprobar aquí: se dibuja como en la captura, en gris, como en una Mac sin esa función.
  *
  * Las miniaturas de Light/Dark/Auto son arte de Apple y salen del disco de la Mac, no del repo
  * (~/.local/share/mint-macos/settings/apariencia/); sin ellas se ven los nombres solos.
@@ -171,6 +172,134 @@ namespace Preferencias {
             }
         }
 
+        // ── Menu bar: esconder el panel de arriba ─────────────────────────
+        /** El número del panel de arriba de Cinnamon («1:0:top» → «1»), o null. */
+        static string? panel_de_arriba (Settings cin) {
+            foreach (var e in cin.get_strv ("panels-enabled")) {
+                var p = e.split (":");
+                if (p.length >= 3 && p[2] == "top") return p[0];
+            }
+            return null;
+        }
+
+        static bool panel_oculto (Settings cin, string panel) {
+            foreach (var e in cin.get_strv ("panels-autohide")) {
+                if (e.has_prefix (panel + ":")) return e.substring (panel.length + 1) == "true";
+            }
+            return false;
+        }
+
+        void poner_panel_oculto (Settings cin, string panel, bool si) {
+            if (cargando || prueba) return;
+            string[] lista = {};
+            bool visto = false;
+            foreach (var e in cin.get_strv ("panels-autohide")) {
+                if (e.has_prefix (panel + ":")) {
+                    lista += "%s:%s".printf (panel, si ? "true" : "false");
+                    visto = true;
+                } else {
+                    lista += e;
+                }
+            }
+            if (!visto) lista += "%s:%s".printf (panel, si ? "true" : "false");
+            cin.set_strv ("panels-autohide", lista);
+            Settings.sync ();
+        }
+
+        // ── Click in the scroll bar to: xsettings overrides ───────────────
+        const string CLAVE_SALTO = "Gtk/PrimaryButtonWarpsSlider";
+
+        static int salto_actual (Settings xs) {
+            var d = new VariantDict (xs.get_value ("overrides"));
+            var v = d.lookup_value (CLAVE_SALTO, null);
+            if (v == null) return 0;
+            if (v.is_of_type (VariantType.INT32)) return v.get_int32 ();
+            if (v.is_of_type (VariantType.BOOLEAN)) return v.get_boolean () ? 1 : 0;
+            return 0;
+        }
+
+        void poner_salto (Settings xs, int n) {
+            if (cargando || prueba) return;
+            // Se mezcla con las demás entradas de overrides: no se pisan.
+            var d = new VariantDict (xs.get_value ("overrides"));
+            d.insert_value (CLAVE_SALTO, new Variant.int32 (n));
+            xs.set_value ("overrides", d.end ());
+            Settings.sync ();
+        }
+
+        // ── Use font smoothing ────────────────────────────────────────────
+        void poner_suavizado (bool si) {
+            if (cargando || prueba) return;
+            var valor = si ? "grayscale" : "none";
+            // Las dos a la vez: la primera la leen las apps de X por XSETTINGS, la segunda GTK 4 y libadwaita.
+            var xs = abrir_settings ("org.cinnamon.settings-daemon.plugins.xsettings");
+            if (xs != null) xs.set_string ("antialiasing", valor);
+            var gn = abrir_settings ("org.gnome.desktop.interface");
+            if (gn != null) gn.set_string ("font-antialiasing", valor);
+            Settings.sync ();
+        }
+
+        // ── Recent items: el ajuste del applet del menú Apple ─────────────
+        const int[] RECIENTES_VALORES = { 0, 5, 10, 15, 20, 30, 50 };
+
+        static string[] archivos_applet_recientes () {
+            string[] res = {};
+            var dir = Path.build_filename (Environment.get_user_config_dir (), "cinnamon", "spices", "applemenu@macos");
+            try {
+                var d = Dir.open (dir);
+                string? n;
+                while ((n = d.read_name ()) != null) {
+                    if (n.has_suffix (".json")) res += Path.build_filename (dir, n);
+                }
+            } catch (FileError e) {
+            }
+            return res;
+        }
+
+        static int recientes_actual () {
+            foreach (var f in archivos_applet_recientes ()) {
+                try {
+                    var p = new Json.Parser ();
+                    p.load_from_file (f);
+                    var o = p.get_root ().get_object ();
+                    if (o.has_member ("recent-items")) {
+                        var r = o.get_object_member ("recent-items");
+                        if (r.has_member ("value")) return (int) r.get_int_member ("value");
+                    }
+                } catch (GLib.Error e) {
+                }
+            }
+            return 10;
+        }
+
+        void poner_recientes (int n) {
+            if (cargando || prueba) return;
+            foreach (var f in archivos_applet_recientes ()) {
+                try {
+                    var p = new Json.Parser ();
+                    p.load_from_file (f);
+                    var o = p.get_root ().get_object ();
+                    Json.Object r;
+                    if (o.has_member ("recent-items")) {
+                        r = o.get_object_member ("recent-items");
+                    } else {
+                        r = new Json.Object ();
+                        r.set_string_member ("type", "generic");
+                        r.set_int_member ("default", 10);
+                        o.set_object_member ("recent-items", r);
+                    }
+                    r.set_int_member ("value", n);
+                    var g = new Json.Generator ();
+                    g.pretty = true;
+                    g.indent = 4;
+                    g.root = p.get_root ();
+                    g.to_file (f);
+                } catch (GLib.Error e) {
+                    warning ("recent-items: %s", e.message);
+                }
+            }
+        }
+
         static string texto_de (VariantDict d, string clave, string defecto) {
             var v = d.lookup_value (clave, VariantType.STRING);
             return v != null ? v.get_string () : defecto;
@@ -330,7 +459,15 @@ namespace Preferencias {
             g.attach (gris (c2), 1, fila, 2, 1);
             fila++;
             var ocultar = new Gtk.CheckButton.with_label ("Automatically hide and show the menu bar");
-            g.attach (gris (ocultar), 1, fila, 2, 1);
+            var cin = abrir_settings ("org.cinnamon");
+            var arriba = cin != null ? panel_de_arriba (cin) : null;
+            if (cin != null && arriba != null) {
+                ocultar.active = panel_oculto (cin, arriba);
+                ocultar.toggled.connect (() => poner_panel_oculto (cin, arriba, ocultar.active));
+                g.attach (ocultar, 1, fila, 2, 1);
+            } else {
+                g.attach (gris (ocultar), 1, fila, 2, 1);
+            }
             fila++;
 
             g.attach (linea (), 0, fila, 3, 1);
@@ -362,7 +499,14 @@ namespace Preferencias {
             var r2 = new Gtk.RadioButton.with_label_from_widget (r1, "Jump to the spot that’s clicked");
             clic.pack_start (r1, false, false, 0);
             clic.pack_start (r2, false, false, 0);
-            g.attach (gris_motivo (clic, "This is decided by each app on this computer."), 1, fila, 2, 1);
+            var xs = abrir_settings ("org.cinnamon.settings-daemon.plugins.xsettings");
+            if (xs != null) {
+                if (salto_actual (xs) == 1) r2.active = true;
+                r2.toggled.connect (() => poner_salto (xs, r2.active ? 1 : 0));
+                g.attach (clic, 1, fila, 2, 1);
+            } else {
+                g.attach (gris_motivo (clic, "This is decided by each app on this computer."), 1, fila, 2, 1);
+            }
             fila++;
 
             g.attach (linea (), 0, fila, 3, 1);
@@ -415,18 +559,60 @@ namespace Preferencias {
             g.attach (etiqueta_fila ("Recent items:"), 0, fila, 1, 1);
             var rec = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 8);
             var spin = new Gtk.SpinButton.with_range (0, 50, 5);
-            spin.set_value (10);
+            spin.set_value (recientes_actual ());
+            // Solo los valores de la Mac (None, 5, 10, 15, 20, 30, 50), y 0 se lee «None».
+            spin.output.connect (() => {
+                if (spin.get_value_as_int () == 0) {
+                    spin.set_text ("None");
+                    return true;
+                }
+                return false;
+            });
+            spin.input.connect ((out nuevo) => {
+                nuevo = spin.text == "None" ? 0.0 : double.parse (spin.text);
+                return 1;
+            });
+            int previo = spin.get_value_as_int ();
+            spin.value_changed.connect (() => {
+                int v = spin.get_value_as_int ();
+                int ajustado = v;
+                if (v > previo) {
+                    foreach (var o in RECIENTES_VALORES) { if (o >= v) { ajustado = o; break; } }
+                    if (ajustado < v) ajustado = RECIENTES_VALORES[RECIENTES_VALORES.length - 1];
+                } else {
+                    for (int i = RECIENTES_VALORES.length - 1; i >= 0; i--) { if (RECIENTES_VALORES[i] <= v) { ajustado = RECIENTES_VALORES[i]; break; } }
+                }
+                previo = ajustado;
+                if (ajustado != v) {
+                    spin.set_value (ajustado);
+                    return;
+                }
+                poner_recientes (ajustado);
+            });
             rec.pack_start (spin, false, false, 0);
             rec.pack_start (new Gtk.Label ("Documents, Apps, and Servers"), false, false, 0);
-            g.attach (gris_motivo (rec, "The number of recent items is not adjustable on this computer."), 1, fila, 2, 1);
-            fila++;
-            string[] extra = { "Allow Handoff between this Mac and your iCloud devices", "Use font smoothing when available" };
-            for (int i = 0; i < 2; i++) {
-                var c = new Gtk.CheckButton.with_label (extra[i]);
-                c.active = true;
-                g.attach (gris (c), 1, fila, 2, 1);
-                fila++;
+            if (archivos_applet_recientes ().length > 0) {
+                g.attach (rec, 1, fila, 2, 1);
+            } else {
+                g.attach (gris_motivo (rec, "The Apple menu is not set up on this computer."), 1, fila, 2, 1);
             }
+            fila++;
+            // Handoff es de Apple: en gris (perfiles/adaptaciones.json aún no lo oculta). El suavizado de fuentes sí tiene claves.
+            var handoff = new Gtk.CheckButton.with_label ("Allow Handoff between this Mac and your iCloud devices");
+            handoff.active = true;
+            g.attach (gris (handoff), 1, fila, 2, 1);
+            fila++;
+            var suavizado = new Gtk.CheckButton.with_label ("Use font smoothing when available");
+            var xs_f = abrir_settings ("org.cinnamon.settings-daemon.plugins.xsettings");
+            if (xs_f != null) {
+                suavizado.active = xs_f.get_string ("antialiasing") != "none";
+                suavizado.toggled.connect (() => poner_suavizado (suavizado.active));
+                g.attach (suavizado, 1, fila, 2, 1);
+            } else {
+                suavizado.active = true;
+                g.attach (gris (suavizado), 1, fila, 2, 1);
+            }
+            fila++;
 
             caja.pack_start (g, false, false, 0);
             caja.show_all ();

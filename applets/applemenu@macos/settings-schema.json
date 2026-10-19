@@ -10,6 +10,10 @@
     "description": "Usar el diálogo de la Mac también en ⇧⌘Q y en el botón de encendido",
     "tooltip": "Encendido (por defecto): Log Out con ⇧⌘Q y el botón de encendido abren el diálogo de la Mac en vez del de Cinnamon. Apagado, todo vuelve a como estaba."
   },
+  "recent-items": {
+    "type": "generic",
+    "default": 10
+  },
   "antes-logout": {
     "type": "generic",
     "default": ""
