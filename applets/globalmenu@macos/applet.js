@@ -54,12 +54,13 @@ const ESTILO_FUENTE = 'font-family: ".SF NS", sans-serif; font-size: 10pt;';
 // ya lo achica un 12 %). La barra de arriba se queda en 13,3 px (10pt), que es
 // la de la barra de menús de Catalina.
 const ESTILO_MENU = 'font-family: ".SF NS Menú", ".SF NS", sans-serif; font-size: 10.5pt;';
-// Los títulos (File, Edit…): blancos y en peso regular. El cuerpo de más lo
+// Los títulos (File, Edit…): en peso regular. El cuerpo de más lo
 // pone el grado de la SF (GRAD 620); con 600 encima salían 22 % más gruesos
 // y 4 px más anchos que en la Mac (Dev-Dock, «Window»: 50 px allá). En la Mac
 // solo el nombre de la app va en negrita. 9 px por lado: unos 20 px de tinta
 // a tinta entre títulos.
-const ESTILO_BOTON = ESTILO_FUENTE + " color: #ffffff; font-weight: normal; padding: 0 9px;";
+// (sin color: lo da el tema, blanco en oscuro y #1d1d1f en claro)
+const ESTILO_BOTON = ESTILO_FUENTE + " font-weight: normal; padding: 0 9px;";
 
 function atributo(modelo, i, nombre) {
   let v = modelo.get_item_attribute_value(i, nombre, null);

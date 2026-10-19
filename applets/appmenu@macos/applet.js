@@ -721,11 +721,10 @@ class AppMenuApplet extends Applet.TextApplet {
     try {
       let px = Number(this.buttonPadding ?? 10);
       // A la derecha 4 px menos: el primer título del menú global trae los
-      // suyos, y en la Mac hay 20 px de la app a File. El nombre va en blanco
-      // y en negrita: 600 más el grado de la SF da lo de la Mac («Finder»
+      // suyos, y en la Mac hay 20 px de la app a File. El nombre va en negrita: 600 más el grado de la SF da lo de la Mac («Finder»
       // 44 px y 44 883 de tinta, contra 43 y 50 103 allá).
       this.actor.set_style(`padding-left: ${px}px; padding-right: ${Math.max(0, px - 4)}px;`);
-      this._applet_label.set_style('padding-left: 0; padding-right: 0; font-family: ".SF NS", sans-serif; font-size: 10pt; font-weight: 600; color: #ffffff;');
+      this._applet_label.set_style('padding-left: 0; padding-right: 0; font-family: ".SF NS", sans-serif; font-size: 10pt; font-weight: 600;');   // el color lo da el tema (blanco en oscuro, #1d1d1f en claro)
     } catch (e) {}
   }
 
@@ -772,7 +771,7 @@ class AppMenuApplet extends Applet.TextApplet {
       let it = new PopupMenu.PopupMenuItem(texto);
       if (atajo) {
         it.addActor(new St.Label({ text: atajo, y_align: Clutter.ActorAlign.CENTER,
-                                   style: "color: rgba(255,255,255,0.45); padding-left: 24px;" }),
+                                   style: "color: rgba(128,128,132,0.95); padding-left: 24px;" }),
                     { align: St.Align.END });
       }
       it.connect("activate", () => { this.menu.close(); accion(); });

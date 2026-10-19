@@ -138,9 +138,10 @@ cp "$TMP/mojave/src/other/plank/Theme-$([ "$COLOR" = dark ] && echo Dark || echo
 # SeparatorPadding) van en [PlankDockTheme]. Cada clave se escribe en su
 # línea: plank-reloaded reescribe el archivo al cargarlo y, si una clave
 # queda repetida, manda la última.
-python3 - "$PLANK/dock.theme" <<'PY'
+python3 - "$PLANK/dock.theme" "$COLOR" <<'PY'
 import sys
 ruta = sys.argv[1]
+claro = sys.argv[2] == 'light'
 VALORES = {
     'PlankTheme': {
         'TopRoundness': '5', 'BottomRoundness': '0', 'LineWidth': '1',
@@ -166,6 +167,15 @@ VALORES = {
         'UrgentBounceTime': '2000', 'UrgentBounceHeight': '1.08',
     },
 }
+if claro:
+    # El Dock de Catalina clara es un vidrio claro: sobre el mismo fondo que el oscuro (#141D2A) da #4F5865, o sea ~29 % de blanco
+    # (medido en 02-barra-menu-apple-abierto-claro); sin borde visible. El punto, un gris oscuro: PROVISIONAL, sin medir.
+    VALORES['PlankTheme'].update({
+        'OuterStrokeColor': '255;;255;;255;;0',
+        'FillStartColor': '243;;243;;243;;74', 'FillEndColor': '243;;243;;243;;74',
+        'InnerStrokeColor': '255;;255;;255;;0',
+    })
+    VALORES['PlankDockTheme']['IndicatorColor'] = '70;;70;;74;;255'
 lineas, seccion, vistos = open(ruta).read().splitlines(), None, set()
 salida = []
 def cerrar(sec):

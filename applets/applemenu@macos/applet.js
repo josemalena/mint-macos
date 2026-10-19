@@ -45,6 +45,29 @@ const Pango = imports.gi.Pango;
 // La manzana de la Mac: el carácter U+F8FF de SFNS.ttf, que Constanza (Infra)
 // saca vectorial a esta ruta. Fuera del repo: nada de Apple va al repo.
 const MANZANA = GLib.build_filenamev([GLib.get_home_dir(), ".local/share/constanza/manzana/apple-menu.svg"]);
+// La manzana viene en blanco (Constanza la saca del tipo de la Mac). Con una barra clara el texto es oscuro y la manzana también:
+// se pinta del color de texto de la barra y se deja en caché.
+function manzanaPara(actor) {
+  let ruta = MANZANA;
+  let hex = "";
+  try {
+    let c = actor.get_theme_node().get_foreground_color();
+    hex = "%02x%02x%02x".format(c.red, c.green, c.blue);
+    if (c.red + c.green + c.blue > 600 || !GLib.file_test(MANZANA, GLib.FileTest.EXISTS)) return { ruta, hex };
+    let carpeta = GLib.build_filenamev([GLib.get_user_cache_dir(), "constanza"]);
+    GLib.mkdir_with_parents(carpeta, 0o755);
+    let destino = GLib.build_filenamev([carpeta, "apple-menu-" + hex + ".svg"]);
+    if (!GLib.file_test(destino, GLib.FileTest.EXISTS)) {
+      let [ok, bytes] = GLib.file_get_contents(MANZANA);
+      if (!ok) return { ruta, hex };
+      let texto = imports.byteArray.toString(bytes).replace(/fill="#ffffff"/g, 'fill="#' + hex + '"');
+      GLib.file_set_contents(destino, texto);
+    }
+    ruta = destino;
+  } catch (e) {}
+  return { ruta, hex };
+}
+
 // El valor que traía la configuración antes: no cuenta como elección propia.
 const ICONO_VIEJO = "/usr/share/icons/WhiteSur-dark/places@2x/16/folder-apple.svg";
 
@@ -163,7 +186,18 @@ class AppleMenuApplet extends Applet.IconApplet {
     let propia = (this.iconPath || "").trim();
     let ruta = null;
     if (propia.length && propia !== ICONO_VIEJO && GLib.file_test(propia, GLib.FileTest.EXISTS)) ruta = propia;
-    else if (GLib.file_test(MANZANA, GLib.FileTest.EXISTS)) ruta = MANZANA;
+    else if (GLib.file_test(MANZANA, GLib.FileTest.EXISTS)) {
+      let m = manzanaPara(this.actor);
+      ruta = m.ruta;
+      this._colorManzana = m.hex;
+      // Si el tema cambia de claro a oscuro (o al revés), la manzana cambia con él
+      if (!this._manzanaVigila) {
+        this._manzanaVigila = this.actor.connect("style-changed", () => {
+          let n = manzanaPara(this.actor);
+          if (n.hex !== this._colorManzana) this._syncIcon();
+        });
+      }
+    }
 
     if (this._manzana) { this._manzana.destroy(); this._manzana = null; }
 

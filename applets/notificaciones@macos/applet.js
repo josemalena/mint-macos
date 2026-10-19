@@ -32,7 +32,9 @@ function dibujarIcono(area, alto) {
   // Con No molestar encendido el ícono se ve apagado.
   let activas = true;
   try { activas = new Gio.Settings({ schema_id: "org.cinnamon.desktop.notifications" }).get_boolean("display-notifications"); } catch (e) {}
-  cr.setSourceRGBA(1, 1, 1, activas ? 1 : 0.4);
+  // El color de texto de la barra (blanco en oscuro, casi negro en claro)
+  let c = area.get_theme_node().get_foreground_color();
+  cr.setSourceRGBA(c.red / 255, c.green / 255, c.blue / 255, activas ? 1 : 0.4);
   for (let [i, largo] of [[0, 14], [1, 11], [2, 14]]) {
     let y = y0 + i * 4;
     cr.rectangle(0, y, 2, 2);
@@ -270,7 +272,7 @@ class NotificationCenter extends Applet.Applet {
     for (let e of dia) {
       let fila = new St.BoxLayout({ style: "padding: 5px 10px 5px 10px; spacing: 8px;" });
       fila.add_child(new St.Widget({ style: "background-color: " + (e.color || "#ff2d55") + ";", width: 3, height: 16 }));
-      fila.add_child(new St.Label({ text: e.titulo, y_align: Clutter.ActorAlign.CENTER, style: FUENTE + " font-size: 10pt; color: #ffffff;" }));
+      fila.add_child(new St.Label({ text: e.titulo, y_align: Clutter.ActorAlign.CENTER, style: FUENTE + " font-size: 10pt;" }));
       tarjeta.add_child(fila);
     }
     if (con_hora.length) {
@@ -298,7 +300,7 @@ class NotificationCenter extends Applet.Applet {
         let alto = Math.max(22, ((f - i) / 3600000) * ALTO_HORA);
         let color = e.color || "#ff2d55";
         let bloque = new St.BoxLayout({ vertical: true, style: "background-color: rgba(255,255,255,0.10); padding: 2px 6px 2px 10px;" });
-        bloque.add_child(new St.Label({ text: e.titulo, style: FUENTE + " font-size: 9.5pt; color: #ffffff;" }));
+        bloque.add_child(new St.Label({ text: e.titulo, style: FUENTE + " font-size: 9.5pt;" }));
         if (e.lugar) bloque.add_child(new St.Label({ text: e.lugar, style: FUENTE + " font-size: 8.5pt; color: rgba(255,255,255,0.6);" }));
         bloque.set_position(X0 + 2, y);
         bloque.set_size(ANCHO - 4, alto);
@@ -324,14 +326,14 @@ class NotificationCenter extends Applet.Applet {
     let titulo = new St.Label({ text: "WEATHER", style: FUENTE + " font-size: 8.5pt; font-weight: bold; color: rgba(255,255,255,0.5); padding: 6px 10px; background-color: rgba(40,40,42,0.8);" });
     tarjeta.add_child(titulo);
     let cuerpo = new St.BoxLayout({ style: "padding: 14px 14px; spacing: 14px;" });
-    cuerpo.add_child(new St.Icon({ icon_name: clima.icono, icon_size: 44, style: "color: #ffffff;" }));
+    cuerpo.add_child(new St.Icon({ icon_name: clima.icono, icon_size: 44, style: "" }));
     let datos = new St.BoxLayout({ vertical: true, style: "spacing: 2px;" });
-    datos.add_child(new St.Label({ text: clima.ciudad, style: FUENTE + " font-size: 13pt; font-weight: bold; color: #ffffff;" }));
+    datos.add_child(new St.Label({ text: clima.ciudad, style: FUENTE + " font-size: 13pt; font-weight: bold;" }));
     datos.add_child(new St.Label({ text: clima.descripcion, style: FUENTE + " font-size: 10pt; color: rgba(255,255,255,0.7);" }));
     datos.add_child(new St.Label({ text: `H:${Math.round(clima.maxima)}°  L:${Math.round(clima.minima)}°`, style: FUENTE + " font-size: 10pt; color: rgba(255,255,255,0.7);" }));
     cuerpo.add(datos, { expand: true });
     cuerpo.add_child(new St.Label({ text: `${Math.round(clima.temperatura)}°`, y_align: Clutter.ActorAlign.CENTER,
-                                    style: FUENTE + " font-size: 30pt; font-weight: 200; color: #ffffff;" }));
+                                    style: FUENTE + " font-size: 30pt; font-weight: 200;" }));
     tarjeta.add_child(cuerpo);
     this._widgets.add_child(tarjeta);
   }
@@ -346,7 +348,7 @@ class NotificationCenter extends Applet.Applet {
     this._boton_edit.opacity = 140;
     this._pie.add(this._boton_edit, { expand: true, x_align: St.Align.MIDDLE });
     this._engranaje = new St.Button({ reactive: true, track_hover: true, can_focus: true, style: "padding: 0 0 0 10px;" });
-    this._engranaje.set_child(new St.Icon({ icon_name: "emblem-system-symbolic", icon_size: 16, style: "color: rgba(255,255,255,0.6);" }));
+    this._engranaje.set_child(new St.Icon({ icon_name: "emblem-system-symbolic", icon_size: 16, style: "color: rgba(128,128,132,0.9);" }));
     this._engranaje.connect("clicked", () => {
       this.menu.close();
       try { Util.spawnCommandLine("mac-preferencias notifications"); } catch (e) {}

@@ -9,7 +9,9 @@
   background-color: rgba(238, 238, 240, 0.78);
 }
 .panel-top,
-#panelRight .applet-label {
+#panelLeft .applet-label,
+#panelRight .applet-label,
+#panel .globalmenu-boton {
   color: #1d1d1f;
 }
 .popup-menu,
