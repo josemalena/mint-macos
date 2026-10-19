@@ -39,6 +39,110 @@
    "estado": "aprobado",
    "fuente": "José, 18-10-2026",
    "motivo": "Handoff necesita la continuidad con dispositivos de Apple; no hay cómo integrarlo hoy."
+  },
+  {
+   "ids": [
+    "accion:hideShowMenuBarChanged:",
+    "clave:Psr-dn-2cx"
+   ],
+   "aplica_a": "gsettings",
+   "ajuste": {
+    "esquema": "org.cinnamon",
+    "clave": "panels-autohide",
+    "valor": "lista de «<panel>:true|false»; el panel es el de arriba de panels-enabled («1:0:top» → 1)",
+    "encendido": "<panel>:true",
+    "apagado": "<panel>:false"
+   },
+   "estado": "aprobado",
+   "fuente": "Regla de José, 18-10-2026 (todo lo que se pueda, con la UX de la Mac); mapeo de Infra pedido por Planner",
+   "motivo": "«Automatically hide and show the menu bar» es esconder solo el panel de arriba de Cinnamon, que hace de barra de menús."
+  },
+  {
+   "ids": [
+    "clave:100302"
+   ],
+   "aplica_a": "gsettings",
+   "ajuste": {
+    "esquema": "org.cinnamon.settings-daemon.plugins.xsettings",
+    "clave": "overrides",
+    "valor": "a{sv}: se mezcla «Gtk/PrimaryButtonWarpsSlider» sin tocar las demás entradas",
+    "opciones": {
+     "Jump to the next page": "<int32 0>",
+     "Jump to the spot that’s clicked": "<int32 1>"
+    },
+    "alcance": "apps GTK 3 y 4 (XSETTINGS); Qt, Electron y Firefox siguen su propia regla"
+   },
+   "estado": "aprobado",
+   "fuente": "Regla de José, 18-10-2026 (todo lo que se pueda, con la UX de la Mac); mapeo de Infra pedido por Planner",
+   "motivo": "«Click in the scroll bar to» es gtk-primary-button-warps-slider. GTK trae «Jump to the spot» de fábrica; la Mac, «Jump to the next page»."
+  },
+  {
+   "ids": [
+    "accion:fontSmoothingEnabledChanged:",
+    "clave:100517"
+   ],
+   "aplica_a": "gsettings",
+   "ajuste": {
+    "esquema": [
+     "org.cinnamon.settings-daemon.plugins.xsettings",
+     "org.gnome.desktop.interface"
+    ],
+    "clave": [
+     "antialiasing",
+     "font-antialiasing"
+    ],
+    "encendido": "grayscale",
+    "apagado": "none",
+    "nota": "las dos claves a la vez: la primera la leen las apps de X por XSETTINGS, la segunda GTK 4 y libadwaita"
+   },
+   "estado": "aprobado",
+   "fuente": "Regla de José, 18-10-2026 (todo lo que se pueda, con la UX de la Mac); mapeo de Infra pedido por Planner",
+   "motivo": "«Use font smoothing when available» es el suavizado de letras (antialiasing)."
+  },
+  {
+   "ids": [
+    "clave:100358"
+   ],
+   "aplica_a": "applet:applemenu@macos",
+   "ajuste": {
+    "clave": "recent-items (settings-schema del applet, nueva)",
+    "opciones": {
+     "None": 0,
+     "5": 5,
+     "10": 10,
+     "15": 15,
+     "20": 20,
+     "30": 30,
+     "50": 50
+    },
+    "defecto": 10,
+    "nota": "hoy es la constante RECIENTES = 10 de applet.js; None deja «Recent Items» vacío, no apaga el registro de recientes de GTK, igual que la Mac"
+   },
+   "estado": "aprobado",
+   "fuente": "Regla de José, 18-10-2026 (todo lo que se pueda, con la UX de la Mac); mapeo de Infra pedido por Planner",
+   "motivo": "«Recent items» fija cuántos enseña Recent Items del menú Apple."
+  },
+  {
+   "ids": [
+    "accion:talRestoreWindowsChanged:",
+    "clave:100586",
+    "clave:Close windows when quitting an application"
+   ],
+   "ocultar": true,
+   "estado": "propuesto",
+   "fuente": "Regla de José, 18-10-2026 (todo lo que se pueda, con la UX de la Mac); mapeo de Infra pedido por Planner",
+   "motivo": "Sin equivalente en Linux: reabrir las ventanas al volver a abrir una app es de cada app (Edge «Continue where you left off», LibreOffice…), no hay un interruptor común. Hacerlo costaría un servicio que guarde y reabra ventanas por app (wmctrl + el comando de la app): días, y solo funcionaría con las que acepten abrir archivos por argumento. A decidir por José: ocultarlo o apagarlo en gris."
+  },
+  {
+   "ids": [
+    "accion:talAskToSaveChanged:",
+    "clave:101529",
+    "clave:Ask to keep changes when closing documents"
+   ],
+   "ocultar": true,
+   "estado": "propuesto",
+   "fuente": "Regla de José, 18-10-2026 (todo lo que se pueda, con la UX de la Mac); mapeo de Infra pedido por Planner",
+   "motivo": "Sin equivalente en Linux: va con el guardado automático y las versiones de documentos de macOS; aquí cada app pregunta al cerrar a su manera y no hay un ajuste común. A decidir por José: ocultarlo o apagarlo en gris."
   }
  ],
  "paneles": [

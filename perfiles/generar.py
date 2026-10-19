@@ -422,13 +422,14 @@ def adaptaciones():
 
 
 def adaptar(nodo, reglas):
-    """Pone «ocultar» o «aplica_a» (con su motivo) a los controles de un panel por su id estable.
+    """Pone «ocultar» o «aplica_a» (y su «ajuste»: qué clave escribir y con qué valores), con su motivo, a los
+    controles de un panel por su id estable.
     Solo las reglas aprobadas; las propuestas van aparte, en «propuestas»."""
     # El id del control, o el de su etiqueta (en SwiftUI el título va en el Text de adentro).
     ids = {nodo['props'].get('id')} | {h['props'].get('id') for h in nodo['hijos'][:1] if h['clase'] == 'texto'}
     for r in reglas:
         if nodo['clase'] != 'texto' and ids & set(r['ids']) or nodo['props'].get('id') in r['ids']:
-            for k in ('ocultar', 'aplica_a'):
+            for k in ('ocultar', 'aplica_a', 'ajuste'):
                 if k in r:
                     nodo['props'][k] = r[k]
             nodo['props']['motivo'] = r.get('motivo')
