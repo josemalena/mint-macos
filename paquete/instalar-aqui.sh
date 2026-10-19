@@ -148,6 +148,9 @@ export MAC_SISTEMA="$MAC"
 "$REPO/polkit/instalar.sh"
 "$REPO/polkit/instalar.sh" --activar
 "$REPO/icloud/apps-web.sh"
+# Los perfiles de versión de macOS (perfiles/ESQUEMA.md): lo que haya aquí del disco de la Mac y
+# de las referencias, mint-macos-version y el autoarranque que aplica la versión escogida al entrar.
+"$REPO/perfiles/instalar.sh"
 # rclone en ~/.local/bin (versión fija, con checksum): lo usan el panel Apple ID
 # de System Preferences y iCloud Drive. El alta de la cuenta la hace José.
 "$REPO/icloud/icloud.sh" instalar

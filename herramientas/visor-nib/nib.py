@@ -156,6 +156,15 @@ class Nib:
         self.top = self.res(d['$top'].get('IB.objectdata'))
         # Las cadenas de en.lproj/<nib>.strings, si el nib las referencia por clave.
         self.cadenas = cadenas or {}
+        # La acción de cada control (NSNibControlConnector: fuente → selector, «terminate:»): es el
+        # id que no cambia entre versiones de macOS aunque cambie el texto.
+        self.acciones = {}
+        for con in self.lista(self.get(self.top, 'NSConnections')):
+            if self.clase(con) in ('NSNibControlConnector', 'NSNibAXRelationshipConnector') or 'Control' in (self.clase(con) or ''):
+                fuente = self.res(self.get(con, 'NSSource'))
+                sel = self.texto(self.get(con, 'NSLabel'))
+                if isinstance(fuente, dict) and sel:
+                    self.acciones.setdefault(id(fuente), sel)
 
     # --- lo básico del archivador ---
 
@@ -292,6 +301,8 @@ class Nib:
                 hijo = self.nodo(menu, None, visto)
                 if hijo:
                     n['hijos'].append(hijo)
+        if id(x) in self.acciones:
+            p['accion'] = self.acciones[id(x)]
         if clase == 'NSMenuItem':
             a = atajo(self.texto(self.get(x, 'NSKeyEquiv')), self.num(x, 'NSKeyEquivModMask'))
             if a:
@@ -534,6 +545,71 @@ def barra_de_archivo(ruta, cadenas=None):
                                   'hijos': []})
         barra['hijos'].append(item)
     return barra
+
+
+# Los modificadores de Carbon (keyEquivalentModifier): los mismos bits que NSEventModifierFlags.
+def menus_carbon(ruta_xib):
+    """Los menús de un nib de Carbon en XML (HIToolbox: StandardMenus.nib/objects.xib, de donde
+    salen el menú Apple y los menús estándar), como nodos NSMenu/NSMenuItem del resto del lector.
+    Cada ítem trae su «comando», el código de cuatro letras que no cambia entre versiones
+    (abtm = About This Mac, apwn = Force Quit…, lock = Lock Screen)."""
+    import xml.etree.ElementTree as ET
+    t = open(ruta_xib, encoding='utf-8', errors='replace').read()
+    # Los caracteres de control (la tecla Escape) vienen como &#27;: XML 1.0 no los deja.
+    t = re.sub(r'&#(\d+);', lambda m: chr(int(m.group(1))) if int(m.group(1)) >= 32 or int(m.group(1)) in (9, 10, 13)
+               else '&#xE0%02X;' % int(m.group(1)), t)
+    raiz = ET.fromstring(t)
+    por_id = {}
+    for o in raiz.iter('object'):
+        if o.get('id'):
+            por_id[o.get('id')] = o
+
+    def campos(o):
+        return {c.get('name'): (c.text or '') for c in o if c.tag in ('string', 'int', 'boolean', 'ostype')}
+
+    def tecla(v):
+        # La Escape quedó como un carácter de uso privado: se vuelve a su código.
+        return ''.join(chr(ord(c) - 0xE000) if 0xE000 <= ord(c) < 0xE100 else c for c in v)
+
+    def item(o):
+        d = campos(o)
+        p = {}
+        if d.get('separator') == 'TRUE':
+            p['separador'] = True
+        if d.get('title') and not p.get('separador'):
+            p['titulo'] = d['title']
+        if d.get('command'):
+            p['comando'] = d['command']
+        for k, nombre in (('hidden', 'oculto'), ('disabled', 'apagado'), ('dynamic', 'dinamico'),
+                          ('sectionHeader', 'cabecera'), ('notPreviousAlternate', 'no_alterno')):
+            if d.get(k) == 'TRUE':
+                p[nombre] = True
+        if d.get('keyEquivalent'):
+            mascara = int(d.get('keyEquivalentModifier') or 1048576)  # sin máscara: ⌘
+            a = atajo(tecla(d['keyEquivalent']), mascara)
+            if a:
+                p['atajo'] = a
+        n = {'id': o.get('id'), 'clase': 'NSMenuItem', 'props': p, 'hijos': []}
+        sub = next((c for c in o if c.get('name') == 'submenu'), None)
+        if sub is not None:
+            sub = por_id.get(sub.get('idRef')) if sub.tag == 'reference' else sub
+            if sub is not None:
+                n['hijos'].append(menu(sub))
+        return n
+
+    def menu(o):
+        d = campos(o)
+        n = {'id': o.get('id'), 'clase': 'NSMenu', 'props': {'titulo': d.get('title'), 'menu_id': d.get('menuID')}, 'hijos': []}
+        items = next((c for c in o if c.tag == 'array' and c.get('name') == 'items'), None)
+        for r in (items if items is not None else []):
+            x = por_id.get(r.get('idRef')) if r.tag == 'reference' else r
+            if x is not None:
+                n['hijos'].append(item(x))
+        return n
+
+    # Los de primer nivel: los que no son submenú de un ítem.
+    subs = {c.get('idRef') or c.get('id') for o in raiz.iter('object') for c in o if c.get('name') == 'submenu'}
+    return [menu(o) for o in raiz.iter('object') if o.get('class') == 'IBCarbonMenu' and o.get('id') not in subs]
 
 
 def abrir(ruta_nib):
