@@ -135,7 +135,10 @@ Environment=RCLONE_ASK_PASSWORD=false
 # Si el primer arranque falla (sin red al encender, como tras un corte de luz),
 # rclone deja el socket del --rc y cada reintento choca con él: se borra antes.
 ExecStartPre=-/bin/rm -f %t/$nombre.sock
-ExecStart=$BIN mount "$remoto:" "$carpeta" --vfs-cache-mode full --vfs-cache-max-size $CACHE_MAX --cache-dir "%h/.cache/rclone/$nombre" --dir-cache-time 1m --rc --rc-addr "unix://%t/$nombre.sock" --rc-no-auth $extra
+# --dir-cache-time 1h (José, 19-10-2026): con 1m cada carpeta no abierta en el último minuto volvía a la API de
+# iCloud, que tarda segundos. Lo cambiado desde aquí se ve al momento (pasa por el montaje); lo de otro equipo,
+# a la hora o con vfs/refresh por el socket.
+ExecStart=$BIN mount "$remoto:" "$carpeta" --vfs-cache-mode full --vfs-cache-max-size $CACHE_MAX --cache-dir "%h/.cache/rclone/$nombre" --dir-cache-time 1h --rc --rc-addr "unix://%t/$nombre.sock" --rc-no-auth $extra
 # -z: con el escritorio de Fynder dentro de iCloud Drive el montaje siempre está ocupado; sin
 # soltarlo «lazy», rclone muere y deja el punto de montaje muerto (18-10-2026).
 ExecStop=/bin/fusermount -uz "$carpeta"
