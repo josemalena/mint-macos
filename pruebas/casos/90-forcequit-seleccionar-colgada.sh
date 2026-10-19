@@ -12,7 +12,13 @@ prueba() {
   trap "kill -KILL $pid 2>/dev/null || true" EXIT   # un xed detenido heredaría el lock del harness
   lanzar mac-forcequit --seleccionar "$pid"
   local fq; fq="$(esperar_ventana '[Mm]ac-forcequit' 20)"
-  esperar_texto "$fq" "Xed (not responding)" 20
+  if ! python3 "$(dirname "$PRUEBAS_LIB")/atspi.py" --pid "$(xdotool getwindowpid "$fq")" --texto "Xed (not responding)" --segundos 20 >&2; then
+    echo "--- lo que muestra Force Quit:" >&2
+    python3 "$(dirname "$PRUEBAS_LIB")/atspi.py" --pid "$(xdotool getwindowpid "$fq")" --volcar >&2
+    echo "--- procesos xed:" >&2; ps -o pid,stat,args -C xed >&2
+    falla "la ventana no muestra «Xed (not responding)»"
+  fi
+  paso "se ve «Xed (not responding)»"
   captura colgada-escogida
   lanzar mac-forcequit --seleccionar "$pid"
   sleep 2

@@ -3,8 +3,8 @@
 # límite: 120
 # gestor: cinnamon-notificaciones
 prueba() {
-  requiere mac-hoy gdbus
-  lanzar mac-hoy
+  requiere mac-ventanas gdbus
+  lanzar mac-ventanas --residente   # el servicio org.mintmacos.Hoy1 vive en el residente de ventanas (ya no hay mac-hoy)
   lanzar python3 "$MINT_MACOS_REPO/pruebas/ayudantes/calendario-falso.py"
   sleep 1
   ev() { gdbus call --session --dest org.Cinnamon --object-path /org/Cinnamon --method org.Cinnamon.Eval "$1" 2>&1; }

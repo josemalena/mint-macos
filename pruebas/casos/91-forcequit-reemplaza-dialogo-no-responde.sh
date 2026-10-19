@@ -15,7 +15,13 @@ prueba() {
   # Cerrar una ventana que no contesta es lo que hace que Muffin pregunte si está viva
   python3 "$(dirname "$PRUEBAS_LIB")/ayudantes/cerrar-ventana.py" "$x"
   local fq; fq="$(esperar_ventana '[Mm]ac-forcequit' 30)"
-  esperar_texto "$fq" "Xed (not responding)" 15
+  if ! python3 "$(dirname "$PRUEBAS_LIB")/atspi.py" --pid "$(xdotool getwindowpid "$fq")" --texto "Xed (not responding)" --segundos 15 >&2; then
+    echo "--- lo que muestra Force Quit:" >&2
+    python3 "$(dirname "$PRUEBAS_LIB")/atspi.py" --pid "$(xdotool getwindowpid "$fq")" --volcar >&2
+    echo "--- procesos xed:" >&2; ps -o pid,stat,args -C xed >&2
+    falla "la ventana no muestra «Xed (not responding)»"
+  fi
+  paso "se ve «Xed (not responding)»"
   captura force-quit-con-xed-colgado
   # Y sin el diálogo de Cinnamon (se llama «… is not responding» y trae Wait)
   if python3 "$(dirname "$PRUEBAS_LIB")/atspi.py" --pid "$(pgrep -x -n cinnamon)" --texto "Wait" --segundos 2 >/dev/null 2>&1; then
