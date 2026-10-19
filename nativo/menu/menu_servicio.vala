@@ -279,7 +279,7 @@ namespace Menu {
             var q = texto.down ();
             var res = new GenericArray<Nodo> ();
             for (int i = 0; i < todos.length; i++) {
-                if (todos[i].etiqueta.down ().contains (q)) res.add (todos[i]);
+                if (!todos[i].alterno && todos[i].etiqueta.down ().contains (q)) res.add (todos[i]);
             }
             var tablas = Nodo.a_tablas (res);
             foreach (var t in tablas) t.insert ("version", new Variant.uint32 (v.version));

@@ -29,6 +29,8 @@ const ATTR_TARGET = "target";
 const ATTR_ACCEL = "accel";
 // Texto literal del atajo («^⌘N»), para lo que atajoBonito no puede mostrar (⌃ no se distingue de ⌘ con keyd): gana sobre «accel».
 const ATTR_ACCEL_LITERAL = "x-constanza-accel";
+// Ítem alterno (b): va justo después de su ítem base y solo se ve con ⌥ apretado, en su lugar (como el Finder de la Mac).
+const ATTR_ALTERNO = "x-constanza-alternate";
 // El ícono del ítem, un GIcon serializado (el menú Go de Catalina lleva uno por ítem).
 const ATTR_ICON = "icon";
 const LINK_SUBMENU = "submenu";
@@ -229,6 +231,53 @@ function desempacar(v) {
 // para que se vea que son de un submenú.
 const SANGRIA_SUBMENU = "padding-left: 18px;";
 
+// Ítems alternos (⌥). `alterno` toma el lugar de `base` mientras ⌥ está apretado; los pares quedan en menu._pares.
+let ALT_APRETADO = false;
+
+function agregarItem(menu, item, esAlterno) {
+  let base = null;
+  if (esAlterno) {
+    let hijos = menu.box.get_children();
+    let ultimo = hijos.length ? hijos[hijos.length - 1]._delegate : null;
+    if (ultimo && ultimo instanceof PopupMenu.PopupBaseMenuItem && !(ultimo instanceof PopupMenu.PopupSeparatorMenuItem)) base = ultimo;
+  }
+  menu.addMenuItem(item);
+  if (!base) return;
+  if (!menu._pares) menu._pares = [];
+  menu._pares.push({ base: base, alterno: item });
+  sincronizarAlternos(menu, ALT_APRETADO);
+}
+
+function sincronizarAlternos(menu, conAlt) {
+  ALT_APRETADO = conAlt;
+  for (let a of menu.box.get_children()) {
+    let d = a._delegate;
+    if (d && d.menu && d.menu !== menu && d.menu.box) sincronizarAlternos(d.menu, conAlt);
+  }
+  for (let p of menu._pares || []) {
+    p.base.actor.visible = !conAlt;
+    p.alterno.actor.visible = conAlt;
+  }
+  relanzar(menu);
+}
+
+// Con el menú abierto: ⌥ apretado (ahora o después) cambia los ítems; se llama una vez por menú.
+function vigilarAlt(menu) {
+  let alt = (mods) => (mods & Clutter.ModifierType.MOD1_MASK) !== 0;
+  let tecla = (event, apretada) => {
+    let k = event.get_key_symbol();
+    if (k === Clutter.KEY_Alt_L || k === Clutter.KEY_Alt_R) sincronizarAlternos(menu, apretada);
+    return Clutter.EVENT_PROPAGATE;
+  };
+  menu.actor.connect("key-press-event", (a, e) => tecla(e, true));
+  menu.actor.connect("key-release-event", (a, e) => tecla(e, false));
+  menu.connect("open-state-changed", (_m, abierto) => {
+    if (!abierto) return;
+    let [, , mods] = global.get_pointer();
+    ALT_APRETADO = alt(mods);
+  });
+}
+
 function submenu(etiqueta) {
   let item = new PopupMenu.PopupSubMenuMenuItem(etiqueta);
   item.menu.box.set_style(SANGRIA_SUBMENU);
@@ -380,6 +429,9 @@ class GlobalMenuApplet extends Applet.Applet {
     }
   }
 
+  // Para las pruebas: lo mismo que hace ⌥ al apretarse o soltarse con el menú abierto.
+  _sincAlt(menu, conAlt) { sincronizarAlternos(menu, conAlt); }
+
   _agregarBotonServicio(it) {
     let boton = new St.Button({ label: it.etiqueta, style_class: "globalmenu-boton", reactive: true,
                                 can_focus: true, track_hover: true, toggle_mode: false, style: ESTILO_BOTON });
@@ -394,6 +446,7 @@ class GlobalMenuApplet extends Applet.Applet {
     menu.actor.hide();
     this.menuManager.addMenu(menu);
     this._menus.push(menu);
+    vigilarAlt(menu);
     menu._idServicio = it.id;
     menu.connect("open-state-changed", (_m, abierto) => {
       boton.checked = abierto;
@@ -411,6 +464,7 @@ class GlobalMenuApplet extends Applet.Applet {
       this._version = version;
       this._raiz = menu;
       menu.removeAll();
+      menu._pares = [];
       this._itemsServicio(menu, items, 0);
       relanzar(menu);
     }).catch(e => { log("globalmenu: Abrir: " + e.message); });
@@ -429,6 +483,7 @@ class GlobalMenuApplet extends Applet.Applet {
       let item = new PopupMenu.PopupMenuItem(it.etiqueta);
       if (it.marca && it.marcado) marcar(item);
       let id = it.id, w = this._ventana, xid = this._xidServicio;
+      item._esAlterno = !!it.alterno;
       item.connect("activate", () => {
         menu1("Activar", new GLib.Variant("(uus)", [xid, this._version, id]), "(b)").catch(e => {
           // La app rehízo el menú entre el clic y la llamada: no se ejecutó nada; se vuelve a pedir la barra.
@@ -450,7 +505,7 @@ class GlobalMenuApplet extends Applet.Applet {
         } catch (e) {}
       }
       item.setSensitive(it.activo !== false);
-      menu.addMenuItem(item);
+      agregarItem(menu, item, item._esAlterno);
     }
   }
 
@@ -537,6 +592,7 @@ class GlobalMenuApplet extends Applet.Applet {
     menu.actor.hide();
     this.menuManager.addMenu(menu);
     this._menus.push(menu);
+    vigilarAlt(menu);
 
     menu.connect("open-state-changed", (_m, abierto) => {
       boton.checked = abierto;
@@ -557,6 +613,7 @@ class GlobalMenuApplet extends Applet.Applet {
     this._raiz = menu;
     this._soltarSubmodelos();
     menu.removeAll();
+    menu._pares = [];
     this._agregarItems(menu, modelo, 0);
     relanzar(menu);
     // Si un submenú llega por D-Bus con el menú ya abierto, se rehace.
@@ -655,7 +712,8 @@ class GlobalMenuApplet extends Applet.Applet {
       } catch (e) {}
     }
     item.setSensitive(activa);
-    menu.addMenuItem(item);
+    try { let a = atributo(modelo, i, ATTR_ALTERNO); item._esAlterno = !!(a && a.get_boolean()); } catch (e) {}
+    agregarItem(menu, item, item._esAlterno);
   }
 
   // ── Camino dbusmenu (apps que no publican el menú de GTK) ──────────────
@@ -691,6 +749,7 @@ class GlobalMenuApplet extends Applet.Applet {
     menu.actor.hide();
     this.menuManager.addMenu(menu);
     this._menus.push(menu);
+    vigilarAlt(menu);
     menu.connect("open-state-changed", async (_m, abierto) => {
       boton.checked = abierto;
       if (!abierto) { try { t.cerrar(); } catch (e) {} return; }

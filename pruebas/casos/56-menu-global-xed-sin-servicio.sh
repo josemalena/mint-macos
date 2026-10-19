@@ -35,4 +35,11 @@ prueba() {
     [ "$sx" -ge "$((ox + 12))" ] 2>/dev/null || falla "el submenú no lleva sangría: $g"
     [ "$sy" -ge "$((oy2 - 2))" ] 2>/dev/null || falla "el submenú no se despliega hacia abajo: $g" ;;
   esac
+
+  # Ítems alternos (x-constanza-alternate): el alterno va escondido y toma el lugar de su base mientras ⌥ está apretado.
+  local alt
+  alt="$(gdbus call --session --dest org.Cinnamon --object-path /org/Cinnamon --method org.Cinnamon.Eval \
+    "const Gio=imports.gi.Gio, GLib=imports.gi.GLib; let a=imports.ui.appletManager.getRunningInstancesForUuid('globalmenu@macos')[0]; let gm=new Gio.Menu(); gm.append('Move to Trash',null); let it=Gio.MenuItem.new('Delete Immediately…',null); it.set_attribute_value('x-constanza-alternate', GLib.Variant.new_boolean(true)); it.set_attribute_value('x-constanza-accel', GLib.Variant.new_string('⌥⌘⌫')); gm.append_item(it); let m=a._menus[0]; m.open(false); m.removeAll(); m._pares=[]; a._raiz=m; a._agregarItems(m, gm, 0); let vis=()=>m.box.get_children().map(c=>c.visible?1:0).join(''); let antes=vis(); a._sincAlt(m, true); let con=vis(); a._sincAlt(m, false); [antes,con,vis()].join('/')" 2>&1)"
+  paso "alternos (sin ⌥ / con ⌥ / suelto): $alt"
+  case "$alt" in *"10/01/10"*) ;; *) falla "el ítem alterno no cambia con ⌥: $alt" ;; esac
 }

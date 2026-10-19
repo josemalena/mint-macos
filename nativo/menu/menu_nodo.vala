@@ -12,6 +12,7 @@ namespace Menu {
         public bool marcado = false;
         public string atajo = "";
         public string icono = "";
+        public bool alterno = false;           // x-constanza-alternate: solo se ve con ⌥, en lugar del ítem anterior
         public bool es_menu_app = false;       // x-constanza-app-menu: lo pinta appmenu, no la barra
         public string ruta = "";               // solo en Buscar: «Edit ▸ Find ▸ Find…»
         public GenericArray<Nodo>? hijos = null;
@@ -41,6 +42,7 @@ namespace Menu {
                 d.insert_value ("marcado", new Variant.boolean (marcado));
             }
             if (atajo != "") d.insert_value ("atajo", new Variant.string (atajo));
+            if (alterno) d.insert_value ("alterno", new Variant.boolean (true));
             if (icono != "") d.insert_value ("icono", new Variant.string (icono));
             if (hijos != null) d.insert_value ("hijos", lista_variant (hijos));
             if (ruta != "") d.insert_value ("ruta", new Variant.string (ruta));
