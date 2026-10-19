@@ -74,6 +74,8 @@ if $LISTA; then
   exit 0
 fi
 [ ${#CASOS[@]} -gt 0 ] || { echo "ningún caso casa con: ${FILTROS[*]}"; exit 2; }
+# Ningún caso mata procesos por nombre sin filtro de sandbox (revisar-matar.py): se revisa antes de arrancar nada.
+python3 -I "$AQUI/revisar-matar.py" "$AQUI"/casos/*.sh "$AQUI/lib.sh" "$AQUI/sesion.sh" || exit 3
 
 CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/mint-macos"
 mkdir -p "$CACHE"
