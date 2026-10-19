@@ -45,9 +45,21 @@ quitar_vigilante() {
   fi
 }
 
+# Solo los procesos de esta sesión gráfica: el mismo DISPLAY y la misma marca de prueba
+# (MINT_MACOS_PRUEBA, vacía en uso real) en su entorno. Con un pgrep -u $USER suelto, una prueba en una caja
+# aparte mató el xss-lock real de José (19-10-2026).
+de_esta_sesion() {   # de_esta_sesion PID…: imprime los que son de esta sesión
+  local p e
+  for p in "$@"; do
+    e="$(tr '\0' '\n' < "/proc/$p/environ" 2>/dev/null)" || continue
+    [ "$(sed -n 's/^DISPLAY=//p' <<<"$e")" = "${DISPLAY:-}" ] || continue
+    [ "$(sed -n 's/^MINT_MACOS_PRUEBA=//p' <<<"$e")" = "${MINT_MACOS_PRUEBA:-}" ] || continue
+    echo "$p"
+  done
+}
 parar_xss_lock() {
   local p
-  p="$(pgrep -u "$USER" -x xss-lock || true)"
+  p="$(de_esta_sesion $(pgrep -u "$USER" -x xss-lock || true))"
   [ -n "$p" ] && kill $p || true
 }
 
@@ -113,7 +125,7 @@ EOF
   else
     echo "  inactividad: Cinnamon la tiene apagada (idle-delay 0), no se bloquea por tiempo"
   fi
-  P="$(pgrep -u "$USER" -f 'cinnamon-screensaver-main\.py' || true)"
+  P="$(de_esta_sesion $(pgrep -u "$USER" -f 'cinnamon-screensaver-main\.py' || true))"
   if [ -n "$P" ]; then kill $P || true; fi
   echo "  Salida de emergencia (otra consola o ssh): XDG_RUNTIME_DIR=/run/user/\$(id -u) $MAC_BLOQUEO --liberar"
   echo "  Para volver a LightDM: $0"
@@ -152,7 +164,7 @@ fi
 # Sin pantalla doble: el demonio de cinnamon-screensaver se va.
 # Por la línea de comandos: «pgrep -x cinnamon-screensaver» (20 caracteres) nunca coincide, el nombre se trunca a 15.
 # El demonio es el script que lanza /usr/bin/cinnamon-screensaver.
-P="$(pgrep -u "$USER" -f 'cinnamon-screensaver-main\.py' || true)"
+P="$(de_esta_sesion $(pgrep -u "$USER" -f 'cinnamon-screensaver-main\.py' || true))"
 if [ -n "$P" ]; then kill $P || true; fi
 echo "  cinnamon-screensaver cerrado (no vuelve mientras haya comando propio)"
 echo "  Para volver: $0 --deshacer"
