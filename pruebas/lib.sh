@@ -53,8 +53,6 @@ necesita_teclado() {
 # liberar_nombre_dbus NOMBRE: si alguien del bus de la prueba ya tiene ese nombre (un servicio que se activó solo cuando un panel le
 # preguntó algo en un caso anterior), lo cierra por su pid: el de mentira del caso necesita el nombre. Es el bus de la prueba, no
 # el de la sesión de José, y se mata por pid, nunca por nombre.
-# despejar_pantalla: cierra lo que otro caso de la misma corrida dejó abierto (una ventana de Edge grande, por ejemplo, hace que el Dock se
-# esconda solo y un clic en su franja caiga en esa ventana). Solo procesos del sandbox (su HOME).
 # bloqueo_pids: los pids de mac-bloqueo de ESTA prueba (los que tienen su XDG_RUNTIME_DIR). La sesión de José tiene su propio mac-bloqueo --vigilar
 # corriendo y, si está bloqueada, su pantalla: no se cuentan ni se tocan.
 bloqueo_pids() {
@@ -65,12 +63,17 @@ bloqueo_pids() {
   return 0
 }
 
+# despejar_pantalla: cierra lo que otro caso de la misma corrida dejó abierto (una ventana de Edge grande, por ejemplo, hace que el Dock se
+# esconda solo y un clic en su franja caiga en esa ventana). Solo procesos del sandbox (su HOME).
 despejar_pantalla() {
   case "$HOME" in */pruebas/home*) ;; *) return 0 ;; esac   # nunca fuera del sandbox: mataría los programas de José
   local p
   for p in $(pgrep -u "$(id -u)" -x 'msedge|chrome|firefox|xed|nemo|fynder|kitty' 2>/dev/null); do
     grep -qz "^HOME=$HOME$" "/proc/$p/environ" 2>/dev/null && kill "$p" 2>/dev/null
   done
+  # Edge/Chrome no dejan leer su /proc/PID/environ (no son «dumpable»): se reconocen por su perfil de prueba, que va bajo el HOME del sandbox
+  # (--user-data-dir=$HOME/edge-prueba). Nunca por el nombre: el Edge de José también se llama msedge.
+  pkill -u "$(id -u)" -f -- "--user-data-dir=$HOME/edge-prueba" 2>/dev/null
   sleep 1
 }
 
