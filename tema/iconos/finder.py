@@ -174,11 +174,11 @@ def pintar(im, color=None):
 
 
 def recoloreable(im):
-    """El glifo como PNG simbólico de GTK (nombre.symbolic.png): rojo puro con el alfa del dibujo; GTK pone en el rojo el color
+    """El glifo como PNG simbólico de GTK (nombre.symbolic.png): negro con el alfa del dibujo; GTK pone en el negro el color
     de texto del widget, así que el mismo ícono sirve en un tema oscuro (claro) y en uno claro (oscuro)."""
-    rojo = Image.new('RGBA', im.size, (255, 0, 0, 0))
-    rojo.putalpha(im.getchannel('A'))
-    return rojo
+    negro = Image.new('RGBA', im.size, (0, 0, 0, 0))
+    negro.putalpha(im.getchannel('A'))
+    return negro
 
 
 def generar(lista, tamanos, carpeta, simbolico):
