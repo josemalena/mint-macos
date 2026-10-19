@@ -104,6 +104,7 @@ button.act-redondo:disabled { opacity: 0.55; }
         }
 
         SimpleAction? accion_salir = null;
+        SimpleAction? accion_senal = null;
 
         /** Las acciones win.* que la barra de menús (actividad_menus.vala) llama; las que no están aquí van en gris. */
         void registrar_acciones () {
@@ -126,6 +127,11 @@ button.act-redondo:disabled { opacity: 0.55; }
             accion_salir.set_enabled (false);
             accion_salir.activate.connect (() => { pedir_salida (); });
             add_action (accion_salir);
+
+            accion_senal = new SimpleAction ("senal", null);
+            accion_senal.set_enabled (false);
+            accion_senal.activate.connect (() => { pedir_senal (); });
+            add_action (accion_senal);
 
             var frecuencia = new SimpleAction.stateful ("frecuencia", VariantType.STRING, new Variant.string ("1"));
             frecuencia.activate.connect ((p) => {
@@ -437,6 +443,7 @@ button.act-redondo:disabled { opacity: 0.55; }
             }
             detener.sensitive = propio;
             if (accion_salir != null) accion_salir.set_enabled (propio);
+            if (accion_senal != null) accion_senal.set_enabled (propio);
         }
 
         // ---- pestañas ---------------------------------------------------------------------------------------------
@@ -889,6 +896,47 @@ button.act-redondo:disabled { opacity: 0.55; }
                 var m = graficas.lookup ("rec_mem");
                 if (m != null) m.maximo = fis;
             }
+        }
+
+        // ---- Send Signal to Process… ------------------------------------------------------------------------------------
+
+        /** El panel de View ▸ Send Signal to Process… del nib de Catalina: «Please select a signal to send to the process '%@'»,
+         *  el menú de señales y Send / Cancel. Solo procesos propios. SIGINFO (Information Request) no existe en Linux y no sale. */
+        void pedir_senal () {
+            Gtk.TreeModel m;
+            Gtk.TreeIter it;
+            if (!lista.get_selection ().get_selected (out m, out it)) return;
+            Fila? f;
+            m.get (it, 0, out f);
+            if (f == null || f.usuario != yo) return;
+            int pid = f.pid;
+            var d = new Gtk.Dialog.with_buttons ("", this, Gtk.DialogFlags.MODAL);
+            d.set_decorated (false);
+            var c = (Gtk.Box) d.get_content_area ();
+            c.spacing = 10;
+            c.margin = 18;
+            var l = new Gtk.Label ("Please select a signal to send to the process '%s'".printf (f.nombre));
+            l.xalign = 0;
+            l.wrap = true;
+            c.pack_start (l, false, false, 0);
+            string[] nombres = { "Hangup (SIGHUP)", "Interrupt (SIGINT)", "Stop (SIGSTOP)", "Continue (SIGCONT)", "Quit (SIGQUIT)",
+                                 "Abort (SIGABRT)", "Kill (SIGKILL)", "Alarm (SIGALRM)", "User Defined 1 (SIGUSR1)", "User Defined 2 (SIGUSR2)" };
+            int[] numeros = { Posix.Signal.HUP, Posix.Signal.INT, Posix.Signal.STOP, Posix.Signal.CONT, Posix.Signal.QUIT,
+                              Posix.Signal.ABRT, Posix.Signal.KILL, Posix.Signal.ALRM, Posix.Signal.USR1, Posix.Signal.USR2 };
+            var combo = new Gtk.ComboBoxText ();
+            foreach (var n in nombres) combo.append_text (n);
+            combo.active = 0;
+            c.pack_start (combo, false, false, 0);
+            d.add_button ("Cancel", Gtk.ResponseType.CANCEL);
+            var enviar = d.add_button ("Send", Gtk.ResponseType.ACCEPT);
+            enviar.get_style_context ().add_class ("suggested-action");
+            d.set_default_response (Gtk.ResponseType.ACCEPT);
+            d.response.connect ((r) => {
+                int idx = combo.active;
+                d.destroy ();
+                if (r == Gtk.ResponseType.ACCEPT && idx >= 0) Posix.kill ((Posix.pid_t) pid, numeros[idx]);
+            });
+            d.show_all ();
         }
 
         // ---- Quit / Force Quit ------------------------------------------------------------------------------------

@@ -9,6 +9,11 @@ public class Aplicacion : Gtk.Application {
         Object (application_id: "io.github.josemalena.MintMacosTienda", flags: ApplicationFlags.HANDLES_COMMAND_LINE);
     }
 
+    protected override void startup () {
+        base.startup ();
+        set_menubar (Tienda.Menus.construir ());
+    }
+
     public override int command_line (ApplicationCommandLine cmd) {
         var args = cmd.get_arguments ();
         string seccion = "discover";
@@ -20,7 +25,7 @@ public class Aplicacion : Gtk.Application {
             else if (args[i] == "--ficha" && i + 1 < args.length) ficha = args[++i];
         }
         if (ventana == null) {
-            ventana = new Tienda.Ventana ();
+            ventana = new Tienda.Ventana (this);
             add_window (ventana);
             ventana.destroy.connect (() => { ventana = null; });
         }

@@ -123,8 +123,10 @@ namespace Preferencias {
             fila++;
             g.attach (etiqueta_fila ("Sidebar icon size:"), 0, fila, 1, 1);
             var c2 = new Gtk.ComboBoxText ();
+            c2.append ("s", "Small");
             c2.append ("m", "Medium");
-            c2.set_active (0);
+            c2.append ("l", "Large");
+            c2.set_active (1);
             g.attach (gris (c2), 1, fila, 2, 1);
             fila++;
             var ocultar = new Gtk.CheckButton.with_label ("Automatically hide and show the menu bar");
@@ -199,6 +201,16 @@ namespace Preferencias {
                 c.active = docs_on[i];
                 g.attach (gris_motivo (c, "Each app decides this on this computer."), 1, fila, 2, 1);
                 fila++;
+                if (i == 1) {
+                    // El texto de ayuda que el nib trae debajo de «Close windows when quitting an app» (11 pt).
+                    var ayuda = new Gtk.Label ("When selected, open documents and windows will not be restored when you re-open an app.");
+                    ayuda.xalign = 0;
+                    ayuda.set_line_wrap (true);
+                    ayuda.set_max_width_chars (52);
+                    ayuda.get_style_context ().add_class ("mp-sd-detalle");
+                    g.attach (ayuda, 1, fila, 2, 1);
+                    fila++;
+                }
             }
             g.attach (etiqueta_fila ("Recent items:"), 0, fila, 1, 1);
             var rec = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 8);

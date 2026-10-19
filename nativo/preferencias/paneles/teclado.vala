@@ -150,9 +150,9 @@ namespace Preferencias {
         const int[] RETARDOS = { 1800, 1410, 1020, 525, 375, 225 };            // Delay Until Repeat: de «Long» a «Short»
         // Modifier Keys: las teclas que se pueden reasignar y lo que puede hacer cada una.
         const string[] TECLAS = { "capslock", "control", "option", "command" };
-        const string[] TECLAS_TXT = { "Caps Lock (⇪) Key:", "Control (^) Key:", "Option (⌥) Key:", "Command (⌘) Key:" };
+        const string[] TECLAS_TXT = { "Caps Lock (⇪) Key:", "Control (⌃) Key:", "Option (⌥) Key:", "Command (⌘) Key:" };
         const string[] ACCIONES = { "capslock", "control", "option", "command", "escape", "none" };
-        const string[] ACCIONES_TXT = { "⇪ Caps Lock", "^ Control", "⌥ Option", "⌘ Command", "⎋ Escape", "No Action" };
+        const string[] ACCIONES_TXT = { "⇪ Caps Lock", "⌃ Control", "⌥ Option", "⌘ Command", "⎋ Escape", "No Action" };
         const string AYUDANTE = "/usr/libexec/mint-macos/modifier-keys";
         const string CONF_KEYD = "/etc/keyd/default.conf";
         const string BLOQUE_INICIO = "# >>> mint-macos modifier-keys (lo escribe System Preferences; no lo edites a mano)";
@@ -401,29 +401,29 @@ namespace Preferencias {
             case "Display":
                 return { a ("Decrease display brightness", "F14", 1, 0), a ("Increase display brightness", "F15", 1, 0) };
             case "Mission Control":
-                return { a ("Mission Control", "^↑", 1, 0), a ("Show Notification Center", "none", 0, 0),
-                         a ("Turn Do Not Disturb On/Off", "none", 1, 0), a ("Application windows", "^↓", 1, 0),
+                return { a ("Mission Control", "⌃↑", 1, 0), a ("Show Notification Center", "none", 0, 0),
+                         a ("Turn Do Not Disturb On/Off", "none", 1, 0), a ("Application windows", "⌃↓", 1, 0),
                          a ("Show Desktop", "F11", 0, 0),
                          g ("▾ Mission Control", -1, 0),
-                         a ("Move left a space", "^←", 1, 1), a ("Move right a space", "^→", 1, 1),
-                         a ("Switch to Desktop 1", "^1", 0, 1) };
+                         a ("Move left a space", "⌃←", 1, 1), a ("Move right a space", "⌃→", 1, 1),
+                         a ("Switch to Desktop 1", "⌃1", 0, 1) };
             case "Keyboard":
-                return { a ("Change the way Tab moves focus", "^F7", 1, 0), a ("Turn keyboard access on or off", "^F1", 1, 0),
-                         a ("Move focus to the menu bar", "^F2", 1, 0), a ("Move focus to the Dock", "^F3", 1, 0),
-                         a ("Move focus to active or next window", "^F4", 1, 0),
-                         a ("Move focus to the window toolbar", "^F5", 1, 0),
-                         a ("Move focus to the floating window", "^F6", 1, 0),
+                return { a ("Change the way Tab moves focus", "⌃F7", 1, 0), a ("Turn keyboard access on or off", "⌃F1", 1, 0),
+                         a ("Move focus to the menu bar", "⌃F2", 1, 0), a ("Move focus to the Dock", "⌃F3", 1, 0),
+                         a ("Move focus to active or next window", "⌃F4", 1, 0),
+                         a ("Move focus to the window toolbar", "⌃F5", 1, 0),
+                         a ("Move focus to the floating window", "⌃F6", 1, 0),
                          a ("Move focus to next window", "⌘`", 1, 0),
                          a ("Move focus to the window drawer", "⌥⌘'", 1, 0),
-                         a ("Move focus to status menus", "^F8", 1, 0) };
+                         a ("Move focus to status menus", "⌃F8", 1, 0) };
             case "Input Sources":
-                return { a ("Select the previous input source", "^Space", 1, 0),
-                         a ("Select next source in Input menu", "^⌥Space", 0, 0) };
+                return { a ("Select the previous input source", "⌃Space", 1, 0),
+                         a ("Select next source in Input menu", "⌃⌥Space", 0, 0) };
             case "Screenshots":
                 return { a ("Save picture of screen as a file", "⇧⌘3", 1, 0),
-                         a ("Copy picture of screen to the clipboard", "^⇧⌘3", 1, 0),
+                         a ("Copy picture of screen to the clipboard", "⌃⇧⌘3", 1, 0),
                          a ("Save picture of selected area as a file", "⇧⌘4", 1, 0),
-                         a ("Copy picture of selected area to the clipboard", "^⇧⌘4", 1, 0),
+                         a ("Copy picture of selected area to the clipboard", "⌃⇧⌘4", 1, 0),
                          a ("Screenshot and recording options", "⇧⌘5", 1, 0) };
             case "Services":
                 return { g ("▾ Pictures", 1, 0), a ("Import Image", "none", 1, 1), a ("Set Desktop Picture", "none", 1, 1),

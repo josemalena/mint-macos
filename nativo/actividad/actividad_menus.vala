@@ -103,7 +103,7 @@ namespace Actividad {
             acciones.append_item (it ("Run Spindump", NADA, null, "^⌥⌘S"));
             acciones.append_item (it ("Run System Diagnostics…", NADA));
             acciones.append_item (it ("Quit Process", "win.salir", "<Primary><Alt>q"));
-            acciones.append_item (it ("Send Signal to Process…", NADA));
+            acciones.append_item (it ("Send Signal to Process…", "win.senal"));
             acciones.append_item (it ("Show Deltas for Process", NADA, "<Primary><Alt>j"));
             ver.append_section (null, acciones);
             var limpiar = new Menu ();

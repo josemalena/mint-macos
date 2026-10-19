@@ -44,7 +44,7 @@ button.tienda-enlace label { font-size: 12px; }
         public string titulo = "";
     }
 
-    public class Ventana : Gtk.Window {
+    public class Ventana : Gtk.ApplicationWindow {
         struct Entrada { string id; string titulo; string icono; }
 
         Motor motor = Motor.instancia;
@@ -63,8 +63,9 @@ button.tienda-enlace label { font-size: 12px; }
         bool selecciono_codigo = false;
         uint t_busqueda = 0;
 
-        public Ventana () {
-            Object (type: Gtk.WindowType.TOPLEVEL);
+        public Ventana (Gtk.Application app) {
+            Object (application: app);
+            show_menubar = false;       // el menú va al panel (menú global), no dentro de la ventana
             title = "App Store";
             set_default_size (1120, 740);
             window_position = Gtk.WindowPosition.CENTER;
@@ -142,9 +143,45 @@ button.tienda-enlace label { font-size: 12px; }
                 if (ctrl && ev.keyval == Gdk.Key.bracketleft) { volver (); return true; }
                 return false;
             });
+            registrar_acciones ();
             show_all ();
             atras.hide ();
             contar_actualizaciones ();
+        }
+
+        /** Las acciones win.* de la barra de menús (tienda_menus.vala): edición del campo con el foco y ventana. */
+        void registrar_acciones () {
+            var cerrar = new SimpleAction ("cerrar", null);
+            cerrar.activate.connect (() => { close (); });
+            add_action (cerrar);
+            var minimizar = new SimpleAction ("minimizar", null);
+            minimizar.activate.connect (() => { iconify (); });
+            add_action (minimizar);
+            var zoom = new SimpleAction ("zoom", null);
+            zoom.activate.connect (() => { if (is_maximized) unmaximize (); else maximize (); });
+            add_action (zoom);
+            var completa = new SimpleAction ("pantalla-completa", null);
+            completa.activate.connect (() => {
+                if ((get_window ().get_state () & Gdk.WindowState.FULLSCREEN) != 0) unfullscreen (); else fullscreen ();
+            });
+            add_action (completa);
+            var cortar = new SimpleAction ("cortar", null);
+            cortar.activate.connect (() => { var e = get_focus () as Gtk.Editable; if (e != null) e.cut_clipboard (); });
+            add_action (cortar);
+            var copiar = new SimpleAction ("copiar", null);
+            copiar.activate.connect (() => { var e = get_focus () as Gtk.Editable; if (e != null) e.copy_clipboard (); });
+            add_action (copiar);
+            var pegar = new SimpleAction ("pegar", null);
+            pegar.activate.connect (() => { var e = get_focus () as Gtk.Editable; if (e != null) e.paste_clipboard (); });
+            add_action (pegar);
+            var borrar = new SimpleAction ("borrar", null);
+            borrar.activate.connect (() => { var e = get_focus () as Gtk.Editable; if (e != null) e.delete_selection (); });
+            add_action (borrar);
+            var todo = new SimpleAction ("todo", null);
+            todo.activate.connect (() => { var e = get_focus () as Gtk.Editable; if (e != null) e.select_region (0, -1); });
+            add_action (todo);
+            application.set_accels_for_action ("win.cerrar", { "<Primary>w" });
+            application.set_accels_for_action ("win.minimizar", { "<Primary>m" });
         }
 
         void agregar_fila (string id, string texto, string icono) {

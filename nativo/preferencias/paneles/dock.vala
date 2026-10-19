@@ -222,6 +222,8 @@ namespace Preferencias {
             cuadro.attach (etiqueta_fila ("Prefer tabs when opening documents:"), 0, fila, 1, 1);
             var pestanas = new Gtk.ComboBoxText ();
             pestanas.append ("full", "In Full Screen Only");
+            pestanas.append ("always", "Always");
+            pestanas.append ("manual", "Manually");
             pestanas.set_active (0);
             pestanas.set_sensitive (false);
             pestanas.set_tooltip_text ("Each app decides this on its own on this computer.");
