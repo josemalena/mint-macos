@@ -19,7 +19,9 @@ const ANCHO = 14;
 function dibujarLupa(area, alto) {
   let cr = area.get_context();
   let y0 = Math.round((alto - 22) / 2) + 5; // y 5 en la barra de 22
-  cr.setSourceRGBA(1, 1, 1, 0.95);
+  // El color de texto de la barra (blanco en oscuro, casi negro en claro)
+  let c = area.get_theme_node().get_foreground_color();
+  cr.setSourceRGBA(c.red / 255, c.green / 255, c.blue / 255, 0.95);
   cr.setLineCap(Cairo.LineCap.ROUND);
   cr.setLineWidth(1.3);
   cr.arc(5.3, y0 + 5.3, 4.5, 0, 2 * Math.PI);
