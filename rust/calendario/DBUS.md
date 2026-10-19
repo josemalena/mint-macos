@@ -69,6 +69,7 @@ Un hilo vigila `calendar-data/` con inotify (escrituras, cierres y renombres). C
 - una regla semanal con un `EXDATE` y una ocurrencia movida;
 - un calendario apagado;
 - `GMT-0400`;
+- una regla semanal en Nueva York que cruza el 1-11-2026 (fin del horario de verano): sigue a las 10:00 de allá y pasa de 14:00 a 15:00 UTC;
 - el orden;
 - que la copia se borre.
 

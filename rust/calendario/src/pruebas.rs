@@ -48,6 +48,10 @@ fn perfil_de_mentira() -> tempdir::Carpeta {
     ev("cal_c", "e4", "No debe salir", 0, us("2026-10-19T12:00:00Z"), us("2026-10-19T13:00:00Z"), "UTC", None);
     // 5. Una zona como la escribe Exchange: GMT-0400.
     ev("cal_b", "e5", "Llamada", 0, us("2026-10-20T14:00:00Z"), us("2026-10-20T14:30:00Z"), "GMT-0400", None);
+    // 6. Semanal los martes a las 10:00 en Nueva York, cruzando el 1-11-2026 (EE. UU. atrasa la hora):
+    // 14:00 UTC antes del cambio, 15:00 UTC después (10:00 → 11:00 en Santo Domingo).
+    ev("cal_a", "e6", "Con Nueva York", 0, us("2026-10-27T14:00:00Z"), us("2026-10-27T15:00:00Z"), "America/New_York", None);
+    c.execute("INSERT INTO cal_recurrence VALUES ('e6', 'cal_a', 'RRULE:FREQ=WEEKLY;COUNT=3')", []).unwrap();
     d
 }
 
@@ -101,6 +105,13 @@ fn eventos_con_zonas_recurrencias_y_excepciones() {
     // GMT-0400 como Etc/GMT+4.
     let l = e.iter().find(|x| x.titulo == "Llamada").unwrap();
     assert_eq!(l.inicio, ms("2026-10-20T14:00:00Z"));
+    // Horario de verano en la zona del evento: la hora de Nueva York se mantiene, la de UTC se corre.
+    let ny: Vec<_> = e.iter().filter(|x| x.titulo == "Con Nueva York").map(|x| (x.inicio, x.fin)).collect();
+    assert_eq!(ny, vec![
+        (ms("2026-10-27T14:00:00Z"), ms("2026-10-27T15:00:00Z")),
+        (ms("2026-11-03T15:00:00Z"), ms("2026-11-03T16:00:00Z")),
+        (ms("2026-11-10T15:00:00Z"), ms("2026-11-10T16:00:00Z")),
+    ]);
     // Ordenados por inicio.
     assert!(e.windows(2).all(|w| w[0].inicio <= w[1].inicio));
 }
