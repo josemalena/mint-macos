@@ -1,31 +1,120 @@
 {
  "nota": "Lo que hacemos distinto de la Mac (no es dato de Apple: va en el repo). generar.py lo cruza con cada perfil por id estable. Solo se aplica lo «aprobado»; lo «propuesto» espera a que José lo revise (Planner, 18-10-2026). Regla de José, 18-10-2026: todo lo que se pueda implementar en Mint se implementa con la UX de la Mac (con una utilidad o un fork si hace falta); se oculta solo lo que hoy no se puede.",
  "controles": [
-  {"ids": ["accion:aquaColorChanged:", "clave:ACCENT_COLOR_TITLE"], "aplica_a": "tema:acento",
-   "estado": "aprobado", "fuente": "José, 18-10-2026", "motivo": "El color de acento cambia el tema activo (Constanza)."},
-  {"ids": ["accion:newHighlightColor:", "clave:HIGHLIGHT_COLOR_TITLE"], "aplica_a": "tema:resaltado",
-   "estado": "aprobado", "fuente": "José, 18-10-2026", "motivo": "El color de resaltado cambia el tema activo."},
-  {"ids": ["clave:APPEARANCE", "clave:100330"], "aplica_a": "tema:apariencia",
-   "estado": "aprobado", "fuente": "José, 18-10-2026",
-   "motivo": "Light, Dark y Auto cambian el tema activo; Auto sigue la salida y la puesta del sol (servicio de Infra)."},
-  {"ids": ["clave:KCv-2t-qIH"], "ocultar": true,
-   "estado": "aprobado", "fuente": "José, 18-10-2026",
-   "motivo": "Handoff necesita la continuidad con dispositivos de Apple; no hay cómo integrarlo hoy."}
+  {
+   "ids": [
+    "accion:aquaColorChanged:",
+    "clave:ACCENT_COLOR_TITLE"
+   ],
+   "aplica_a": "tema:acento",
+   "estado": "aprobado",
+   "fuente": "José, 18-10-2026",
+   "motivo": "El color de acento cambia el tema activo (Constanza)."
+  },
+  {
+   "ids": [
+    "accion:newHighlightColor:",
+    "clave:HIGHLIGHT_COLOR_TITLE"
+   ],
+   "aplica_a": "tema:resaltado",
+   "estado": "aprobado",
+   "fuente": "José, 18-10-2026",
+   "motivo": "El color de resaltado cambia el tema activo."
+  },
+  {
+   "ids": [
+    "clave:APPEARANCE",
+    "clave:100330"
+   ],
+   "aplica_a": "tema:apariencia",
+   "estado": "aprobado",
+   "fuente": "José, 18-10-2026",
+   "motivo": "Light, Dark y Auto cambian el tema activo; Auto sigue la salida y la puesta del sol (servicio de Infra)."
+  },
+  {
+   "ids": [
+    "clave:KCv-2t-qIH"
+   ],
+   "ocultar": true,
+   "estado": "aprobado",
+   "fuente": "José, 18-10-2026",
+   "motivo": "Handoff necesita la continuidad con dispositivos de Apple; no hay cómo integrarlo hoy."
+  }
  ],
  "paneles": [
-  {"ids": ["com.apple.AirDrop-Handoff-Settings.extension"], "ocultar": true, "estado": "aprobado",
-   "fuente": "José, 18-10-2026 («Handoff y otros»)", "motivo": "AirDrop y Handoff con dispositivos de Apple: sin integración posible hoy."},
-  {"ids": ["com.apple.preference.sidecar"], "ocultar": true, "estado": "propuesto",
-   "motivo": "Sidecar usa un iPad de Apple como segunda pantalla."},
-  {"ids": ["com.apple.preferences.wallet"], "ocultar": true, "estado": "propuesto",
-   "motivo": "Wallet & Apple Pay: no hay Apple Pay en Linux."},
-  {"ids": ["com.apple.Game-Center-Settings.extension"], "ocultar": true, "estado": "propuesto",
-   "motivo": "Game Center: servicio de Apple sin cliente en Linux."},
-  {"ids": ["com.apple.preferences.FamilySharingPrefPane", "com.apple.Family-Settings.extension"], "ocultar": true,
-   "estado": "propuesto", "motivo": "Family Sharing: se administra con la cuenta de Apple; sin API pública."},
-  {"ids": ["com.apple.preference.speech", "com.apple.Siri-Settings.extension"], "ocultar": true, "estado": "propuesto",
-   "motivo": "Siri no existe en Linux (¿o se ata a otro asistente?)."},
-  {"ids": ["com.apple.Touch-ID-Settings.extension", "com.apple.preferences.password"], "ocultar": true, "estado": "propuesto",
-   "motivo": "Touch ID: la Mac mini no tiene lector; la parte de la clave de inicio sí se puede mantener."}
+  {
+   "ids": [
+    "com.apple.AirDrop-Handoff-Settings.extension"
+   ],
+   "ocultar": true,
+   "estado": "aprobado",
+   "fuente": "José, 18-10-2026 («Handoff y otros»)",
+   "motivo": "AirDrop y Handoff con dispositivos de Apple: sin integración posible hoy."
+  },
+  {
+   "ids": [
+    "com.apple.preference.sidecar"
+   ],
+   "ocultar": true,
+   "estado": "aprobado",
+   "motivo": "Sidecar usa un iPad de Apple como segunda pantalla.",
+   "fuente": "José, 18-10-2026 (AskUserQuestion)"
+  },
+  {
+   "ids": [
+    "com.apple.preferences.wallet"
+   ],
+   "ocultar": true,
+   "estado": "aprobado",
+   "motivo": "Wallet & Apple Pay: no hay Apple Pay en Linux.",
+   "fuente": "José, 18-10-2026 (AskUserQuestion)"
+  },
+  {
+   "ids": [
+    "com.apple.Game-Center-Settings.extension"
+   ],
+   "ocultar": true,
+   "estado": "aprobado",
+   "motivo": "Game Center: servicio de Apple sin cliente en Linux.",
+   "fuente": "José, 18-10-2026 (AskUserQuestion)"
+  },
+  {
+   "ids": [
+    "com.apple.preferences.FamilySharingPrefPane",
+    "com.apple.Family-Settings.extension"
+   ],
+   "ocultar": true,
+   "estado": "aprobado",
+   "motivo": "Family Sharing: se administra con la cuenta de Apple; sin API pública.",
+   "fuente": "José, 18-10-2026 (AskUserQuestion)"
+  },
+  {
+   "ids": [
+    "com.apple.preference.speech",
+    "com.apple.Siri-Settings.extension"
+   ],
+   "ocultar": true,
+   "estado": "aprobado",
+   "motivo": "Siri no existe en Linux (¿o se ata a otro asistente?).",
+   "fuente": "José, 18-10-2026 (AskUserQuestion)"
+  },
+  {
+   "ids": [
+    "com.apple.preferences.password"
+   ],
+   "ocultar": true,
+   "estado": "aprobado",
+   "motivo": "Touch ID: la Mac mini no tiene lector (Catalina: el panel es solo de Touch ID).",
+   "fuente": "José, 18-10-2026 (AskUserQuestion)"
+  },
+  {
+   "ids": [
+    "com.apple.Touch-ID-Settings.extension"
+   ],
+   "ocultar_parte": "Touch ID",
+   "estado": "aprobado",
+   "fuente": "José, 18-10-2026 (AskUserQuestion)",
+   "motivo": "Touch ID & Password (Sequoia): se queda la parte de la clave; lo de Touch ID se oculta."
+  }
  ]
 }

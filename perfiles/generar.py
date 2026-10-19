@@ -453,7 +453,9 @@ def generar(version, raices=None, medidas=None):
             for p in g['paneles']:
                 for r in ad.get('paneles', []):
                     if (p.get('id_propio') or p['id']) in r['ids']:
-                        if r in aprob:
+                        if r in aprob and r.get('ocultar_parte'):
+                            p['ocultar_parte'], p['motivo'] = r['ocultar_parte'], r.get('motivo')
+                        elif r in aprob:
                             p['ocultar'], p['motivo'] = True, r.get('motivo')
                         else:
                             p.setdefault('propuestas', []).append({'ocultar': True, 'motivo': r.get('motivo')})
