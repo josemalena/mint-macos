@@ -53,16 +53,29 @@
   -gradient-start: rgba(0, 0, 0, 0.14);
   -gradient-end: rgba(0, 0, 0, 0.14);
 }
-/* Las notificaciones: tarjeta clara con texto oscuro */
+/* Las notificaciones: tarjeta clara con texto oscuro. #notification solo es el aviso que sale arriba a la derecha (el banner del messageTray); los otros
+   dos, las tarjetas dentro del panel. La variante multi-línea y la de imagen también llevan el fondo, no solo el color: si no, heredan el oscuro. */
+#notification,
 .menu #notification,
-.popup-menu #notification {
+.popup-menu #notification,
+#notification.multi-line-notification,
+#notification.notification-with-image,
+.menu #notification.multi-line-notification,
+.popup-menu #notification.multi-line-notification {
   background-color: rgba(246, 246, 247, 0.86);
   border: 1px solid rgba(0, 0, 0, 0.12);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
   color: #1d1d1f;
 }
-#notification.multi-line-notification,
-#notification.notification-with-image {
+/* Los botones de acción del aviso (Show, Reply, Close y la ×) y su campo de respuesta: los del tema base claro (blancos con texto oscuro) bastan; se
+   les quita solo la sombra de texto y se fija el texto oscuro por si el bloque oscuro de arriba lo pisó. */
+#notification .notification-button,
+#notification .notification-icon-button,
+.menu #notification .notification-button,
+.popup-menu #notification .notification-button {
+  color: #242424;
+}
+#notification StEntry {
   color: #1d1d1f;
 }
 .notificacion-titulo { color: #1d1d1f; }
