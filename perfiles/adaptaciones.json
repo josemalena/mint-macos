@@ -129,9 +129,9 @@
     "clave:Close windows when quitting an application"
    ],
    "ocultar": true,
-   "estado": "propuesto",
-   "fuente": "Regla de José, 18-10-2026 (todo lo que se pueda, con la UX de la Mac); mapeo de Infra pedido por Planner",
-   "motivo": "Sin equivalente en Linux: reabrir las ventanas al volver a abrir una app es de cada app (Edge «Continue where you left off», LibreOffice…), no hay un interruptor común. Hacerlo costaría un servicio que guarde y reabra ventanas por app (wmctrl + el comando de la app): días, y solo funcionaría con las que acepten abrir archivos por argumento. A decidir por José: ocultarlo o apagarlo en gris."
+   "estado": "aprobado",
+   "fuente": "José, 19-10-2026 (AskUserQuestion): ocultarlas",
+   "motivo": "Sin equivalente en Linux: reabrir las ventanas al volver a abrir una app es de cada app (Edge «Continue where you left off», LibreOffice…), no hay un interruptor común. Hacerlo costaría un servicio que guarde y reabra ventanas por app (wmctrl + el comando de la app): días, y solo funcionaría con las que acepten abrir archivos por argumento."
   },
   {
    "ids": [
@@ -140,9 +140,9 @@
     "clave:Ask to keep changes when closing documents"
    ],
    "ocultar": true,
-   "estado": "propuesto",
-   "fuente": "Regla de José, 18-10-2026 (todo lo que se pueda, con la UX de la Mac); mapeo de Infra pedido por Planner",
-   "motivo": "Sin equivalente en Linux: va con el guardado automático y las versiones de documentos de macOS; aquí cada app pregunta al cerrar a su manera y no hay un ajuste común. A decidir por José: ocultarlo o apagarlo en gris."
+   "estado": "aprobado",
+   "fuente": "José, 19-10-2026 (AskUserQuestion): ocultarlas",
+   "motivo": "Sin equivalente en Linux: va con el guardado automático y las versiones de documentos de macOS; aquí cada app pregunta al cerrar a su manera y no hay un ajuste común."
   }
  ],
  "paneles": [
