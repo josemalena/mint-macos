@@ -7,9 +7,9 @@ Cada fork, el commit que se compila y los parches que lleva encima de su upstrea
 
 - Fork: https://github.com/josemalena/fynder.git
 - Upstream: https://github.com/linuxmint/nemo.git, rama `master`
-- Commit: `fdde0498517e1d00db8bb2bd2597fb208fea5bb4` (2026-10-18, feat(preferencias): Advanced como en Catalina, con sus tres funciones)
+- Commit: `1e20493ee3f48c863fe57c6b59f88b4c18106ee5` (2026-10-18, feat(conectar): Connect to Server como el Finder de 10.15)
 - Base: `66eabf459bc86d03c24797274d0e3f60b9b7a7d8` (master.lmde7), 2026-10-06, nemo-icon-dnd.c: Fix reporting a successful drag result.
-- Parches: 214
+- Parches: 221
 
 | Commit | Fecha | Asunto |
 |---|---|---|
@@ -227,6 +227,13 @@ Cada fork, el commit que se compila y los parches que lleva encima de su upstrea
 | `b492ed38` | 2026-10-18 | feat(menú): los atajos del menú View en el menú global |
 | `e145286f` | 2026-10-18 | feat(menú): Add to Dock en el menú File, con ^⇧⌘T |
 | `fdde0498` | 2026-10-18 | feat(preferencias): Advanced como en Catalina, con sus tres funciones |
+| `3b63a18f` | 2026-10-18 | feat(get info): la sección «Open with:» del Finder |
+| `2cc87326` | 2026-10-18 | feat(atajos): ⌥⌘C, ⌥⌘A y ⌥⌘⌫, los alternos con ⌥ del Finder |
+| `5a16ac68` | 2026-10-18 | feat(menú): Clear Menu en Go ▸ Recent Folders |
+| `5ad3667c` | 2026-10-18 | feat(menú): Go ▸ Select Startup Disk on Desktop, con ⇧⌘↑ |
+| `d9e728e8` | 2026-10-18 | feat(preferencias): General y Sidebar con las listas del Finder |
+| `0de3d630` | 2026-10-18 | feat(menú): los alternos con ⌥ en File y Edit |
+| `1e20493e` | 2026-10-18 | feat(conectar): Connect to Server como el Finder de 10.15 |
 
 ## mint-macos-dock
 
