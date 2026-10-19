@@ -237,7 +237,63 @@ class AppleMenuApplet extends Applet.IconApplet {
     };
   }
 
+  // El menú Apple del perfil de la versión de macOS escogida (perfil.js): texto, orden y atajos por id. Cada id lleva su acción de aquí.
+  // Sin perfil (no se ha generado en esta máquina) o con un id que no se conoce, se usa el menú de siempre (_buildMenuFijo).
   _buildMenu() {
+    let perfil = null;
+    try { perfil = imports.ui.appletManager.applets["applemenu@macos"].perfil; } catch (e) {}
+    let items = perfil ? perfil.menuApple() : null;
+    if (!items || !items.some(i => i.id === "abtm")) { this._buildMenuFijo(); return; }
+    this.menu.removeAll();
+
+    let nombre = GLib.get_real_name();
+    if (!nombre || nombre === "Unknown") nombre = GLib.get_user_name();
+    const ATAJOS = { apwn: ATAJO_FORCE_QUIT, lock: ATAJO_LOCK, logo: ATAJO_LOGOUT };
+    const acciones = {
+      abtm: () => spawn(comandoAcerca()),
+      sysp: () => spawn(comandoPreferencias()),
+      soft: () => spawn(GLib.find_program_in_path("mac-tienda") ? "mac-tienda" : "mintinstall"),
+      apwn: () => this._onForceQuit(),
+      slep: () => spawn("systemctl suspend"),
+      rrst: this._despuesDeCerrar(() => this._Dialog("restart")),
+      rsdn: this._despuesDeCerrar(() => this._Dialog("shutdown")),
+      lock: () => spawn("cinnamon-screensaver-command -l"),
+      logo: this._despuesDeCerrar(() => this._Dialog("logoff")),
+    };
+    let ultimoSeparador = true;
+    for (let it of items) {
+      if (it.oculto || it.alterno_de) continue;            // los alternos (⌥, ⇧) los resuelve cada renglón; Location solo con redes
+      if (it.separador) {
+        if (!ultimoSeparador) { this._separador(); ultimoSeparador = true; }
+        continue;
+      }
+      ultimoSeparador = false;
+      if (it.id === "rcnt") {
+        this._recientesItem = this._renglon(it.texto, "▸", "applemenu-flecha");
+        this._recientesItem.connect("active-changed", (item, activo) => {
+          if (activo) this._programarRecientes(); else this._cancelarRecientes();
+        });
+        this._recientesItem.connect("activate", () => { this._cancelarRecientes(); this._abrirRecientes(); });
+        this._recientesItem.activate = () => { this._cancelarRecientes(); this._abrirRecientes(); };
+        this.menu.addMenuItem(this._recientesItem);
+        this._crearMenuRecientes();
+        continue;
+      }
+      let accion = acciones[it.id];
+      if (!accion) { ultimoSeparador = true; continue; }    // un id que esta pieza no sabe hacer: no se pinta
+      let etiqueta = it.id === "abtm" ? (it.texto === "About This Mac" ? etiquetaAcerca() : it.texto) : perfil.texto(it, { "%@": nombre });
+      let r = this._item(etiqueta, it.atajo || ATAJOS[it.id] || null, accion);
+      if (it.id === "apwn") this._forceQuit = r;
+    }
+    while (this.menu._getMenuItems().length && this.menu._getMenuItems().slice(-1)[0] instanceof PopupMenu.PopupSeparatorMenuItem)
+      this.menu._getMenuItems().slice(-1)[0].destroy();
+    for (let item of this.menu._getMenuItems()) {
+      if (item === this._recientesItem) continue;
+      item.connect("active-changed", (it, activo) => { if (activo) this._cerrarRecientes(); });
+    }
+  }
+
+  _buildMenuFijo() {
     this.menu.removeAll();
 
     this._item(etiquetaAcerca(), null, () => spawn(comandoAcerca()));
@@ -301,13 +357,20 @@ class AppleMenuApplet extends Applet.IconApplet {
   }
 
   _syncForceQuit() {
+    // Los textos y atajos de «Force Quit…» y su alterno «Force Quit %@» salen del perfil de la versión (ids apwn y exit).
+    let perfil = null, normal = null, alterno = null;
+    try {
+      perfil = imports.ui.appletManager.applets["applemenu@macos"].perfil;
+      normal = perfil.item(perfil.menuApple(), "apwn");
+      alterno = perfil.item(perfil.menuApple(), "exit");
+    } catch (e) {}
     let app = this._nombreDeApp(this._ventanaActiva);
     if (this._conShift && app) {
-      this._forceQuit.label.set_text(`Force Quit ${app}`);
-      this._forceQuit._atajo.set_text(ATAJO_FORCE_QUIT_APP);
+      this._forceQuit.label.set_text(alterno ? perfil.texto(alterno, { "%@": app }) : `Force Quit ${app}`);
+      this._forceQuit._atajo.set_text((alterno && alterno.atajo) || ATAJO_FORCE_QUIT_APP);
     } else {
-      this._forceQuit.label.set_text("Force Quit…");
-      this._forceQuit._atajo.set_text(ATAJO_FORCE_QUIT);
+      this._forceQuit.label.set_text(normal ? normal.texto : "Force Quit…");
+      this._forceQuit._atajo.set_text((normal && normal.atajo) || ATAJO_FORCE_QUIT);
     }
   }
 

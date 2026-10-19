@@ -198,6 +198,24 @@ function leerAtajosApps() {
   } catch (e) { return []; }
 }
 
+// Los ítems estándar del menú de la app (About, Preferences…, Services, Hide, Hide Others, Show All, Quit) salen del perfil de la versión
+// de macOS escogida (perfil.js) por su acción de AppKit; sin perfil, el texto de siempre (Catalina).
+function textoEstandar(accion, nombre, defecto) {
+  try {
+    let P = imports.ui.appletManager.applets["appmenu@macos"].perfil;
+    let t = P.texto(P.item(P.menuEstandar("app"), accion), { "%@": nombre });
+    return t || defecto;
+  } catch (e) { return defecto; }
+}
+
+function atajoEstandar(accion, defecto) {
+  try {
+    let P = imports.ui.appletManager.applets["appmenu@macos"].perfil;
+    let it = P.item(P.menuEstandar("app"), accion);
+    return it && it.atajo !== undefined ? it.atajo : defecto;
+  } catch (e) { return defecto; }
+}
+
 const RE_PREFS = /^(preferences|preferencias|settings|ajustes)\b/i;
 const RE_QUIT = /^(quit|exit|salir|close all windows|cerrar todas las ventanas)\b/i;
 
@@ -784,9 +802,9 @@ class AppMenuApplet extends Applet.TextApplet {
         it.setSensitive(e.activo !== false);
       }
     } else {
-      this.aboutItem = item(`About ${name}`, "", () => this._showAboutDialog());
+      this.aboutItem = item(textoEstandar("orderFrontStandardAboutPanel:", name, `About ${name}`), "", () => this._showAboutDialog());
       this.prefsSep = sep();
-      this.prefsItem = item("Preferences…", "⌘,", () => {
+      this.prefsItem = item(textoEstandar("showWindow:", name, "Preferences…"), atajoEstandar("showWindow:", "⌘,"), () => {
         let v = getFocusedWindow();
         if (v) this._abrirPreferencias(v);
       });
@@ -794,15 +812,15 @@ class AppMenuApplet extends Applet.TextApplet {
     sep();
     // Services ▸ como en Catalina (12.31.32 PM): Linux no tiene servicios, así que sale apagado. El texto de su submenú
     // está por verificar (pantallas-con-captura-pendientes), por eso no lleva submenú.
-    this.servicesItem = item("Services", "▸", () => {});
+    this.servicesItem = item(textoEstandar("titulo:Services", name, "Services"), "▸", () => {});
     this.servicesItem.setSensitive(false);
     sep();
-    this.hideItem = item(`Hide ${name}`, "⌘H", () => this._ocultarApp());
-    this.hideOthersItem = item("Hide Others", "⌥⌘H", () => this._ocultarOtras());
-    this.showAllItem = item("Show All", "", () => this._mostrarTodas());
+    this.hideItem = item(textoEstandar("hide:", name, `Hide ${name}`), atajoEstandar("hide:", "⌘H"), () => this._ocultarApp());
+    this.hideOthersItem = item(textoEstandar("hideOtherApplications:", name, "Hide Others"), atajoEstandar("hideOtherApplications:", "⌥⌘H"), () => this._ocultarOtras());
+    this.showAllItem = item(textoEstandar("unhideAllApplications:", name, "Show All"), "", () => this._mostrarTodas());
     // El Finder no tiene Quit (Catalina 12.31.32 PM): con el escritorio de Fynder al frente ni el renglón ni su separador.
     this.quitSep = sep();
-    this.quitItem = item(`Quit ${name}`, "⌘Q", () => this._salirDeApp());
+    this.quitItem = item(textoEstandar("terminate:", name, `Quit ${name}`), atajoEstandar("terminate:", "⌘Q"), () => this._salirDeApp());
     if (cargar && w && !isDesktopWindow(w)) this._cargarMenuPropio(w);
   }
 
@@ -835,9 +853,9 @@ class AppMenuApplet extends Applet.TextApplet {
     let name = this._getFocusedAppName();
     let w = getFocusedWindow();
     let hayApp = !!(w && !isDesktopWindow(w));
-    if (this.aboutItem) this.aboutItem.label.text = `About ${name}`;
-    this.hideItem.label.text = `Hide ${name}`;
-    this.quitItem.label.text = `Quit ${name}`;
+    if (this.aboutItem) this.aboutItem.label.text = textoEstandar("orderFrontStandardAboutPanel:", name, `About ${name}`);
+    this.hideItem.label.text = textoEstandar("hide:", name, `Hide ${name}`);
+    this.quitItem.label.text = textoEstandar("terminate:", name, `Quit ${name}`);
     if (alAbrir && this.prefsItem) {
       // Preferences… solo si la app lo publica; se pregunta al servicio (sin bloquear) y mientras tanto no se ve.
       this.prefsItem.actor.visible = false;
