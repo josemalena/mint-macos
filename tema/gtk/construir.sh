@@ -47,6 +47,23 @@ if montar_mac_sistema; then
   AP="$MAC_SISTEMA/System/Library/CoreServices/SystemAppearance.bundle/Contents/Resources"
 fi
 
+# cambiar_de_golpe NUEVA FINAL: pone la carpeta NUEVA en FINAL. Si FINAL ya existe, las intercambia
+# en una sola llamada (renameat2 con RENAME_EXCHANGE): un programa que lee el tema activo en ese
+# momento ve la vieja o la nueva, nunca un hueco (19-10-2026, Planner). Sin esa llamada, los dos mv.
+cambiar_de_golpe() {
+  local nueva="$1" final="$2"
+  if [ ! -e "$final" ]; then mv "$nueva" "$final"; return; fi
+  if python3 -I -c 'import ctypes, os, sys
+libc = ctypes.CDLL(None, use_errno=True)
+AT = -100  # AT_FDCWD
+r = libc.renameat2(AT, os.fsencode(sys.argv[1]), AT, os.fsencode(sys.argv[2]), 2)  # 2 = RENAME_EXCHANGE
+sys.exit(0 if r == 0 else 1)' "$nueva" "$final" 2>/dev/null; then
+    rm -rf "${nueva:?}"          # ahora tiene la vieja
+  else
+    mv "$final" "$final.viejo-$$"; mv "$nueva" "$final"; rm -rf "${final:?}.viejo-$$"
+  fi
+}
+
 armar() {  # COLOR (dark|light) ACENTO (de Mojave) NOMBRE
 COLOR="$1"; ACENTO="$2"; NOMBRE="$3"
 rm -rf "$TMP/salida"; mkdir -p "$TMP/salida"
@@ -101,9 +118,7 @@ fi
 # queda sin tema mientras se arma, ni si el guion se cae a la mitad).
 mkdir -p "${DEST:?}"
 cp -a "$BASE" "$DEST/${NOMBRE:?}.nuevo-$$"
-if [ -e "$DEST/$NOMBRE" ]; then mv "$DEST/$NOMBRE" "$DEST/$NOMBRE.viejo-$$"; fi
-mv "$DEST/$NOMBRE.nuevo-$$" "$DEST/$NOMBRE"
-rm -rf "${DEST:?}/${NOMBRE:?}.viejo-$$"
+cambiar_de_golpe "$DEST/$NOMBRE.nuevo-$$" "$DEST/$NOMBRE"
 
 # Dock: el tema de Plank de Mojave con el nombre de Constanza; uno por apariencia (el acento no
 # cambia el Dock), con el nombre de la variante azul.
@@ -166,9 +181,7 @@ for l in lineas:
 cerrar(seccion)
 open(ruta, 'w').write('\n'.join(salida) + '\n')
 PY
-if [ -e "$PLANK_FINAL" ]; then mv "$PLANK_FINAL" "$PLANK_FINAL.viejo-$$"; fi
-mv "$PLANK" "$PLANK_FINAL"
-rm -rf "${PLANK_FINAL:?}.viejo-$$"
+cambiar_de_golpe "$PLANK" "$PLANK_FINAL"
 echo "  tema: $DEST/$NOMBRE"
 }
 
