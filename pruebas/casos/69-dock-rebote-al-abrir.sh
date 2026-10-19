@@ -50,6 +50,7 @@ prueba() {
   r="$(rango_alto 3)"
   paso "con la ventana abierta varía $r px"
   [ "$r" -le 3 ] || falla "siguió rebotando con la ventana ya abierta ($r px)"
+  # (la urgencia —tres saltos cada 2 s— no se prueba aquí: llega por BAMF y esta sesión no la puede provocar; se mira en la pantalla real)
   cerrar_ventana "$x"; esperar_sin_ventana "$x" 10
   sleep 3
   paso "clic en Launchpad ($x_lp,$y)"

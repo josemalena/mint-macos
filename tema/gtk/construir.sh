@@ -135,8 +135,11 @@ VALORES = {
         'IndicatorSize': '0.75', 'IndicatorOffset': '-0.6',
         'BlurRadius': '30', 'SeparatorPadding': '-2.2',
         # El rebote al abrir una app, medido de un video de José (18-10-2026, un celular filmando una Mac; baja confianza):
-        # ~0.7 s por rebote y ~1/3 del ícono de altura. El de «pedir atención» no tiene datos y queda como estaba.
+        # ~0.7 s por rebote y ~1/3 del ícono de altura (confirmado por VNC en un Mac con High Sierra: 0.70 s y 17/48).
+        # Pedir atención, del mismo Mac: tres saltos (1.08 del ícono, y 0.52 y 0.25 de eso) cada 2.0 s; el Dock los saca
+        # en DockRenderer.vala con UrgentBounceHeight de la primera y UrgentBounceTime como el ciclo.
         'LaunchBounceTime': '700', 'LaunchBounceHeight': '0.35',
+        'UrgentBounceTime': '2000', 'UrgentBounceHeight': '1.08',
     },
 }
 lineas, seccion, vistos = open(ruta).read().splitlines(), None, set()
