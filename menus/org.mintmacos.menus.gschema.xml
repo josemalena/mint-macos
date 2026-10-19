@@ -4,19 +4,19 @@
     <key name="menu-flash" type="b">
       <default>false</default>
       <summary>Parpadeo al escoger un ítem de menú</summary>
-      <description>Como la Mac desde System 6: al escoger un ítem, su resaltado parpadea antes de que el menú se cierre y la acción corra. Lo leen el parche de los menús de Cinnamon (applemenu@macos/parpadeo.js) y el módulo GTK3. Apagado hasta que haya medidas de la Mac.</description>
+      <description>Como la Mac desde System 6: al escoger un ítem, su resaltado parpadea antes de que el menú se cierre y la acción corra. Lo leen el parche de los menús de Cinnamon (applemenu@macos/parpadeo.js) y el módulo GTK3. Apagado hasta que José lo encienda (las medidas de la Mac ya están: 1 parpadeo de 67 ms).</description>
     </key>
     <key name="flash-count" type="i">
-      <default>2</default>
+      <default>1</default>
       <range min="0" max="6"/>
       <summary>Cuántas veces se apaga y se enciende el ítem antes de ejecutarse</summary>
-      <description>PROVISIONAL hasta tener la grabación de QuickTime de la Mac (con todos los cuadros). 0 = el ítem queda resaltado fijo flash-duration-ms y se ejecuta, sin apagarse (es lo que se vio por VNC desde el clic, pero por VNC no se ve el resaltado al pasar el ratón, así que no prueba que no haya apagado). Más de 0 = parpadeo de verdad.</description>
+      <description>High Sierra 10.13.6, grabación de QuickTime a 60 cuadros: al soltar, el ítem se APAGA 67 ms, se ENCIENDE 67 ms y el menú se desvanece ~220 ms (el fundido no se hace aquí): UN parpadeo. 0 = resaltado fijo, sin apagar.</description>
     </key>
     <key name="flash-duration-ms" type="i">
-      <default>60</default>
+      <default>67</default>
       <range min="20" max="400"/>
       <summary>Cuánto dura cada fase (con flash-count 0, cuánto queda resaltado fijo), en milisegundos</summary>
-      <description>PROVISIONAL. Por VNC en High Sierra: resaltado fijo de 100–150 ms desde el clic y fundido del menú de ~200–250 ms (el fundido no se hace aquí).</description>
+      <description>High Sierra, medido con QuickTime a 60 cuadros: 67 ms apagado y 67 ms encendido (4 cuadros cada uno).</description>
     </key>
   </schema>
 </schemalist>

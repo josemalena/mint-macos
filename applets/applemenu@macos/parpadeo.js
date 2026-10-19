@@ -41,24 +41,19 @@ function activar() {
     let veces = cfg.get_int("flash-count");
     let fase = cfg.get_int("flash-duration-ms");
     this._parpadeando = true;
-    // El ítem ya está resaltado: se apaga, se enciende, … y al final queda encendido un instante antes de cerrar
-    let paso = 0;
+    // La Mac (High Sierra, QuickTime a 60 cuadros): al soltar, el ítem se APAGA 67 ms, se ENCIENDE 67 ms y el menú se cierra. Se apaga en el acto
+    // y cada `fase` cambia de estado; a los 2n cambios se ejecuta. Con n = 0 queda resaltado fijo una fase.
     let total = veces * 2;
-    if (total === 0) {   // sin apagar: queda resaltado fijo `fase` ms y luego se ejecuta (lo medido en High Sierra)
-      GLib.timeout_add(GLib.PRIORITY_DEFAULT, fase, () => {
-        this._parpadeando = false;
-        try { original.call(this, event, keepMenu); } catch (e) { global.logError("parpadeo: " + e); }
-        return GLib.SOURCE_REMOVE;
-      });
-      return undefined;
-    }
+    if (total > 0) this.actor.change_style_pseudo_class("active", false);
+    let paso = 0;
     GLib.timeout_add(GLib.PRIORITY_DEFAULT, fase, () => {
-      try {
-        paso++;
-        this.actor.change_style_pseudo_class("active", paso % 2 === 0);
-      } catch (e) { paso = total; }
-      if (paso < total) return GLib.SOURCE_CONTINUE;
+      paso++;
+      if (paso < total) {
+        try { this.actor.change_style_pseudo_class("active", paso % 2 === 1); } catch (e) { paso = total; }
+        if (paso < total) return GLib.SOURCE_CONTINUE;
+      }
       this._parpadeando = false;
+      try { this.actor.change_style_pseudo_class("active", true); } catch (e) {}
       try { original.call(this, event, keepMenu); } catch (e) { global.logError("parpadeo: " + e); }
       return GLib.SOURCE_REMOVE;
     });

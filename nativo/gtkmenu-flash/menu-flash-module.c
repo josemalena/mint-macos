@@ -71,23 +71,20 @@ static gboolean
 paso_de_parpadeo (gpointer dato)
 {
     Parpadeo *p = dato;
-    if (p->total == 0) {                                        // sin apagar: se quedó resaltado fijo y ahora se ejecuta
-        if (gtk_widget_get_mapped (GTK_WIDGET (p->shell)))
-            gtk_menu_shell_activate_item (p->shell, p->item, TRUE);
-        liberar_parpadeo (p);
-        return G_SOURCE_REMOVE;
-    }
     if (!gtk_widget_get_mapped (GTK_WIDGET (p->shell))) {      // lo cerraron mientras tanto (Esc, clic fuera)
         liberar_parpadeo (p);
         return G_SOURCE_REMOVE;
     }
     p->paso++;
-    if (p->paso % 2 == 1)
-        gtk_menu_shell_deselect (p->shell);
-    else
-        gtk_menu_shell_select_item (p->shell, p->item);
-    if (p->paso < p->total)
+    // La Mac (High Sierra, grabación de QuickTime a 60 cuadros): al soltar, el ítem se APAGA 67 ms, se ENCIENDE 67 ms y el menú se cierra.
+    // Con n parpadeos: apagado en t=0, y cada `fase` cambia de estado; a los 2n cambios (o a la primera fase con n=0) se activa.
+    if (p->paso < p->total) {
+        if (p->paso % 2 == 1)
+            gtk_menu_shell_select_item (p->shell, p->item);      // vuelve a encenderse
+        else
+            gtk_menu_shell_deselect (p->shell);
         return G_SOURCE_CONTINUE;
+    }
     gtk_menu_shell_activate_item (p->shell, p->item, TRUE);
     liberar_parpadeo (p);
     return G_SOURCE_REMOVE;
@@ -117,7 +114,9 @@ empezar_parpadeo (GtkMenuShell *shell, GtkWidget *item, int veces, int fase)
     Parpadeo *p = g_new0 (Parpadeo, 1);
     p->shell = g_object_ref (shell);
     p->item = g_object_ref (item);
-    p->total = veces * 2;
+    p->total = veces * 2;   // 0: queda resaltado fijo una fase y se activa
+    if (veces > 0)
+        gtk_menu_shell_deselect (shell);   // se apaga en el acto, al soltar
     g_object_set_data (G_OBJECT (shell), CLAVE_ACTIVANDO, GINT_TO_POINTER (1));
     g_timeout_add (fase, paso_de_parpadeo, p);
 }
