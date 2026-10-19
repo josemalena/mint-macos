@@ -23,7 +23,7 @@ FORKS=(FYNDER PLANK GREETER SPOTLYTE)
 # Fynder: el administrador de archivos con la cara del Finder
 FYNDER_NOMBRE=Fynder
 FYNDER_REPO=https://github.com/josemalena/fynder.git
-FYNDER_HASH=e1fbeb006c5d1cc5c998cbb7c9f9a9f5b8391c4c
+FYNDER_HASH=7a6013046682b3a072c1cc0ac198a7d9d7d01bc7
 FYNDER_LOCAL=fynder
 FYNDER_UPSTREAM=https://github.com/linuxmint/nemo.git
 FYNDER_RAMA=master
@@ -96,8 +96,9 @@ COMPILAR=(
   python3-xlib autoconf automake autopoint libtool libssl-dev libfuse3-dev fuse3 curl
 )
 EJECUCION=(
-  # Fynder y el dock
-  nemo-preview gvfs shared-mime-info bamfdaemon
+  # Fynder y el dock; Quick Actions del panel de vista previa: Rotate usa mogrify
+  # (imagemagick, abajo) y Markup abre Drawing (Fynder 7a601304)
+  nemo-preview gvfs shared-mime-info bamfdaemon drawing
   # menú global (lado apps; appmenu-registrar ya no hace falta)
   appmenu-gtk2-module appmenu-gtk3-module libdbusmenu-glib4 libdbusmenu-gtk3-4
   # tema Constanza y lo que se saca de la Mac
@@ -119,8 +120,9 @@ EJECUCION=(
   libkeybinder-3.0-0 gir1.2-keybinder-3.0 gir1.2-webkit2-4.1 gir1.2-notify-0.7
   gir1.2-gdkpixbuf-2.0 python3-gi-cairo python3-dbus python3-levenshtein
   python3-pyinotify python3-websocket python3-xdg gir1.2-ayatanaappindicator3-0.1
-  # icloud/icloud.sh: la clave de rclone.conf cifrado en el llavero; unzip
-  libsecret-tools unzip
+  # icloud/icloud.sh: unzip para el rclone fijado (la clave de rclone.conf cifrado la da
+  # mint-macos-appleid desde el llavero, sin secret-tool)
+  unzip
   # tema/iconos/car.py: los íconos que vienen en Assets.car (LZFSE) y los
   # glifos del Finder, que se dibujan de su PDF
   liblzfse1 poppler-utils

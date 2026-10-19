@@ -7,9 +7,9 @@ Cada fork, el commit que se compila y los parches que lleva encima de su upstrea
 
 - Fork: https://github.com/josemalena/fynder.git
 - Upstream: https://github.com/linuxmint/nemo.git, rama `master`
-- Commit: `e1fbeb006c5d1cc5c998cbb7c9f9a9f5b8391c4c` (2026-10-18, feat(alias): Make Alias nombra como el Finder)
+- Commit: `7a6013046682b3a072c1cc0ac198a7d9d7d01bc7` (2026-10-19, feat(vista previa): las Quick Actions al pie del panel)
 - Base: `66eabf459bc86d03c24797274d0e3f60b9b7a7d8` (master.lmde7), 2026-10-06, nemo-icon-dnd.c: Fix reporting a successful drag result.
-- Parches: 225
+- Parches: 231
 
 | Commit | Fecha | Asunto |
 |---|---|---|
@@ -238,6 +238,12 @@ Cada fork, el commit que se compila y los parches que lleva encima de su upstrea
 | `3cd96078` | 2026-10-18 | feat(menú): Go ▸ Library con ⌥, por ahora ~/.local/share |
 | `b1573bb6` | 2026-10-18 | feat(copiar): la alerta de conflicto y los nombres de copia del Finder |
 | `e1fbeb00` | 2026-10-18 | feat(alias): Make Alias nombra como el Finder |
+| `c4f89f80` | 2026-10-18 | feat(vista): View ▸ Sort By como el Finder, con Snap to Grid y Tags |
+| `efe5efb6` | 2026-10-18 | feat(menú): las etiquetas de File llevan su color para la fila de círculos |
+| `0711cf00` | 2026-10-18 | feat(vista): View ▸ Clean Up By, como el Finder |
+| `9026315e` | 2026-10-18 | fix(vista): Clean Up By no aborta al cambiar de vista |
+| `a4e9cc19` | 2026-10-18 | feat(smart folders): New Smart Folder, Save y los .savedSearch |
+| `7a601304` | 2026-10-19 | feat(vista previa): las Quick Actions al pie del panel |
 
 ## mint-macos-dock
 
