@@ -47,6 +47,32 @@ Señal: `Cambio()`, después de cada `Poner` que cambió algo.
 
 Entre un cambio y otro no queda ningún proceso: solo el temporizador de systemd.
 
+## Night Shift (19-10-2026)
+
+Displays ▸ Night Shift y el interruptor del Notification Center. Schedule, From/to y Color Temperature los escribe la ventana directo en `org.cinnamon.settings-daemon.plugins.color` (`night-light-*`), como ya hace. El servicio pone lo que csd-color no trae:
+
+| | |
+|---|---|
+| `NightShift() → a{sv}` | `activo` (b, lo que dice csd-color `NightLightActive`), `horario` (s: `off`, `custom` o `sunset`), `desde` y `hasta` (d, horas locales), `temperatura` (u, kelvin), `apagado_hasta_manana` (b) y, con el manual puesto, `manual_hasta` (x, segundos desde 1970) |
+| `NightShiftManual(b encender) → b` | «Manual: Turn On Until Tomorrow». También el interruptor del Notification Center |
+
+La casilla Manual va marcada cuando `activo` es true, igual que en la Mac.
+
+**Fuente:** la guía de Catalina dice: «Select to turn on Night Shift; deselect to turn it off. Night Shift remains on until the next day or until you turn it off» ([Change Night Shift settings on Mac, 10.15](https://support.apple.com/guide/mac-help/mchl9d976e85/10.15/mac/10.15)).
+
+**Encender fuera del horario:**
+1. Anota el horario de antes en `~/.config/mint-macos/nightshift.json`.
+2. Pone `night-light-schedule-mode=always`.
+3. Deja el temporizador `mint-macos-nightshift-fin`, que al «día siguiente» corre `--nightshift-fin` y devuelve el horario. El «día siguiente» es:
+   - con horario Custom, la hora «to»;
+   - con Sunset to Sunrise, la salida del sol;
+   - sin horario, las 7:00 (**hipótesis**: el «to» de fábrica de la Mac; la guía no dice la hora).
+4. Mientras dura, `horario` enseña el de antes, no el `always`.
+
+**Apagar:**
+- con el manual puesto, devuelve el horario y para el temporizador;
+- dentro del horario, pone `DisabledUntilTomorrow=true` de csd-color, que lo vuelve a encender solo la noche siguiente.
+
 ## Costo (18-10-2026)
 
 - **RSS:** 3.8 MB mientras corre.
@@ -55,5 +81,11 @@ Entre un cambio y otro no queda ningún proceso: solo el temporizador de systemd
 
 ## Pruebas
 
-- `cargo test -p mint-macos-apariencia`: la salida y la puesta del sol en Santo Domingo, y el nombre del tema por apariencia y acento.
+- `cargo test -p mint-macos-apariencia`: la salida y la puesta del sol en Santo Domingo, el nombre del tema por apariencia y acento, y Night Shift:
+  - encender a las 15:00 con el horario de 20:00 a 6:00 lo deja hasta las 6:00 de mañana;
+  - quitarlo devuelve el horario;
+  - apagarlo dentro del horario usa DisabledUntilTomorrow;
+  - sin horario dura hasta las 7:00.
+
+  Con `APARIENCIA_NOCHE` haciendo de gsettings y de csd-color.
 - `rust/apariencia/prueba.sh`: el servicio en un bus aparte, con `APARIENCIA_SIMULAR` para anotar los comandos en vez de correrlos y `APARIENCIA_AHORA` para fijar la hora.

@@ -10,9 +10,11 @@
 //!   mint-macos-apariencia               el servicio de D-Bus
 //!   mint-macos-apariencia --auto-ahora  aplica lo que toca ahora en Auto y programa el próximo
 //!   mint-macos-apariencia --estado      lo escogido y el próximo cambio, en JSON
+//!   mint-macos-apariencia --nightshift-fin  quita «Turn On Until Tomorrow» (lo llama su temporizador)
 //!
 //! Para las pruebas: APARIENCIA_SIMULAR=<archivo> anota los comandos en vez de correrlos;
-//! APARIENCIA_AHORA=<segundos desde 1970> fija la hora; XDG_CONFIG_HOME y XDG_RUNTIME_DIR,
+//! APARIENCIA_AHORA=<segundos desde 1970> fija la hora; APARIENCIA_NOCHE=«clave=valor;…» hace de
+//! gsettings y de csd-color para Night Shift; XDG_CONFIG_HOME y XDG_RUNTIME_DIR,
 //! dónde lee y escribe.
 
 use std::collections::HashMap;
@@ -293,6 +295,154 @@ fn estado(e: &Escogido, t: i64) -> HashMap<String, OwnedValue> {
     d
 }
 
+
+// --- Night Shift (Displays ▸ Night Shift y el Notification Center) ---------------------------
+//
+// Sobre night-light de csd-color (org.cinnamon.settings-daemon.plugins.color): Schedule, From/to y
+// la temperatura los escribe la ventana directo en gsettings. Lo que csd-color no trae es
+// «Manual: Turn On Until Tomorrow»; la guía de Catalina: «Select to turn on Night Shift; deselect to
+// turn it off. Night Shift remains on until the next day or until you turn it off.»
+// (support.apple.com/guide/mac-help/mchl9d976e85/10.15/mac/10.15).
+//   - Encender fuera del horario: modo «always» hasta el fin del próximo tramo de noche (la hora «to»
+//     del horario Custom, la salida del sol en Sunset to Sunrise; sin horario, las 7:00, el «to» de
+//     fábrica de la Mac: hipótesis) y un temporizador que devuelve el horario de antes.
+//   - Apagar dentro del horario: DisabledUntilTomorrow de csd-color, que lo vuelve a encender solo.
+
+const UNIDAD_NOCHE: &str = "mint-macos-nightshift-fin";
+const ESQ_NOCHE: &str = "org.cinnamon.settings-daemon.plugins.color";
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
+struct Manual {
+    previo_encendido: bool,
+    previo_modo: String,
+    hasta: i64,
+}
+
+fn archivo_manual() -> PathBuf {
+    config().join("mint-macos").join("nightshift.json")
+}
+
+fn leer_manual() -> Option<Manual> {
+    fs::read_to_string(archivo_manual()).ok().and_then(|t| serde_json::from_str(&t).ok())
+}
+
+/// Un valor de gsettings (o de APARIENCIA_NOCHE, «clave=valor;…», en las pruebas).
+fn gs(clave: &str) -> String {
+    if let Ok(v) = std::env::var("APARIENCIA_NOCHE") {
+        return v.split(';').find_map(|kv| kv.strip_prefix(&format!("{clave}=")).map(String::from)).unwrap_or_default();
+    }
+    Command::new("gsettings").args(["get", ESQ_NOCHE, clave]).output().ok()
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().trim_matches('\'').trim_start_matches("uint32 ").to_string())
+        .unwrap_or_default()
+}
+
+/// Lo que dice csd-color: si Night Shift está puesto ahora y si está apagado hasta mañana.
+fn csd(prop: &str) -> bool {
+    if let Ok(v) = std::env::var("APARIENCIA_NOCHE") {
+        return v.split(';').any(|kv| kv == format!("{prop}=true"));
+    }
+    Command::new("gdbus").args(["call", "--session", "-d", "org.cinnamon.SettingsDaemon.Color", "-o", "/org/cinnamon/SettingsDaemon/Color",
+                                "-m", "org.freedesktop.DBus.Properties.Get", "org.cinnamon.SettingsDaemon.Color", prop])
+        .output().ok().is_some_and(|o| String::from_utf8_lossy(&o.stdout).contains("true"))
+}
+
+/// El próximo fin del tramo de noche después de `t`: la hora «to» (horas locales con decimales) del
+/// horario Custom, la salida del sol, o las 7:00 sin horario.
+fn fin_de_la_noche(t: i64, modo: &str, encendido: bool, hasta_h: f64) -> i64 {
+    if encendido && modo == "auto" {
+        if let Some((lat, lon)) = ubicacion() {
+            for d in 0..=2 {
+                if let Some((sale, _)) = sol(t + d * 86400, lat, lon) {
+                    if sale > t + 60 {
+                        return sale;
+                    }
+                }
+            }
+        }
+    }
+    let h = if encendido && modo == "manual" && hasta_h > 0.0 { hasta_h } else { 7.0 };
+    let desfase = local_desfase(t);
+    let dia = (t + desfase).div_euclid(86400) * 86400 - desfase;
+    let hoy = dia + (h * 3600.0) as i64;
+    if hoy > t + 60 { hoy } else { hoy + 86400 }
+}
+
+fn night_shift(t: i64) -> HashMap<String, OwnedValue> {
+    let ov = |v: Value| v.try_to_owned().expect("valor sin descriptores");
+    let encendido = gs("night-light-enabled") == "true";
+    let modo = gs("night-light-schedule-mode");
+    let manual = leer_manual();
+    // Schedule tal como lo enseña la Mac: con el «Turn On Until Tomorrow» puesto vale el de antes.
+    let (enc_h, modo_h) = match &manual { Some(m) => (m.previo_encendido, m.previo_modo.clone()), None => (encendido, modo.clone()) };
+    let horario = if !enc_h || modo_h == "always" { "off" } else if modo_h == "auto" { "sunset" } else { "custom" };
+    let mut d = HashMap::new();
+    d.insert("activo".into(), ov(csd("NightLightActive").into()));
+    d.insert("horario".into(), ov(horario.into()));
+    d.insert("desde".into(), ov(gs("night-light-schedule-from").parse::<f64>().unwrap_or(19.0).into()));
+    d.insert("hasta".into(), ov(gs("night-light-schedule-to").parse::<f64>().unwrap_or(7.0).into()));
+    d.insert("temperatura".into(), ov(gs("night-light-temperature").parse::<u32>().unwrap_or(4700).into()));
+    d.insert("apagado_hasta_manana".into(), ov(csd("DisabledUntilTomorrow").into()));
+    if let Some(m) = &manual {
+        if m.hasta > t {
+            d.insert("manual_hasta".into(), ov(m.hasta.into()));
+        }
+    }
+    d
+}
+
+fn devolver_manual() {
+    if let Some(m) = leer_manual() {
+        correr("gsettings", &["set", ESQ_NOCHE, "night-light-schedule-mode", &m.previo_modo]);
+        correr("gsettings", &["set", ESQ_NOCHE, "night-light-enabled", if m.previo_encendido { "true" } else { "false" }]);
+        let _ = fs::remove_file(archivo_manual());
+    }
+    correr("systemctl", &["--user", "stop", &format!("{UNIDAD_NOCHE}.timer")]);
+}
+
+/// «Turn On Until Tomorrow» puesto (true) o quitado (false).
+fn night_shift_manual(encender: bool, t: i64) -> bool {
+    let activo = csd("NightLightActive");
+    let manual = leer_manual();
+    if encender {
+        if csd("DisabledUntilTomorrow") {
+            correr("gdbus", &["call", "--session", "-d", "org.cinnamon.SettingsDaemon.Color", "-o", "/org/cinnamon/SettingsDaemon/Color",
+                              "-m", "org.freedesktop.DBus.Properties.Set", "org.cinnamon.SettingsDaemon.Color", "DisabledUntilTomorrow", "<false>"]);
+        }
+        if activo && manual.is_none() && !csd("DisabledUntilTomorrow") {
+            return true; // ya está puesto por el horario
+        }
+        if manual.is_some() {
+            return true;
+        }
+        let encendido = gs("night-light-enabled") == "true";
+        let modo = gs("night-light-schedule-mode");
+        let hasta_h = gs("night-light-schedule-to").parse::<f64>().unwrap_or(7.0);
+        let fin = fin_de_la_noche(t, &modo, encendido, hasta_h);
+        let m = Manual { previo_encendido: encendido, previo_modo: if modo.is_empty() { "manual".into() } else { modo }, hasta: fin };
+        let a = archivo_manual();
+        if fs::create_dir_all(a.parent().unwrap()).is_err() || fs::write(&a, serde_json::to_string_pretty(&m).unwrap_or_default()).is_err() {
+            return false;
+        }
+        correr("gsettings", &["set", ESQ_NOCHE, "night-light-schedule-mode", "always"]);
+        correr("gsettings", &["set", ESQ_NOCHE, "night-light-enabled", "true"]);
+        let exe = std::env::current_exe().map(|x| x.to_string_lossy().into_owned()).unwrap_or_default();
+        let cuando = Command::new("date").args(["-u", "-d", &format!("@{fin}"), "+%Y-%m-%d %H:%M:%S UTC"]).output().ok()
+            .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string()).unwrap_or_default();
+        correr("systemctl", &["--user", "stop", &format!("{UNIDAD_NOCHE}.timer")]);
+        correr("systemd-run", &["--user", "--quiet", &format!("--unit={UNIDAD_NOCHE}"), &format!("--on-calendar={cuando}"),
+                                "--timer-property=AccuracySec=1min", &exe, "--nightshift-fin"]);
+        true
+    } else {
+        if manual.is_some() {
+            devolver_manual();
+        } else if activo {
+            correr("gdbus", &["call", "--session", "-d", "org.cinnamon.SettingsDaemon.Color", "-o", "/org/cinnamon/SettingsDaemon/Color",
+                              "-m", "org.freedesktop.DBus.Properties.Set", "org.cinnamon.SettingsDaemon.Color", "DisabledUntilTomorrow", "<true>"]);
+        }
+        true
+    }
+}
+
 // --- el servicio -----------------------------------------------------------------
 
 struct Servicio {
@@ -341,6 +491,23 @@ impl Servicio {
         true
     }
 
+    /// Night Shift: activo (b, lo que dice csd-color), horario ("off", "custom" o "sunset"), desde y
+    /// hasta (d, horas locales), temperatura (u, kelvin), apagado_hasta_manana (b) y, con «Turn On
+    /// Until Tomorrow» puesto, manual_hasta (x, segundos desde 1970).
+    fn night_shift(&self) -> HashMap<String, OwnedValue> {
+        *self.ultima.lock().unwrap() = Instant::now();
+        night_shift(ahora())
+    }
+
+    /// «Turn On Until Tomorrow» (también el interruptor del Notification Center): true lo enciende
+    /// hasta el día siguiente; false lo apaga (dentro del horario, hasta mañana).
+    async fn night_shift_manual(&self, encender: bool, #[zbus(signal_emitter)] emisor: SignalEmitter<'_>) -> bool {
+        *self.ultima.lock().unwrap() = Instant::now();
+        let r = night_shift_manual(encender, ahora());
+        let _ = Servicio::cambio(&emisor).await;
+        r
+    }
+
     #[zbus(signal)]
     async fn cambio(emisor: &SignalEmitter<'_>) -> zbus::Result<()>;
 }
@@ -352,6 +519,10 @@ fn main() {
         if e.apariencia == "auto" {
             aplicar(&e, ahora());
         }
+        return;
+    }
+    if args.first().map(String::as_str) == Some("--nightshift-fin") {
+        devolver_manual();
         return;
     }
     if args.first().map(String::as_str) == Some("--estado") {
@@ -394,6 +565,53 @@ mod pruebas {
         let hora = |t: i64| (t.rem_euclid(86400)) as f64 / 3600.0;
         assert!((hora(sale) - 10.8).abs() < 0.4, "sale a las {} UTC", hora(sale));
         assert!((hora(pone) - 22.5).abs() < 0.4, "se pone a las {} UTC", hora(pone));
+    }
+
+    /// Night Shift en una sola prueba: las variables de entorno son del proceso.
+    #[test]
+    fn night_shift_hasta_manana() {
+        let dir = std::env::temp_dir().join(format!("apariencia-noche-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let log = dir.join("comandos");
+        std::env::set_var("APARIENCIA_SIMULAR", &log);
+        std::env::set_var("XDG_CONFIG_HOME", &dir);
+        std::env::set_var("TZ", "America/Santo_Domingo");
+        // 18-10-2026 15:00 en Santo Domingo (19:00 UTC); horario Custom de 20:00 a 6:00, ahora apagado.
+        let t = 1792281600 + 19 * 3600; // 1792281600 = 18-10-2026 00:00 UTC
+        std::env::set_var("APARIENCIA_NOCHE", "night-light-enabled=true;night-light-schedule-mode=manual;night-light-schedule-from=20.0;night-light-schedule-to=6.0;night-light-temperature=2700;NightLightActive=false");
+        assert!(night_shift_manual(true, t));
+        let m = leer_manual().expect("se anotó el horario de antes");
+        assert_eq!((m.previo_encendido, m.previo_modo.as_str()), (true, "manual"));
+        // hasta las 6:00 de mañana: 10:00 UTC del 19-10
+        assert_eq!(m.hasta, t - 19 * 3600 + 86400 + 10 * 3600);
+        let c = fs::read_to_string(&log).unwrap();
+        assert!(c.contains("night-light-schedule-mode always") && c.contains("night-light-enabled true"), "{c}");
+        assert!(c.contains("--unit=mint-macos-nightshift-fin") && c.contains("2026-10-19 10:00:00 UTC") && c.contains("--nightshift-fin"), "{c}");
+        // El estado enseña el horario de antes, no el «always» de mientras.
+        std::env::set_var("APARIENCIA_NOCHE", "night-light-enabled=true;night-light-schedule-mode=always;night-light-schedule-to=6.0;NightLightActive=true");
+        let e = night_shift(t);
+        assert_eq!(e["horario"], Value::from("custom").try_to_owned().unwrap());
+        assert!(e.contains_key("manual_hasta"));
+        // Quitarlo devuelve el horario y para el temporizador.
+        fs::write(&log, "").unwrap();
+        assert!(night_shift_manual(false, t));
+        let c = fs::read_to_string(&log).unwrap();
+        assert!(c.contains("night-light-schedule-mode manual") && c.contains("night-light-enabled true") && c.contains("stop mint-macos-nightshift-fin.timer"), "{c}");
+        assert!(leer_manual().is_none());
+        // Apagarlo dentro del horario (ahora activo, sin manual): hasta mañana, con csd-color.
+        fs::write(&log, "").unwrap();
+        std::env::set_var("APARIENCIA_NOCHE", "night-light-enabled=true;night-light-schedule-mode=manual;NightLightActive=true");
+        assert!(night_shift_manual(false, t));
+        let c = fs::read_to_string(&log).unwrap();
+        assert!(c.contains("DisabledUntilTomorrow <true>") && !c.contains("schedule-mode"), "{c}");
+        // Sin horario: hasta las 7:00 de mañana (hipótesis: el «to» de fábrica de la Mac).
+        fs::write(&log, "").unwrap();
+        std::env::set_var("APARIENCIA_NOCHE", "night-light-enabled=false;night-light-schedule-mode=manual;NightLightActive=false");
+        assert!(night_shift_manual(true, t));
+        assert_eq!(leer_manual().unwrap().hasta, t - 19 * 3600 + 86400 + 11 * 3600);
+        let _ = fs::remove_dir_all(&dir);
+        std::env::remove_var("APARIENCIA_NOCHE");
     }
 
     #[test]
