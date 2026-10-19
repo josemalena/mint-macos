@@ -12,22 +12,38 @@
  *  - esta pantalla solo sale con código 0 si PAM dijo que sí; cualquier otra salida la relanza el supervisor.
  */
 namespace Bloqueo {
-    // (funciones y no const: valac no declara bien las const de un namespace en este archivo)
-    int avatar_px () { return 144; }
-    int ancho_campo () { return 160; }
-    int alto_campo () { return 28; }
+    /**
+     * Las medidas de la pantalla de bloqueo de High Sierra 10.13.6, medidas en la grabación de QuickTime de la MacBook (1280×800 pt, 1×;
+     * referencias/bloqueo-high-sierra/INDICE.md), escaladas a la altura de esta pantalla: avatar de 72 pt con su centro a 291 pt de
+     * arriba, el nombre de 13 pt debajo, el campo de 150×28 pt, los botones Cancel y Switch User a ~690 pt, y arriba a la derecha el reloj.
+     */
+    class Medidas {
+        public static double escala = 1.0;
+        public static int px (double pt) { return (int) Math.round (pt * escala); }
+    }
 
-    const string CSS = """
-        window.bloqueo { background-color: #1e1f22; }
-        .nombre-bloqueo { font-family: ".SF NS", sans-serif; font-weight: bold; font-size: 20px; color: #ffffff;
-            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.45); }
-        entry.clave-bloqueo { font-family: ".SF NS", sans-serif; font-size: 13px; min-height: 28px; padding: 0 6px 0 13px;
-            border-radius: 14px; border: none; box-shadow: none; outline: none; background-image: none;
-            background-color: rgba(255, 255, 255, 0.42); color: #ffffff; caret-color: #ffffff; }
-        entry.clave-bloqueo:focus { box-shadow: none; border: none; }
-        entry.clave-bloqueo:disabled { color: rgba(255, 255, 255, 0.6); background-color: rgba(255, 255, 255, 0.30); }
-        .guia-bloqueo { font-family: ".SF NS", sans-serif; font-size: 13px; color: rgba(255, 255, 255, 0.62); }
-    """;
+    string css_para_escala () {
+        return """
+            window.bloqueo { background-color: #1e1f22; }
+            .nombre-bloqueo { font-family: ".SF NS", sans-serif; font-size: %dpx; color: #ffffff; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.45); }
+            entry.clave-bloqueo { font-family: ".SF NS", sans-serif; font-size: %dpx; min-height: %dpx; padding: 0 %dpx 0 %dpx;
+                border-radius: %dpx; border: none; box-shadow: none; outline: none; background-image: none;
+                background-color: rgba(255, 255, 255, 0.36); color: #ffffff; caret-color: #ffffff; }
+            entry.clave-bloqueo:focus { box-shadow: none; border: none; }
+            entry.clave-bloqueo:disabled { color: rgba(255, 255, 255, 0.6); background-color: rgba(255, 255, 255, 0.28); }
+            entry.clave-bloqueo selection { background-color: rgba(255, 255, 255, 0.5); color: #ffffff; }
+            .guia-bloqueo { font-family: ".SF NS", sans-serif; font-size: %dpx; color: rgba(255, 255, 255, 0.62); }
+            .reloj-bloqueo { font-family: ".SF NS", sans-serif; font-size: %dpx; color: #ffffff; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45); }
+            button.flecha-bloqueo { min-width: %dpx; min-height: %dpx; padding: 0; border-radius: 50%%; border: none; box-shadow: none;
+                background-image: none; background-color: rgba(255, 255, 255, 0.36); color: #ffffff; }
+            button.circulo-bloqueo { min-width: %dpx; min-height: %dpx; padding: 0; border-radius: 50%%; border: none; box-shadow: none;
+                background-image: none; background-color: rgba(255, 255, 255, 0.22); color: #ffffff; font-size: %dpx; }
+            button.circulo-bloqueo:disabled { background-color: rgba(255, 255, 255, 0.12); color: rgba(255, 255, 255, 0.45); }
+            .etiqueta-circulo { font-family: ".SF NS", sans-serif; font-size: %dpx; color: #ffffff; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45); }
+        """.printf (Medidas.px (13), Medidas.px (13), Medidas.px (28), Medidas.px (6), Medidas.px (12), Medidas.px (14),
+                    Medidas.px (13), Medidas.px (13), Medidas.px (22), Medidas.px (22), Medidas.px (35), Medidas.px (35), Medidas.px (18),
+                    Medidas.px (11));
+    }
 
     /** El nombre completo de la cuenta (el campo de nombre real) o, si no hay, el usuario. */
     string nombre_completo () {
@@ -47,7 +63,7 @@ namespace Bloqueo {
         foreach (var r in rutas) {
             if (FileUtils.test (r, FileTest.IS_REGULAR)) {
                 try {
-                    return new Gdk.Pixbuf.from_file_at_scale (r, avatar_px () * 2, avatar_px () * 2, false);
+                    return new Gdk.Pixbuf.from_file_at_scale (r, Medidas.px (72) * 2, Medidas.px (72) * 2, false);
                 } catch (Error e) {
                 }
             }
@@ -76,7 +92,7 @@ namespace Bloqueo {
             // «cover»: llena la pantalla recortando lo que sobre
             double k = double.max ((double) ancho / original.width, (double) alto / original.height);
             int w = (int) Math.ceil (original.width * k), h = (int) Math.ceil (original.height * k);
-            int chico_w = int.max (8, ancho / 24), chico_h = int.max (8, alto / 24);
+            int chico_w = int.max (8, ancho / 48), chico_h = int.max (8, alto / 48);
             var cubierto = original.scale_simple (w, h, Gdk.InterpType.BILINEAR);
             var recorte = new Gdk.Pixbuf.subpixbuf (cubierto, (w - ancho) / 2, (h - alto) / 2, ancho, alto);
             return recorte.scale_simple (chico_w, chico_h, Gdk.InterpType.BILINEAR).scale_simple (ancho, alto, Gdk.InterpType.BILINEAR);
@@ -89,14 +105,14 @@ namespace Bloqueo {
         Gdk.Pixbuf? foto;
         public Avatar () {
             foto = foto_de_la_cuenta ();
-            set_size_request (avatar_px (), avatar_px ());
+            set_size_request (Medidas.px (72), Medidas.px (72));
         }
         public override bool draw (Cairo.Context c) {
-            double r = avatar_px () / 2.0;
+            double r = Medidas.px (72) / 2.0;
             c.arc (r, r, r, 0, 2 * Math.PI);
             c.clip ();
             if (foto != null) {
-                double k = (double) avatar_px () / foto.width;
+                double k = (double) Medidas.px (72) / foto.width;
                 c.scale (k, k);
                 Gdk.cairo_set_source_pixbuf (c, foto, 0, 0);
                 c.paint ();
@@ -144,6 +160,10 @@ namespace Bloqueo {
         Cubierta? primera = null;
         Gtk.Entry clave;
         Gtk.Label guia;
+        Gtk.Widget campo_caja;      // el campo con su guía (lo que se atenúa y entra con fundido)
+        Gtk.Widget centro_w;        // el bloque entero que se sacude: avatar, nombre y campo
+        Gtk.Button flecha;
+        Gtk.Label reloj;
         bool verificando = false;
         string servicio_pam;
         MainLoop lazo = new MainLoop ();
@@ -151,9 +171,12 @@ namespace Bloqueo {
 
         public Principal () {
             servicio_pam = FileUtils.test ("/etc/pam.d/cinnamon-screensaver", FileTest.EXISTS) ? "cinnamon-screensaver" : "login";
+            var pantalla0 = Gdk.Display.get_default ();
+            var mon0 = pantalla0.get_primary_monitor () ?? pantalla0.get_monitor (0);
+            Medidas.escala = mon0.get_geometry ().height / 800.0;     // las medidas son de una pantalla de 800 pt de alto
             var css = new Gtk.CssProvider ();
             try {
-                css.load_from_data (CSS, -1);
+                css.load_from_data (css_para_escala (), -1);
                 Gtk.StyleContext.add_provider_for_screen (Gdk.Screen.get_default (), css, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION);
             } catch (Error e) {
                 warning ("CSS: %s", e.message);
@@ -174,14 +197,31 @@ namespace Bloqueo {
             foreach (var c in cubiertas) {
                 c.show_all ();
             }
+            // El puntero se ve (como en la Mac)
+            var cursor = new Gdk.Cursor.from_name (Gdk.Display.get_default (), "default");
+            foreach (var c in cubiertas) {
+                if (c.get_window () != null) {
+                    c.get_window ().set_cursor (cursor);
+                }
+            }
             Timeout.add (100, reintentar_grab);
             Timeout.add (500, subir);
             clave.grab_focus ();
+            // El campo entra con un fundido de ~120 ms
+            campo_caja.opacity = 0;
+            animar_opacidad (campo_caja, 0, 1, 120, null);
         }
 
         void armar_centro (Cubierta c, Gdk.Rectangle g) {
+            var capa = new Gtk.Overlay ();
+            capa.add (new Gtk.EventBox ());
+            c.add (capa);
+
+            // El bloque del centro: avatar (centro a 291 pt de arriba), nombre y campo de clave
             var centro = new Gtk.Box (Gtk.Orientation.VERTICAL, 0);
             centro.halign = Gtk.Align.CENTER;
+            centro.valign = Gtk.Align.START;
+            centro.margin_top = Medidas.px (291) - Medidas.px (72) / 2;
             var avatar = new Avatar ();
             avatar.halign = Gtk.Align.CENTER;
             centro.pack_start (avatar, false, false, 0);
@@ -190,37 +230,113 @@ namespace Bloqueo {
             nombre.justify = Gtk.Justification.CENTER;
             nombre.wrap = true;
             nombre.wrap_mode = Pango.WrapMode.WORD;
-            nombre.max_width_chars = 15;
-            nombre.margin_top = 31;
+            nombre.max_width_chars = 24;
+            nombre.margin_top = Medidas.px (12);
             centro.pack_start (nombre, false, false, 0);
+
             clave = new Gtk.Entry ();
             clave.get_style_context ().add_class ("clave-bloqueo");
             clave.visibility = false;
             clave.invisible_char = '●';
             clave.width_chars = 1;
-            clave.set_size_request (ancho_campo (), alto_campo ());
+            clave.set_size_request (Medidas.px (150), Medidas.px (28));
             clave.halign = Gtk.Align.CENTER;
             clave.max_length = 1024;
             guia = new Gtk.Label ("Enter Password");
             guia.get_style_context ().add_class ("guia-bloqueo");
             guia.halign = Gtk.Align.START;
             guia.valign = Gtk.Align.CENTER;
-            guia.margin_start = 14;
+            guia.margin_start = Medidas.px (12);
             var con_guia = new Gtk.Overlay ();
             con_guia.add (clave);
             con_guia.add_overlay (guia);
             con_guia.set_overlay_pass_through (guia, true);
-            con_guia.halign = Gtk.Align.CENTER;
-            con_guia.margin_top = 22;
-            centro.pack_start (con_guia, false, false, 0);
-            clave.changed.connect (() => { guia.visible = clave.get_text_length () == 0; });
+            // El círculo con la flecha → a la derecha del campo, que aparece al escribir; a la izquierda un hueco igual para que el campo siga centrado
+            flecha = new Gtk.Button.with_label ("→");
+            flecha.get_style_context ().add_class ("flecha-bloqueo");
+            flecha.relief = Gtk.ReliefStyle.NONE;
+            flecha.can_focus = false;
+            flecha.valign = Gtk.Align.CENTER;
+            flecha.opacity = 0;
+            flecha.margin_start = Medidas.px (8);
+            flecha.clicked.connect (enviar);
+            var hueco = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 0);
+            hueco.set_size_request (Medidas.px (22) + Medidas.px (8), 1);
+            var fila = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 0);
+            fila.halign = Gtk.Align.CENTER;
+            fila.margin_top = Medidas.px (12);
+            fila.pack_start (hueco, false, false, 0);
+            fila.pack_start (con_guia, false, false, 0);
+            fila.pack_start (flecha, false, false, 0);
+            campo_caja = con_guia;
+            centro.pack_start (fila, false, false, 0);
+            clave.changed.connect (() => {
+                bool hay = clave.get_text_length () > 0;
+                guia.visible = !hay;
+                flecha.opacity = hay ? 1 : 0;
+            });
             clave.activate.connect (enviar);
+            centro_w = centro;
+            capa.add_overlay (centro);
 
-            var fijo = new Gtk.Fixed ();
-            // El avatar empieza 169 px sobre el centro de la pantalla (medido en el login de Catalina)
-            centro.set_size_request (ancho_campo () + 120, -1);
-            fijo.put (centro, g.width / 2 - (ancho_campo () + 120) / 2, int.max (20, g.height / 2 - 169));
-            c.add (fijo);
+            // Abajo, a ~690 pt: Cancel (⊗) y Switch User, redondos con su texto
+            var abajo = new Gtk.Box (Gtk.Orientation.HORIZONTAL, Medidas.px (46));
+            abajo.halign = Gtk.Align.CENTER;
+            abajo.valign = Gtk.Align.START;
+            abajo.margin_top = Medidas.px (690) - Medidas.px (35) / 2;
+            var cancel = circulo ("⊗", "Cancel");
+            ((Gtk.Button) cancel.get_children ().nth_data (0)).clicked.connect (() => { clave.text = ""; clave.grab_focus (); });
+            abajo.pack_start (cancel, false, false, 0);
+            var cambiar = circulo ("☺", "Switch User");
+            // Cambiar de usuario pasaría por el greeter de LightDM: decisión de José (19-10-2026), solo con su sí
+            ((Gtk.Button) cambiar.get_children ().nth_data (0)).sensitive = false;
+            cambiar.set_tooltip_text ("Switching user needs the login window; not available from the lock screen yet.");
+            abajo.pack_start (cambiar, false, false, 0);
+            capa.add_overlay (abajo);
+
+            // Arriba a la derecha el reloj («3:47 PM»); la batería y el Wi-Fi de la Mac no se dibujan (esta máquina no tiene batería)
+            reloj = new Gtk.Label ("");
+            reloj.get_style_context ().add_class ("reloj-bloqueo");
+            reloj.halign = Gtk.Align.END;
+            reloj.valign = Gtk.Align.START;
+            reloj.margin_end = Medidas.px (14);
+            reloj.margin_top = Medidas.px (4);
+            capa.add_overlay (reloj);
+            poner_hora ();
+            Timeout.add_seconds (5, () => { poner_hora (); return Source.CONTINUE; });
+        }
+
+        void poner_hora () {
+            reloj.label = new DateTime.now_local ().format ("%-I:%M %p");
+        }
+
+        Gtk.Box circulo (string simbolo, string texto) {
+            var caja = new Gtk.Box (Gtk.Orientation.VERTICAL, Medidas.px (6));
+            var b = new Gtk.Button.with_label (simbolo);
+            b.get_style_context ().add_class ("circulo-bloqueo");
+            b.relief = Gtk.ReliefStyle.NONE;
+            b.can_focus = false;
+            b.halign = Gtk.Align.CENTER;
+            caja.pack_start (b, false, false, 0);
+            var l = new Gtk.Label (texto);
+            l.get_style_context ().add_class ("etiqueta-circulo");
+            caja.pack_start (l, false, false, 0);
+            return caja;
+        }
+
+        /** Un fundido de opacidad (de, a) en `ms` milisegundos. */
+        void animar_opacidad (Gtk.Widget w, double de, double a, int ms, owned VoidFunc? al_terminar) {
+            int64 inicio = get_monotonic_time ();
+            Timeout.add (16, () => {
+                double t = (get_monotonic_time () - inicio) / 1000.0 / ms;
+                if (t >= 1) {
+                    w.opacity = a;
+                    if (al_terminar != null) al_terminar ();
+                    return false;
+                }
+                w.opacity = de + (a - de) * t;
+                return true;
+            });
         }
 
         /** El teclado y el ratón son de esta pantalla. Mientras no se logre el grab se reintenta, y si se pierde, se retoma. */
@@ -327,6 +443,9 @@ namespace Bloqueo {
             }
             verificando = true;
             clave.sensitive = false;
+            flecha.sensitive = false;
+            // El campo se atenúa en ~200 ms mientras se comprueba (High Sierra)
+            animar_opacidad (campo_caja, 1, 0.6, 200, null);
             // Copia de la clave solo para PAM (el buffer de GTK no se puede borrar a mano): se borra al terminar
             unowned string texto = clave.get_text ();
             size_t largo = texto.length;
@@ -344,29 +463,47 @@ namespace Bloqueo {
 
         void terminado (int resultado) {
             verificando = false;
-            clave.sensitive = true;
-            clave.text = "";
             if (resultado == 0) {
+                clave.text = "";
                 codigo = 0;
                 lazo.quit ();
                 return;
             }
+            // Clave mala: sacudida del bloque entero, el campo recupera su tono en ~170 ms y la clave queda SELECCIONADA para escribir encima
+            clave.sensitive = true;
+            flecha.sensitive = true;
+            animar_opacidad (campo_caja, 0.6, 1, 170, null);
             clave.grab_focus ();
+            clave.select_region (0, -1);
             sacudir ();
         }
 
-        /** La sacudida de la Mac cuando la clave no es: el campo se mueve de lado a lado. */
+        // La sacudida medida (QuickTime a 60 cuadros): 400 ms, horizontal, del bloque entero; empieza a la izquierda, ~3 vaivenes con amplitudes
+        // 14, 14, 8 y 6 pt. (t en ms desde el principio, dx en pt)
+        const int[] SACUDIDA_T = { 0, 17, 33, 50, 67, 83, 100, 117, 133, 150, 167, 183, 200, 217, 250, 267, 283, 317, 333, 350, 383, 400 };
+        const int[] SACUDIDA_DX = { 0, -14, -13, -5, 6, 13, 12, 4, -6, -14, -13, -6, 3, 8, 3, -3, -8, -4, 2, 6, 3, 0 };
+
         void sacudir () {
-            int paso = 0;
-            int[] mov = { -12, 12, -9, 9, -5, 5, -2, 2, 0 };
-            clave.parent.margin_start = 0;
-            Timeout.add (35, () => {
-                clave.parent.margin_start = mov[paso] > 0 ? mov[paso] * 2 : 0;
-                clave.parent.margin_end = mov[paso] < 0 ? -mov[paso] * 2 : 0;
-                paso++;
-                if (paso >= mov.length) {
-                    clave.parent.margin_start = 0;
-                    clave.parent.margin_end = 0;
+            int64 inicio = get_monotonic_time ();
+            Timeout.add (16, () => {
+                double ms = (get_monotonic_time () - inicio) / 1000.0;
+                double dx = 0;
+                if (ms < 400) {
+                    for (int i = 1; i < SACUDIDA_T.length; i++) {
+                        if (ms <= SACUDIDA_T[i]) {
+                            double f = (ms - SACUDIDA_T[i - 1]) / (SACUDIDA_T[i] - SACUDIDA_T[i - 1]);
+                            dx = SACUDIDA_DX[i - 1] + (SACUDIDA_DX[i] - SACUDIDA_DX[i - 1]) * f;
+                            break;
+                        }
+                    }
+                }
+                int px = (int) Math.round (dx * Medidas.escala);
+                // El bloque está centrado: un margen a un lado de 2·dx lo corre dx
+                centro_w.margin_start = px > 0 ? 2 * px : 0;
+                centro_w.margin_end = px < 0 ? -2 * px : 0;
+                if (ms >= 400) {
+                    centro_w.margin_start = 0;
+                    centro_w.margin_end = 0;
                     return false;
                 }
                 return true;

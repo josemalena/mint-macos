@@ -48,7 +48,8 @@ def liso(x0, y0, x1, y1):
             if max(abs(p[i] - fondo[i]) for i in range(3)) > 14:
                 return False
     return True
-zonas = {"la barra de arriba": (0, 0, w, 30), "el menú abierto": (0, 30, 400, 330), "las notificaciones": (w - 420, 30, w, 330)}
+# (arriba a la derecha va el reloj del bloqueo: se deja fuera de la zona de la barra y de las notificaciones)
+zonas = {"la barra de arriba": (0, 0, w - 250, 30), "el menú abierto": (0, 30, 400, 330), "las notificaciones": (w - 420, 50, w, 330)}
 malas = [n for n, z in zonas.items() if not liso(*z)]
 if malas:
     print("se ve algo en: " + ", ".join(malas))

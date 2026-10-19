@@ -31,7 +31,12 @@ y es lo que asustaba con mensajes FATAL). Decisión de José, 19-10-2026. Por ah
   (caso 97). Es el camino que se quiere evitar, pero cierra de verdad.
 - **Clave.** PAM con el servicio `cinnamon-screensaver` del sistema (pam_unix → unix_chkpwd, sin setuid propio). La clave no se guarda: se pasa a PAM
   y se borra la copia. `pam_ayuda.c` declara la ABI mínima de PAM, así que no hace falta `libpam0g-dev` para compilar.
-- **Aspecto.** Fondo de escritorio desenfocado, avatar de 144 px, nombre en negrita y «Enter Password» (cadena de LoginUICore). Las medidas son las del
+- **Aspecto (medido en High Sierra 10.13.6, grabación de QuickTime de José a 60 cuadros: referencias/bloqueo-high-sierra/INDICE.md).** Avatar de 72 pt con el centro a 291 pt de
+  arriba (de 800), nombre de 13 pt, campo de 150×28 pt con «Enter Password» y, al escribir, el círculo con → a su derecha; abajo, a ~690 pt, Cancel y Switch User
+  (Switch User en gris: pasaría por el greeter); reloj arriba a la derecha (la batería y el Wi-Fi no se dibujan). Todo se escala a la altura de la pantalla. El campo entra con un
+  fundido de 120 ms, se atenúa 200 ms al comprobar, y con la clave mala se sacude el BLOQUE ENTERO 400 ms (tabla cuadro a cuadro del INDICE), el campo recupera
+  su tono en 170 ms y la clave queda seleccionada. Antes de esto era el aspecto del login de Catalina (provisional).
+- **Aspecto anterior.** Fondo de escritorio desenfocado, avatar de 144 px, nombre en negrita y «Enter Password» (cadena de LoginUICore). Las medidas son las del
   login de Catalina (slick-greeter-mac): **PROVISIONAL**, no hay captura del bloqueo de Catalina. Hay que compararlo apenas haya una (lo más fácil, por
   VNC en la MacBook de la esposa, que es High Sierra: marcarla «de High Sierra»). Los botones de abajo (Sleep, Restart…) no se dibujan: no se sabe si
   salen en el bloqueo.
