@@ -392,11 +392,39 @@ def contenidos_paneles(version, raices, indice):
             if not b:
                 continue
             datos = dict(p, **contenido_panel(b, info_bundle(b)))
-            with open(os.path.join(destino, p['id'] + '.json'), 'w') as f:
+            # Por el id propio cuando lo hay: en Sequoia General y Appearance vienen los dos del
+            # General de Catalina y se pisarían.
+            nombre = p.get('id_propio') or p['id']
+            with open(os.path.join(destino, nombre + '.json'), 'w') as f:
                 json.dump(datos, f, ensure_ascii=False, indent=1)
-            p['archivo'] = 'system-preferences/%s.json' % p['id']
+            p['archivo'] = 'system-preferences/%s.json' % nombre
             hechos += 1
     return hechos
+
+
+def adaptaciones():
+    try:
+        return json.load(open(os.path.join(AQUI, 'adaptaciones.json')))
+    except (OSError, ValueError):
+        return {}
+
+
+def adaptar(nodo, reglas):
+    """Pone «ocultar» o «aplica_a» (con su motivo) a los controles de un panel por su id estable.
+    Solo las reglas aprobadas; las propuestas van aparte, en «propuestas»."""
+    # El id del control, o el de su etiqueta (en SwiftUI el título va en el Text de adentro).
+    ids = {nodo['props'].get('id')} | {h['props'].get('id') for h in nodo['hijos'][:1] if h['clase'] == 'texto'}
+    for r in reglas:
+        if nodo['clase'] != 'texto' and ids & set(r['ids']) or nodo['props'].get('id') in r['ids']:
+            for k in ('ocultar', 'aplica_a'):
+                if k in r:
+                    nodo['props'][k] = r[k]
+            nodo['props']['motivo'] = r.get('motivo')
+    for h in nodo['hijos']:
+        adaptar(h, reglas)
+    for k in ('cabecera', 'pie'):
+        if isinstance(nodo['props'].get(k), dict):
+            adaptar(nodo['props'][k], reglas)
 
 
 def generar(version, raices=None, medidas=None):
@@ -418,6 +446,27 @@ def generar(version, raices=None, medidas=None):
     guardar('menus-estandar', menus_estandar(version, raices))
     indice = system_preferences(version, raices)
     n = contenidos_paneles(version, raices, indice)
+    ad = adaptaciones()
+    if indice:
+        aprob = [r for r in ad.get('paneles', []) if r.get('estado') == 'aprobado']
+        for g in indice['grupos']:
+            for p in g['paneles']:
+                for r in ad.get('paneles', []):
+                    if (p.get('id_propio') or p['id']) in r['ids']:
+                        if r in aprob:
+                            p['ocultar'], p['motivo'] = True, r.get('motivo')
+                        else:
+                            p.setdefault('propuestas', []).append({'ocultar': True, 'motivo': r.get('motivo')})
+        controles = [r for r in ad.get('controles', []) if r.get('estado') == 'aprobado']
+        carpeta = os.path.join(SALIDA, version, 'apps', 'system-preferences')
+        for f in os.listdir(carpeta) if os.path.isdir(carpeta) else []:
+            ruta = os.path.join(carpeta, f)
+            d = json.load(open(ruta))
+            for vista in d.get('vistas', []):
+                if 'raiz' in vista:
+                    adaptar(vista['raiz'], controles)
+            with open(ruta, 'w') as fh:
+                json.dump(d, fh, ensure_ascii=False, indent=1)
     guardar('system-preferences', indice)
     if indice:
         partes['paneles'] = '%d con contenido' % n
