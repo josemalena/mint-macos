@@ -15,7 +15,7 @@
 # Qué deja:
 #   <destino>/iconos/<identificador del panel>.png   p. ej. com.apple.preference.sound.png
 #   <destino>/iconos/sistema.png                     el ícono de System Preferences
-#   <destino>/sonidos/*.aiff                          las alertas de Sound Effects (Basso, Blow…)
+#   <destino>/sonidos/*.wav                           las alertas de Sound Effects (Basso, Blow…), en WAV
 #   <destino>/orden.json                             los grupos y el orden de los paneles,
 #                                                    tal como los define Catalina
 #   <destino>/glifos/GoBack@1x.png …                los glifos de la barra de herramientas
@@ -221,10 +221,14 @@ if faltan:
     print("Sin ícono suelto (se usa el del tema):", ", ".join(sorted(faltan)))
 PY
 
-# Los sonidos de alerta de Sound Effects (Basso, Blow, Bottle…): se copian tal cual.
+# Los sonidos de alerta de Sound Effects (Basso, Blow, Bottle…), en WAV de 16 bits con el mismo nombre:
+# las AIFF de la Mac son PCM de 24 bits big-endian y paplay las sacaba como ruido (medido el 19-10-2026:
+# correlación -0.03 contra la fuente; la WAV, 1.000), y libcanberra de Cinnamon no lee AIFF.
 if [ -d "$MAC_SISTEMA/System/Library/Sounds" ]; then
   mkdir -p "$DESTINO/sonidos"
-  cp "$MAC_SISTEMA"/System/Library/Sounds/*.aiff "$DESTINO/sonidos/"
+  for f in "$MAC_SISTEMA"/System/Library/Sounds/*.aiff; do
+    ffmpeg -loglevel error -y -i "$f" -c:a pcm_s16le "$DESTINO/sonidos/$(basename "$f" .aiff).wav"
+  done
   echo "▸ $(ls "$DESTINO/sonidos" | wc -l) sonidos de alerta en $DESTINO/sonidos"
 fi
 
