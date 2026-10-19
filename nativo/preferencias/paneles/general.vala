@@ -1,16 +1,54 @@
 /*
  * General: el panel de Catalina (Screen Shot 2026-10-14 at 12.11.59 AM); port de settings/general.py.
  *
- * Conectado de verdad: Default web browser (xdg-settings) y Show scroll bars (gtk-overlay-scrollbars). Appearance solo tiene el tema
- * oscuro de Constanza, que es el que está activo: Light y Auto se dibujan en gris hasta que exista un tema claro. El resto (Accent y
- * Highlight color, Sidebar icon size, ocultar la barra de menús, Click in the scroll bar to, las casillas de documentos, Recent
- * items, Handoff y font smoothing) no tiene una clave que podamos escribir y comprobar aquí: se dibuja como en la captura, en gris,
- * como en una Mac sin esa función.
+ * Conectado de verdad: Default web browser (xdg-settings), Show scroll bars (gtk-overlay-scrollbars) y Appearance, Accent color y
+ * Highlight color, que van al servicio org.mintmacos.Apariencia1 (rust/apariencia/DBUS.md): Light, Dark y Auto cambian el tema
+ * activo al instante. Los acentos salen del perfil de la versión de macOS activa (Estado ▸ acentos). Sin el servicio esos controles
+ * quedan en gris. El resto (Sidebar icon size, ocultar la barra de menús, Click in the scroll bar to, las casillas de documentos,
+ * Recent items, Handoff y font smoothing) no tiene una clave que podamos escribir y comprobar aquí: se dibuja como en la captura,
+ * en gris, como en una Mac sin esa función.
  *
  * Las miniaturas de Light/Dark/Auto son arte de Apple y salen del disco de la Mac, no del repo
  * (~/.local/share/mint-macos/settings/apariencia/); sin ellas se ven los nombres solos.
  */
 namespace Preferencias {
+
+    /** Un círculo de color del selector de Accent color; el escogido lleva un aro. */
+    public class PuntoAcento : Gtk.DrawingArea {
+        public string clave;
+        public string color;
+        public bool marcado = false;
+        public signal void escogido (string clave);
+
+        public PuntoAcento (string clave, string color) {
+            this.clave = clave;
+            this.color = color;
+            set_size_request (20, 20);
+            add_events (Gdk.EventMask.BUTTON_PRESS_MASK);
+            set_tooltip_text (clave);
+            draw.connect (pintar);
+            button_press_event.connect ((e) => {
+                if (is_sensitive ()) escogido (this.clave);
+                return true;
+            });
+        }
+
+        bool pintar (Cairo.Context cr) {
+            double c = 10.0;
+            var rgba = Gdk.RGBA ();
+            if (!rgba.parse (color)) rgba.parse ("#8c8c8c");
+            if (marcado) {
+                cr.set_source_rgba (0.5, 0.5, 0.5, 0.9);
+                cr.set_line_width (1.5);
+                cr.arc (c, c, 9.0, 0, 6.2832);
+                cr.stroke ();
+            }
+            cr.set_source_rgba (rgba.red, rgba.green, rgba.blue, is_sensitive () ? 1.0 : 0.4);
+            cr.arc (c, c, 6.5, 0, 6.2832);
+            cr.fill ();
+            return false;
+        }
+    }
 
     public class PanelGeneral : Panel {
         // MINT_GENERAL_PRUEBA: no escribe en gsettings ni en xdg-settings.
@@ -21,6 +59,8 @@ namespace Preferencias {
         HashTable<string, Gtk.RadioButton> radios = new HashTable<string, Gtk.RadioButton> (str_hash, str_equal);
         GenericArray<Gtk.DrawingArea> areas = new GenericArray<Gtk.DrawingArea> ();
         Gtk.ComboBoxText navegador;
+        GenericArray<PuntoAcento> puntos_acento = new GenericArray<PuntoAcento> ();
+        Gtk.ComboBoxText? resaltado_c = null;
 
         public PanelGeneral () {
             id = "com.apple.preference.general";
@@ -100,6 +140,60 @@ namespace Preferencias {
             }
         }
 
+        // ── Appearance: el servicio de Infra ─────────────────────────────
+        static string? hex_de_acento (string nombre) {
+            switch (nombre) {
+            case "Blue": return "#007AFF";
+            case "Purple": return "#953D96";
+            case "Pink": return "#F74F9E";
+            case "Red": return "#E0383E";
+            case "Orange": return "#F7821B";
+            case "Yellow": return "#FFC600";
+            case "Green": return "#62BA46";
+            case "Graphite": return "#8C8C8C";
+            }
+            return null;
+        }
+
+        /** Estado() del servicio, o null si no contesta (se activa solo; 3 s de plazo). */
+        static VariantDict? estado_apariencia (out string[] acentos) {
+            acentos = {};
+            try {
+                var bus = Bus.get_sync (BusType.SESSION);
+                var r = bus.call_sync ("org.mintmacos.Apariencia1", "/org/mintmacos/Apariencia1", "org.mintmacos.Apariencia1", "Estado",
+                                       null, new VariantType ("(a{sv})"), DBusCallFlags.NONE, 3000, null);
+                var d = new VariantDict (r.get_child_value (0));
+                var a = d.lookup_value ("acentos", new VariantType ("as"));
+                if (a != null) acentos = a.dup_strv ();
+                return d;
+            } catch (GLib.Error e) {
+                return null;
+            }
+        }
+
+        static string texto_de (VariantDict d, string clave, string defecto) {
+            var v = d.lookup_value (clave, VariantType.STRING);
+            return v != null ? v.get_string () : defecto;
+        }
+
+        void poner_apariencia (string apariencia, string acento, string resaltado) {
+            if (cargando || prueba) return;
+            try {
+                var bus = Bus.get_sync (BusType.SESSION);
+                bus.call.begin ("org.mintmacos.Apariencia1", "/org/mintmacos/Apariencia1", "org.mintmacos.Apariencia1", "Poner",
+                                new Variant ("(sss)", apariencia, acento, resaltado), new VariantType ("(b)"), DBusCallFlags.NONE, 10000, null,
+                                (o, res) => {
+                    try {
+                        bus.call.end (res);
+                    } catch (GLib.Error e) {
+                        warning ("Apariencia1.Poner: %s", e.message);
+                    }
+                });
+            } catch (GLib.Error e) {
+                warning ("Apariencia1: %s", e.message);
+            }
+        }
+
         static Gtk.Widget gris_motivo (Gtk.Widget w, string? motivo) {
             w.set_sensitive (false);
             if (motivo != null) {
@@ -110,6 +204,16 @@ namespace Preferencias {
 
         public override Gtk.Widget? construir () {
             cargando = true;
+            string[] acentos;
+            var est = estado_apariencia (out acentos);
+            string apariencia_actual = "dark";
+            string acento_actual = "";
+            string resaltado_actual = "acento";
+            if (est != null) {
+                apariencia_actual = texto_de (est, "apariencia", "dark");
+                acento_actual = texto_de (est, "acento", "");
+                resaltado_actual = texto_de (est, "resaltado", "acento");
+            }
             var caja = new Gtk.Box (Gtk.Orientation.VERTICAL, 0);
             caja.get_style_context ().add_class ("mp-propio");
             caja.margin_top = 18;
@@ -149,15 +253,18 @@ namespace Preferencias {
                 if (grupo == null) {
                     grupo = r;
                 }
-                r.active = clave == "dark";
+                r.active = clave == apariencia_actual;
                 radios[clave] = r;
                 r.toggled.connect (() => {
                     for (int k = 0; k < areas.length; k++) {
                         areas[k].queue_draw ();
                     }
+                    if (r.active) {
+                        poner_apariencia (clave, "", "");
+                    }
                 });
-                if (clave != "dark") {
-                    gris_motivo (r, "Only the dark theme is installed on this computer.");
+                if (est == null) {
+                    gris_motivo (r, "The appearance service is not available on this computer.");
                 }
                 c.pack_start (r, false, false, 0);
                 opciones.pack_start (c, false, false, 0);
@@ -169,26 +276,50 @@ namespace Preferencias {
             // macOS: el texto es propio. Cambiarla no reinicia nada; vale al volver a entrar.
             fila = version_de_macos (g, fila);
 
-            // Accent color y Highlight color
+            // Accent color y Highlight color: los acentos son los de la versión de macOS activa.
             g.attach (etiqueta_fila ("Accent color:"), 0, fila, 1, 1);
             var puntos = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 8);
-            Gtk.RadioButton? gpuntos = null;
-            for (int i = 0; i < 8; i++) {
-                var r = new Gtk.RadioButton.from_widget (gpuntos);
-                if (gpuntos == null) {
-                    gpuntos = r;
-                }
-                r.active = i == 0;
-                r.name = "mp-acento-%d".printf (i);
-                puntos.pack_start (r, false, false, 0);
+            foreach (var nombre_acento in acentos) {
+                var pt = new PuntoAcento (nombre_acento, hex_de_acento (nombre_acento) ?? "#8C8C8C");
+                pt.marcado = nombre_acento == acento_actual;
+                pt.escogido.connect ((k) => {
+                    for (int j = 0; j < puntos_acento.length; j++) {
+                        puntos_acento[j].marcado = puntos_acento[j].clave == k;
+                        puntos_acento[j].queue_draw ();
+                    }
+                    poner_apariencia ("", k, "");
+                });
+                puntos_acento.add (pt);
+                puntos.pack_start (pt, false, false, 0);
             }
-            g.attach (gris_motivo (puntos, "The accent color is part of the theme on this computer."), 1, fila, 2, 1);
+            if (est == null || acentos.length == 0) {
+                gris_motivo (puntos, "The appearance service is not available on this computer.");
+                g.attach (puntos, 1, fila, 2, 1);
+            } else {
+                g.attach (puntos, 1, fila, 2, 1);
+            }
             fila++;
             g.attach (etiqueta_fila ("Highlight color:"), 0, fila, 1, 1);
             var c1 = new Gtk.ComboBoxText ();
-            c1.append ("blue", "Blue");
-            c1.set_active (0);
-            g.attach (gris (c1), 1, fila, 2, 1);
+            resaltado_c = c1;
+            c1.append ("acento", "Accent Color");
+            foreach (var nombre_acento in acentos) {
+                c1.append (hex_de_acento (nombre_acento) ?? "#8C8C8C", nombre_acento);
+            }
+            if (!c1.set_active_id (resaltado_actual)) {
+                if (resaltado_actual.has_prefix ("#") && resaltado_actual.length == 7) {
+                    c1.append (resaltado_actual, "Other");
+                }
+                if (!c1.set_active_id (resaltado_actual)) c1.set_active (0);
+            }
+            c1.changed.connect (() => {
+                var v = c1.get_active_id ();
+                if (v != null) poner_apariencia ("", "", v);
+            });
+            if (est == null) {
+                gris_motivo (c1, "The appearance service is not available on this computer.");
+            }
+            g.attach (c1, 1, fila, 2, 1);
             fila++;
             g.attach (etiqueta_fila ("Sidebar icon size:"), 0, fila, 1, 1);
             var c2 = new Gtk.ComboBoxText ();
