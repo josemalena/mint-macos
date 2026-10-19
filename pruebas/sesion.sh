@@ -33,7 +33,9 @@ cinnamon_listo() {
 poner_gestor() {
   [ "$PRUEBAS_REAL" != true ] || return 0
   [ "$1" != "$GESTOR" ] || return 0
-  if [ -n "$GPID" ]; then kill "$GPID" 2>/dev/null; wait "$GPID" 2>/dev/null; fi
+  # A Muffin, con SIGKILL: con SIGTERM se cae (SIGSEGV en libgdk) y systemd-coredump procesaba un
+  # volcado cada ~40 s durante una corrida (19-10-2026, calor y CPU).
+  if [ -n "$GPID" ]; then kill $([ "$GESTOR" = muffin ] && echo -KILL) "$GPID" 2>/dev/null; wait "$GPID" 2>/dev/null; fi
   GESTOR=""
   case "$1" in
     muffin)
