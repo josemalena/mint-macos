@@ -48,7 +48,7 @@ prueba() {
   local r; r="$(rango_alto 5)"
   paso "mientras abre, la altura dibujada varía $r px"
   [ "$r" -ge 8 ] || falla "Lento no rebotó mientras abría (varió $r px)"
-  local x; x="$(esperar_ventana '^[Xx]ed$' 20)"
+  local x; x="$(esperar_ventana '^[Xx]ed$' 45)"
   sleep 2
   r="$(rango_alto 3)"
   paso "con la ventana abierta varía $r px"

@@ -4,6 +4,9 @@ prueba() {
   requiere muelle dconf
   local esq; esq="$(dirname "$(command -v muelle)")/../esquemas"
   [ -d "$esq" ] && export GSETTINGS_SCHEMA_DIR="$esq"
+  # Un Muelle de otro caso de la misma corrida (el 69) ya dejó su carpeta y la marca: se parte de cero.
+  rm -rf "$XDG_CONFIG_HOME/muelle" "$XDG_DATA_HOME/muelle"
+  dconf reset -f /org/mintmacos/muelle/
   # Lo de antes, con el nombre viejo: un lanzador, un tema y la clave del tema en dconf.
   mkdir -p "$XDG_CONFIG_HOME/plank/dock1/launchers" "$XDG_DATA_HOME/plank/themes/Prueba"
   mkdir -p "$XDG_DATA_HOME/applications"
