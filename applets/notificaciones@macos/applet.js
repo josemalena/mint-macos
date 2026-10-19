@@ -141,8 +141,9 @@ class NotificationCenter extends Applet.Applet {
     // Sin el marco opaco del tema (border-image de .popup-menu): el tinte
     // casi opaco va solo en la caja.
     this.menu.actor.set_style(FUENTE + " border-image: none; background: none; background-color: transparent; box-shadow: none; padding: 0;");
-    this.menu.box.set_style(`width: ${ANCHO_PANEL}px; padding: 8px 0; background-color: rgba(30, 30, 32, ${FONDO_PANEL});` +
-                            " border: 1px solid #45474a; border-radius: 0;");
+    // Los colores (fondo, borde, textos) salen del tema: clase nc-panel en _constanza-cinnamon.css (oscuro) y en el -claro
+    this.menu.box.add_style_class_name("nc-panel");
+    this.menu.box.set_style(`width: ${ANCHO_PANEL}px; padding: 8px 0; border-radius: 0;`);
 
     // Today | Notifications arriba (captura 1.33.53 PM): el segmento activo en gris claro.
     this._pestanas = new St.BoxLayout({ style: "padding: 6px 24px 8px 24px;" });
@@ -160,14 +161,14 @@ class NotificationCenter extends Applet.Applet {
     // unos píxeles fuera de la pantalla y lo de la derecha se cortaba.
     this._cabecera = new St.BoxLayout({ style: "padding: 0 0 6px 10px;" });
     this._botonBorrar = new St.Button({ label: "Clear All", reactive: true, track_hover: true,
-                                        style: FUENTE + " font-size: 9pt; color: rgba(255,255,255,0.6);" });
+                                        style: FUENTE + " font-size: 9pt;", style_class: "nc-texto-tenue" });
     this._botonBorrar.connect("clicked", () => this._borrarTodo());
     this._cabecera.add_child(this._botonBorrar);
     this.menu.addActor(this._cabecera);
 
     this._vacio = new St.Label({ text: "No Notifications", x_align: Clutter.ActorAlign.CENTER,
                                  y_align: Clutter.ActorAlign.CENTER, x_expand: true, y_expand: true,
-                                 style: FUENTE + " font-size: 15pt; color: rgba(255,255,255,0.35);" });
+                                 style: FUENTE + " font-size: 15pt;", style_class: "nc-texto-muy-tenue" });
 
     this._lista = new St.BoxLayout({ vertical: true, style: "spacing: 8px; padding: 0 8px;" });
     this._scroll = new St.ScrollView({ x_fill: true, y_fill: true, y_align: St.Align.START, style_class: "vfade" });
@@ -198,9 +199,10 @@ class NotificationCenter extends Applet.Applet {
     this._pestana = clave;
     for (let k in this._segmentos) {
       let activo = k === clave;
-      this._segmentos[k].set_style(FUENTE + " font-size: 9.5pt; padding: 2px 0; text-align: center; border: 1px solid #5a5b5e;" +
-        (k === "today" ? " border-radius: 4px 0 0 4px;" : " border-radius: 0 4px 4px 0;") +
-        (activo ? " background-color: #8d8e91; color: #1c1c1e;" : " background-color: #3a3b3d; color: rgba(255,255,255,0.85);"));
+      this._segmentos[k].set_style(FUENTE + " font-size: 9.5pt; padding: 2px 0; text-align: center;" +
+        (k === "today" ? " border-radius: 4px 0 0 4px;" : " border-radius: 0 4px 4px 0;"));
+      this._segmentos[k].add_style_class_name("nc-segmento");
+      if (activo) this._segmentos[k].add_style_pseudo_class("active"); else this._segmentos[k].remove_style_pseudo_class("active");
     }
     this._hoy.visible = clave === "today";
     this._notifs.visible = clave === "notifications";
@@ -213,7 +215,7 @@ class NotificationCenter extends Applet.Applet {
   // La fecha y el clima. El clima lo da el servicio org.mintmacos.Hoy1 (mac-ventanas); sin servicio no se pinta nada.
   _armarHoy() {
     let caja = new St.BoxLayout({ vertical: true, y_expand: true, style: "padding: 18px 24px 8px 24px; spacing: 14px;" });
-    this._fecha = new St.Label({ style: FUENTE + " font-size: 24pt; font-weight: 200; color: rgba(255,255,255,0.7);" });
+    this._fecha = new St.Label({ style: FUENTE + " font-size: 24pt; font-weight: 200;", style_class: "nc-fecha-grande" });
     this._fecha.clutter_text.line_wrap = true;
     caja.add_child(this._fecha);
     this._widgets = new St.BoxLayout({ vertical: true, style: "spacing: 10px;" });
@@ -265,8 +267,8 @@ class NotificationCenter extends Applet.Applet {
 
   // El widget Calendar (captura 1.33.53 PM): horas a la izquierda y cada evento como un bloque con la barra de su color.
   _tarjetaCalendario(eventos, desde) {
-    let tarjeta = new St.BoxLayout({ vertical: true, style: "background-color: rgba(60,60,62,0.8); border-radius: 8px; padding: 0;" });
-    tarjeta.add_child(new St.Label({ text: "CALENDAR", style: FUENTE + " font-size: 8.5pt; font-weight: bold; color: rgba(255,255,255,0.5); padding: 6px 10px; background-color: rgba(40,40,42,0.8);" }));
+    let tarjeta = new St.BoxLayout({ vertical: true, style_class: "nc-tarjeta", style: "border-radius: 8px; padding: 0;" });
+    tarjeta.add_child(new St.Label({ text: "CALENDAR", style_class: "nc-tarjeta-titulo", style: FUENTE + " font-size: 8.5pt; font-weight: bold; padding: 6px 10px;" }));
     let dia = eventos.filter(e => e.todo_el_dia);
     let con_hora = eventos.filter(e => !e.todo_el_dia);
     for (let e of dia) {
@@ -286,10 +288,10 @@ class NotificationCenter extends Applet.Applet {
       for (let h = h0; h < h1; h++) {
         let y = 4 + (h - h0) * ALTO_HORA;
         let etiqueta = (h % 12 === 0 ? 12 : h % 12) + (h < 12 ? " AM" : " PM");
-        let l = new St.Label({ text: etiqueta, style: FUENTE + " font-size: 8.5pt; color: rgba(255,255,255,0.5);" });
+        let l = new St.Label({ text: etiqueta, style: FUENTE + " font-size: 8.5pt;", style_class: "nc-texto-medio" });
         l.set_position(8, y - 2);
         area.add_actor(l);
-        let linea = new St.Widget({ style: "background-color: rgba(255,255,255,0.14);" });
+        let linea = new St.Widget({ style_class: "nc-linea-hora" });
         linea.set_position(X0, y + 6);
         linea.set_size(ANCHO, 1);
         area.add_actor(linea);
@@ -299,9 +301,9 @@ class NotificationCenter extends Applet.Applet {
         let y = 4 + ((i.getHours() + i.getMinutes() / 60) - h0) * ALTO_HORA + 6;
         let alto = Math.max(22, ((f - i) / 3600000) * ALTO_HORA);
         let color = e.color || "#ff2d55";
-        let bloque = new St.BoxLayout({ vertical: true, style: "background-color: rgba(255,255,255,0.10); padding: 2px 6px 2px 10px;" });
+        let bloque = new St.BoxLayout({ vertical: true, style_class: "nc-bloque", style: "padding: 2px 6px 2px 10px;" });
         bloque.add_child(new St.Label({ text: e.titulo, style: FUENTE + " font-size: 9.5pt;" }));
-        if (e.lugar) bloque.add_child(new St.Label({ text: e.lugar, style: FUENTE + " font-size: 8.5pt; color: rgba(255,255,255,0.6);" }));
+        if (e.lugar) bloque.add_child(new St.Label({ text: e.lugar, style_class: "nc-texto-tenue", style: FUENTE + " font-size: 8.5pt;" }));
         bloque.set_position(X0 + 2, y);
         bloque.set_size(ANCHO - 4, alto);
         area.add_actor(bloque);
@@ -322,15 +324,15 @@ class NotificationCenter extends Applet.Applet {
     if (this._eventos && this._eventos.length) this._widgets.add_child(this._tarjetaCalendario(this._eventos));
     this._climaListo = !!(clima && clima.ciudad);
     if (!this._climaListo) return;
-    let tarjeta = new St.BoxLayout({ vertical: true, style: "background-color: rgba(60,60,62,0.8); border-radius: 8px; padding: 0;" });
-    let titulo = new St.Label({ text: "WEATHER", style: FUENTE + " font-size: 8.5pt; font-weight: bold; color: rgba(255,255,255,0.5); padding: 6px 10px; background-color: rgba(40,40,42,0.8);" });
+    let tarjeta = new St.BoxLayout({ vertical: true, style_class: "nc-tarjeta", style: "border-radius: 8px; padding: 0;" });
+    let titulo = new St.Label({ text: "WEATHER", style_class: "nc-tarjeta-titulo", style: FUENTE + " font-size: 8.5pt; font-weight: bold; padding: 6px 10px;" });
     tarjeta.add_child(titulo);
     let cuerpo = new St.BoxLayout({ style: "padding: 14px 14px; spacing: 14px;" });
     cuerpo.add_child(new St.Icon({ icon_name: clima.icono, icon_size: 44, style: "" }));
     let datos = new St.BoxLayout({ vertical: true, style: "spacing: 2px;" });
     datos.add_child(new St.Label({ text: clima.ciudad, style: FUENTE + " font-size: 13pt; font-weight: bold;" }));
-    datos.add_child(new St.Label({ text: clima.descripcion, style: FUENTE + " font-size: 10pt; color: rgba(255,255,255,0.7);" }));
-    datos.add_child(new St.Label({ text: `H:${Math.round(clima.maxima)}°  L:${Math.round(clima.minima)}°`, style: FUENTE + " font-size: 10pt; color: rgba(255,255,255,0.7);" }));
+    datos.add_child(new St.Label({ text: clima.descripcion, style_class: "nc-texto-claro", style: FUENTE + " font-size: 10pt;" }));
+    datos.add_child(new St.Label({ text: `H:${Math.round(clima.maxima)}°  L:${Math.round(clima.minima)}°`, style_class: "nc-texto-claro", style: FUENTE + " font-size: 10pt;" }));
     cuerpo.add(datos, { expand: true });
     cuerpo.add_child(new St.Label({ text: `${Math.round(clima.temperatura)}°`, y_align: Clutter.ActorAlign.CENTER,
                                     style: FUENTE + " font-size: 30pt; font-weight: 200;" }));
@@ -340,9 +342,9 @@ class NotificationCenter extends Applet.Applet {
 
   // Abajo: Edit (solo en Today) y el engranaje, que abre System Preferences ▸ Notifications (captura 1.33.53 PM).
   _armarPie() {
-    this._pie = new St.BoxLayout({ style: "padding: 8px 24px 6px 24px; border-top: 1px solid #45474a;" });
+    this._pie = new St.BoxLayout({ style_class: "nc-pie", style: "padding: 8px 24px 6px 24px;" });
     this._boton_edit = new St.Button({ label: "Edit", reactive: true, track_hover: true, can_focus: true, x_expand: true,
-      style: FUENTE + " font-size: 9.5pt; color: rgba(255,255,255,0.85); background-color: #3a3b3d; border-radius: 3px; padding: 1px 28px;" });
+      style_class: "nc-boton-pie", style: FUENTE + " font-size: 9.5pt; border-radius: 3px; padding: 1px 28px;" });
     // Sin captura del modo Edit: el botón queda a la vista y sin acción hasta tenerla.
     this._boton_edit.reactive = false;
     this._boton_edit.opacity = 140;

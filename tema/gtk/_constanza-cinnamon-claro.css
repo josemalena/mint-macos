@@ -76,3 +76,32 @@
 #panel .globalmenu-boton:checked:hover {
   color: #ffffff;
 }
+
+/* Notification Center claro. Medido en 04-notification-center-claro.png (el panel es vidrio bluzoso sobre el fondo de la captura:
+   aquí un tono claro fijo, sin vidrio); el segmento escogido es blanco (#E5E8F2) con texto #2E2E30 y el otro, más oscuro que el panel con
+   texto blanco; las tarjetas más claras que el panel. Lo que no tiene medida (bordes, tarjetas CALENDAR y WEATHER) es PROVISIONAL. */
+.nc-panel {
+  background-color: rgba(217, 220, 232, 0.96);
+  border: 1px solid rgba(0, 0, 0, 0.18);
+  color: #1d1d1f;
+}
+.nc-segmento {
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  background-color: rgba(86, 96, 140, 0.55);
+  color: #ffffff;
+}
+.nc-segmento:active {
+  background-color: rgba(255, 255, 255, 0.92);
+  color: #2e2e30;
+}
+.nc-texto-tenue { color: rgba(0, 0, 0, 0.6); }
+.nc-texto-muy-tenue { color: rgba(0, 0, 0, 0.35); }
+.nc-texto-medio { color: rgba(0, 0, 0, 0.5); }
+.nc-texto-claro { color: rgba(0, 0, 0, 0.7); }
+.nc-fecha-grande { color: rgba(0, 0, 0, 0.7); }
+.nc-tarjeta { background-color: rgba(255, 255, 255, 0.55); }
+.nc-tarjeta-titulo { color: rgba(0, 0, 0, 0.5); background-color: rgba(255, 255, 255, 0.4); }
+.nc-linea-hora { background-color: rgba(0, 0, 0, 0.12); }
+.nc-bloque { background-color: rgba(0, 0, 0, 0.07); }
+.nc-pie { border-top: 1px solid rgba(0, 0, 0, 0.15); }
+.nc-boton-pie { color: #2e2e30; background-color: rgba(255, 255, 255, 0.7); }

@@ -234,3 +234,30 @@
   background-color: rgba(36, 39, 42, 0.72);
 }
 
+
+/* ── Notification Center (notificaciones@macos): los colores vienen de aquí y no de set_style, para que el tema claro los cambie ── */
+.nc-panel {
+  background-color: rgba(30, 30, 32, 0.96);
+  border: 1px solid #45474a;
+  color: #ffffff;
+}
+.nc-segmento {
+  border: 1px solid #5a5b5e;
+  background-color: #3a3b3d;
+  color: rgba(255, 255, 255, 0.85);
+}
+.nc-segmento:active {
+  background-color: #8d8e91;
+  color: #1c1c1e;
+}
+.nc-texto-tenue { color: rgba(255, 255, 255, 0.6); }
+.nc-texto-muy-tenue { color: rgba(255, 255, 255, 0.35); }
+.nc-texto-medio { color: rgba(255, 255, 255, 0.5); }
+.nc-texto-claro { color: rgba(255, 255, 255, 0.7); }
+.nc-fecha-grande { color: rgba(255, 255, 255, 0.7); }
+.nc-tarjeta { background-color: rgba(60, 60, 62, 0.8); }
+.nc-tarjeta-titulo { color: rgba(255, 255, 255, 0.5); background-color: rgba(40, 40, 42, 0.8); }
+.nc-linea-hora { background-color: rgba(255, 255, 255, 0.14); }
+.nc-bloque { background-color: rgba(255, 255, 255, 0.10); }
+.nc-pie { border-top: 1px solid #45474a; }
+.nc-boton-pie { color: rgba(255, 255, 255, 0.85); background-color: #3a3b3d; }
