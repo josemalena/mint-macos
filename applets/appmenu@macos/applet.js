@@ -145,6 +145,59 @@ function activarAccion(bus, ruta, nombre, objetivo) {
     (con, res) => { try { con.call_finish(res); } catch (e) {} });
 }
 
+// ── Atajos por app (System Preferences ▸ Keyboard ▸ Shortcuts ▸ App Shortcuts) ──────────────────────────────────────────────
+// ~/.config/mint-macos/atajos-apps.json: {"atajos": [{"app": "*" | id del .desktop, "titulo": "Print…", "atajo": "⇧⌘P"}]}. Cada uno
+// dice «con este atajo, activa el comando de menú con este nombre en esa app»: se busca por org.mintmacos.Menu1 en el menú de la
+// ventana al frente y se activa. Los atajos solo se agarran mientras la app que toca tiene el foco (si no, un Ctrl+P de Cinnamon
+// se tragaría el de todas las demás).
+//
+// El atajo se guarda como se escribe en la Mac («⇧⌘P») y se traduce a lo que Cinnamon ve DESPUÉS de keyd (/etc/keyd/default.conf):
+// ⌘ + una tecla de la capa [meta] sale como Ctrl+tecla; ⌘ + una sin regla (h, m, Tab, Espacio, 1…9) sigue como Super; ⌥ es Alt;
+// ⌃⌘ + tecla llega como Ctrl+Super.
+const RUTA_ATAJOS_APPS = GLib.build_filenamev([GLib.get_user_config_dir(), "mint-macos", "atajos-apps.json"]);
+const META_A_CTRL = new Set("abcdefgijklnopqrstuvwxyz0".split("").concat(["slash", "comma", "equal", "minus"]));
+const NOMBRES_TECLA = { "/": "slash", ",": "comma", "=": "equal", "-": "minus", ".": "period", "[": "bracketleft", "]": "bracketright",
+  ";": "semicolon", "'": "apostrophe", "`": "grave", "\\": "backslash", "␣": "space", "Space": "space", "↩": "Return", "⇥": "Tab",
+  "⎋": "Escape", "⌫": "BackSpace", "⌦": "Delete", "←": "Left", "→": "Right", "↑": "Up", "↓": "Down", "⇞": "Page_Up", "⇟": "Page_Down" };
+
+/** «⇧⌘P» → «<Control><Shift>p» (lo que Cinnamon recibe de keyd); null si no se entiende. */
+function atajoMacAAccel(texto) {
+  let mods = { ctrl: false, cmd: false, alt: false, shift: false };
+  let resto = texto.trim();
+  for (let c of Array.from(resto)) {
+    if (c === "⌃") mods.ctrl = true; else if (c === "⌘") mods.cmd = true;
+    else if (c === "⌥") mods.alt = true; else if (c === "⇧") mods.shift = true; else break;
+    resto = resto.slice(c.length);
+  }
+  if (!resto) return null;
+  let tecla = NOMBRES_TECLA[resto] || (/^F\d{1,2}$/.test(resto) ? resto : resto.toLowerCase());
+  let out = "";
+  let control = mods.ctrl, sup = false;
+  if (mods.cmd) {
+    if (mods.ctrl) sup = true;                          // ⌃⌘: capa compuesta, llega como Ctrl+Super
+    else if (META_A_CTRL.has(tecla)) control = true;     // ⌘ + tecla de la capa [meta]: Ctrl
+    else sup = true;                                     // sin regla: sigue como Super
+  }
+  if (control) out += "<Control>";
+  if (sup) out += "<Super>";
+  if (mods.alt) out += "<Alt>";
+  if (mods.shift) out += "<Shift>";
+  return out + tecla;
+}
+
+function normalizarTitulo(t) {
+  return String(t).replace(/[…]|\.\.\./g, "").replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+function leerAtajosApps() {
+  try {
+    let [ok, bytes] = GLib.file_get_contents(RUTA_ATAJOS_APPS);
+    if (!ok) return [];
+    let d = JSON.parse(imports.byteArray.toString(bytes));
+    return (d.atajos || []).filter(e => e && e.titulo && e.atajo && atajoMacAAccel(e.atajo));
+  } catch (e) { return []; }
+}
+
 const RE_PREFS = /^(preferences|preferencias|settings|ajustes)\b/i;
 const RE_QUIT = /^(quit|exit|salir|close all windows|cerrar todas las ventanas)\b/i;
 
@@ -618,10 +671,12 @@ class AppMenuApplet extends Applet.TextApplet {
 
     // Update label + menu texts on focus change
     this._focusSig = 0;
+    this._iniciarAtajosApps();
     try {
       this._focusSig = global.display.connect("notify::focus-window", () => {
         this._updateLabel();
         this._updateMenuLabels();
+        this._actualizarAtajosApps();
       });
       // El escritorio de Fynder puede salir después que la barra, al entrar.
       this._creadaSig = global.display.connect("window-created", () => {
@@ -841,6 +896,68 @@ class AppMenuApplet extends Applet.TextApplet {
     for (let v of ventanasNormales()) if (mismaApp(v, w)) { try { v.delete(hora); } catch (e) {} }
   }
 
+  // ── Atajos por app ────────────────────────────────────────────────────────────────────────────────────────────────────
+  _iniciarAtajosApps() {
+    this._atajosApp = leerAtajosApps();
+    this._hotkeysApp = new Map();        // accel de Cinnamon → nombre del hotkey
+    try {
+      let f = Gio.File.new_for_path(RUTA_ATAJOS_APPS);
+      GLib.mkdir_with_parents(GLib.path_get_dirname(RUTA_ATAJOS_APPS), 0o755);
+      this._monitorAtajos = f.monitor_file(Gio.FileMonitorFlags.NONE, null);
+      this._monitorAtajos.connect("changed", () => {
+        if (this._recargaAtajos) GLib.source_remove(this._recargaAtajos);
+        this._recargaAtajos = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 200, () => {
+          this._recargaAtajos = 0;
+          this._atajosApp = leerAtajosApps();
+          this._actualizarAtajosApps();
+          return GLib.SOURCE_REMOVE;
+        });
+      });
+    } catch (e) {}
+    this._actualizarAtajosApps();
+  }
+
+  _entradasDe(w) {
+    let id = "";
+    try { let a = w && appDe(w); id = (a && a.get_id()) || ""; } catch (e) {}
+    return this._atajosApp.filter(e => e.app === "*" || (id && e.app === id));
+  }
+
+  // Se agarran los atajos de la app con el foco (y los de «All Applications»); al cambiar de app se sueltan los que ya no tocan.
+  _actualizarAtajosApps() {
+    let w = getFocusedWindow();
+    let quiero = new Map();
+    for (let e of (w && !isDesktopWindow(w)) ? this._entradasDe(w) : []) quiero.set(atajoMacAAccel(e.atajo), e);
+    for (let [accel, nombre] of [...this._hotkeysApp]) {
+      if (!quiero.has(accel)) { try { Main.keybindingManager.removeHotKey(nombre); } catch (e) {} this._hotkeysApp.delete(accel); }
+    }
+    let n = 0;
+    for (let accel of quiero.keys()) {
+      if (this._hotkeysApp.has(accel)) continue;
+      let nombre = "appmenu-macos-atajo-app-" + (n++) + "-" + accel;
+      try {
+        Main.keybindingManager.addHotKey(nombre, accel, () => this._dispararAtajoApp(accel));
+        this._hotkeysApp.set(accel, nombre);
+      } catch (e) { global.logError("appmenu@macos: atajo " + accel + ": " + e); }
+    }
+  }
+
+  // El atajo se pulsó: se busca el comando de menú de la app con ese nombre y se activa.
+  async _dispararAtajoApp(accel) {
+    let w = getFocusedWindow();
+    if (!w) return;
+    let e = this._entradasDe(w).find(x => atajoMacAAccel(x.atajo) === accel);
+    if (!e) return;
+    try {
+      let items = await itemsServicio(w);
+      let quiero = normalizarTitulo(e.titulo);
+      let it = items.find(i => i.activo !== false && normalizarTitulo(i.etiqueta || "") === quiero);
+      if (it) await activarItemServicio(w, it);
+    } catch (err) {
+      global.logError("appmenu@macos: atajo de app «" + e.titulo + "»: " + err);
+    }
+  }
+
   _ocultarApp() {
     let w = getFocusedWindow();
     if (!w || isDesktopWindow(w)) return;
@@ -966,6 +1083,9 @@ ${cmdline || "N/A"}`;
   }
 
   on_applet_removed_from_panel() {
+    if (this._monitorAtajos) { try { this._monitorAtajos.cancel(); } catch (e) {} }
+    if (this._recargaAtajos) GLib.source_remove(this._recargaAtajos);
+    for (let nombre of (this._hotkeysApp || new Map()).values()) { try { Main.keybindingManager.removeHotKey(nombre); } catch (e) {} }
     for (let [n] of this._atajos || []) {
       try { Main.keybindingManager.removeHotKey(n); } catch (e) {}
     }
