@@ -11,8 +11,9 @@ prueba() {
   # foco en el escritorio, sin tocar ningún icono: el clic va abajo, a la izquierda de la columna de iconos, y antes se le da
   # el foco a la ventana del escritorio (el 19-10-2026 una ventana de otro caso tapaba (300,400) y «br» se tecleó en ella)
   local SW SH; read -r SW SH < <(xdotool getdisplaygeometry)
-  local esc; esc="$(xdotool search --class nemo-desktop | head -1)"
-  [ -n "$esc" ] && xdotool windowfocus --sync "$esc" 2>/dev/null
+  # con set -e y pipefail, un search sin resultado o un foco rechazado cortaban el caso sin motivo (19-10-2026)
+  local esc; esc="$(xdotool search --class nemo-desktop 2>/dev/null | head -1 || true)"
+  if [ -n "$esc" ]; then xdotool windowfocus --sync "$esc" 2>/dev/null || true; fi
   xdotool mousemove $((SW - 400)) $((SH - 100)) click 1; sleep 1
   local antes="$PRUEBAS_RES/$PRUEBAS_CASO-antes.png" despues="$PRUEBAS_RES/$PRUEBAS_CASO-despues.png"
   import -display "$DISPLAY" -window root "$antes"

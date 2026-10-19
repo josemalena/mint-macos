@@ -1,10 +1,15 @@
 # caso: Fynder sigue al tema: con uno claro el lateral y las barras se pintan claros (colores del tema) y con uno oscuro quedan como las capturas
 # de Catalina (lateral #27282a)
 # límite: 120
-muestra() {   # muestra VENTANA DX DY: el color del punto (X+DX, Y+DY) de la pantalla
-  local X Y WIDTH HEIGHT
+# moda VENTANA DY: el color que más se repite en una franja de 180 px desde el borde izquierdo de la ventana, a DY de
+# arriba. Un solo punto fallaba: la X de una ventana CSD incluye la sombra y puede ser negativa (fuera de la pantalla),
+# y más adentro cae en el texto de una fila (19-10-2026).
+moda() {
+  local X Y WIDTH HEIGHT x
   eval "$(xdotool getwindowgeometry --shell "$1")"
-  import -display "$DISPLAY" -window root -crop "1x1+$((X + $2))+$((Y + $3))" +repage -depth 8 txt:- | tail -1 | grep -o '#[0-9A-Fa-f]\{6\}'
+  x=$(( X < 0 ? 0 : X ))
+  import -display "$DISPLAY" -window root -crop "180x1+$x+$((Y + $2))" +repage -depth 8 -format %c histogram:info:- |
+    sort -rn | head -1 | grep -o '#[0-9A-Fa-f]\{6\}'
 }
 luz() { printf '%d' "$((16#${1:1:2} + 16#${1:3:2} + 16#${1:5:2}))"; }
 prueba() {
@@ -21,8 +26,7 @@ prueba() {
     captura "fynder-$modo"
     local X Y WIDTH HEIGHT
     eval "$(xdotool getwindowgeometry --shell "$v")"
-    # a 6 px del borde: más adentro cae en el texto o el icono de una fila (#858787 era la letra de «gvfs», 19-10-2026)
-    local lateral; lateral="$(muestra "$v" 6 $((HEIGHT / 2)))"
+    local lateral; lateral="$(moda "$v" $((HEIGHT / 2)))"
     paso "con $modo el lateral es $lateral (ventana ${WIDTH}x${HEIGHT})"
     if [ "$modo" = "Adwaita" ]; then
       [ "$(luz "$lateral")" -gt 600 ] || falla "con un tema claro el lateral sigue oscuro ($lateral)"
