@@ -4,8 +4,9 @@
 pantalla_pid() {   # el pid del hijo que dibuja (el supervisor no lleva --pantalla)
   local p
   for p in $(pgrep -x mac-bloqueo); do
-    tr '\0' ' ' < "/proc/$p/cmdline" 2>/dev/null | grep -q -- '--pantalla' && { echo "$p"; return; }
+    tr '\0' ' ' < "/proc/$p/cmdline" 2>/dev/null | grep -q -- '--pantalla' && { echo "$p"; return 0; }
   done
+  return 0   # (sin pantalla todavía no es un error: la prueba corre con errexit)
 }
 prueba() {
   necesita_teclado

@@ -41,6 +41,53 @@ namespace Bloqueo.Supervisor {
         }
     }
 
+    /**
+     * La salida de emergencia (mac-bloqueo --liberar): quita el estado «bloqueado», detiene al supervisor y mata la pantalla. Es para
+     * quien ya entró a esta cuenta por otro lado (una consola Ctrl+Alt+F3 o ssh, que piden la clave): desde ahí el bloqueo de la sesión
+     * ya no protege nada, solo estorba. Primero el estado, para que el vigilante no lo relance.
+     */
+    public int liberar () {
+        int supervisor = Estado.pid_del_supervisor ();
+        Estado.borrar ();
+        if (supervisor > 0) {
+            Posix.kill ((Posix.pid_t) supervisor, Posix.Signal.KILL);
+        }
+        try {
+            var proc = Dir.open ("/proc");
+            string? n;
+            uint yo_uid = (uint) Posix.getuid ();
+            while ((n = proc.read_name ()) != null) {
+                int pid = int.parse (n);
+                if (pid <= 1 || pid == (int) Posix.getpid ()) {
+                    continue;
+                }
+                uint8[] bytes;
+                try {
+                    FileUtils.get_data ("/proc/%d/cmdline".printf (pid), out bytes);
+                } catch (FileError e) {
+                    continue;
+                }
+                // los argumentos van separados por NUL: un string de C se cortaría en el primero
+                var cadena = new StringBuilder ();
+                foreach (var b in bytes) {
+                    cadena.append_c (b == 0 ? ' ' : (char) b);
+                }
+                string contenido = cadena.str;
+                // la pantalla: .../mac-bloqueo\0--pantalla\0 (los argumentos van separados por NUL)
+                if (!contenido.contains ("mac-bloqueo") || !contenido.contains ("--pantalla")) {
+                    continue;
+                }
+                Posix.Stat st;
+                if (Posix.stat ("/proc/%d".printf (pid), out st) == 0 && (uint) st.st_uid == yo_uid) {
+                    Posix.kill ((Posix.pid_t) pid, Posix.Signal.KILL);
+                }
+            }
+        } catch (FileError e) {
+        }
+        stdout.printf ("liberado\n");
+        return 0;
+    }
+
     /** El vigilante: si debe estar bloqueado y nadie sostiene el candado, relanza el supervisor. Para un servicio de usuario. */
     public int vigilar () {
         while (true) {

@@ -3,6 +3,7 @@
  *   mac-bloqueo              bloquea (supervisor + pantalla); sale cuando se desbloquea. Si ya hay un bloqueo, no hace nada.
  *   mac-bloqueo --pantalla   solo la pantalla (lo lanza el supervisor)
  *   mac-bloqueo --vigilar    el vigilante: relanza el bloqueo si algo lo mató (para un servicio de usuario con Restart=always)
+ *   mac-bloqueo --liberar    salida de emergencia: quita el bloqueo (para quien ya entró a la cuenta por una consola o por ssh)
  *   mac-bloqueo --estado     imprime «bloqueado» o «libre»; sale 0 si está bloqueado
  */
 int main (string[] args) {
@@ -12,6 +13,8 @@ int main (string[] args) {
         return Bloqueo.pantalla (args);
     case "--vigilar":
         return Bloqueo.Supervisor.vigilar ();
+    case "--liberar":
+        return Bloqueo.Supervisor.liberar ();
     case "--estado":
         stdout.printf ("%s\n", Bloqueo.Estado.bloqueado () ? "bloqueado" : "libre");
         return Bloqueo.Estado.bloqueado () ? 0 : 1;

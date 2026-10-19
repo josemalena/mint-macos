@@ -43,6 +43,20 @@ namespace Bloqueo.Estado {
         return fd;
     }
 
+    /** El pid del supervisor que tiene el candado, o 0 si no hay. */
+    public int pid_del_supervisor () {
+        int fd = Posix.open (ruta_candado (), Posix.O_RDWR | Posix.O_CREAT | Posix.O_CLOEXEC, 0600);
+        if (fd < 0) {
+            return 0;
+        }
+        var f = Posix.Flock ();
+        f.l_type = Posix.F_WRLCK;
+        f.l_whence = Posix.SEEK_SET;
+        int pid = (Posix.fcntl (fd, Posix.F_GETLK, &f) == 0 && f.l_type != Posix.F_UNLCK) ? (int) f.l_pid : 0;
+        Posix.close (fd);
+        return pid;
+    }
+
     /** ¿Hay un supervisor vivo? (alguien tiene el candado) */
     public bool supervisor_vivo () {
         int fd = Posix.open (ruta_candado (), Posix.O_RDWR | Posix.O_CREAT | Posix.O_CLOEXEC, 0600);
