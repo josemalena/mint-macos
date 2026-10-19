@@ -7,9 +7,9 @@ Cada fork, el commit que se compila y los parches que lleva encima de su upstrea
 
 - Fork: https://github.com/josemalena/fynder.git
 - Upstream: https://github.com/linuxmint/nemo.git, rama `master`
-- Commit: `1e20493ee3f48c863fe57c6b59f88b4c18106ee5` (2026-10-18, feat(conectar): Connect to Server como el Finder de 10.15)
+- Commit: `e1fbeb006c5d1cc5c998cbb7c9f9a9f5b8391c4c` (2026-10-18, feat(alias): Make Alias nombra como el Finder)
 - Base: `66eabf459bc86d03c24797274d0e3f60b9b7a7d8` (master.lmde7), 2026-10-06, nemo-icon-dnd.c: Fix reporting a successful drag result.
-- Parches: 221
+- Parches: 225
 
 | Commit | Fecha | Asunto |
 |---|---|---|
@@ -234,6 +234,10 @@ Cada fork, el commit que se compila y los parches que lleva encima de su upstrea
 | `d9e728e8` | 2026-10-18 | feat(preferencias): General y Sidebar con las listas del Finder |
 | `0de3d630` | 2026-10-18 | feat(menú): los alternos con ⌥ en File y Edit |
 | `1e20493e` | 2026-10-18 | feat(conectar): Connect to Server como el Finder de 10.15 |
+| `b285194f` | 2026-10-18 | feat(ayuda): Help ▸ Fynder Help (⌘?) abre la hoja de atajos |
+| `3cd96078` | 2026-10-18 | feat(menú): Go ▸ Library con ⌥, por ahora ~/.local/share |
+| `b1573bb6` | 2026-10-18 | feat(copiar): la alerta de conflicto y los nombres de copia del Finder |
+| `e1fbeb00` | 2026-10-18 | feat(alias): Make Alias nombra como el Finder |
 
 ## mint-macos-dock
 
