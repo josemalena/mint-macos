@@ -1,0 +1,76 @@
+/* ── Constanza claro: la barra y los menús de Cinnamon con la Catalina clara ──
+   Se agrega después de _constanza-cinnamon.css solo en las variantes claras: aquel archivo está medido en
+   Catalina oscura (barra #282828, menús #24272A, texto blanco) y con un tema claro dejaba la barra negra y el texto
+   blanco sobre menús claros. Lo medido en la captura de Catalina clara (02-barra-menu-apple-abierto-claro): la barra
+   es un vidrio claro (#AFBBD1 sobre el fondo oscuro de la captura, o sea blanco al ~70 %), el texto negro, el
+   resaltado el mismo azul #0267EB con texto blanco. Los grises de bordes y separadores son PROVISIONALES: la captura
+   no los separa del vidrio. Sobre un fondo claro la barra sale casi blanca, que es lo que hace la Mac. */
+.panel-top, .panel-bottom, .panel-left, .panel-right {
+  background-color: rgba(238, 238, 240, 0.78);
+}
+.panel-top,
+#panelRight .applet-label {
+  color: #1d1d1f;
+}
+.popup-menu,
+.popup-combo-menu,
+.constanza-menu {
+  color: #1d1d1f;
+}
+.popup-menu .popup-menu-item,
+.popup-combo-menu .popup-menu-item,
+.constanza-menu .popup-menu-item {
+  color: #1d1d1f;
+}
+.popup-menu .popup-menu-item:active,
+.popup-menu .popup-menu-item:hover,
+.popup-menu .popup-menu-item:focus,
+.popup-combo-menu .popup-menu-item:focus,
+.constanza-menu .popup-menu-item:active,
+.constanza-menu .popup-menu-item:hover,
+.constanza-menu .popup-menu-item:focus {
+  background-color: #0267eb;
+  color: #ffffff;
+}
+.popup-menu .popup-menu-item:insensitive,
+.popup-combo-menu .popup-menu-item:insensitive,
+.constanza-menu .popup-menu-item:insensitive {
+  color: rgba(0, 0, 0, 0.35);
+}
+.constanza-menu-box,
+.popup-menu .popup-menu-content {
+  background-color: #ececec;
+  border: 1px solid rgba(0, 0, 0, 0.22);
+  color: #1d1d1f;
+}
+.constanza-menu-box.con-vidrio,
+.popup-menu .popup-menu-content.con-vidrio {
+  background-color: rgba(238, 238, 240, 0.78);
+}
+.constanza-menu .popup-separator-menu-item {
+  -gradient-start: rgba(0, 0, 0, 0.14);
+  -gradient-end: rgba(0, 0, 0, 0.14);
+}
+/* Las notificaciones: tarjeta clara con texto oscuro */
+.menu #notification,
+.popup-menu #notification {
+  background-color: rgba(246, 246, 247, 0.86);
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  color: #1d1d1f;
+}
+#notification.multi-line-notification,
+#notification.notification-with-image {
+  color: #1d1d1f;
+}
+.notificacion-titulo { color: #1d1d1f; }
+.notificacion-origen { color: rgba(0, 0, 0, 0.7); }
+.notificacion-cuerpo { color: rgba(0, 0, 0, 0.62); }
+.notificacion-hora { color: rgba(0, 0, 0, 0.45); }
+/* El título de la barra con su menú abierto sigue siendo azul con texto blanco */
+#panel .applet-box:checked,
+#panel .applet-box:checked:hover,
+#panel .globalmenu-boton:checked,
+#panel .globalmenu-boton:checked:hover {
+  color: #ffffff;
+}
