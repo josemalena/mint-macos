@@ -2,9 +2,9 @@
 <schemalist>
   <schema id="org.mintmacos.menus" path="/org/mintmacos/menus/">
     <key name="menu-flash" type="b">
-      <default>false</default>
+      <default>true</default>
       <summary>Parpadeo al escoger un ítem de menú</summary>
-      <description>Como la Mac desde System 6: al escoger un ítem, su resaltado parpadea antes de que el menú se cierre y la acción corra. Lo leen el parche de los menús de Cinnamon (applemenu@macos/parpadeo.js) y el módulo GTK3. Apagado hasta que José lo encienda (las medidas de la Mac ya están: 1 parpadeo de 67 ms).</description>
+      <description>Como la Mac desde System 6: al escoger un ítem, su resaltado parpadea antes de que el menú se cierre y la acción corra. Lo leen el parche de los menús de Cinnamon (applemenu@macos/parpadeo.js) y el módulo GTK3. Encendido por omisión (José, 19-10-2026): las medidas de la Mac ya están, 1 parpadeo de 67 ms.</description>
     </key>
     <key name="flash-count" type="i">
       <default>1</default>

@@ -20,8 +20,11 @@ prueba() {
   local aqui; aqui="$(dirname "$PRUEBAS_LIB")"
   local modulo="${MINT_MACOS_MODULO_MENU:-}"
   [ -n "$modulo" ] || modulo="$(command -v libmint-macos-menu-flash.so 2>/dev/null || true)"
-  [ -n "$modulo" ] && [ -f "$modulo" ] || modulo="$MINT_MACOS_REPO/nativo/build/gtkmenu-flash/libmint-macos-menu-flash.so"
-  [ -f "$modulo" ] || salta "no está compilado el módulo del parpadeo"
+  if [ -z "$modulo" ] || [ ! -f "$modulo" ]; then   # el del prefijo de pruebas (compilar-desde-head), o el compilado en el repo
+    modulo="$(dirname "$(command -v mac-preferencias || command -v mac-ventanas || echo /nada/bin/x)")/../lib/mint-macos/libmint-macos-menu-flash.so"
+    [ -f "$modulo" ] || modulo="$MINT_MACOS_REPO/nativo/build/gtkmenu-flash/libmint-macos-menu-flash.so"
+  fi
+  [ -f "$modulo" ] || saltar "no está compilado el módulo del parpadeo"
   mkdir -p "$XDG_DATA_HOME/glib-2.0/schemas"
   cp "$MINT_MACOS_REPO/menus/org.mintmacos.menus.gschema.xml" "$XDG_DATA_HOME/glib-2.0/schemas/"
   glib-compile-schemas "$XDG_DATA_HOME/glib-2.0/schemas"
@@ -30,7 +33,12 @@ prueba() {
   gsettings set org.mintmacos.menus flash-duration-ms 150
   local salida="$PRUEBAS_RES/$PRUEBAS_CASO-activaciones.txt"
   rm -f "$salida"
-  GTK_MODULES="$modulo" lanzar python3 "$aqui/ayudantes/app-menu-prueba.py" "$salida"
+  # Junto a los otros módulos que lleva la sesión de José (appmenu-gtk-module, el del selector de Fynder, gail, atk-bridge): no se pisan
+  local modulos="$modulo" casa; casa="$(getent passwd "$(id -un)" | cut -d: -f6)"   # (HOME es el del sandbox)
+  [ -f "$casa/.local/lib/fynder/libfynder-chooser-module.so" ] && modulos="appmenu-gtk-module:$casa/.local/lib/fynder/libfynder-chooser-module.so:$modulo:gail:atk-bridge"
+  [ -n "${MINT_MACOS_GTK_MODULES:-}" ] && modulos="$MINT_MACOS_GTK_MODULES:$modulo"
+  paso "GTK_MODULES=$modulos"
+  GTK_MODULES="$modulos" lanzar python3 "$aqui/ayudantes/app-menu-prueba.py" "$salida"
   local v; v="$(esperar_ventana 'menu-prueba|python3' 20)"
   sleep 1
   xdotool mousemove 160 120; sleep 0.3

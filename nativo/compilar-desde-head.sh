@@ -24,4 +24,9 @@ fi
 # La pantalla de bloqueo en la sesión: se instala el binario, pero no se cablea; eso lo hace
 # login/bloqueo.sh --en-sesion, con el sí de José (nativo/bloqueo/LEEME.md).
 [ -x "$T/nativo/build/bloqueo/mac-bloqueo" ] && install -m 755 "$T/nativo/build/bloqueo/mac-bloqueo" "$RAIZ/.local/bin/"
+# El módulo GTK3 del parpadeo de los menús: se instala pero no entra en GTK_MODULES hasta que se active (nativo/gtkmenu-flash).
+if [ -f "$T/nativo/build/gtkmenu-flash/libmint-macos-menu-flash.so" ]; then
+  install -d "$RAIZ/.local/lib/mint-macos"
+  install -m 755 "$T/nativo/build/gtkmenu-flash/libmint-macos-menu-flash.so" "$RAIZ/.local/lib/mint-macos/"
+fi
 echo "compilado del HEAD $(git -C "$REPO" rev-parse --short HEAD)"
