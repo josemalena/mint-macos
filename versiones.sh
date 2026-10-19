@@ -32,7 +32,7 @@ FYNDER_BASE=66eabf459bc86d03c24797274d0e3f60b9b7a7d8
 # mint-macos-dock: el Dock de Catalina (se instala como muelle desde el 19-10-2026; antes, plank)
 PLANK_NOMBRE=mint-macos-dock
 PLANK_REPO=https://github.com/josemalena/mint-macos-dock.git
-PLANK_HASH=de8ba72359aea3f6edbb1e59849faaa0dbb6ef3f
+PLANK_HASH=554bf6e14ff20b845b44f065737f06929bc38f0e
 PLANK_LOCAL=plank-reloaded
 PLANK_UPSTREAM=https://github.com/zquestz/plank-reloaded.git
 PLANK_RAMA=master
