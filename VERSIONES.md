@@ -7,9 +7,9 @@ Cada fork, el commit que se compila y los parches que lleva encima de su upstrea
 
 - Fork: https://github.com/josemalena/fynder.git
 - Upstream: https://github.com/linuxmint/nemo.git, rama `master`
-- Commit: `48b003e96a37c4a0958115365a60184b25123df0` (2026-10-19, feat(toolbar): el menú del clic secundario en la barra del Finder)
+- Commit: `1e6e4e7cf54ac697d5b5c2fef3b4aad6a559fbef` (2026-10-19, escritorio: el destino de un arrastre lleva el recuadro gris de la selección)
 - Base: `66eabf459bc86d03c24797274d0e3f60b9b7a7d8` (master.lmde7), 2026-10-06, nemo-icon-dnd.c: Fix reporting a successful drag result.
-- Parches: 245
+- Parches: 249
 
 | Commit | Fecha | Asunto |
 |---|---|---|
@@ -258,6 +258,10 @@ Cada fork, el commit que se compila y los parches que lleva encima de su upstrea
 | `9d26af5e` | 2026-10-19 | fynder-desktop: teclear selecciona el icono sin cuadro de búsqueda |
 | `36730fb8` | 2026-10-19 | feat(sonidos): los sonidos del Finder al terminar copiar, mandar a la papelera y vaciarla |
 | `48b003e9` | 2026-10-19 | feat(toolbar): el menú del clic secundario en la barra del Finder |
+| `c56b8a41` | 2026-10-19 | feat(resorte): las carpetas de resorte del Finder, sin los tiempos todavía |
+| `faa7314d` | 2026-10-19 | fix(toolbar): en una ventana angosta la búsqueda se encoge y el Flexible Space cede antes del menú » |
+| `00f588d9` | 2026-10-19 | resorte: los tiempos medidos por Infra (717 ms fijo y dos parpadeos, ~1.35 s) |
+| `1e6e4e7c` | 2026-10-19 | escritorio: el destino de un arrastre lleva el recuadro gris de la selección |
 
 ## muelle
 
