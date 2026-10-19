@@ -152,6 +152,10 @@ VALORES = {
         'IndicatorStyle': '4', 'IndicatorColor': '131;;140;;152;;255',
         'IndicatorSize': '0.75', 'IndicatorOffset': '-0.6',
         'BlurRadius': '30', 'SeparatorPadding': '-2.2',
+        # Sin el brillo detrás del ícono de la app activa (José, 19-10-2026: «lo que no me gusta es esa
+        # sombra que le pone plank al icono del app activa»): ActiveItemStyle 3 es el color sólido del
+        # tema, y con alfa 0 no se pinta nada.
+        'ActiveItemStyle': '3', 'ActiveItemColor': '0;;0;;0;;0',
         # El rebote al abrir una app, medido de un video de José (18-10-2026, un celular filmando una Mac; baja confianza):
         # ~0.7 s por rebote y ~1/3 del ícono de altura (confirmado por VNC en un Mac con High Sierra: 0.70 s y 17/48).
         # Pedir atención, del mismo Mac: tres saltos (1.08 del ícono, y 0.52 y 0.25 de eso) cada 2.0 s; el Dock los saca
