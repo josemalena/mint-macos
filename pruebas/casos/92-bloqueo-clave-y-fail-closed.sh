@@ -3,7 +3,7 @@
 # límite: 120
 pantalla_pid() {   # el pid del hijo que dibuja (el supervisor no lleva --pantalla)
   local p
-  for p in $(pgrep -x mac-bloqueo); do
+  for p in $(bloqueo_pids); do
     tr '\0' ' ' < "/proc/$p/cmdline" 2>/dev/null | grep -q -- '--pantalla' && { echo "$p"; return 0; }
   done
   return 0   # (sin pantalla todavía no es un error: la prueba corre con errexit)
@@ -50,8 +50,8 @@ prueba() {
 
   # La buena: se desbloquea y todo termina
   xdotool type --delay 80 "buena"; xdotool key Return
-  for _ in $(seq 50); do pgrep -x mac-bloqueo >/dev/null || break; sleep 0.2; done
-  pgrep -x mac-bloqueo >/dev/null && falla "con la clave buena el bloqueo sigue vivo"
+  for _ in $(seq 50); do [ -z "$(bloqueo_pids)" ] && break; sleep 0.2; done
+  [ -z "$(bloqueo_pids)" ] || falla "con la clave buena el bloqueo sigue vivo"
   [ ! -f "$estado" ] || falla "con la clave buena el estado «bloqueado» no se borró"
   paso "la clave buena desbloquea y borra el estado"
 }

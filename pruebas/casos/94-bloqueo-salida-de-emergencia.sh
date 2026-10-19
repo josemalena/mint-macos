@@ -1,11 +1,7 @@
 # caso: la salida de emergencia (mac-bloqueo --liberar, desde una consola o ssh) quita el bloqueo: sin estado, sin supervisor y sin pantalla
 # límite: 90
-vivos() {   # los procesos del bloqueo que no son zombis (un hijo muerto sin recoger todavía aparece en pgrep)
-  local p n=0
-  for p in $(pgrep -x mac-bloqueo); do
-    [ "$(awk '{print $3}' "/proc/$p/stat" 2>/dev/null)" = Z ] || n=$((n + 1))
-  done
-  echo "$n"
+vivos() {   # cuántos procesos del bloqueo de ESTA prueba siguen (bloqueo_pids: sin zombis ni los de la sesión de José)
+  bloqueo_pids | wc -l
 }
 prueba() {
   necesita_teclado

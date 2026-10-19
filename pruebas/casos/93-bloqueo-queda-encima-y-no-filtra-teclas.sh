@@ -17,7 +17,7 @@ prueba() {
   LD_PRELOAD="$PRUEBAS_RES/pam-falso.so" lanzar mac-bloqueo
   local pant=""
   for _ in $(seq 60); do
-    for p in $(pgrep -x mac-bloqueo); do tr '\0' ' ' < "/proc/$p/cmdline" 2>/dev/null | grep -q -- '--pantalla' && pant="$p"; done
+    for p in $(bloqueo_pids); do tr '\0' ' ' < "/proc/$p/cmdline" 2>/dev/null | grep -q -- '--pantalla' && pant="$p"; done
     [ -n "$pant" ] && break; sleep 0.2
   done
   [ -n "$pant" ] || falla "no arrancó la pantalla de bloqueo"
@@ -58,8 +58,8 @@ PY
   paso "ni la barra, ni el menú abierto, ni la notificación se ven"
 
   xdotool type --delay 60 "buena"; xdotool key Return
-  for _ in $(seq 50); do pgrep -x mac-bloqueo >/dev/null || break; sleep 0.2; done
-  pgrep -x mac-bloqueo >/dev/null && falla "la clave buena no desbloqueó"
+  for _ in $(seq 50); do [ -z "$(bloqueo_pids)" ] && break; sleep 0.2; done
+  [ -z "$(bloqueo_pids)" ] || falla "la clave buena no desbloqueó"
   sleep 1
   # xed solo debe tener «antes»: nada de «secreto» ni «buena»
   wmctrl -i -a "$x"; sleep 1

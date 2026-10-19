@@ -55,6 +55,16 @@ necesita_teclado() {
 # el de la sesión de José, y se mata por pid, nunca por nombre.
 # despejar_pantalla: cierra lo que otro caso de la misma corrida dejó abierto (una ventana de Edge grande, por ejemplo, hace que el Dock se
 # esconda solo y un clic en su franja caiga en esa ventana). Solo procesos del sandbox (su HOME).
+# bloqueo_pids: los pids de mac-bloqueo de ESTA prueba (los que tienen su XDG_RUNTIME_DIR). La sesión de José tiene su propio mac-bloqueo --vigilar
+# corriendo y, si está bloqueada, su pantalla: no se cuentan ni se tocan.
+bloqueo_pids() {
+  local p
+  for p in $(pgrep -x mac-bloqueo); do
+    tr '\0' '\n' < "/proc/$p/environ" 2>/dev/null | grep -qx "XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR" && [ "$(awk '{print $3}' "/proc/$p/stat" 2>/dev/null)" != Z ] && echo "$p"
+  done
+  return 0
+}
+
 despejar_pantalla() {
   case "$HOME" in */pruebas/home*) ;; *) return 0 ;; esac   # nunca fuera del sandbox: mataría los programas de José
   local p

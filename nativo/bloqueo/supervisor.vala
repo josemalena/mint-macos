@@ -42,6 +42,36 @@ namespace Bloqueo.Supervisor {
     }
 
     /**
+     * ¿El proceso `pid` es de la misma sesión de runtime (el mismo XDG_RUNTIME_DIR) que éste? --liberar solo toca lo suyo: otra pantalla de
+     * bloqueo del mismo usuario (las pruebas, o una sesión aparte) no se debe llevar por delante.
+     */
+    bool mismo_runtime_dir (int pid) {
+        var mio = Environment.get_variable ("XDG_RUNTIME_DIR");
+        if (mio == null) {
+            return true;
+        }
+        uint8[] bytes;
+        try {
+            FileUtils.get_data ("/proc/%d/environ".printf (pid), out bytes);
+        } catch (FileError e) {
+            return false;
+        }
+        var buscado = "XDG_RUNTIME_DIR=%s".printf (mio);
+        var entrada = new StringBuilder ();
+        foreach (var b in bytes) {
+            if (b == 0) {
+                if (entrada.str == buscado) {
+                    return true;
+                }
+                entrada.truncate (0);
+            } else {
+                entrada.append_c ((char) b);
+            }
+        }
+        return entrada.str == buscado;
+    }
+
+    /**
      * La salida de emergencia (mac-bloqueo --liberar): quita el estado «bloqueado», detiene al supervisor y mata la pantalla. Es para
      * quien ya entró a esta cuenta por otro lado (una consola Ctrl+Alt+F3 o ssh, que piden la clave): desde ahí el bloqueo de la sesión
      * ya no protege nada, solo estorba. Primero el estado, para que el vigilante no lo relance.
@@ -78,7 +108,7 @@ namespace Bloqueo.Supervisor {
                     continue;
                 }
                 Posix.Stat st;
-                if (Posix.stat ("/proc/%d".printf (pid), out st) == 0 && (uint) st.st_uid == yo_uid) {
+                if (Posix.stat ("/proc/%d".printf (pid), out st) == 0 && (uint) st.st_uid == yo_uid && mismo_runtime_dir (pid)) {
                     Posix.kill ((Posix.pid_t) pid, Posix.Signal.KILL);
                 }
             }
