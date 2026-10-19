@@ -17,6 +17,7 @@ m_dep = meson.get_compiler('c').find_library('m', required: false)
 
 subdir('libmacos')
 subdir('sesion')
+subdir('bloqueo')
 subdir('gatekeeper')
 subdir('forcequit')
 subdir('launchpad')
