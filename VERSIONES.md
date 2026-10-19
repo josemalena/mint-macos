@@ -7,9 +7,9 @@ Cada fork, el commit que se compila y los parches que lleva encima de su upstrea
 
 - Fork: https://github.com/josemalena/fynder.git
 - Upstream: https://github.com/linuxmint/nemo.git, rama `master`
-- Commit: `7a6013046682b3a072c1cc0ac198a7d9d7d01bc7` (2026-10-19, feat(vista previa): las Quick Actions al pie del panel)
+- Commit: `208094325ca7d2eae16c57550ba143d98e39a551` (2026-10-19, tema claro: glifos y segmento escogido medidos contra Catalina clara (gris #4f4f4f, escogido #666 con glifo blanco))
 - Base: `66eabf459bc86d03c24797274d0e3f60b9b7a7d8` (master.lmde7), 2026-10-06, nemo-icon-dnd.c: Fix reporting a successful drag result.
-- Parches: 231
+- Parches: 239
 
 | Commit | Fecha | Asunto |
 |---|---|---|
@@ -244,6 +244,14 @@ Cada fork, el commit que se compila y los parches que lleva encima de su upstrea
 | `9026315e` | 2026-10-18 | fix(vista): Clean Up By no aborta al cambiar de vista |
 | `a4e9cc19` | 2026-10-18 | feat(smart folders): New Smart Folder, Save y los .savedSearch |
 | `7a601304` | 2026-10-19 | feat(vista previa): las Quick Actions al pie del panel |
+| `4e57e154` | 2026-10-19 | feat(get info): Version y Copyright de las apps de la Mac |
+| `3ccd6276` | 2026-10-19 | fix(menú global): no reconstruir el menú de una ventana destruida |
+| `fc7f6866` | 2026-10-19 | fix(escritorio): registrarse con la sesión aunque GTK_USE_PORTAL esté puesto |
+| `1a96734c` | 2026-10-19 | feat(etiquetas): en un disco sin xattr se guardan en esta computadora |
+| `e4cb5588` | 2026-10-19 | fix(get info): completo, con el tema, y los permisos se pueden cambiar |
+| `7ea25688` | 2026-10-19 | fix(get info): el grupo privado del usuario sale como «staff» |
+| `7a8c85cb` | 2026-10-19 | tema claro: los colores del Finder salen de nombres (@fynder_*) y, con un tema claro, de los colores del tema |
+| `20809432` | 2026-10-19 | tema claro: glifos y segmento escogido medidos contra Catalina clara (gris #4f4f4f, escogido #666 con glifo blanco) |
 
 ## mint-macos-dock
 
