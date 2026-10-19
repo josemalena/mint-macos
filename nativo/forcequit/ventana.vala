@@ -24,6 +24,20 @@ button.fq-boton:disabled { background-image: none; background-color: #3a3b3d; bo
 button.fq-boton:disabled label { color: rgba(255, 255, 255, 0.35); }
 """;
 
+    // La Catalina clara (15-force-quit-claro): cuerpo #E9E9E9, lista blanca con borde #BDBDBD, texto #262626, selección #0058DD con texto blanco.
+    const string CSS_CLARO = """
+window.fq-ventana { background-color: #e9e9e9; }
+window.fq-ventana label { color: #262626; }
+.fq-lista { background-color: #ffffff; border: 1px solid #bdbdbd; }
+.fq-lista list, .fq-lista row { background-color: #ffffff; }
+.fq-lista row:selected, .fq-lista row:selected label { background-color: #0058dd; color: #ffffff; }
+window.fq-ventana label.fq-colgada { color: #d70015; }
+window.fq-ventana .fq-lista row:selected label.fq-colgada { color: #ffffff; }
+button.fq-boton { background-image: linear-gradient(to bottom, #5c9bfd, #3a82fc); background-color: #498bfc; border: 1px solid #357efd; }
+button.fq-boton:disabled { background-image: none; background-color: #d4d4d4; border-color: #c4c4c4; }
+button.fq-boton:disabled label { color: rgba(0, 0, 0, 0.35); }
+""";
+
     class Fila : Gtk.ListBoxRow {
         public App app;
         public Fila (App app) {
@@ -66,13 +80,7 @@ button.fq-boton:disabled label { color: rgba(255, 255, 255, 0.35); }
             skip_taskbar_hint = true;
             skip_pager_hint = true;
             get_style_context ().add_class ("fq-ventana");
-            var css = new Gtk.CssProvider ();
-            try {
-                css.load_from_data (CSS);
-                Gtk.StyleContext.add_provider_for_screen (Gdk.Screen.get_default (), css, 800);
-            } catch (Error e) {
-                warning ("CSS: %s", e.message);
-            }
+            MacOS.aplicar_css_con_claro (CSS, CSS_CLARO);
 
             var fijo = new Gtk.Fixed ();
             fijo.set_size_request (337, 285);

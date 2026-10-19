@@ -72,6 +72,46 @@ button.mac-boton-inv.mac-boton-pordefecto { border: 2px solid rgba(34, 110, 232,
                                                   Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION + 1);
     }
 
+    public delegate void Revisar ();
+
+    /** ¿Los colores del tema puesto son claros? (el fondo de las ventanas, por luminancia). */
+    public bool tema_es_claro () {
+        var ventana = new Gtk.Window ();
+        Gdk.RGBA c;
+        bool hay = ventana.get_style_context ().lookup_color ("theme_bg_color", out c);
+        ventana.destroy ();
+        return hay && 0.2126 * c.red + 0.7152 * c.green + 0.0722 * c.blue > 0.5;
+    }
+
+    /**
+     * El CSS de una ventana con su versión clara: `oscuro` va siempre (las capturas de la Catalina oscura) y `claro` se le pone encima solo
+     * cuando el tema es claro, y se suelta al volver a uno oscuro, sin reabrir la ventana. Los colores son de las capturas de la Catalina clara.
+     */
+    public void aplicar_css_con_claro (string oscuro, string claro) {
+        aplicar_css (oscuro);
+        var encima = new Gtk.CssProvider ();
+        Gtk.StyleContext.add_provider_for_screen (Gdk.Screen.get_default (), encima, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION + 2);
+        bool puesto = false;
+        // (un closure en vez de un método: no hay objeto al que colgarlo)
+        Revisar revisar = () => {
+            bool es_claro = tema_es_claro ();
+            if (es_claro == puesto) {
+                return;
+            }
+            puesto = es_claro;
+            try {
+                encima.load_from_data (es_claro ? claro : "");
+            } catch (Error e) {
+                warning ("CSS claro: %s", e.message);
+            }
+        };
+        Gtk.Settings.get_default ().notify["gtk-theme-name"].connect (() => {
+            // El tema nuevo se carga justo después de la señal: se espera un momento para leer sus colores
+            Timeout.add (250, () => { revisar (); return false; });
+        });
+        Idle.add (() => { revisar (); return false; });
+    }
+
     /** El estilo común de las alertas (la caja, la franja, el texto y los botones). */
     public void aplicar_estilo_alerta () {
         aplicar_css (CSS_ALERTA);
