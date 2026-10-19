@@ -18,10 +18,15 @@ rango_alto() {   # rango_alto SEGUNDOS: máximo - mínimo de la altura dibujada
 }
 prueba() {
   requiere muelle xed xdotool import convert
+  # los xed de una corrida anterior contestarían por el bus en vez de abrir ventana (xed es de instancia única)
+  for p in $(pgrep -x xed); do grep -qz "^HOME=$HOME\$" "/proc/$p/environ" 2>/dev/null && kill "$p"; done
   local apps="$XDG_DATA_HOME/applications" lanz="$XDG_CONFIG_HOME/muelle/dock1/launchers"
   mkdir -p "$apps" "$lanz"
+  # el lanzador lento: a los 12 s abre xed y deja en 69-xed.log qué pasó (cuántos xed vivos y lo que diga xed)
+  printf '#!/bin/sh\nsleep 12\necho "$(date +%%T) xed vivos: $(pgrep -c -x xed)" >> "%s/69-xed.log"\nexec xed >> "%s/69-xed.log" 2>&1\n' "$PRUEBAS_RES" "$PRUEBAS_RES" > "$apps/abrir-xed.sh"
+  chmod +x "$apps/abrir-xed.sh"
   for n in lento launchpad; do
-    printf '[Desktop Entry]\nType=Application\nName=%s\nExec=sh -c "sleep 12; exec xed"\nIcon=xed\n' "$n" > "$apps/$n.desktop"
+    printf '[Desktop Entry]\nType=Application\nName=%s\nExec=%s\nIcon=xed\n' "$n" "$apps/abrir-xed.sh" > "$apps/$n.desktop"
     printf '[PlankDockItemPreferences]\nLauncher=file://%s/%s.desktop\n' "$apps" "$n" > "$lanz/$n.dockitem"
   done
   # (con un prefijo de pruebas sin instalar, el esquema de Muelle está en ../esquemas)
