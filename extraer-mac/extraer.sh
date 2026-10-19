@@ -46,7 +46,9 @@ mkdir -p "$HER"; cp "$AQUI/extraer.sh" "$AQUI/herramientas.js" "$AQUI/ui.applesc
 LOG="$HER/capturas.log"
 
 log() { echo "$(date +%H:%M:%S) $*" >> "$LOG"; }
-aviso() { log "$*"; osascript -e "display notification \"$*\" with title \"Extraer Mac\"" 2>/dev/null; }
+# AJENA=1: la Mac de otra persona (por ssh, sin nadie que mire): sin avisos en su pantalla, sin su
+# fondo ni su foto de cuenta, y nada que abra un diálogo de permisos.
+aviso() { log "$*"; [ "${AJENA:-0}" = 1 ] && return 0; osascript -e "display notification \"$*\" with title \"Extraer Mac\"" 2>/dev/null; }
 osa() { osascript "$@" 2>>"$LOG"; }
 
 # Cierra una app por su nombre: quit por AppleScript (solo si está abierta, para
@@ -205,6 +207,7 @@ if quiere recursos; then
   for f in "/System/Library/Desktop Pictures/"*.heic "/Library/Desktop Pictures/"*.heic; do
     [ -f "$f" ] && cp "$f" "$REC/fondos/" 2>>"$LOG"
   done
+  if [ "${AJENA:-0}" != 1 ]; then  # el fondo y la foto de una Mac ajena son de su dueña
   ACTUAL="$(osa -e 'tell application "System Events" to get picture of current desktop')"
   if [ -n "$ACTUAL" ] && [ -f "$ACTUAL" ]; then cp "$ACTUAL" "$REC/fondos/fondo-del-usuario-$(basename "$ACTUAL")"; fi
   echo "fondo puesto: ${ACTUAL:-?}" > "$REC/fondos/fondo-del-usuario.txt"
@@ -213,6 +216,7 @@ if quiere recursos; then
   [ -n "$FOTO" ] && [ -f "$FOTO" ] && cp "$FOTO" "$REC/cuenta/"
   dscl . -read "/Users/$USER" JPEGPhoto 2>/dev/null | tail -n +2 | xxd -r -p > "$REC/cuenta/avatar.jpegphoto" 2>/dev/null
   [ -s "$REC/cuenta/avatar.jpegphoto" ] || rm -f "$REC/cuenta/avatar.jpegphoto"
+  fi
   for n in Restart ShutDown Sleep; do
     cp "/System/Library/CoreServices/loginwindow.app/Contents/Resources/$n.tiff" "$REC/cuenta/" 2>/dev/null
   done
