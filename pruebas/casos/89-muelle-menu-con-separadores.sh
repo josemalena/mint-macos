@@ -1,5 +1,5 @@
 # caso: el clic secundario en un ítem del Dock muestra las acciones de X-Muelle-Actions (los menús de Finder y System Preferences de la Mac),
-# con separadores donde la acción se llama «-»
+# con separadores donde la acción se llama «-»; y una acción que solo está en X-Muelle-Actions corre su Exec al escogerla
 # límite: 90
 prueba() {
   requiere muelle xdotool import convert
@@ -23,7 +23,7 @@ Exec=true
 
 [Desktop Action alfa]
 Name=Alfa
-Exec=true
+Exec=touch $PRUEBAS_RES/alfa-corrio
 
 [Desktop Action separa1]
 Name=-
@@ -64,5 +64,10 @@ EOF
   paso "separadores en el menú: $seps"
   [ "$seps" -ge 2 ] || falla "faltan los separadores (vi $seps)"
   echo "$volcado" | grep -q '«-»\|"-"' && falla "dibujó la acción «-» como un ítem"
-  xdotool key Escape
+  # Alfa solo está en X-Muelle-Actions (no en Actions=): al escogerla tiene que correr su Exec
+  rm -f "$PRUEBAS_RES/alfa-corrio"
+  xdotool key Down; sleep 0.3; xdotool key Return
+  for _ in $(seq 30); do [ -f "$PRUEBAS_RES/alfa-corrio" ] && break; sleep 0.2; done
+  [ -f "$PRUEBAS_RES/alfa-corrio" ] || falla "escoger una acción de X-Muelle-Actions no ejecutó su Exec"
+  paso "la acción de X-Muelle-Actions corrió su Exec"
 }
