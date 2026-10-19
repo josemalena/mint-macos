@@ -36,24 +36,24 @@ def _ultima(patron):
 
 VERSIONES = {
     # La MacBook Pro Early 2011 de la esposa de José (José, 18-10-2026): menos prioridad que Catalina.
-    'highsierra-10.13': {'nombre': 'macOS High Sierra', 'numero': '10.13.6',
+    'highsierra-10.13': {'tema': 'Constanza', 'nombre': 'macOS High Sierra', 'numero': '10.13.6',
                          'raices': [os.path.join(_ultima('highsierra-*'), 'recursos', 'sistema-nib')],
                          'medidas': os.path.join(_ultima('highsierra-*'), 'medidas', 'medidas.json'),
                          'capturas': os.path.join(_ultima('highsierra-*'), 'capturas')},
-    'catalina-10.15': {'nombre': 'macOS Catalina', 'numero': '10.15.8',
+    'catalina-10.15': {'tema': 'Constanza', 'nombre': 'macOS Catalina', 'numero': '10.15.8',
                        'raices': [os.path.join(MM, 'montajes', 'disco-mac-sistema')],
                        'medidas': os.path.join(REF, 'catalina-extraer-20261015', 'medidas', 'medidas.json'),
                        'capturas': None},
-    'monterey-12.7.6': {'nombre': 'macOS Monterey', 'numero': '12.7.6',
+    'monterey-12.7.6': {'tema': 'Samana', 'nombre': 'macOS Monterey', 'numero': '12.7.6',
                         'raices': [os.path.join(REF, 'monterey-20261015', 'recursos', 'sistema-nib')],
                         'medidas': os.path.join(REF, 'monterey-20261015', 'medidas', 'medidas.json'),
                         'capturas': os.path.join(REF, 'monterey-20261015', 'capturas')},
-    'sequoia-15.8.1': {'nombre': 'macOS Sequoia', 'numero': '15.8.1',
+    'sequoia-15.8.1': {'tema': 'ValleNuevo', 'nombre': 'macOS Sequoia', 'numero': '15.8.1',
                        'raices': [os.path.join(REF, 'sequoia-15.8.1-20261016', 'recursos', 'sistema-swiftui'),
                                   os.path.join(REF, 'sequoia-15.8.1-20261016', 'recursos', 'sistema-nib')],
                        'medidas': os.path.join(REF, 'sequoia-15.8.1-20261016', 'medidas', 'medidas.json'),
                        'capturas': os.path.join(REF, 'sequoia-15.8.1-20261016', 'capturas')},
-    'macos-27': {'nombre': 'macOS 27', 'numero': '27.0',
+    'macos-27': {'tema': 'Ozama', 'nombre': 'macOS 27', 'numero': '27.0',
                  'raices': [os.path.join(REF, 'macos27-20261014', 'recursos', 'sistema-nib')],
                  'medidas': os.path.join(REF, 'macos27-20261014', 'medidas', 'medidas.json'),
                  'capturas': os.path.join(REF, 'macos27-20261014', 'capturas')},
@@ -448,6 +448,11 @@ def generar(version, raices=None, medidas=None):
         # Sin fuente aquí (otra computadora, que recibió el perfil en el paquete): no se pisa.
         info = json.load(open(viejo))
         info['partes'] = dict(info.get('partes', {}), nota='sin fuente aquí: se queda el que vino en el paquete')
+        # Lo que no sale de la Mac sino de aquí (el tema base de la versión) sí se pone al día.
+        info['tema'] = v.get('tema', 'Constanza')
+        info['tema_visible'] = {'Samana': 'Samaná', 'ValleNuevo': 'Valle Nuevo'}.get(info['tema'], info['tema'])
+        with open(viejo, 'w') as f:
+            json.dump(info, f, ensure_ascii=False, indent=1)
         return info
     os.makedirs(os.path.join(destino, 'apps'), exist_ok=True)
     partes = {}
@@ -505,7 +510,11 @@ def generar(version, raices=None, medidas=None):
         partes['medidas'] = 'ok'
     else:
         partes['medidas'] = 'falta: %s vacío o sin leer' % med
-    info = {'id': version, 'nombre': v['nombre'], 'numero': v['numero'], 'raices': raices, 'partes': partes}
+    # El tema base de la versión (José, 18-10-2026): Constanza, Samana (Samaná), ValleNuevo (Valle
+    # Nuevo) y Ozama; mientras uno no se construye, las piezas caen a Constanza.
+    info = {'id': version, 'nombre': v['nombre'], 'numero': v['numero'], 'tema': v.get('tema', 'Constanza'),
+            'tema_visible': {'Samana': 'Samaná', 'ValleNuevo': 'Valle Nuevo'}.get(v.get('tema'), v.get('tema', 'Constanza')),
+            'raices': raices, 'partes': partes}
     with open(os.path.join(destino, 'version.json'), 'w') as f:
         json.dump(info, f, ensure_ascii=False, indent=1)
     return info

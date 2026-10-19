@@ -665,6 +665,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "mint-macos-apariencia"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "zbus",
+]
+
+[[package]]
 name = "mint-macos-apfs-espacio"
 version = "0.1.0"
 

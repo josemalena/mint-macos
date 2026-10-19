@@ -14,6 +14,9 @@ AQUI="$(cd "$(dirname "$0")" && pwd)"
 source "$(dirname "$(dirname "$AQUI")")/versiones.sh"
 # CONSTANZA_VARIANTES: cuáles armar («Oscuro», «Claro-Green»…); por defecto, todas.
 ACENTOS="blue purple pink red orange yellow green grey"
+# TEMA_BASE: el tema de la versión (perfiles: Constanza en Catalina; Samana, ValleNuevo y Ozama
+# cuando cada pasada lo pida; José, 18-10-2026). Por ahora solo se construye Constanza.
+TEMA_BASE="${TEMA_BASE:-Constanza}"
 DEST="${CONSTANZA_TEMAS:-$HOME/.themes}"        # CONSTANZA_TEMAS y CONSTANZA_PLANK: para probar sin tocar los activos
 TMP="$(mktemp -d)"
 trap 'desmontar_mac 2>/dev/null; rm -rf "${TMP:?}"' EXIT
@@ -156,8 +159,8 @@ declare -A ACENTO_MAC=([blue]="" [purple]=Purple [pink]=Pink [red]=Red [orange]=
 for color in dark light; do
   base=$([ "$color" = dark ] && echo Oscuro || echo Claro)
   for a in $ACENTOS; do
-    nombre="Constanza-$base${ACENTO_MAC[$a]:+-${ACENTO_MAC[$a]}}"
-    v="${nombre#Constanza-}"
+    nombre="$TEMA_BASE-$base${ACENTO_MAC[$a]:+-${ACENTO_MAC[$a]}}"
+    v="${nombre#"$TEMA_BASE"-}"
     case " ${CONSTANZA_VARIANTES:-todas} " in *" todas "*|*" $v "*) ;; *) continue ;; esac
     armar "$color" "$a" "$nombre"
   done
