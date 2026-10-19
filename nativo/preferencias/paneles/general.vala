@@ -597,11 +597,14 @@ namespace Preferencias {
                 g.attach (gris_motivo (rec, "The Apple menu is not set up on this computer."), 1, fila, 2, 1);
             }
             fila++;
-            // Handoff es de Apple: en gris (perfiles/adaptaciones.json aún no lo oculta). El suavizado de fuentes sí tiene claves.
-            var handoff = new Gtk.CheckButton.with_label ("Allow Handoff between this Mac and your iCloud devices");
-            handoff.active = true;
-            g.attach (gris (handoff), 1, fila, 2, 1);
-            fila++;
+            // Handoff: José lo descartó (19-10-2026) y perfiles/adaptaciones.json lo marca «ocultar»: no sale, ni en gris. Sin esa marca (perfil que no
+            // la trae) se dibuja en gris como antes. El suavizado de fuentes sí tiene claves.
+            if (!control_oculto ("com.apple.preference.general", "KCv-2t-qIH")) {
+                var handoff = new Gtk.CheckButton.with_label ("Allow Handoff between this Mac and your iCloud devices");
+                handoff.active = true;
+                g.attach (gris (handoff), 1, fila, 2, 1);
+                fila++;
+            }
             var suavizado = new Gtk.CheckButton.with_label ("Use font smoothing when available");
             var xs_f = abrir_settings ("org.cinnamon.settings-daemon.plugins.xsettings");
             if (xs_f != null) {

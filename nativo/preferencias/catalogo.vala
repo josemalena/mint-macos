@@ -75,6 +75,50 @@ namespace Preferencias {
                                                "apps", "system-preferences.json"));
     }
 
+    /** ¿Un control de un panel está marcado «ocultar» en el perfil de la versión activa (perfiles/adaptaciones.json)? `clave` es la del nib (p. ej. KCv-2t-qIH). */
+    public bool control_oculto (string panel_id, string clave) {
+        string? version = null;
+        foreach (var ruta in new string[] { Path.build_filename (Environment.get_user_runtime_dir (), "mint-macos", "macos.json"),
+                                            Path.build_filename (Environment.get_user_config_dir (), "mint-macos", "macos.json") }) {
+            var o = leer_json (ruta);
+            if (o != null && o.has_member ("version")) {
+                version = o.get_string_member ("version");
+                break;
+            }
+        }
+        var panel = leer_json (Path.build_filename (Environment.get_user_data_dir (), "mint-macos", "macos", version ?? "catalina-10.15",
+                                                    "apps", "system-preferences", panel_id + ".json"));
+        if (panel == null) {
+            return false;
+        }
+        return nodo_oculta_clave (panel.get_member ("vistas"), clave);
+    }
+
+    bool nodo_oculta_clave (Json.Node? n, string clave) {
+        if (n == null) {
+            return false;
+        }
+        if (n.get_node_type () == Json.NodeType.OBJECT) {
+            var o = n.get_object ();
+            if (o.has_member ("clave") && o.has_member ("ocultar")
+                && o.get_member ("clave").get_node_type () == Json.NodeType.VALUE && o.get_string_member ("clave") == clave && o.get_boolean_member ("ocultar")) {
+                return true;
+            }
+            foreach (var m in o.get_members ()) {
+                if (nodo_oculta_clave (o.get_member (m), clave)) {
+                    return true;
+                }
+            }
+        } else if (n.get_node_type () == Json.NodeType.ARRAY) {
+            foreach (var e in n.get_array ().get_elements ()) {
+                if (nodo_oculta_clave (e, clave)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     HashTable<string, bool> paneles_ocultos () {
         var ocultos = new HashTable<string, bool> (str_hash, str_equal);
         var perfil = perfil_system_preferences ();

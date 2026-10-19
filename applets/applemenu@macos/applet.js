@@ -314,7 +314,7 @@ class AppleMenuApplet extends Applet.IconApplet {
     this._alternos = [];
     let ultimoSeparador = true;
     for (let it of items) {
-      if (it.oculto || it.alterno_de) continue;            // los alternos (⌥, ⇧) los resuelve cada renglón; Location solo con redes
+      if (it.oculto || it.ocultar || it.alterno_de) continue;   // alternos (⌥, ⇧): cada renglón; oculto: solo con varias ubicaciones; ocultar: no sale nunca (José descartó Location, 19-10)
       if (it.separador) {
         if (!ultimoSeparador) { this._separador(); ultimoSeparador = true; }
         continue;
