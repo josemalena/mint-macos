@@ -7,10 +7,25 @@
  *
  * Este archivo es el mismo en applemenu@macos y en appmenu@macos (copia exacta; lo vigila el caso 64).
  */
-const { GLib } = imports.gi;
+const { GLib, Gio } = imports.gi;
 
 const POR_DEFECTO = "catalina-10.15";
-const _cache = { version: null, archivos: {} };
+const _cache = { firma: null, version: null, archivos: {} };
+
+// Fecha de modificación de un archivo, o "" si no existe: con ella se sabe si cambió la versión activa o el perfil.
+function _mtime(ruta) {
+  try {
+    let info = Gio.File.new_for_path(ruta).query_info("time::modified,time::modified-usec", Gio.FileQueryInfoFlags.NONE, null);
+    return info.get_attribute_uint64("time::modified") + "." + info.get_attribute_uint32("time::modified-usec");
+  } catch (e) { return ""; }
+}
+
+function _rutasVersion() {
+  return [
+    GLib.build_filenamev([GLib.get_user_runtime_dir(), "mint-macos", "macos.json"]),
+    GLib.build_filenamev([GLib.get_user_config_dir(), "mint-macos", "macos.json"]),
+  ];
+}
 
 function _leerJson(ruta) {
   try {
@@ -21,11 +36,11 @@ function _leerJson(ruta) {
 
 /** El id de la versión activa («catalina-10.15»). */
 function activa() {
+  // Si cambió el archivo de la versión (mint-macos-version --aplicar, o la prueba), se olvida lo leído.
+  let candidatos = _rutasVersion();
+  let firma = candidatos.map(_mtime).join("|");
+  if (firma !== _cache.firma) { _cache.firma = firma; _cache.version = null; _cache.archivos = {}; }
   if (_cache.version) return _cache.version;
-  let candidatos = [
-    GLib.build_filenamev([GLib.get_user_runtime_dir(), "mint-macos", "macos.json"]),
-    GLib.build_filenamev([GLib.get_user_config_dir(), "mint-macos", "macos.json"]),
-  ];
   for (let c of candidatos) {
     let d = _leerJson(c);
     if (d && d.version) { _cache.version = d.version; return d.version; }
@@ -34,7 +49,7 @@ function activa() {
   return POR_DEFECTO;
 }
 
-/** Un archivo de apps/ del perfil activo, o null (con caché: el perfil no cambia hasta volver a entrar). */
+/** Un archivo de apps/ del perfil activo, o null (con caché mientras no cambie la versión activa). */
 function _app(nombre) {
   let k = activa() + "/" + nombre;
   if (!(k in _cache.archivos)) {
