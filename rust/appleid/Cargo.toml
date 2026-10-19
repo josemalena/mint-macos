@@ -1,0 +1,17 @@
+[package]
+name = "mint-macos-appleid"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+description = "El Apple ID de System Preferences (org.mintmacos.AppleID1): iCloud Drive con rclone y Mail y Calendar en Thunderbird"
+
+[dependencies]
+# La misma zbus que los otros servicios (5.19, MIT); también habla con el llavero (Secret Service).
+zbus = "5.19"
+# blocking 1.7.0 (MIT o Apache-2.0), ya en el árbol por zbus: rclone y la red tardan, y el bus no se traba.
+blocking = "1.7.0"
+# ureq 3.4.2 y quick-xml 0.42.0, los mismos de tienda: el CalDAV de iCloud (PROPFIND) y su XML.
+ureq = "3.4.2"
+quick-xml = "0.42.0"
+# serde_json 1.0.151, la misma de tienda: la respuesta de rclone y los valores de user.js.
+serde_json = "=1.0.151"

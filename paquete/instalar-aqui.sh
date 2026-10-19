@@ -157,6 +157,12 @@ if [ -f "$AQUI/perfiles.tar.gz" ]; then
   tar -xzf "$AQUI/perfiles.tar.gz" -C "$HOME/.local/share/mint-macos/macos"
 fi
 "$REPO/perfiles/instalar.sh"
+# Los servicios de D-Bus en Rust (vienen en rust-binarios.tar.gz): la activación los arranca la
+# primera vez que una ventana los llama. Sin su binario, se avisa y se sigue.
+for s in tienda monitor apariencia calendario appleid avisos; do
+  if [ -x "$REPO/rust/target/release/mint-macos-$s" ]; then "$REPO/$s/instalar.sh"
+  else echo "  ⚠ el paquete no trae mint-macos-$s: $s queda sin instalar"; fi
+done
 # rclone en ~/.local/bin (versión fija, con checksum): lo usan el panel Apple ID
 # de System Preferences y iCloud Drive. El alta de la cuenta la hace José.
 "$REPO/icloud/icloud.sh" instalar

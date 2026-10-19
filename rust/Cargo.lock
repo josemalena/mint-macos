@@ -833,6 +833,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "mint-macos-appleid"
+version = "0.1.0"
+dependencies = [
+ "blocking",
+ "quick-xml",
+ "serde_json",
+ "ureq",
+ "zbus",
+]
+
+[[package]]
 name = "mint-macos-avisos"
 version = "0.1.0"
 dependencies = [
