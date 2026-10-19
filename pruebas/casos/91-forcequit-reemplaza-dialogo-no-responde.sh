@@ -1,0 +1,26 @@
+# caso: con una app colgada, Cinnamon no muestra su diálogo «no responde»: abre Force Quit Applications con esa app escogida
+# y marcada «(not responding)»
+# gestor: cinnamon-colgadas
+# límite: 120
+prueba() {
+  necesita_teclado
+  requiere xed mac-forcequit mac-forcequit-lanzar wmctrl xdotool
+  gsettings set org.cinnamon.muffin check-alive-timeout 2000 2>/dev/null || true
+  lanzar xed
+  local x pid
+  x="$(esperar_ventana '^[Xx]ed$' 20)"
+  pid="$(xdotool getwindowpid "$x")"
+  kill -STOP "$pid"
+  trap "kill -KILL $pid 2>/dev/null || true" EXIT
+  # Cerrar una ventana que no contesta es lo que hace que Muffin pregunte si está viva
+  python3 "$(dirname "$PRUEBAS_LIB")/ayudantes/cerrar-ventana.py" "$x"
+  local fq; fq="$(esperar_ventana '[Mm]ac-forcequit' 30)"
+  esperar_texto "$fq" "Xed (not responding)" 15
+  captura force-quit-con-xed-colgado
+  # Y sin el diálogo de Cinnamon (se llama «… is not responding» y trae Wait)
+  if python3 "$(dirname "$PRUEBAS_LIB")/atspi.py" --pid "$(pgrep -x -n cinnamon)" --texto "Wait" --segundos 2 >/dev/null 2>&1; then
+    falla "salió el diálogo de Cinnamon con el botón Wait"
+  fi
+  paso "sin el diálogo de Cinnamon"
+  kill -KILL "$pid" 2>/dev/null || true
+}

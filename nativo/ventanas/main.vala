@@ -4,7 +4,7 @@
  *
  *   mac-ventanas --residente                         se arma oculto y espera (autostart)
  *   mac-ventanas sesion --mode logoff|restart|shutdown|guestlogout [--seconds N] [--print-json] [--prueba]
- *   mac-ventanas forcequit [--prueba]                «Force Quit Applications» (⌥⌘⎋)
+ *   mac-ventanas forcequit [--prueba] [--seleccionar PID]              «Force Quit Applications» (⌥⌘⎋)
  *   mac-ventanas app-del-frente                      fuerza la salida de la app activa (⌥⇧⌘⎋)
  *   mac-ventanas captura                             la barra de ⇧⌘5
  *   mac-ventanas emojis [--destino ID]               el selector de emojis (⌃⌘Espacio)
@@ -50,12 +50,15 @@ public class Ventanas : Gtk.Application {
             return Sesion.atender (resto, (t) => { cmd.print ("%s", t); }, (t) => { cmd.printerr ("%s", t); });
         case "forcequit":
             bool prueba = false;
+            int seleccionar = 0;
             for (int i = 2; i < args.length; i++) {
                 if (args[i] == "--prueba") {
                     prueba = true;
+                } else if (args[i] == "--seleccionar" && i + 1 < args.length) {
+                    seleccionar = int.parse (args[++i]);
                 }
             }
-            abrir_forcequit (!prueba);
+            abrir_forcequit (!prueba, seleccionar);
             return 0;
         case "app-del-frente":
             return MacForceQuit.app_del_frente ();
@@ -82,12 +85,17 @@ public class Ventanas : Gtk.Application {
         }
     }
 
-    void abrir_forcequit (bool matar) {
+    void abrir_forcequit (bool matar, int seleccionar = 0) {
         if (forcequit != null) {
-            forcequit.present ();
+            // Ya abierta (un ping repetido de Muffin): se trae al frente y se escoge esa app, sin otra ventana
+            if (seleccionar > 0) {
+                forcequit.seleccionar (seleccionar);
+            } else {
+                forcequit.present ();
+            }
             return;
         }
-        forcequit = new MacForceQuit.Ventana (matar);
+        forcequit = new MacForceQuit.Ventana (matar, seleccionar);
         add_window (forcequit);
         forcequit.destroy.connect (() => { forcequit = null; });
     }

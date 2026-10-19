@@ -37,21 +37,28 @@ poner_gestor() {
   GESTOR=""
   case "$1" in
     muffin)
-      muffin --replace --sm-disable > "$RES/muffin.log" 2>&1 &
+      # Muffin se cae (SIGSEGV en libgdk) al cerrarlo con kill para pasar a Cinnamon. Sin volcado de
+      # memoria: systemd-coredump guardaba uno cada ~40 s durante una corrida (19-10-2026, calor y CPU).
+      (ulimit -c 0; exec muffin --replace --sm-disable) > "$RES/muffin.log" 2>&1 &
       GPID=$!
       for _ in $(seq 50); do wmctrl -m >/dev/null 2>&1 && break; sleep 0.1; done
       wmctrl -m >/dev/null 2>&1 || { echo "Muffin no arrancó (muffin.log)"; return 1; } ;;
-    cinnamon|cinnamon-applets|cinnamon-notificaciones)
+    cinnamon|cinnamon-applets|cinnamon-notificaciones|cinnamon-colgadas)
       # Las extensiones del repo (las que se están probando), no las de José.
       mkdir -p "$XDG_DATA_HOME/cinnamon/extensions" "$XDG_CONFIG_HOME/autostart"
       cp -r "$MINT_MACOS_REPO"/extensions/*@macos "$XDG_DATA_HOME/cinnamon/extensions/"
       gsettings set org.cinnamon enabled-extensions "['cmdtab@macos']"
       # «cinnamon-applets» además pone en el panel la barra de menús (appmenu@macos y globalmenu@macos) del repo.
-      if [ "$1" = cinnamon-applets ] || [ "$1" = cinnamon-notificaciones ]; then
+      if [ "$1" = cinnamon-applets ] || [ "$1" = cinnamon-notificaciones ] || [ "$1" = cinnamon-colgadas ]; then
         mkdir -p "$XDG_DATA_HOME/cinnamon/applets"
         cp -r "$MINT_MACOS_REPO"/applets/appmenu@macos "$MINT_MACOS_REPO"/applets/globalmenu@macos "$XDG_DATA_HOME/cinnamon/applets/"
         gsettings set org.cinnamon panels-enabled "['1:0:top']"
         gsettings set org.cinnamon enabled-applets "['panel1:left:0:appmenu@macos:1', 'panel1:left:1:globalmenu@macos:2']"
+      fi
+      # «cinnamon-colgadas»: lo mismo y el menú Apple (applemenu@macos), que cambia el diálogo de «no responde» por Force Quit.
+      if [ "$1" = cinnamon-colgadas ]; then
+        cp -r "$MINT_MACOS_REPO"/applets/applemenu@macos "$XDG_DATA_HOME/cinnamon/applets/"
+        gsettings set org.cinnamon enabled-applets "['panel1:left:0:applemenu@macos:3', 'panel1:left:1:appmenu@macos:1', 'panel1:left:2:globalmenu@macos:2']"
       fi
       # «cinnamon-notificaciones»: lo mismo y el Notification Center (notificaciones@macos) a la derecha.
       if [ "$1" = cinnamon-notificaciones ]; then
@@ -61,7 +68,7 @@ poner_gestor() {
       # Sin animaciones: una ventana recién abierta se ve (y se captura) al mapearse.
       gsettings set org.cinnamon desktop-effects false
       gsettings set org.cinnamon startup-animation false
-      cinnamon --replace > "$RES/cinnamon.log" 2>&1 &
+      (ulimit -c 0; exec cinnamon --replace) > "$RES/cinnamon.log" 2>&1 &
       GPID=$!
       for _ in $(seq 600); do cinnamon_listo && break; sleep 0.1; done
       cinnamon_listo || { echo "Cinnamon no arrancó en 60s (cinnamon.log)"; return 1; } ;;

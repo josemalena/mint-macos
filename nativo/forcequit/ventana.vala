@@ -19,6 +19,7 @@ button.fq-boton { background-image: linear-gradient(to bottom, #296ee7, #1453c7)
   border: 1px solid #252627; border-radius: 4px; padding: 0; min-height: 19px; min-width: 82px;
   box-shadow: none; text-shadow: none; }
 window.fq-ventana button.fq-boton label { font-size: 13px; color: #ffffff; }
+window.fq-ventana label.fq-colgada { color: #ff453a; }
 button.fq-boton:disabled { background-image: none; background-color: #3a3b3d; border-color: #2f3031; }
 button.fq-boton:disabled label { color: rgba(255, 255, 255, 0.35); }
 """;
@@ -35,9 +36,13 @@ button.fq-boton:disabled label { color: rgba(255, 255, 255, 0.35); }
                 vacio.set_size_request (16, 16);
                 caja.pack_start (vacio, false, false, 0);
             }
-            var l = new Gtk.Label (app.nombre);
+            // loginwindow.strings: APP_NOT_RESPONDING_SUFFIX = « (not responding)»; la fila de una app colgada sale en rojo
+            var l = new Gtk.Label (app.no_responde ? app.nombre + " (not responding)" : app.nombre);
             l.xalign = 0;
             l.ellipsize = Pango.EllipsizeMode.END;
+            if (app.no_responde) {
+                l.get_style_context ().add_class ("fq-colgada");
+            }
             caja.pack_start (l, true, true, 0);
             add (caja);
         }
@@ -51,7 +56,7 @@ button.fq-boton:disabled label { color: rgba(255, 255, 255, 0.35); }
         uint repintar = 0;
         bool sin_prueba;
 
-        public Ventana (bool sin_prueba) {
+        public Ventana (bool sin_prueba, int seleccionar_pid = 0) {
             Object (type: Gtk.WindowType.TOPLEVEL);
             this.sin_prueba = sin_prueba;
             title = "Force Quit Applications";
@@ -141,11 +146,36 @@ button.fq-boton:disabled label { color: rgba(255, 255, 255, 0.35); }
             pantalla.window_opened.connect (() => { pedir_repintado (); });
             pantalla.window_closed.connect (() => { pedir_repintado (); });
 
+            if (seleccionar_pid > 0) {
+                marcar_colgado (seleccionar_pid);
+            }
             poblar ();
             al_escoger (null);
             show_all ();
             lista.unselect_all ();
             set_focus (null);
+            if (seleccionar_pid > 0) {
+                seleccionar (seleccionar_pid);
+            }
+        }
+
+        /** Marca como colgada y escoge la app dueña de ese pid (si ya hay una ventana abierta, la trae al frente). */
+        public void seleccionar (int pid) {
+            marcar_colgado (pid);
+            poblar ();
+            foreach (var h in lista.get_children ()) {
+                var f = h as Fila;
+                if (f == null) {
+                    continue;
+                }
+                for (int i = 0; i < f.app.pids.length; i++) {
+                    if (f.app.pids.index (i) == pid) {
+                        lista.select_row (f);
+                        break;
+                    }
+                }
+            }
+            present ();
         }
 
         void mover (int paso) {

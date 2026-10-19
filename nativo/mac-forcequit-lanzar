@@ -9,7 +9,8 @@ if [ -z "$MAC_FORCEQUIT_PYTHON" ] && [ -f "$HOME/.config/mint-macos/ventanas.act
   exec "$ventanas" forcequit "$@"
 fi
 bin="$HOME/.local/bin/mac-forcequit"
-if [ -z "$MAC_FORCEQUIT_PYTHON" ] && [ -x "$bin" ]; then
+[ -x "$bin" ] || bin="$(command -v mac-forcequit || true)"   # (las pruebas lo tienen en su prefijo)
+if [ -z "$MAC_FORCEQUIT_PYTHON" ] && [ -n "$bin" ] && [ -x "$bin" ]; then
   exec "$bin" "$@"
 fi
 applet="$HOME/.local/share/cinnamon/applets/applemenu@macos"

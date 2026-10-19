@@ -8,6 +8,8 @@ namespace MacForceQuit {
         public string nombre;
         public Gdk.Pixbuf? icono = null;
         public Array<int> pids = new Array<int> ();
+        /** Alguna de sus ventanas no contesta: Muffin la marcó (--seleccionar) o su proceso está detenido. */
+        public bool no_responde = false;
         /** Fynder es el Finder de aquí: en Catalina su botón dice «Relaunch» y no «Force Quit». */
         public bool es_fynder { get { return clase == "fynder"; } }
 
@@ -44,6 +46,32 @@ namespace MacForceQuit {
         } catch (Error e) {
         }
         return null;
+    }
+
+    /** Pids que Muffin dio por colgados (el ayudante de Cinnamon los manda con --seleccionar). */
+    HashTable<int, bool>? colgados = null;
+
+    public void marcar_colgado (int pid) {
+        if (colgados == null) {
+            colgados = new HashTable<int, bool> (direct_hash, direct_equal);
+        }
+        colgados.insert (pid, true);
+    }
+
+    /** El proceso está detenido (kill -STOP) o en espera de disco: no va a contestar nada. */
+    bool detenido (int pid) {
+        string contenido;
+        try {
+            FileUtils.get_contents ("/proc/%d/stat".printf (pid), out contenido);
+        } catch (FileError e) {
+            return false;
+        }
+        int cierre = contenido.last_index_of (")");
+        if (cierre < 0 || cierre + 2 >= contenido.length) {
+            return false;
+        }
+        char estado = contenido[cierre + 2];
+        return estado == 'T' || estado == 't';
     }
 
     /** Las aplicaciones con ventana, por orden alfabético y con Fynder al final (como el Finder en la Mac). */
@@ -85,6 +113,9 @@ namespace MacForceQuit {
                 }
             }
             app.agregar_pid (pid);
+            if ((colgados != null && colgados.contains (pid)) || detenido (pid)) {
+                app.no_responde = true;
+            }
         }
 
         var lista = new List<App> ();
