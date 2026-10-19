@@ -115,6 +115,23 @@ Categories=Settings;
 StartupWMClass=mac-settings
 Keywords=settings;preferences;system;control;
 EOF
+# Clic secundario en el Dock: todos los paneles por orden alfabético, como el menú de System Preferences de la Mac; cada uno
+# abre ese panel. X-Muelle-Actions es la lista de Muelle (el Plank de antes y los demás programas no la leen).
+if lista="$("$BIN" --lista 2>/dev/null)" && [ -n "$lista" ]; then
+  mapfile -t paneles < <(printf '%s\n' "$lista" | awk '{ id=$1; $1=""; sub(/^ +/, ""); print tolower($0) "\t" $0 "\t" id }' | LC_ALL=C sort | cut -f2-)
+  ids=""; grupos=""
+  for l in "${paneles[@]}"; do
+    nombre="${l%%$'\t'*}"; id="${l##*$'\t'}"
+    clave="panel-$(printf '%s' "$id" | tr -c 'A-Za-z0-9\n' '-')"
+    ids="$ids$clave;"
+    grupos="$grupos
+[Desktop Action $clave]
+Name=$nombre
+Exec=$BIN $id
+"
+  done
+  { echo "X-Muelle-Actions=$ids"; printf '%s\n' "$grupos"; } >> "$LANZADOR"
+fi
 update-desktop-database "$HOME/.local/share/applications" 2>/dev/null || true
 
 echo "System Preferences instalada: $BIN"
