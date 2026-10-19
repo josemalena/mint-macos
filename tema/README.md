@@ -38,3 +38,12 @@ Sin disco: los logos de las apps, Adwaita e Inter. Nada de Apple se guarda en el
 `sassc` y `glib-compile-resources` (`libglib2.0-dev-bin`) para compilar el
 tema base; `python3-pil` e ImageMagick para los íconos; `fsapfsmount` para el
 disco de la Mac.
+
+## Based on
+
+Constanza is based on [Mojave-gtk-theme](https://github.com/vinceliuice/Mojave-gtk-theme) © Vince Liuice (GPL-3.0): the GTK 2/3/4 theme, the Cinnamon
+panel, the window borders and the Plank dock theme are built from it at install time, and its cursors from
+[McMojave-circle](https://github.com/vinceliuice/McMojave-circle) © Vince Liuice (GPL-3.0). What Constanza adds (`gtk/_constanza*.scss|css` and the scripts)
+is released under the same license, GPL-3.0. Design based on macOS Catalina; Interface design © Apple Inc. macOS and Catalina are trademarks of Apple Inc.
+Independent project, not affiliated with or endorsed by Apple. Code © 2026 Jose Alberto de la Cruz Malena. The full list is in `CREDITOS.md`.
+

@@ -109,6 +109,26 @@ namespace MacOS {
     }
 
     /**
+     * Los componentes de mint-macos con lo que se basan, para la ventana «Credits» de About This Mac (un solo lugar visible para todo el sistema).
+     * Lo que sale de otro proyecto lo dice con su licencia; lo propio, solo con su autor.
+     */
+    public const string[] COMPONENTES = {
+        "Fynder — Based on Nemo © Linux Mint and the Nautilus authors (GPL-2.0+; extension library LGPL)",
+        "Muelle — Based on plank-reloaded © zquestz and Plank © Plank developers (GPL-3.0+)",
+        "Spotlyte — Based on Ulauncher © Aleksandr Gornostal (GPL-3.0)",
+        "Constanza (theme) — Based on Mojave-gtk-theme © Vince Liuice (GPL-3.0); cursors based on McMojave-circle © Vince Liuice (GPL-3.0)",
+        "slick-greeter-mac — Based on slick-greeter © Linux Mint and Canonical (GPL-3.0)",
+        "System Preferences, Activity Monitor, App Store, Force Quit, About This Mac, Lock Screen, Dock and menu services — Code © 2026 Jose Alberto de la Cruz Malena"
+    };
+
+    /** El About de todo el sistema: el de la función común y, además, la lista de componentes con lo que se basan. */
+    public Gtk.AboutDialog dialogo_creditos (string programa) {
+        var d = dialogo_acerca (programa, null, null, "computer");
+        d.add_credit_section ("Components", COMPONENTES);
+        return d;
+    }
+
+    /**
      * Le pone a la aplicación la acción app.about (el ítem «About <programa>» del menú de la app, que appmenu@macos busca por D-Bus) y que
      * abra un solo About, el de la función común.
      */

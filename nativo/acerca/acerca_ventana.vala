@@ -150,7 +150,7 @@ button.acerca-enlace label { font-family: ".SF NS"; font-size: 10px; opacity: 0.
             var mas = new Gtk.Button.with_label ("Credits");
             mas.relief = Gtk.ReliefStyle.NONE;
             mas.get_style_context ().add_class ("acerca-enlace");
-            mas.clicked.connect (() => { MacOS.dialogo_acerca ("About This Mac", null, null, "computer").present (); });
+            mas.clicked.connect (() => { MacOS.dialogo_creditos ("About This Mac").present (); });
             creditos.pack_start (mas, false, false, 0);
             var todo = new Gtk.Box (Gtk.Orientation.VERTICAL, 2);
             todo.pack_start (caja, false, false, 0);
