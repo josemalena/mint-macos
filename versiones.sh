@@ -29,9 +29,9 @@ FYNDER_UPSTREAM=https://github.com/linuxmint/nemo.git
 FYNDER_RAMA=master
 FYNDER_BASE=66eabf459bc86d03c24797274d0e3f60b9b7a7d8
 
-# mint-macos-dock: el Dock de Catalina (se instala como muelle desde el 19-10-2026; antes, plank)
-PLANK_NOMBRE=mint-macos-dock
-PLANK_REPO=https://github.com/josemalena/mint-macos-dock.git
+# Muelle: el Dock de Catalina (se instala como muelle desde el 19-10-2026; antes, plank)
+PLANK_NOMBRE=muelle
+PLANK_REPO=https://github.com/josemalena/muelle.git
 PLANK_HASH=03718def3582bba5c5b508d1fe9b3d597a9417e3
 PLANK_LOCAL=plank-reloaded
 PLANK_UPSTREAM=https://github.com/zquestz/plank-reloaded.git
@@ -82,7 +82,7 @@ declare -A RCLONE_SHA256=(
 
 # Paquetes de apt (requisitos.sh los instala).
 # Fynder: lista explícita de nemo-mac-e1 (build-dep nemo pide deb-src y trae
-# de más). mint-macos-dock (fork de plank-reloaded): lista de la sesión de Plank.
+# de más). Muelle (fork de plank-reloaded): lista de la sesión de Plank.
 COMPILAR=(
   build-essential pkg-config git meson ninja-build gettext
   gobject-introspection libgirepository1.0-dev libglib2.0-dev libglib2.0-dev-bin

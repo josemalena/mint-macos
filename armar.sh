@@ -148,7 +148,7 @@ callado meson install -C "$T/build/fynder" --destdir "$RAIZ"
 echo "  $(du -h "$T/build/fynder/src/fynder" | cut -f1) src/fynder, build $(cat "$T/fynder-build-number")"
 unset SOURCE_DATE_EPOCH
 
-paso "Compilar mint-macos-dock"
+paso "Compilar Muelle"
 # Sin el rpath el binario carga la libplank del sistema y no la del fork.
 LDFLAGS="-Wl,-rpath,$PREFIJO/lib/$ARCH" \
   callado meson setup "$T/build/plank" "$S_PLANK" --prefix="$PREFIJO" -Denable-apport=false

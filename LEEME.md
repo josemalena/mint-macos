@@ -13,7 +13,7 @@ Todo se instala para un usuario, en su `$HOME`. Lo único que pide `sudo` es
 - **Linux Mint 22** (Cinnamon) recién instalado, con el usuario ya creado.
 - **El disco de la Mac** conectado (interno o por USB). Se lee en **solo
   lectura**: nunca se escribe en él.
-- Internet (se bajan Fynder, mint-macos-dock, keyd, libfsapfs y los temas base).
+- Internet (se bajan Fynder, Muelle, keyd, libfsapfs y los temas base).
 - Para los glifos de la barra del Finder, **una vez y opcional**, la Mac
   encendida en macOS (ver «Glifos de la barra»).
 
@@ -67,7 +67,7 @@ parámetros: `--disco /dev/sdb2 --volumen-sistema 5 --volumen-datos 1
 
 En orden:
 
-1. `construir.sh`: compila **Fynder** y **mint-macos-dock** (el Dock) en `~/.local`, cada
+1. `construir.sh`: compila **Fynder** y **Muelle** (el Dock) en `~/.local`, cada
    uno en el hash de su repo que fija `versiones.sh`.
 2. `desde-mac.sh`: saca de la Mac las fuentes San Francisco, la manzana, los
    íconos del Finder y del Dock, y el fondo de Catalina (`--cuadro 7`, el
@@ -151,7 +151,7 @@ Lo que hay que saber:
 
 Devuelve el tema, la barra, los atajos, el menú global, el administrador de
 archivos y el Dock a como estaban antes de la última instalación. Fynder y
-mint-macos-dock quedan en `~/.local`, sin usarse. Lo de `requisitos.sh` (keyd,
+Muelle quedan en `~/.local`, sin usarse. Lo de `requisitos.sh` (keyd,
 libfsapfs, los paquetes) no se quita. Los enlaces `/Users` y `/Volumes` y la carpeta
 `/Applications` (vacía) se quitan aparte con `sudo ./requisitos.sh --quitar-rutas-mac`, que solo borra
 los que creó él.
@@ -205,7 +205,7 @@ hay ni uno en el repo** (`.gitignore` bloquea `.icns`, `.png`, `.ttf`, `.otf`,
 
 Todo lo de afuera va en una versión fija, y todas están en un solo archivo,
 `versiones.sh`, que los scripts cargan con `source`: el commit de cada fork
-(Fynder, mint-macos-dock, slick-greeter-mac, Spotlyte) con su upstream y su
+(Fynder, Muelle, slick-greeter-mac, Spotlyte) con su upstream y su
 base, lo que se baja en una versión fija (keyd, libfsapfs, Magic Lamp,
 Mojave-gtk-theme, rclone) y los paquetes de apt de `requisitos.sh`. Ningún otro
 script fija un hash.
@@ -232,7 +232,7 @@ su cuenta.
 | Repo | Qué es | Licencia |
 |---|---|---|
 | [josemalena/fynder](https://github.com/josemalena/fynder) (privado) | El administrador de archivos (fork de Nemo) | GPL-2+ |
-| [josemalena/mint-macos-dock](https://github.com/josemalena/mint-macos-dock) | El Dock (fork de zquestz/plank-reloaded; se instala como `plank`) | GPL-3 |
+| [josemalena/muelle](https://github.com/josemalena/muelle) | El Dock (fork de zquestz/plank-reloaded; se instala como `muelle`) | GPL-3 |
 | [josemalena/mint-macos-greeter](https://github.com/josemalena/mint-macos-greeter) | La pantalla de inicio y de bloqueo (fork de linuxmint/slick-greeter; se instala como `slick-greeter-mac`) | GPL-3 |
 | [Magic Lamp](https://github.com/klangman/CinnamonMagicLamp) (klangman, Cinnamon Spices) | El efecto genio al minimizar; se baja en un commit fijo, no se copia | GPL-3 (su `LICENSE` va con ella) |
 | este | Tema, applets, teclado, menú global, instaladores | ver `tema/CREDITOS.md` |

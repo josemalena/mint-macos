@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Compila e instala en ~/.local, sin sudo, los dos programas propios:
 #   - Fynder: el administrador de archivos con la cara del Finder (fork de Nemo)
-#   - mint-macos-dock: el Dock de Catalina (fork de zquestz/plank-reloaded), que desde el
+#   - Muelle: el Dock de Catalina (fork de zquestz/plank-reloaded), que desde el
 #     19-10-2026 se instala como «muelle» (Muelle, el nombre que le dio José). El plank de antes
 #     queda como «plank-viejo», con su libplank y sus docklets, para volver atrás.
 # Cada uno se clona de su repo público en el hash fijado en versiones.sh: lo
@@ -87,7 +87,7 @@ EOF
 }
 
 if [ "$QUE" = todo ] || [ "$QUE" = plank ]; then
-  paso "mint-macos-dock ($PLANK_HASH)"
+  paso "Muelle ($PLANK_HASH)"
   clonar "$PLANK_REPO" "$PLANK_HASH" "$CACHE/src/plank-reloaded"
   B="$CACHE/build/plank-reloaded"
   guardar_plank_viejo

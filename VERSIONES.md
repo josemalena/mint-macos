@@ -255,9 +255,9 @@ Cada fork, el commit que se compila y los parches que lleva encima de su upstrea
 | `bed97e67` | 2026-10-19 | feat(dock): el menú del Finder en el Dock — fynder --finder-action y X-Muelle-Actions |
 | `f88274b4` | 2026-10-19 | fix(statusbar): en el diseño Finder no van los botones de abajo de la barra lateral |
 
-## mint-macos-dock
+## muelle
 
-- Fork: https://github.com/josemalena/mint-macos-dock.git
+- Fork: https://github.com/josemalena/muelle.git
 - Upstream: https://github.com/zquestz/plank-reloaded.git, rama `master`
 - Commit: `03718def3582bba5c5b508d1fe9b3d597a9417e3` (2026-10-19, feat(menú): X-Muelle-Actions, la lista de acciones del Dock con separadores)
 - Base: `e8e2b1fe2e9b13664b1402e2e68246a974ea1a4b` (0.11.176), 2026-10-09, Bump version to 0.11.176

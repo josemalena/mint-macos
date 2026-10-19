@@ -9,7 +9,7 @@
 #                                            (solo lo que creó él; /Applications, vacía)
 #
 # Qué pone:
-#   - los paquetes de apt para compilar Fynder (fork de Nemo) y mint-macos-dock,
+#   - los paquetes de apt para compilar Fynder (fork de Nemo) y Muelle,
 #     y los que usan en ejecución el tema, los applets y el menú global;
 #   - keyd (⌘ y ⌥ como en macOS), compilado: no está en Mint 22;
 #   - fsapfsinfo y fsapfsmount (leer el disco de la Mac), compilados: la

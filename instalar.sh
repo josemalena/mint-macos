@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Instala mint-macos completo para el usuario que lo corre, sin sudo (lo que
 # pide sudo va antes, en requisitos.sh). Orden:
-#   1. construir.sh   Fynder y mint-macos-dock (el Dock) en ~/.local, en hashes fijos
+#   1. construir.sh   Fynder y Muelle (el Dock) en ~/.local, en hashes fijos
 #   2. desde-mac.sh   lo de Apple, sacado del disco de la Mac (local)
 #   3. install.sh     teclado como macOS (keyd, kitty, VS Code), applets y el
 #                     lado de las apps del menú global
@@ -93,11 +93,11 @@ for c in fsapfsmount keyd sassc convert rsync git $($SIN_COMPILAR || echo meson 
 [ -z "$FALTA" ] && echo "  están" || { echo "  ✗ faltan:$FALTA — corre antes: sudo ./requisitos.sh"; exit 1; }
 
 if $SIN_COMPILAR; then
-  paso "1. Fynder y mint-macos-dock: ya instalados (--sin-compilar)"
+  paso "1. Fynder y Muelle: ya instalados (--sin-compilar)"
   source "$REPO/tema/dock.sh"
   for b in fynder "$DOCK_BIN"; do [ -x "$HOME/.local/bin/$b" ] || { echo "  ✗ falta ~/.local/bin/$b"; exit 1; }; done
 else
-  paso "1. Compilar Fynder y mint-macos-dock";  "$REPO/construir.sh"
+  paso "1. Compilar Fynder y Muelle";  "$REPO/construir.sh"
 fi
 
 if $SIN_MAC; then
@@ -165,7 +165,7 @@ cat > "$HOME/.config/autostart/$DOCK_BIN.desktop" <<EOF
 [Desktop Entry]
 Type=Application
 Name=$NOMBRE_DOCK
-Comment=El Dock (mint-macos-dock)
+Comment=El Dock (Muelle)
 Exec=$HOME/.local/bin/$DOCK_BIN
 X-GNOME-Autostart-enabled=true
 EOF

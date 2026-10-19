@@ -13,7 +13,7 @@ Cinnamon:
 
 | Pieza | En Wayland | Por qué |
 |---|---|---|
-| **El Dock** (mint-macos-dock, de plank-reloaded) | **No arranca** | plank-reloaded se niega a correr en Wayland y no tiene plan de soportarlo |
+| **El Dock** (Muelle, de plank-reloaded) | **No arranca** | plank-reloaded se niega a correr en Wayland y no tiene plan de soportarlo |
 | **Menú global**: Qt, Chrome/Edge/Electron/VS Code, Firefox/Thunderbird | **Se pierde** | lo publican por XID al registrador, o por el protocolo de KDE que Muffin no tiene |
 | **Menú global**: apps GTK3 | **Posible, con trabajo** | Muffin guarda las propiedades GMenuModel que GTK le pasa por gtk-shell; el applet tendría que leerlas de la MetaWindow |
 | **keyd**: ⌘ y ⌥ globales | **Sigue igual** | trabaja con evdev/uinput, debajo del compositor |
