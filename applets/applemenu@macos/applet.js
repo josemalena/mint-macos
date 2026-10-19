@@ -54,6 +54,7 @@ const ATAJO_FORCE_QUIT = "⌥⌘⎋";
 const ATAJO_FORCE_QUIT_APP = "⌥⇧⌘⎋";
 const ATAJO_LOCK = "⌃⌘Q";
 const ATAJO_LOGOUT = "⇧⌘Q";
+const ATAJOS_MENU = { lock: ATAJO_LOCK, logo: ATAJO_LOGOUT };
 
 // Cuántos documentos enseña «Recent Items», como la Mac por defecto.
 const RECIENTES = 10;
@@ -109,6 +110,7 @@ class AppleMenuApplet extends Applet.IconApplet {
 
     this._ventanaActiva = null;
     this._conShift = false;
+    this._conAlt = false;
 
     this._buildMenu();
     this._syncIcon();
@@ -122,7 +124,9 @@ class AppleMenuApplet extends Applet.IconApplet {
         this._ventanaActiva = global.display.focus_window;
         let [, , mods] = global.get_pointer();
         this._conShift = (mods & Clutter.ModifierType.SHIFT_MASK) !== 0;
+        this._conAlt = (mods & Clutter.ModifierType.MOD1_MASK) !== 0;
         this._syncForceQuit();
+        this._syncAlternos();
         this._llenarRecientes();
         // Si el foco pasa a otra ventana (⌘Tab, clic en otra app…), el menú
         // entero se cierra, con su submenú.
@@ -260,6 +264,14 @@ class AppleMenuApplet extends Applet.IconApplet {
       lock: () => spawn("cinnamon-screensaver-command -l"),
       logo: this._despuesDeCerrar(() => this._Dialog("logoff")),
     };
+    // Lo que hace cada alterno (⌥/⇧ al abrir o con el menú abierto). Force Quit %@ (exit) lo hace _onForceQuit.
+    const alternas = {
+      spro: () => spawn("mintreport"),
+      rest: () => spawn("systemctl reboot"),
+      shut: () => spawn("systemctl poweroff"),
+      rlgo: () => spawn("cinnamon-session-quit --logout --force --no-prompt"),
+    };
+    this._alternos = [];
     let ultimoSeparador = true;
     for (let it of items) {
       if (it.oculto || it.alterno_de) continue;            // los alternos (⌥, ⇧) los resuelve cada renglón; Location solo con redes
@@ -280,10 +292,17 @@ class AppleMenuApplet extends Applet.IconApplet {
         continue;
       }
       let accion = acciones[it.id];
-      if (!accion) { ultimoSeparador = true; continue; }    // un id que esta pieza no sabe hacer: no se pinta
+      if (!accion) { ultimoSeparador = true; continue; }
+      let alts = items.filter(x => x.alterno_de === it.id && alternas[x.id]);
+      if (alts.length) {
+        let normal = accion, id = it.id;
+        accion = () => { let a = this._alternoVigente(id); if (a) alternas[a.id](); else normal(); };
+      }    // un id que esta pieza no sabe hacer: no se pinta
       let etiqueta = it.id === "abtm" ? (it.texto === "About This Mac" ? etiquetaAcerca() : it.texto) : perfil.texto(it, { "%@": nombre });
       let r = this._item(etiqueta, it.atajo || ATAJOS[it.id] || null, accion);
       if (it.id === "apwn") this._forceQuit = r;
+      let alts2 = items.filter(x => x.alterno_de === it.id && alternas[x.id]);
+      if (alts2.length) this._alternos.push({ id: it.id, primario: it, alts: alts2, renglon: r, nombre: nombre });
     }
     while (this.menu._getMenuItems().length && this.menu._getMenuItems().slice(-1)[0] instanceof PopupMenu.PopupSeparatorMenuItem)
       this.menu._getMenuItems().slice(-1)[0].destroy();
@@ -379,8 +398,38 @@ class AppleMenuApplet extends Applet.IconApplet {
     if (tecla === Clutter.KEY_Shift_L || tecla === Clutter.KEY_Shift_R) {
       this._conShift = apretada;
       this._syncForceQuit();
+      this._syncAlternos();
+    } else if (tecla === Clutter.KEY_Alt_L || tecla === Clutter.KEY_Alt_R) {
+      this._conAlt = apretada;
+      this._syncAlternos();
     }
     return Clutter.EVENT_PROPAGATE;
+  }
+
+  // Los modificadores que están oprimidos, como los escribe el perfil en mods_alterno («⌥», «⇧», «⌥⇧»).
+  _modsActuales() {
+    return (this._conAlt ? "⌥" : "") + (this._conShift ? "⇧" : "");
+  }
+
+  _alternoVigente(id) {
+    let e = (this._alternos || []).find(x => x.id === id);
+    if (!e) return null;
+    let mods = this._modsActuales();
+    return e.alts.find(a => a.mods_alterno === mods) || null;
+  }
+
+  // Con ⌥ (o ⇧) los ítems cambian a su alterno del perfil: About This Mac → System Information…, Restart… → Restart, Shut Down… →
+  // Shut Down, Log Out → Log Out sin preguntar. Force Quit… → Force Quit %@ (con ⇧) lo resuelve _syncForceQuit.
+  _syncAlternos() {
+    let perfil = null;
+    try { perfil = imports.ui.appletManager.applets["applemenu@macos"].perfil; } catch (e) {}
+    for (let e of this._alternos || []) {
+      let alt = this._alternoVigente(e.id);
+      let it = alt || e.primario;
+      let etiqueta = e.id === "abtm" && !alt && it.texto === "About This Mac" ? etiquetaAcerca() : perfil.texto(it, { "%@": e.nombre });
+      e.renglon.label.set_text(etiqueta);
+      if (e.renglon._atajo) e.renglon._atajo.set_text(it.atajo || ATAJOS_MENU[e.id] || "");
+    }
   }
 
   _onForceQuit() {

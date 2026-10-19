@@ -12,6 +12,7 @@ prueba() {
   cat > "$base/menu-apple.json" <<'J'
 {"id":"menu-apple","items":[
  {"id":"abtm","texto":"About This Test Machine"},
+ {"id":"spro","texto":"Test System Information…","alterno_de":"abtm","mods_alterno":"⌥"},
  {"separador":true},
  {"id":"sysp","texto":"Test Settings…"},
  {"id":"soft","texto":"Test Store…"},
@@ -20,7 +21,9 @@ prueba() {
  {"separador":true},
  {"id":"slep","texto":"Doze"},
  {"id":"rrst","texto":"Test Restart…"},
+ {"id":"rest","texto":"Test Restart Now","alterno_de":"rrst","mods_alterno":"⌥"},
  {"id":"rsdn","texto":"Test Shut Down…"},
+ {"id":"shut","texto":"Test Shut Down Now","alterno_de":"rsdn","mods_alterno":"⌥"},
  {"separador":true},
  {"id":"lock","texto":"Test Lock","atajo":"⌃⌘Q"},
  {"id":"logo","texto":"Test Log Out %@…","atajo":"⇧⌘Q"}]}
@@ -50,6 +53,10 @@ J
     case "$r" in *"$t"*) ;; *) falla "el menú Apple no trae «$t» del perfil: $r" ;; esac
   done
   case "$r" in *"Test Log Out"*"…"*) paso "Log Out con el nombre de la persona" ;; *) falla "falta «Test Log Out …»: $r" ;; esac
+  # Con ⌥ los ítems pasan a sus alternos del perfil; al soltarlo, vuelven.
+  r="$(ev "let a=imports.ui.appletManager.getRunningInstancesForUuid('applemenu@macos')[0]; a._conAlt=true; a._syncAlternos(); let con=a.menu._getMenuItems().filter(i=>i.label).map(i=>i.label.text).join('|'); a._conAlt=false; a._syncAlternos(); let sin=a.menu._getMenuItems().filter(i=>i.label).map(i=>i.label.text).join('|'); con+'##'+sin")"
+  paso "alternos: $r"
+  case "$r" in *"Test System Information…"*"Test Restart Now"*"Test Shut Down Now"*"##"*"About This Test Machine"*"Test Restart…"*) paso "con ⌥ cambian y al soltarlo vuelven" ;; *) falla "los alternos con ⌥ no funcionan: $r" ;; esac
   r="$(ev "let a=imports.ui.appletManager.getRunningInstancesForUuid('appmenu@macos')[0]; a._buildMenu(); a._updateMenuLabels(false); [a.hideItem.label.text, a.quitItem.label.text].join('|')")"
   paso "menú de la app: $r"
   case "$r" in *"Conceal "*"|Finish "*) ;; *) falla "el menú de la app no usa el perfil: $r" ;; esac
