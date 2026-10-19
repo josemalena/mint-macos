@@ -7,9 +7,9 @@ Cada fork, el commit que se compila y los parches que lleva encima de su upstrea
 
 - Fork: https://github.com/josemalena/fynder.git
 - Upstream: https://github.com/linuxmint/nemo.git, rama `master`
-- Commit: `12e7942ec4a187ad2b4114105a30dd3c6efe7773` (2026-10-18, fix(apps de la Mac): el .app se reconoce al abrirlo, sin esperar al tamaño)
+- Commit: `fdde0498517e1d00db8bb2bd2597fb208fea5bb4` (2026-10-18, feat(preferencias): Advanced como en Catalina, con sus tres funciones)
 - Base: `66eabf459bc86d03c24797274d0e3f60b9b7a7d8` (master.lmde7), 2026-10-06, nemo-icon-dnd.c: Fix reporting a successful drag result.
-- Parches: 209
+- Parches: 214
 
 | Commit | Fecha | Asunto |
 |---|---|---|
@@ -222,6 +222,11 @@ Cada fork, el commit que se compila y los parches que lleva encima de su upstrea
 | `c662f8f8` | 2026-10-18 | fix(selector): el módulo de GTK pasa la carpeta y el archivo que puso el programa |
 | `0169a655` | 2026-10-18 | feat(apps de la Mac): abrir un .app muestra su interfaz con mac-visor-nib |
 | `12e7942e` | 2026-10-18 | fix(apps de la Mac): el .app se reconoce al abrirlo, sin esperar al tamaño |
+| `f171c117` | 2026-10-18 | fix(papelera): la alerta de Empty Trash como en Catalina |
+| `2a0e337e` | 2026-10-18 | feat(lateral): el menú contextual del Finder en la barra lateral |
+| `b492ed38` | 2026-10-18 | feat(menú): los atajos del menú View en el menú global |
+| `e145286f` | 2026-10-18 | feat(menú): Add to Dock en el menú File, con ^⇧⌘T |
+| `fdde0498` | 2026-10-18 | feat(preferencias): Advanced como en Catalina, con sus tres funciones |
 
 ## mint-macos-dock
 
