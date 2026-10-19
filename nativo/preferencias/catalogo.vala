@@ -44,13 +44,69 @@ namespace Preferencias {
     }
 
     /**
+     * Los ids de los paneles que el perfil de la versión activa marca «ocultar» (perfiles/adaptaciones.json, lo aprobado por José:
+     * Siri, Wallet, Touch ID, Sidecar, Family Sharing, Screen Time…). No salen en la cuadrícula ni en la búsqueda, ni en gris.
+     * Sin perfil no se oculta nada.
+     */
+    static Json.Object? leer_json (string ruta) {
+        try {
+            var p = new Json.Parser ();
+            p.load_from_file (ruta);
+            var r = p.get_root ();
+            return r != null && r.get_node_type () == Json.NodeType.OBJECT ? r.get_object () : null;
+        } catch (Error e) {
+            return null;
+        }
+    }
+
+    /** apps/system-preferences.json del perfil de la versión de macOS activa (la de esta sesión, o la escogida, o Catalina); null si no hay. */
+    static Json.Object? perfil_system_preferences () {
+        string? version = null;
+        foreach (var ruta in new string[] { Path.build_filename (Environment.get_user_runtime_dir (), "mint-macos", "macos.json"),
+                                            Path.build_filename (Environment.get_user_config_dir (), "mint-macos", "macos.json") }) {
+            var o = leer_json (ruta);
+            if (o != null && o.has_member ("version")) {
+                version = o.get_string_member ("version");
+                break;
+            }
+        }
+        return leer_json (Path.build_filename (Environment.get_user_data_dir (), "mint-macos", "macos", version ?? "catalina-10.15",
+                                               "apps", "system-preferences.json"));
+    }
+
+    HashTable<string, bool> paneles_ocultos () {
+        var ocultos = new HashTable<string, bool> (str_hash, str_equal);
+        var perfil = perfil_system_preferences ();
+        if (perfil == null || !perfil.has_member ("grupos")) {
+            return ocultos;
+        }
+        foreach (var g in perfil.get_array_member ("grupos").get_elements ()) {
+            var grupo = g.get_object ();
+            if (!grupo.has_member ("paneles")) {
+                continue;
+            }
+            foreach (var n in grupo.get_array_member ("paneles").get_elements ()) {
+                var pn = n.get_object ();
+                if (pn.has_member ("ocultar") && pn.get_boolean_member ("ocultar") && pn.has_member ("id")) {
+                    ocultos[pn.get_string_member ("id")] = true;
+                }
+            }
+        }
+        return ocultos;
+    }
+
+    /**
      * Los grupos con los paneles que de verdad se pueden servir: el orden y los bloques de Catalina, y al final «Advanced»
      * (lo que Catalina no tiene, detrás de un solo botón que abre el cinnamon-settings de siempre).
      */
     List<GrupoPaneles> armar_paneles () {
         var grupos = new List<GrupoPaneles> ();
         GrupoPaneles? actual = null;
+        var ocultos = paneles_ocultos ();
         foreach (var d in catalogo ()) {
+            if (ocultos.contains (d.id)) {
+                continue;
+            }
             Panel? p = crear_panel (d.id);
             if (p == null) {
                 var py = new PanelPython (d);
