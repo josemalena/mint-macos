@@ -173,6 +173,14 @@ def pintar(im, color=None):
     return gris
 
 
+def recoloreable(im):
+    """El glifo como PNG simbólico de GTK (nombre.symbolic.png): rojo puro con el alfa del dibujo; GTK pone en el rojo el color
+    de texto del widget, así que el mismo ícono sirve en un tema oscuro (claro) y en uno claro (oscuro)."""
+    rojo = Image.new('RGBA', im.size, (255, 0, 0, 0))
+    rojo.putalpha(im.getchannel('A'))
+    return rojo
+
+
 def generar(lista, tamanos, carpeta, simbolico):
     dirs, hechos, faltan = [], 0, []
     for t, esc in tamanos:
@@ -220,11 +228,12 @@ def generar_barra(tamanos, carpeta):
                 f = lado / max(w, h); im = im.resize((max(1, int(w * f)), max(1, int(h * f))), Image.LANCZOS)
             lienzo = Image.new('RGBA', (lado, lado), (0, 0, 0, 0))
             lienzo.paste(im, ((lado - im.size[0]) // 2, (lado - im.size[1]) // 2), im)
-            im = pintar(lienzo, RGB_BARRA)
+            # Recoloreables: el color sale del CSS de Fynder (@fynder_boton_fg, y @fynder_boton_on_fg en el segmento escogido).
+            im = recoloreable(lienzo)
             for n in nombres:
-                im.save(os.path.join(TEMA, sub, n + '.png'))
+                im.save(os.path.join(TEMA, sub, n + '.symbolic.png'))
             if origen in ELEGIDOS:
-                pintar(lienzo, RGB_ELEGIDO).save(os.path.join(TEMA, sub, ELEGIDOS[origen] + '.png'))
+                im.save(os.path.join(TEMA, sub, ELEGIDOS[origen] + '.symbolic.png'))
             hechos += (t, esc) == tamanos[0]
     return [], hechos
 
