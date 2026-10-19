@@ -139,6 +139,73 @@ namespace Preferencias {
         }
     }
 
+    /** Un atajo de App Shortcuts: «con este atajo, activa el comando de menú con este nombre en esa app». */
+    class AtajoApp : Object {
+        public string app = "*";         // «*» (All Applications) o el id del .desktop
+        public string nombre_app = "All Applications";
+        public string titulo = "";
+        public string atajo = "";        // «⇧⌘P»: ⌘ es Ctrl con keyd
+
+        public static string ruta () {
+            return Environment.get_variable ("MINT_ATAJOS_APPS")
+                ?? Path.build_filename (Environment.get_user_config_dir (), "mint-macos", "atajos-apps.json");
+        }
+
+        public static GenericArray<AtajoApp> cargar () {
+            var lista = new GenericArray<AtajoApp> ();
+            try {
+                var p = new Json.Parser ();
+                p.load_from_file (ruta ());
+                var raiz = p.get_root ().get_object ();
+                if (!raiz.has_member ("atajos")) return lista;
+                foreach (var e in raiz.get_array_member ("atajos").get_elements ()) {
+                    var o = e.get_object ();
+                    var a = new AtajoApp ();
+                    a.app = o.get_string_member ("app");
+                    a.nombre_app = o.has_member ("nombre") ? o.get_string_member ("nombre") : a.app;
+                    a.titulo = o.get_string_member ("titulo");
+                    a.atajo = o.get_string_member ("atajo");
+                    lista.add (a);
+                }
+            } catch (GLib.Error e) {
+            }
+            return lista;
+        }
+
+        public static void guardar (GenericArray<AtajoApp> lista) {
+            var b = new Json.Builder ();
+            b.begin_object ();
+            b.set_member_name ("version").add_int_value (1);
+            b.set_member_name ("atajos").begin_array ();
+            for (int i = 0; i < lista.length; i++) {
+                b.begin_object ();
+                b.set_member_name ("app").add_string_value (lista[i].app);
+                b.set_member_name ("nombre").add_string_value (lista[i].nombre_app);
+                b.set_member_name ("titulo").add_string_value (lista[i].titulo);
+                b.set_member_name ("atajo").add_string_value (lista[i].atajo);
+                b.end_object ();
+            }
+            b.end_array ();
+            b.end_object ();
+            var g = new Json.Generator ();
+            g.root = b.get_root ();
+            g.pretty = true;
+            try {
+                DirUtils.create_with_parents (Path.get_dirname (ruta ()), 0755);
+                FileUtils.set_contents (ruta (), g.to_data (null));
+            } catch (GLib.Error e) {
+                warning ("atajos-apps: %s", e.message);
+            }
+        }
+    }
+
+    class FilaUsuario : Gtk.ListBoxRow {
+        public AtajoApp atajo;
+        public FilaUsuario (AtajoApp a) {
+            atajo = a;
+        }
+    }
+
     class FilaCategoria : Gtk.ListBoxRow {
         public string nombre_cat = "";
     }
@@ -534,9 +601,13 @@ namespace Preferencias {
             if (categoria == "App Shortcuts") {
                 var botones = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 0);
                 botones.get_style_context ().add_class ("linked");
-                foreach (var t in new string[] { "+", "−" }) {
-                    botones.pack_start (gris (new Gtk.Button.with_label (t)), false, false, 0);
-                }
+                var mas = new Gtk.Button.with_label ("+");
+                mas.clicked.connect (() => { if (hoja_nuevo_atajo ()) rellenar_apps (); });
+                botones.pack_start (mas, false, false, 0);
+                boton_menos = new Gtk.Button.with_label ("−");
+                boton_menos.sensitive = false;
+                boton_menos.clicked.connect (quitar_atajo_app);
+                botones.pack_start (boton_menos, false, false, 0);
                 pie.pack_start (botones, false, false, 0);
             } else {
                 pie.pack_end (gris (new Gtk.Button.with_label ("Restore Defaults")), false, false, 0);
@@ -576,7 +647,254 @@ namespace Preferencias {
             return fila;
         }
 
+        Gtk.ListBox? lista_apps = null;
+        Gtk.Button? boton_menos = null;
+
+        /** App Shortcuts: «All Applications» con lo que viene de fábrica (en gris) y los atajos que armó la persona, por app. */
+        Gtk.Widget lista_app_shortcuts () {
+            lista_apps = new Gtk.ListBox ();
+            lista_apps.set_selection_mode (Gtk.SelectionMode.SINGLE);
+            lista_apps.row_selected.connect ((fila) => {
+                if (boton_menos != null) boton_menos.sensitive = fila is FilaUsuario;
+            });
+            rellenar_apps ();
+            return lista_apps;
+        }
+
+        void rellenar_apps () {
+            foreach (var h in lista_apps.get_children ()) lista_apps.remove (h);
+            lista_apps.add (fila_atajo ("▾ All Applications", null, 2, 0, 2));
+            var de_fabrica = fila_atajo ("Show Help menu", "⇧⌘/", 1, 1);
+            gris_k (de_fabrica, "This shortcut is not available on this computer.");
+            lista_apps.add (de_fabrica);
+            var todos = AtajoApp.cargar ();
+            // por app: primero All Applications, luego las demás en orden de aparición
+            var apps = new GenericArray<string> ();
+            apps.add ("*");
+            for (int i = 0; i < todos.length; i++) {
+                bool ya = false;
+                for (int k = 0; k < apps.length; k++) if (apps[k] == todos[i].app) ya = true;
+                if (!ya) apps.add (todos[i].app);
+            }
+            for (int k = 0; k < apps.length; k++) {
+                bool grupo_puesto = apps[k] == "*";
+                for (int i = 0; i < todos.length; i++) {
+                    if (todos[i].app != apps[k]) continue;
+                    if (!grupo_puesto) {
+                        lista_apps.add (fila_atajo ("▾ " + todos[i].nombre_app, null, 2, 0, 2));
+                        grupo_puesto = true;
+                    }
+                    var fila = new FilaUsuario (todos[i]);
+                    fila.add (fila_atajo (todos[i].titulo, todos[i].atajo, 2, 1));
+                    lista_apps.add (fila);
+                }
+            }
+            lista_apps.show_all ();
+        }
+
+        void quitar_atajo_app () {
+            var fila = lista_apps.get_selected_row () as FilaUsuario;
+            if (fila == null) return;
+            var todos = AtajoApp.cargar ();
+            for (int i = 0; i < todos.length; i++) {
+                if (todos[i].app == fila.atajo.app && todos[i].titulo == fila.atajo.titulo && todos[i].atajo == fila.atajo.atajo) {
+                    todos.remove_index (i);
+                    break;
+                }
+            }
+            AtajoApp.guardar (todos);
+            rellenar_apps ();
+        }
+
+        /** La combinación que se oprimió, escrita como en la Mac (⌃⌥⇧⌘ y la tecla); «» si no es una combinación. Con keyd, ⌘ llega como
+         *  Ctrl (o como Super si no tiene regla) y ⌃⌘ como Ctrl+Super: Ctrl o Super solos cuentan como ⌘. */
+        static string combinacion_mac (Gdk.EventKey ev) {
+            uint k = ev.keyval;
+            if (k == Gdk.Key.Control_L || k == Gdk.Key.Control_R || k == Gdk.Key.Shift_L || k == Gdk.Key.Shift_R
+                || k == Gdk.Key.Alt_L || k == Gdk.Key.Alt_R || k == Gdk.Key.Super_L || k == Gdk.Key.Super_R
+                || k == Gdk.Key.Meta_L || k == Gdk.Key.Meta_R || k == Gdk.Key.ISO_Level3_Shift) return "";
+            bool ctrl = (ev.state & Gdk.ModifierType.CONTROL_MASK) != 0;
+            bool sup = (ev.state & (Gdk.ModifierType.SUPER_MASK | Gdk.ModifierType.META_MASK)) != 0;
+            bool alt = (ev.state & Gdk.ModifierType.MOD1_MASK) != 0;
+            bool mayus = (ev.state & Gdk.ModifierType.SHIFT_MASK) != 0;
+            var nombre = Gdk.keyval_name (Gdk.keyval_to_lower (k)) ?? "";
+            string tecla;
+            if (nombre.has_prefix ("F") && nombre.length <= 3 && int.parse (nombre.substring (1)) > 0) {
+                tecla = nombre;
+            } else {
+                switch (nombre) {
+                case "space": tecla = "Space"; break;
+                case "Return": tecla = "↩"; break;
+                case "Tab": case "ISO_Left_Tab": tecla = "⇥"; break;
+                case "Escape": tecla = "⎋"; break;
+                case "BackSpace": tecla = "⌫"; break;
+                case "Delete": tecla = "⌦"; break;
+                case "Left": tecla = "←"; break;
+                case "Right": tecla = "→"; break;
+                case "Up": tecla = "↑"; break;
+                case "Down": tecla = "↓"; break;
+                default:
+                    unichar u = Gdk.keyval_to_unicode (Gdk.keyval_to_lower (k));
+                    if (u < 33) return "";
+                    tecla = u.to_string ().up ();
+                    break;
+                }
+            }
+            // sin ningún modificador solo valen las teclas de función
+            if (!ctrl && !sup && !alt && !mayus && !tecla.has_prefix ("F")) return "";
+            var sb = new StringBuilder ();
+            if (ctrl && sup) sb.append ("⌃");
+            if (alt) sb.append ("⌥");
+            if (mayus) sb.append ("⇧");
+            if (ctrl || sup) sb.append ("⌘");
+            sb.append (tecla);
+            return sb.str;
+        }
+
+        /** ¿Ya lo usa otra acción? Las de las listas de Shortcuts y las que la persona ya armó para esa app o para todas. */
+        bool atajo_en_uso (string atajo, string app) {
+            foreach (var cat in new string[] { "Launchpad & Dock", "Display", "Mission Control", "Keyboard", "Screenshots", "Services",
+                                                "Spotlight", "Accessibility" }) {
+                foreach (var d in filas_de (cat)) {
+                    if (!d.grupo && d.atajo == atajo) return true;
+                }
+            }
+            if (atajo == "⌥⌘Space" || atajo == "⌘Space") return true;
+            var todos = AtajoApp.cargar ();
+            for (int i = 0; i < todos.length; i++) {
+                if (todos[i].atajo == atajo && (todos[i].app == app || todos[i].app == "*" || app == "*")) return true;
+            }
+            return false;
+        }
+
+        /** La hoja de «+»: Application, Menu Title y Keyboard Shortcut (el nib de Keyboard, ventana de 408×195). */
+        bool hoja_nuevo_atajo () {
+            var d = new Gtk.Dialog ();
+            d.transient_for = ventana;
+            d.modal = true;
+            d.set_decorated (false);
+            d.get_style_context ().add_class ("mp-hoja");
+            var caja = d.get_content_area () as Gtk.Box;
+            margenes (caja, 18, 18, 18, 18);
+            var g = new Gtk.Grid ();
+            g.column_spacing = 10;
+            g.row_spacing = 10;
+            var etiquetas = new string[] { "Application:", "Menu Title:", "", "Keyboard Shortcut:" };
+            for (int i = 0; i < etiquetas.length; i++) {
+                if (etiquetas[i] == "") continue;
+                var l = etiqueta_fila (etiquetas[i]);
+                g.attach (l, 0, i, 1, 1);
+            }
+            var apps = new Gtk.ComboBoxText ();
+            apps.append ("*", "All Applications");
+            var vistas = new HashTable<string, string> (str_hash, str_equal);
+            var todas = AppInfo.get_all ();
+            todas.sort ((a, b) => strcmp (a.get_display_name ().casefold (), b.get_display_name ().casefold ()));
+            foreach (var ai in todas) {
+                if (!ai.should_show () || ai.get_id () == null) continue;
+                apps.append (ai.get_id (), ai.get_display_name ());
+                vistas[ai.get_id ()] = ai.get_display_name ();
+            }
+            apps.append ("other", "Other…");
+            apps.set_active_id ("*");
+            apps.set_size_request (240, -1);
+            g.attach (apps, 1, 0, 1, 1);
+            var titulo = new Gtk.Entry ();
+            titulo.set_size_request (240, -1);
+            g.attach (titulo, 1, 1, 1, 1);
+            var ayuda = new Gtk.Label ("Enter the exact name of the menu command you want to add.");
+            ayuda.xalign = 0;
+            ayuda.set_line_wrap (true);
+            ayuda.set_max_width_chars (36);
+            ayuda.get_style_context ().add_class ("mp-sd-detalle");
+            g.attach (ayuda, 1, 2, 1, 1);
+            var atajo = new Gtk.Entry ();
+            atajo.editable = false;
+            atajo.set_size_request (150, -1);
+            atajo.halign = Gtk.Align.START;
+            g.attach (atajo, 1, 3, 1, 1);
+            var uso = new Gtk.Label ("Shortcut used by another action");
+            uso.xalign = 0;
+            uso.get_style_context ().add_class ("mp-sd-detalle");
+            uso.no_show_all = true;
+            g.attach (uso, 1, 4, 1, 1);
+            g.margin_bottom = 16;
+            caja.pack_start (g, false, false, 0);
+            d.add_button ("Cancel", Gtk.ResponseType.CANCEL);
+            var anadir = d.add_button ("Add", Gtk.ResponseType.OK);
+            anadir.get_style_context ().add_class ("suggested-action");
+            d.set_default_response (Gtk.ResponseType.OK);
+            anadir.sensitive = false;
+
+            string app_previa = "*";
+            void validar () {
+                bool en_uso = atajo.text != "" && atajo_en_uso (atajo.text, apps.get_active_id () ?? "*");
+                uso.visible = en_uso;
+                anadir.sensitive = titulo.text.strip () != "" && atajo.text != "" && !en_uso;
+            }
+            titulo.changed.connect (() => { validar (); });
+            apps.changed.connect (() => {
+                if (apps.get_active_id () == "other") {
+                    // Other…: un .desktop cualquiera
+                    var fc = new Gtk.FileChooserDialog ("Choose an application", d, Gtk.FileChooserAction.OPEN,
+                                                        "Cancel", Gtk.ResponseType.CANCEL, "Choose", Gtk.ResponseType.ACCEPT);
+                    var filtro = new Gtk.FileFilter ();
+                    filtro.add_pattern ("*.desktop");
+                    filtro.set_filter_name ("Applications");
+                    fc.add_filter (filtro);
+                    fc.set_current_folder ("/usr/share/applications");
+                    string? elegido = null;
+                    if (fc.run () == Gtk.ResponseType.ACCEPT) {
+                        var ai = new DesktopAppInfo.from_filename (fc.get_filename ());
+                        if (ai != null && ai.get_id () != null) {
+                            elegido = ai.get_id ();
+                            if (!vistas.contains (elegido)) {
+                                apps.append (elegido, ai.get_display_name ());
+                                vistas[elegido] = ai.get_display_name ();
+                            }
+                        }
+                    }
+                    fc.destroy ();
+                    apps.set_active_id (elegido ?? app_previa);
+                }
+                app_previa = apps.get_active_id () ?? "*";
+                validar ();
+            });
+            // El atajo se captura oprimiéndolo; Supr o Retroceso lo borran.
+            atajo.key_press_event.connect ((ev) => {
+                if (ev.keyval == Gdk.Key.BackSpace || ev.keyval == Gdk.Key.Delete) {
+                    atajo.text = "";
+                    validar ();
+                    return true;
+                }
+                var c = combinacion_mac (ev);
+                if (c != "") {
+                    atajo.text = c;
+                    validar ();
+                }
+                return true;
+            });
+            d.show_all ();
+            uso.hide ();
+            int r = d.run ();
+            bool agregado = false;
+            if (r == Gtk.ResponseType.OK) {
+                var nuevo = new AtajoApp ();
+                nuevo.app = apps.get_active_id () ?? "*";
+                nuevo.nombre_app = nuevo.app == "*" ? "All Applications" : (vistas[nuevo.app] ?? nuevo.app);
+                nuevo.titulo = titulo.text.strip ();
+                nuevo.atajo = atajo.text;
+                var todos = AtajoApp.cargar ();
+                todos.add (nuevo);
+                AtajoApp.guardar (todos);
+                agregado = true;
+            }
+            d.destroy ();
+            return agregado;
+        }
+
         Gtk.Widget atajos_de (string categoria) {
+            if (categoria == "App Shortcuts") return lista_app_shortcuts ();
             var lista = new Gtk.ListBox ();
             lista.set_selection_mode (Gtk.SelectionMode.NONE);
             if (categoria == "Spotlight") {
