@@ -11,6 +11,8 @@ ESQ="$HOME/.local/share/glib-2.0/schemas"
 XML=io.github.josemalena.fynder.gschema.xml
 # el módulo de GTK del selector Open/Save (fynder/gtk-module, portal/instalar-selector.sh)
 MOD="$HOME/.local/lib/fynder/libfynder-chooser-module.so"
+# el .desktop lleva las acciones del menú del Finder en el Dock (X-Muelle-Actions)
+APPS="$HOME/.local/share/applications"
 TMP=$(mktemp -d)
 trap 'rm -rf "${TMP:?}"' EXIT
 
@@ -27,6 +29,7 @@ mkdir -p "$RESPALDO"
 cp "$HOME/.local/bin/fynder" "$HOME/.local/bin/fynder-desktop" "$RESPALDO/"
 cp "$ESQ/$XML" "$RESPALDO/"
 [ -f "$MOD" ] && cp "$MOD" "$RESPALDO/"
+[ -f "$APPS/fynder.desktop" ] && cp "$APPS/fynder.desktop" "$RESPALDO/"
 cat >"$RESPALDO/volver.sh" <<'EOF'
 #!/bin/sh
 # Vuelve a los binarios y al esquema de Fynder que había antes de esta instalación.
@@ -37,6 +40,10 @@ cp "$d/io.github.josemalena.fynder.gschema.xml" "$HOME/.local/share/glib-2.0/sch
 if [ -f "$d/libfynder-chooser-module.so" ]; then
   cp "$d/libfynder-chooser-module.so" "$HOME/.local/lib/fynder/libfynder-chooser-module.so.nuevo" &&
     mv "$HOME/.local/lib/fynder/libfynder-chooser-module.so.nuevo" "$HOME/.local/lib/fynder/libfynder-chooser-module.so"
+fi
+if [ -f "$d/fynder.desktop" ]; then
+  cp "$d/fynder.desktop" "$HOME/.local/share/applications/fynder.desktop.nuevo" &&
+    mv "$HOME/.local/share/applications/fynder.desktop.nuevo" "$HOME/.local/share/applications/fynder.desktop"
 fi
 EOF
 chmod +x "$RESPALDO/volver.sh"
@@ -60,6 +67,14 @@ if [ -f "$MOD" ] && [ -f "$TMP/build/gtk-module/libfynder-chooser-module.so" ]; 
   cp "$TMP/build/gtk-module/libfynder-chooser-module.so" "$MOD.nuevo"
   mv "$MOD.nuevo" "$MOD"
   echo "Módulo del selector actualizado (los programas GTK abiertos siguen con el viejo)."
+fi
+
+if ! cmp -s "$TMP/src/data/fynder.desktop" "$APPS/fynder.desktop"; then
+  mkdir -p "$APPS"
+  cp "$TMP/src/data/fynder.desktop" "$APPS/fynder.desktop.nuevo"
+  mv "$APPS/fynder.desktop.nuevo" "$APPS/fynder.desktop"
+  update-desktop-database "$APPS" 2>/dev/null || true
+  echo "fynder.desktop actualizado."
 fi
 
 echo "Instalado Fynder $HASH. Los programas ya abiertos siguen con el binario viejo hasta reiniciarlos."
