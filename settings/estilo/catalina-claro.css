@@ -1,0 +1,87 @@
+/* System Preferences con el tema claro: se carga encima de catalina.css (que es el oscuro) cuando los colores del tema son claros, y se
+   suelta al volver al oscuro. Colores provisionales de la Catalina clara (ventana #ececec, barra en degradado gris); si una captura de la
+   Mac los contradice, gana la captura. */
+
+window.mp-ventana {
+  background-color: #ececec;
+}
+headerbar.mp-barra {
+  background-image: linear-gradient(to bottom, #e8e6e8, #d3d1d3);
+  border-bottom: 1px solid #b1b1b1;
+}
+.mp-titulo {
+  color: rgba(0, 0, 0, 0.85);
+}
+.mp-nombre {
+  color: #000000;
+}
+.mp-subtitulo {
+  color: rgba(0, 0, 0, 0.55);
+}
+.mp-raya {
+  background-color: #d1d1d1;
+}
+.mp-celda {
+  color: rgba(0, 0, 0, 0.85);
+}
+.mp-celda:hover {
+  background-color: rgba(0, 0, 0, 0.06);
+}
+.mp-celda:active {
+  background-color: rgba(0, 0, 0, 0.12);
+}
+
+.mp-hoja-titulo {
+  color: #000000;
+}
+.mp-hoja-texto {
+  color: rgba(0, 0, 0, 0.6);
+}
+.mp-hoja-error {
+  color: #d70015;
+}
+.mp-hoja,
+.mp-hoja .dialog-vbox {
+  background-color: #ececec;
+  color: #000000;
+}
+.mp-hoja entry {
+  background-color: #ffffff;
+  color: #000000;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+}
+
+.mp-fila-etiqueta {
+  color: rgba(0, 0, 0, 0.85);
+}
+.mp-propio label,
+.mp-propio checkbutton label,
+.mp-propio scale marks label {
+  color: rgba(0, 0, 0, 0.85);
+}
+.mp-propio scale marks label {
+  color: rgba(0, 0, 0, 0.55);
+}
+
+.mp-sd-titulo,
+.mp-sd-nombre {
+  color: rgba(0, 0, 0, 0.9);
+}
+.mp-sd-detalle {
+  color: rgba(0, 0, 0, 0.6);
+}
+.mp-sd-lista {
+  background-color: #ffffff;
+  border: 1px solid #c8c8c8;
+}
+.mp-sd-fila flowboxchild:selected {
+  background-color: rgba(0, 0, 0, 0.12);
+}
+
+window.mp-resultados {
+  background-color: #f5f5f5;
+  border: 1px solid #b4b4b4;
+}
+window.mp-resultados list row label {
+  color: #000000;
+}

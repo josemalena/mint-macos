@@ -123,6 +123,9 @@ namespace Preferencias {
             mostrar_todo (false);
         }
 
+        Gtk.CssProvider? css_claro = null;
+        bool claro_aplicado = false;
+
         void cargar_css () {
             var proveedor = new Gtk.CssProvider ();
             try {
@@ -131,6 +134,40 @@ namespace Preferencias {
                 warning ("CSS: %s", e.message);
             }
             Gtk.StyleContext.add_provider_for_screen (Gdk.Screen.get_default (), proveedor, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION);
+            // catalina.css es el oscuro; con un tema claro se le pone encima catalina-claro.css (y se suelta al volver al oscuro).
+            css_claro = new Gtk.CssProvider ();
+            Gtk.StyleContext.add_provider_for_screen (Gdk.Screen.get_default (), css_claro, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION + 1);
+            Gtk.Settings.get_default ().notify["gtk-theme-name"].connect (() => {
+                // El tema nuevo se carga justo después de la señal: se espera un momento para leer sus colores.
+                Timeout.add (250, () => { aplicar_claro (); return false; });
+            });
+            Idle.add (() => { aplicar_claro (); return false; });
+        }
+
+        /** ¿Los colores del tema puesto son claros? (el fondo de las ventanas, por luminancia) */
+        bool tema_claro () {
+            Gdk.RGBA c;
+            if (!get_style_context ().lookup_color ("theme_bg_color", out c)) {
+                return false;
+            }
+            return 0.2126 * c.red + 0.7152 * c.green + 0.0722 * c.blue > 0.5;
+        }
+
+        void aplicar_claro () {
+            bool claro = tema_claro ();
+            if (claro == claro_aplicado) {
+                return;
+            }
+            claro_aplicado = claro;
+            try {
+                if (claro) {
+                    css_claro.load_from_path (Path.build_filename (carpeta_python (), "estilo", "catalina-claro.css"));
+                } else {
+                    css_claro.load_from_data ("");
+                }
+            } catch (Error e) {
+                warning ("CSS claro: %s", e.message);
+            }
         }
 
         // ── barra de herramientas ────────────────────────────────────────
