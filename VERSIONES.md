@@ -261,9 +261,9 @@ Cada fork, el commit que se compila y los parches que lleva encima de su upstrea
 
 - Fork: https://github.com/josemalena/muelle.git
 - Upstream: https://github.com/zquestz/plank-reloaded.git, rama `master`
-- Commit: `03718def3582bba5c5b508d1fe9b3d597a9417e3` (2026-10-19, feat(menú): X-Muelle-Actions, la lista de acciones del Dock con separadores)
+- Commit: `599848b6fa29593b7ef09a4a393299efeaa1cbc0` (2026-10-19, fix(menú): una acción que solo está en X-Muelle-Actions corre su Exec)
 - Base: `e8e2b1fe2e9b13664b1402e2e68246a974ea1a4b` (0.11.176), 2026-10-09, Bump version to 0.11.176
-- Parches: 28
+- Parches: 30
 
 | Commit | Fecha | Asunto |
 |---|---|---|
@@ -295,6 +295,8 @@ Cada fork, el commit que se compila y los parches que lleva encima de su upstrea
 | `554bf6e14` | 2026-10-19 | fix(esquema): enums propios de Muelle para convivir con el esquema de Plank |
 | `36f74e734` | 2026-10-19 | Dock: el punto de la app activa va en el color de acento del tema |
 | `03718def3` | 2026-10-19 | feat(menú): X-Muelle-Actions, la lista de acciones del Dock con separadores |
+| `1d3265280` | 2026-10-19 | feat(sonidos): drag to trash al soltar en la papelera y poof item off dock al sacar un ícono |
+| `599848b6f` | 2026-10-19 | fix(menú): una acción que solo está en X-Muelle-Actions corre su Exec |
 
 ## slick-greeter-mac
 

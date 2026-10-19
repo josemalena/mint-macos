@@ -32,7 +32,7 @@ FYNDER_BASE=66eabf459bc86d03c24797274d0e3f60b9b7a7d8
 # Muelle: el Dock de Catalina (se instala como muelle desde el 19-10-2026; antes, plank)
 PLANK_NOMBRE=muelle
 PLANK_REPO=https://github.com/josemalena/muelle.git
-PLANK_HASH=03718def3582bba5c5b508d1fe9b3d597a9417e3
+PLANK_HASH=599848b6fa29593b7ef09a4a393299efeaa1cbc0
 PLANK_LOCAL=plank-reloaded
 PLANK_UPSTREAM=https://github.com/zquestz/plank-reloaded.git
 PLANK_RAMA=master
