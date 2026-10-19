@@ -2,6 +2,7 @@
 # con separadores donde la acción se llama «-»; y una acción que solo está en X-Muelle-Actions corre su Exec al escogerla
 # límite: 90
 prueba() {
+  despejar_pantalla
   requiere muelle xdotool import convert
   export MUELLE_SIN_MIGRAR=1
   local esq; esq="$(dirname "$(command -v muelle)")/../esquemas"

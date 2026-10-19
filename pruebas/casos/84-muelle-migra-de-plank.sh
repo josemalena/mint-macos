@@ -1,6 +1,7 @@
 # caso: Muelle, la primera vez, trae la configuración de Plank (lanzadores, temas y dconf) sin tocar lo viejo, y deja un respaldo del dconf
 # límite: 90
 prueba() {
+  despejar_pantalla
   requiere muelle dconf
   local esq; esq="$(dirname "$(command -v muelle)")/../esquemas"
   [ -d "$esq" ] && export GSETTINGS_SCHEMA_DIR="$esq"

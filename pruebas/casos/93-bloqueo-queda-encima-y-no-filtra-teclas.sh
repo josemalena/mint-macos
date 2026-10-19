@@ -3,6 +3,7 @@
 # gestor: cinnamon-colgadas
 # límite: 150
 prueba() {
+  despejar_pantalla
   necesita_teclado
   requiere mac-bloqueo xed xdotool gcc notify-send xclip wmctrl
   local aqui; aqui="$(dirname "$PRUEBAS_LIB")"

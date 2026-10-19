@@ -3,6 +3,7 @@
 # gestor: cinnamon-applets
 # Un lanzador (xed) en el Dock; al abrirlo y activarlo, el punto de su ícono cambia del blanco al acento.
 prueba() {
+  despejar_pantalla
   requiere muelle xed xdotool import convert
   export GTK_THEME=Adwaita
   local apps="$XDG_DATA_HOME/applications" lanz="$XDG_CONFIG_HOME/muelle/dock1/launchers"

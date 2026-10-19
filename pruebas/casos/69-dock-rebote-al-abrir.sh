@@ -17,6 +17,7 @@ rango_alto() {   # rango_alto SEGUNDOS: máximo - mínimo de la altura dibujada
   echo "$((mx - mn))"
 }
 prueba() {
+  despejar_pantalla
   requiere muelle xed xdotool import convert
   # los xed de una corrida anterior contestarían por el bus en vez de abrir ventana (xed es de instancia única)
   for p in $(pgrep -x xed); do grep -qz "^HOME=$HOME\$" "/proc/$p/environ" 2>/dev/null && kill "$p"; done

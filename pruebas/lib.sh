@@ -53,6 +53,17 @@ necesita_teclado() {
 # liberar_nombre_dbus NOMBRE: si alguien del bus de la prueba ya tiene ese nombre (un servicio que se activó solo cuando un panel le
 # preguntó algo en un caso anterior), lo cierra por su pid: el de mentira del caso necesita el nombre. Es el bus de la prueba, no
 # el de la sesión de José, y se mata por pid, nunca por nombre.
+# despejar_pantalla: cierra lo que otro caso de la misma corrida dejó abierto (una ventana de Edge grande, por ejemplo, hace que el Dock se
+# esconda solo y un clic en su franja caiga en esa ventana). Solo procesos del sandbox (su HOME).
+despejar_pantalla() {
+  case "$HOME" in */mint-macos/pruebas/home*) ;; *) return 0 ;; esac   # nunca fuera del sandbox: mataría los programas de José
+  local p
+  for p in $(pgrep -u "$(id -u)" -x 'msedge|chrome|firefox|xed|nemo|fynder|kitty' 2>/dev/null); do
+    grep -qz "^HOME=$HOME$" "/proc/$p/environ" 2>/dev/null && kill "$p" 2>/dev/null
+  done
+  sleep 1
+}
+
 liberar_nombre_dbus() {
   local nombre="$1" pid=""
   [ "$(gdbus call --session -d org.freedesktop.DBus -o /org/freedesktop/DBus -m org.freedesktop.DBus.NameHasOwner "$nombre" 2>/dev/null)" = "(true,)" ] || return 0

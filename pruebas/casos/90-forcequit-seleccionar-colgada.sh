@@ -2,6 +2,7 @@
 # un segundo --seleccionar no abre otra ventana
 # límite: 90
 prueba() {
+  despejar_pantalla
   necesita_teclado
   requiere xed mac-forcequit wmctrl xdotool
   lanzar xed
@@ -12,13 +13,19 @@ prueba() {
   trap "kill -KILL $pid 2>/dev/null || true" EXIT   # un xed detenido heredaría el lock del harness
   lanzar mac-forcequit --seleccionar "$pid"
   local fq; fq="$(esperar_ventana '[Mm]ac-forcequit' 20)"
-  if ! python3 "$(dirname "$PRUEBAS_LIB")/atspi.py" --pid "$(xdotool getwindowpid "$fq")" --texto "Xed (not responding)" --segundos 20 >&2; then
-    echo "--- lo que muestra Force Quit:" >&2
-    python3 "$(dirname "$PRUEBAS_LIB")/atspi.py" --pid "$(xdotool getwindowpid "$fq")" --volcar >&2
+  # El nombre que muestra depende del .desktop que otra prueba haya dejado para xed («Xed», «xedprueba»…): se busca cualquier fila «(not responding)»
+  local pidfq volcado=""; pidfq="$(xdotool getwindowpid "$fq")"
+  for _ in $(seq 20); do
+    volcado="$(python3 "$(dirname "$PRUEBAS_LIB")/atspi.py" --pid "$pidfq" --volcar 2>&1)"
+    echo "$volcado" | grep -q "(not responding)" && break
+    sleep 1
+  done
+  if ! echo "$volcado" | grep -q "(not responding)"; then
+    echo "--- lo que muestra Force Quit:" >&2; echo "$volcado" >&2
     echo "--- procesos xed:" >&2; ps -o pid,stat,args -C xed >&2
-    falla "la ventana no muestra «Xed (not responding)»"
+    falla "Force Quit no marca ninguna app como «(not responding)»"
   fi
-  paso "se ve «Xed (not responding)»"
+  paso "se ve una fila «(not responding)»: $(echo "$volcado" | grep "(not responding)" | head -1 | sed 's/^ *//')"
   captura colgada-escogida
   lanzar mac-forcequit --seleccionar "$pid"
   sleep 2

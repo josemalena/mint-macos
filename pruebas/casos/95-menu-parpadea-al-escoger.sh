@@ -22,12 +22,13 @@ for f in sorted(glob.glob(carpeta + '/*.png')):
     im = Image.open(f).convert('RGB').crop((x0, y0, x1, y1))
     cerca = sum(1 for p in im.getdata() if all(abs(p[i] - objetivo[i]) < 12 for i in range(3)))
     estado.append(cerca > 0.5 * (x1 - x0) * (y1 - y0))
-# cuántas veces pasa de azul a no azul y vuelve a azul
-cambios = sum(1 for a, b in zip(estado, estado[1:]) if a and not b)
+
+cambios = sum(1 for a, b in zip(estado, estado[1:]) if (not a) and b)   # apagado y de vuelta encendido; cerrarse el menú no vuelve
 print(cambios)
 PY
 }
 prueba() {
+  despejar_pantalla
   necesita_teclado
   requiere xdotool ffmpeg import
   # El esquema de los ajustes, en la carpeta del usuario del sandbox (el applet lo busca ahí)
