@@ -68,6 +68,7 @@ install -m 644 "$AQUI/impresoras.py" "$LIB/impresoras.py"
 install -m 644 "$AQUI/compartir.py" "$LIB/compartir.py"
 install -m 644 "$AQUI/actualizaciones.py" "$LIB/actualizaciones.py"
 install -m 644 "$AQUI/estilo/catalina.css" "$LIB/estilo/catalina.css"
+install -m 644 "$AQUI/estilo/catalina-claro.css" "$LIB/estilo/catalina-claro.css"
 
 # System Preferences es residente: arranca escondida con la sesión y mac-settings solo le
 # pide, por D-Bus y sin arrancar Python, que se muestre (con el panel pedido). Si el
