@@ -136,7 +136,9 @@ Environment=RCLONE_ASK_PASSWORD=false
 # rclone deja el socket del --rc y cada reintento choca con él: se borra antes.
 ExecStartPre=-/bin/rm -f %t/$nombre.sock
 ExecStart=$BIN mount "$remoto:" "$carpeta" --vfs-cache-mode full --vfs-cache-max-size $CACHE_MAX --cache-dir "%h/.cache/rclone/$nombre" --dir-cache-time 1m --rc --rc-addr "unix://%t/$nombre.sock" --rc-no-auth $extra
-ExecStop=/bin/fusermount -u "$carpeta"
+# -z: con el escritorio de Fynder dentro de iCloud Drive el montaje siempre está ocupado; sin
+# soltarlo «lazy», rclone muere y deja el punto de montaje muerto (18-10-2026).
+ExecStop=/bin/fusermount -uz "$carpeta"
 Restart=on-failure
 RestartSec=30
 
@@ -255,7 +257,12 @@ es_cifrada() { grep -q '^RCLONE_ENCRYPT_V0' "$1" 2>/dev/null; }
 
 # Los montajes guardan en rclone.conf la sesión que renuevan: si corren mientras se
 # cifra, escribirían la vieja en claro encima. Se paran antes y se levantan después.
-parar_montajes() { for u in "$SERVICIO" "$SERVICIO-fotos"; do systemctl --user stop "$u.service" 2>/dev/null || true; done; }
+parar_montajes() {
+  for u in "$SERVICIO" "$SERVICIO-fotos"; do systemctl --user stop "$u.service" 2>/dev/null || true; done
+  # Una unidad de antes (fusermount sin -z) deja el punto de montaje muerto si estaba ocupado.
+  for c in "$CARPETA" "$FOTOS_CARPETA"; do grep -qF " $(printf '%s' "$c" | sed 's/ /\\040/g') " /proc/self/mountinfo && fusermount -uz "$c" 2>/dev/null; done
+  true
+}
 levantar_montajes() { for u in "$SERVICIO" "$SERVICIO-fotos"; do [ -f "$UNIDADES/$u.service" ] && systemctl --user restart "$u.service"; done; true; }
 
 cifrar() {
