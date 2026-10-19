@@ -9,6 +9,8 @@ ancho_dibujado() {
 }
 prueba() {
   requiere muelle xed xdotool import convert
+  local esq; esq="$(dirname "$(command -v muelle)")/../esquemas"
+  [ -d "$esq" ] && export GSETTINGS_SCHEMA_DIR="$esq"
   lanzar muelle
   local d; d="$(esperar_ventana '^[Mm]uelle$' 30)"
   local X Y WIDTH HEIGHT
