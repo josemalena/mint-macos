@@ -280,6 +280,7 @@ cifrar() {
   if "$AYUDANTE" --cifrar-config && es_cifrada "$conf" && [ "$("$BIN" config dump | sha256sum)" = "$antes" ] \
      && ! env -u RCLONE_PASSWORD_COMMAND "$REAL" listremotes --ask-password=false >/dev/null 2>&1; then
     shred -u "$resp" 2>/dev/null || rm -f "$resp"
+    chmod 600 "$conf"
     echo "  cifrado: sin la clave del llavero no se lee ($conf)"
   else
     install -m 600 "$resp" "$conf"; shred -u "$resp" 2>/dev/null || rm -f "$resp"
