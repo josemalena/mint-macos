@@ -7,9 +7,9 @@ Cada fork, el commit que se compila y los parches que lleva encima de su upstrea
 
 - Fork: https://github.com/josemalena/fynder.git
 - Upstream: https://github.com/linuxmint/nemo.git, rama `master`
-- Commit: `f88274b4940097170dbc0590051fc1d09ddc87d9` (2026-10-19, fix(statusbar): en el diseño Finder no van los botones de abajo de la barra lateral)
+- Commit: `9d26af5e92a0898ff00c01d370956eb91cf3a61c` (2026-10-19, fynder-desktop: teclear selecciona el icono sin cuadro de búsqueda)
 - Base: `66eabf459bc86d03c24797274d0e3f60b9b7a7d8` (master.lmde7), 2026-10-06, nemo-icon-dnd.c: Fix reporting a successful drag result.
-- Parches: 241
+- Parches: 243
 
 | Commit | Fecha | Asunto |
 |---|---|---|
@@ -254,6 +254,8 @@ Cada fork, el commit que se compila y los parches que lleva encima de su upstrea
 | `20809432` | 2026-10-19 | tema claro: glifos y segmento escogido medidos contra Catalina clara (gris #4f4f4f, escogido #666 con glifo blanco) |
 | `bed97e67` | 2026-10-19 | feat(dock): el menú del Finder en el Dock — fynder --finder-action y X-Muelle-Actions |
 | `f88274b4` | 2026-10-19 | fix(statusbar): en el diseño Finder no van los botones de abajo de la barra lateral |
+| `4b01cfad` | 2026-10-19 | tema claro: la barra de título y la toolbar, un solo degradado sin costura |
+| `9d26af5e` | 2026-10-19 | fynder-desktop: teclear selecciona el icono sin cuadro de búsqueda |
 
 ## muelle
 
