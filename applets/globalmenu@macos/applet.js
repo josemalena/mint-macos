@@ -18,6 +18,7 @@
  */
 
 const Applet = imports.ui.applet;
+const Tooltips = imports.ui.tooltips;
 const PopupMenu = imports.ui.popupMenu;
 const Main = imports.ui.main;
 const { Gio, GLib, St, Clutter, Cinnamon } = imports.gi;
@@ -31,6 +32,8 @@ const ATTR_ACCEL = "accel";
 const ATTR_ACCEL_LITERAL = "x-constanza-accel";
 // Ítem alterno (b): va justo después de su ítem base y solo se ve con ⌥ apretado, en su lugar (como el Finder de la Mac).
 const ATTR_ALTERNO = "x-constanza-alternate";
+// Etiqueta del Finder (s): el hex de su color («» = sin color). Las seguidas se dibujan en una fila de círculos.
+const ATTR_TAG_COLOR = "x-constanza-tag-color";
 // El ícono del ítem, un GIcon serializado (el menú Go de Catalina lleva uno por ítem).
 const ATTR_ICON = "icon";
 const LINK_SUBMENU = "submenu";
@@ -278,6 +281,26 @@ function vigilarAlt(menu) {
   });
 }
 
+// La fila de etiquetas del Finder: una fila de círculos de color, cada uno su propia opción (captura 12.34.39 PM). `lista` trae por
+// círculo {color, nombre, activo, activar}; el nombre sale como ayuda al pasar el puntero y uno apagado va sin respuesta al clic.
+function filaEtiquetas(menu, lista) {
+  let item = new PopupMenu.PopupBaseMenuItem({ reactive: false, activate: false });
+  let caja = new St.BoxLayout({ style: "spacing: 9px; padding: 3px 0px 3px 2px;" });
+  for (let e of lista) {
+    let estilo = e.color
+      ? `background-color: ${e.color}; border: 1px solid rgba(255,255,255,0.28);`
+      : "background-color: transparent; border: 1.5px solid #8e8e93;";
+    let c = new St.Button({ reactive: e.activo, track_hover: e.activo, can_focus: false,
+                            style: estilo + " border-radius: 9px; width: 14px; height: 14px;" });
+    if (!e.activo) c.set_opacity(90);
+    try { new Tooltips.Tooltip(c, e.nombre); } catch (err) {}
+    c.connect("clicked", () => { menu.close(); e.activar(); });
+    caja.add_actor(c);
+  }
+  item.addActor(caja, { span: -1 });
+  return item;
+}
+
 function submenu(etiqueta) {
   let item = new PopupMenu.PopupSubMenuMenuItem(etiqueta);
   item.menu.box.set_style(SANGRIA_SUBMENU);
@@ -470,9 +493,29 @@ class GlobalMenuApplet extends Applet.Applet {
     }).catch(e => { log("globalmenu: Abrir: " + e.message); });
   }
 
+  // La acción de un ítem del servicio (Activar); si la app rehízo el menú, se vuelve a pedir la barra.
+  _activarServicio(id) {
+    let w = this._ventana, xid = this._xidServicio;
+    return () => {
+      menu1("Activar", new GLib.Variant("(uus)", [xid, this._version, id]), "(b)").catch(e => {
+        // La app rehízo el menú entre el clic y la llamada: no se ejecutó nada; se vuelve a pedir la barra.
+        if (String(e.message).indexOf("Vencido") >= 0 && w === this._ventana) this._viaServicio(w);
+        else log("globalmenu: Activar: " + e.message);
+      });
+    };
+  }
+
   _itemsServicio(menu, items, profundidad) {
-    for (let it of items) {
+    for (let i = 0; i < items.length; i++) {
+      let it = items[i];
       if (it.tipo === "separador") { menu.addMenuItem(separador()); continue; }
+      if (typeof it.etiqueta_color === "string") {
+        let fila = [it];
+        while (i + 1 < items.length && typeof items[i + 1].etiqueta_color === "string") fila.push(items[++i]);
+        menu.addMenuItem(filaEtiquetas(menu, fila.map(f => ({ color: f.etiqueta_color, nombre: f.etiqueta, activo: f.activo !== false,
+                                                             activar: this._activarServicio(f.id) }))));
+        continue;
+      }
       if (it.tipo === "submenu") {
         let sub = submenu(it.etiqueta);
         menu.addMenuItem(sub);
@@ -648,6 +691,21 @@ class GlobalMenuApplet extends Applet.Applet {
         if (huboAlgo && seccion.get_n_items() > 0)
           menu.addMenuItem(separador());
         if (this._agregarItems(menu, seccion, profundidad)) huboAlgo = true;
+        continue;
+      }
+      if (texto(modelo, i, ATTR_TAG_COLOR) !== null) {
+        let fila = [];
+        let j = i;
+        for (; j < n && !modelo.get_item_link(j, LINK_SECTION) && texto(modelo, j, ATTR_TAG_COLOR) !== null; j++) {
+          let accion = texto(modelo, j, ATTR_ACTION), objetivo = atributo(modelo, j, ATTR_TARGET);
+          let [grupo, nombre] = accion ? this._grupoDe(accion) : [null, null];
+          let activo = !!(grupo && nombre && grupo.has_action(nombre) && grupo.get_action_enabled(nombre));
+          fila.push({ color: texto(modelo, j, ATTR_TAG_COLOR) || "", nombre: limpiarEtiqueta(texto(modelo, j, ATTR_LABEL)), activo: activo,
+                      activar: () => { if (grupo && nombre) grupo.activate_action(nombre, objetivo); } });
+        }
+        menu.addMenuItem(filaEtiquetas(menu, fila));
+        i = j - 1;
+        huboAlgo = true;
         continue;
       }
       let etiqueta = limpiarEtiqueta(texto(modelo, i, ATTR_LABEL));

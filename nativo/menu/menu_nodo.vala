@@ -12,6 +12,7 @@ namespace Menu {
         public bool marcado = false;
         public string atajo = "";
         public string icono = "";
+        public string? color_etiqueta = null;  // x-constanza-tag-color: el hex del color de una etiqueta del Finder («» = sin color); null si no es una
         public bool alterno = false;           // x-constanza-alternate: solo se ve con ⌥, en lugar del ítem anterior
         public bool es_menu_app = false;       // x-constanza-app-menu: lo pinta appmenu, no la barra
         public string ruta = "";               // solo en Buscar: «Edit ▸ Find ▸ Find…»
@@ -43,6 +44,7 @@ namespace Menu {
             }
             if (atajo != "") d.insert_value ("atajo", new Variant.string (atajo));
             if (alterno) d.insert_value ("alterno", new Variant.boolean (true));
+            if (color_etiqueta != null) d.insert_value ("etiqueta_color", new Variant.string (color_etiqueta));
             if (icono != "") d.insert_value ("icono", new Variant.string (icono));
             if (hijos != null) d.insert_value ("hijos", lista_variant (hijos));
             if (ruta != "") d.insert_value ("ruta", new Variant.string (ruta));

@@ -150,6 +150,8 @@ namespace Menu {
             nodo.atajo = literal != "" ? literal : Atajos.de_gtk (texto_de (m, i, "accel") ?? "", clase);
             var alt_v = m.get_item_attribute_value (i, "x-constanza-alternate", VariantType.BOOLEAN);
             nodo.alterno = alt_v != null && alt_v.get_boolean ();
+            var color_v = m.get_item_attribute_value (i, "x-constanza-tag-color", VariantType.STRING);
+            if (color_v != null) nodo.color_etiqueta = color_v.get_string ();
             var icono_v = m.get_item_attribute_value (i, "icon", null);
             if (icono_v != null) {
                 try {

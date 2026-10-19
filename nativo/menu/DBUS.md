@@ -43,6 +43,7 @@ Las claves que no tienen dato **no vienen**.
 | `marcado` | b | solo con `marca` |
 | `atajo` | s | **ya con la forma de la Mac** («⌘N», «⇧⌘Z», «^⌘F» si el original lleva `x-constanza-accel`). Lo da el servicio: hoy lo hace `atajoBonito` en JS. Con keyd: lo que la app dice Ctrl+X se ve «⌘X»; «^⌘» es Ctrl+Super; las excepciones por app (en Edge, Chrome y Chromium ⌘Q manda Ctrl+Shift+Q, y su Quit sale «⌘Q», no «⇧⌘Q») se leen de `~/.config/keyd/app.conf`, no se copian |
 | `alterno` | b | solo si es `true`: el ítem va justo después de su ítem base y solo se ve con ⌥ apretado, en su lugar (`x-constanza-alternate` en el GMenu). Trae su propio `atajo` («⌥⌘⌫»). Buscar no los devuelve |
+| `etiqueta_color` | s | solo en las etiquetas del Finder (`x-constanza-tag-color`): el hex del color, o `""` si no tiene (círculo hueco). Los ítems seguidos que lo traen se dibujan en una fila de círculos; el `etiqueta` es la ayuda al pasar el puntero |
 | `icono` | s | un GIcon como lo da `g_icon_to_string` (nombre de tema o ruta); no viene si no hay |
 | `hijos` | aa{sv} | solo en `submenu` y solo desde `Abrir`: el árbol completo hasta 4 niveles, con las secciones aplanadas y un `separador` entre ellas |
 
