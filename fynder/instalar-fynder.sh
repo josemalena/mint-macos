@@ -19,7 +19,7 @@ trap 'rm -rf "${TMP:?}"' EXIT
 HASH=$(git -C "$REPO" rev-parse --short HEAD)
 # la versión del About sale de los commits desde el fork (src/gen-build-number.sh);
 # el archivo de git no trae .git, así que se calcula aquí
-FYNDER_VERSION="1.0.$(git -C "$REPO" rev-list --count 66eabf45..HEAD)"
+FYNDER_VERSION="1.0.$(git -C "$REPO" rev-list --count --no-merges 66eabf45..HEAD)"
 export FYNDER_VERSION
 echo "Compilando Fynder $HASH desde HEAD (puede tardar unos minutos)..."
 mkdir "$TMP/src"
