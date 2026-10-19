@@ -87,7 +87,7 @@ COMPILAR=(
   build-essential pkg-config git meson ninja-build gettext
   gobject-introspection libgirepository1.0-dev libglib2.0-dev libglib2.0-dev-bin
   libgtk-3-dev libatk1.0-dev libpango1.0-dev libjson-glib-dev libcinnamon-desktop-dev
-  libgail-3-dev libx11-dev libxapp-dev libexif-dev libexempi-dev libcanberra-dev
+  libgail-3-dev libx11-dev libxapp-dev libexif-dev libexempi-dev
   valac libgdk-pixbuf-2.0-dev libgee-0.8-dev libbamf3-dev libcairo2-dev libwnck-3-dev
   libgnome-menu-3-dev libcanberra-dev libdbusmenu-glib-dev libdbusmenu-gtk3-dev
   libxi-dev libxfixes-dev
