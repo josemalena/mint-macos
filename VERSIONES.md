@@ -7,9 +7,9 @@ Cada fork, el commit que se compila y los parches que lleva encima de su upstrea
 
 - Fork: https://github.com/josemalena/fynder.git
 - Upstream: https://github.com/linuxmint/nemo.git, rama `master`
-- Commit: `0916816826b76befc723730ede158445a46bc066` (2026-10-19, gen-build-number: cuenta la versión sin merges, igual que armar.sh)
+- Commit: `d93e460ea8a5ab58d9f871b86a6023decb09e934` (2026-10-19, Etiquetas con lista y cápsulas; cada círculo pone su color; Get Info en su monitor)
 - Base: `66eabf459bc86d03c24797274d0e3f60b9b7a7d8` (master.lmde7), 2026-10-06, nemo-icon-dnd.c: Fix reporting a successful drag result.
-- Parches: 255
+- Parches: 257
 
 | Commit | Fecha | Asunto |
 |---|---|---|
@@ -268,6 +268,8 @@ Cada fork, el commit que se compila y los parches que lleva encima de su upstrea
 | `82e1a011` | 2026-10-19 | View ▸ Refresh (F5): en iCloud Drive le pide a rclone volver a listar la carpeta |
 | `651eeeb2` | 2026-10-19 | About Fynder: versión propia, el macOS del diseño y los créditos |
 | `09168168` | 2026-10-19 | gen-build-number: cuenta la versión sin merges, igual que armar.sh |
+| `b3947d25` | 2026-10-19 | About Fynder: «Linux Mint and contributors» en la línea de Nemo |
+| `d93e460e` | 2026-10-19 | Etiquetas con lista y cápsulas; cada círculo pone su color; Get Info en su monitor |
 
 ## muelle
 
