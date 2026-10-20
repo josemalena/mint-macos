@@ -139,7 +139,7 @@ else
   PANT=":$n"
   if ! $VER && [ -x /usr/bin/Xvfb ]; then
     cp /usr/bin/Xvfb "$TRABAJO/x/xpruebas"; XNOMBRE="Xvfb, no se ve"
-    MINT_MACOS_PRUEBA="$MARCA" "$TRABAJO/x/xpruebas" "$PANT" -screen 0 "${PRUEBAS_ANCHO}x${PRUEBAS_ALTO}x24" -nolisten tcp \
+    MINT_MACOS_PRUEBA="$MARCA" "$TRABAJO/x/xpruebas" "$PANT" -screen 0 "${PRUEBAS_ANCHO}x${PRUEBAS_ALTO}x24" -nolisten tcp -s 0 \
       > "$RES/xephyr.log" 2>&1 &
   else
     if $VER; then
@@ -148,9 +148,11 @@ else
       echo "  ⚠ sin Xvfb (sudo apt install xvfb): Xephyr a ${PRUEBAS_ANCHO}×${PRUEBAS_ALTO} se pasa del Dell al LEN" >&2
     fi
     cp /usr/bin/Xephyr "$TRABAJO/x/xpruebas"; XNOMBRE="Xephyr"
-    MINT_MACOS_PRUEBA="$MARCA" "$TRABAJO/x/xpruebas" "$PANT" -screen "${PRUEBAS_ANCHO}x${PRUEBAS_ALTO}+0+0" -nolisten tcp -br \
+    MINT_MACOS_PRUEBA="$MARCA" "$TRABAJO/x/xpruebas" "$PANT" -screen "${PRUEBAS_ANCHO}x${PRUEBAS_ALTO}+0+0" -nolisten tcp -br -s 0 \
       > "$RES/xephyr.log" 2>&1 &
   fi
+  # -s 0: sin el salvapantallas del X (a los 10 min sin «actividad» deja la pantalla en negro; en una corrida de
+  # más de una hora el caso 95 capturó todo negro, 19-10-2026).
   XPID=$!
   for _ in $(seq 50); do [ -e "/tmp/.X11-unix/X$n" ] && break; sleep 0.1; done
   [ -e "/tmp/.X11-unix/X$n" ] || { echo "  ✗ Xephyr no arrancó"; cat "$RES/xephyr.log"; exit 1; }
