@@ -7,9 +7,9 @@ Cada fork, el commit que se compila y los parches que lleva encima de su upstrea
 
 - Fork: https://github.com/josemalena/fynder.git
 - Upstream: https://github.com/linuxmint/nemo.git, rama `master`
-- Commit: `73ffb91cfdc780f88875fbb714843b8742d15a57` (2026-10-19, resorte: al cancelar el arrastre la ventana vuelve a la carpeta de antes)
+- Commit: `0916816826b76befc723730ede158445a46bc066` (2026-10-19, gen-build-number: cuenta la versión sin merges, igual que armar.sh)
 - Base: `66eabf459bc86d03c24797274d0e3f60b9b7a7d8` (master.lmde7), 2026-10-06, nemo-icon-dnd.c: Fix reporting a successful drag result.
-- Parches: 250
+- Parches: 255
 
 | Commit | Fecha | Asunto |
 |---|---|---|
@@ -263,6 +263,11 @@ Cada fork, el commit que se compila y los parches que lleva encima de su upstrea
 | `00f588d9` | 2026-10-19 | resorte: los tiempos medidos por Infra (717 ms fijo y dos parpadeos, ~1.35 s) |
 | `1e6e4e7c` | 2026-10-19 | escritorio: el destino de un arrastre lleva el recuadro gris de la selección |
 | `73ffb91c` | 2026-10-19 | resorte: al cancelar el arrastre la ventana vuelve a la carpeta de antes |
+| `d76b2556` | 2026-10-19 | resorte: el deslizador Short…Long con la grabación de José (0, 3 o 6 alternancias) |
+| `dc091343` | 2026-10-19 | ds-store: en un montaje FUSE se escribe en el sitio; se borra un .fynder-tmp viejo |
+| `82e1a011` | 2026-10-19 | View ▸ Refresh (F5): en iCloud Drive le pide a rclone volver a listar la carpeta |
+| `651eeeb2` | 2026-10-19 | About Fynder: versión propia, el macOS del diseño y los créditos |
+| `09168168` | 2026-10-19 | gen-build-number: cuenta la versión sin merges, igual que armar.sh |
 
 ## muelle
 

@@ -23,7 +23,7 @@ FORKS=(FYNDER PLANK GREETER SPOTLYTE)
 # Fynder: el administrador de archivos con la cara del Finder
 FYNDER_NOMBRE=Fynder
 FYNDER_REPO=https://github.com/josemalena/fynder.git
-FYNDER_HASH=73ffb91cfdc780f88875fbb714843b8742d15a57
+FYNDER_HASH=0916816826b76befc723730ede158445a46bc066
 FYNDER_LOCAL=fynder
 FYNDER_UPSTREAM=https://github.com/linuxmint/nemo.git
 FYNDER_RAMA=master
