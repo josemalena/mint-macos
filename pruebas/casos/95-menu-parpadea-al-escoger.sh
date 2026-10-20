@@ -62,8 +62,14 @@ prueba() {
     done
     if ! menu_abierto; then
       # Diagnóstico para el armado completo: la pantalla entera, el estado del salvapantallas y las ventanas
-      captura "sin-menu-pantalla-completa"
-      { echo "--- xset q:"; xset q 2>&1 | grep -A3 "Screen Saver\|DPMS"; echo "--- ventanas:"; wmctrl -l 2>&1; echo "--- applets de Cinnamon:"; gsettings get org.cinnamon enabled-applets; } >&2
+      import -display "$DISPLAY" -window root "$PRUEBAS_RES/$PRUEBAS_CASO-sin-menu-pantalla-completa.png" 2>&1 || true   # (import directo: captura() hace falla si sale vacía y cortaría el volcado)
+      { echo "--- xset q:"; xset q 2>&1 | grep -A3 "Screen Saver\|DPMS" || true
+        echo "--- ventanas:"; wmctrl -l 2>&1 || true
+        echo "--- árbol de ventanas de la raíz (xwininfo):"; xwininfo -root -tree 2>&1 | head -n 25 || true
+        echo "--- dueño del selector de composición:"; python3 -c "
+from Xlib import display
+d = display.Display(); print(d.get_selection_owner(d.intern_atom('_NET_WM_CM_S0')))" 2>&1 || true
+        echo "--- applets de Cinnamon:"; gsettings get org.cinnamon enabled-applets || true; } >&2
       falla "el menú de la manzana no se abrió en 6 intentos"
     fi
     captura "menu-sin-escoger-$modo"
