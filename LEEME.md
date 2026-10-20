@@ -235,7 +235,7 @@ su cuenta.
 | [josemalena/muelle](https://github.com/josemalena/muelle) | El Dock (fork de zquestz/plank-reloaded; se instala como `muelle`) | GPL-3 |
 | [josemalena/mint-macos-greeter](https://github.com/josemalena/mint-macos-greeter) | La pantalla de inicio y de bloqueo (fork de linuxmint/slick-greeter; se instala como `slick-greeter-mac`) | GPL-3 |
 | [Magic Lamp](https://github.com/klangman/CinnamonMagicLamp) (klangman, Cinnamon Spices) | El efecto genio al minimizar; se baja en un commit fijo, no se copia | GPL-3 (su `LICENSE` va con ella) |
-| este | Tema, applets, teclado, menú global, instaladores | ver `tema/CREDITOS.md` |
+| este | Tema, applets, teclado, menú global, servicios, instaladores | GPL-3.0-or-later (`LICENSE`); lo de terceros, en `tema/CREDITOS.md` |
 
 ## Cosas que saber
 

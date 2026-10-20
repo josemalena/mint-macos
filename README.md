@@ -100,3 +100,12 @@ Ojo:
   keyd.
 - Ver qué tecla llega: `sudo keyd monitor`. Ver la clase de una ventana
   para `app.conf`: `wmctrl -lx` (va en minúsculas).
+
+## Licencia
+
+Copyright © 2026 Jose Alberto de la Cruz Malena. GPL-3.0-or-later (texto completo en [LICENSE](LICENSE)).
+Es el código propio de este repo: nativo/, rust/, los servicios, los guiones, los applets y las herramientas. Los
+forks siguen con la suya: Fynder GPL-2.0-or-later (de Nemo), Muelle GPL-3.0-or-later (de plank-reloaded y Plank),
+Spotlyte GPL-3.0 (de Ulauncher), slick-greeter-mac GPL-3.0 (de slick-greeter) y el tema sobre Mojave-gtk-theme
+GPL-3.0 (ver tema/CREDITOS.md). Lo de Apple (íconos, fuentes, sonidos, textos) no está en este repo: cada quien lo
+saca de su propia Mac. Proyecto independiente, sin relación con Apple.
