@@ -11,6 +11,8 @@ prueba() {
   rm -rf "$tema"; cp -r "$casa/.themes/Constanza-Claro" "$tema"
   # El CSS claro del repo encima del que ya trae el tema (gana el último)
   cat "$MINT_MACOS_REPO/tema/gtk/_constanza-cinnamon-claro.css" >> "$tema/cinnamon/cinnamon.css"
+  # El sandbox sobrevive entre corridas: el tema se deshace al terminar (con el tema claro puesto, los casos de Cinnamon que siguen cambiarían)
+  trap 'gsettings reset org.cinnamon.theme name 2>/dev/null; rm -rf "$XDG_DATA_HOME/themes/Constanza-Claro"' EXIT
   gsettings set org.cinnamon.theme name "'Constanza-Claro'"
   sleep 4
   # (con -A notify-send se queda esperando la respuesta: va al fondo y con tope)
