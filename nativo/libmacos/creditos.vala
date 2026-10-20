@@ -56,7 +56,7 @@ namespace MacOS {
     }
 
     public string texto_codigo () {
-        return "Code © 2026 Jose Alberto de la Cruz Malena";
+        return "Code © 2026 Jose Alberto de la Cruz Malena (GPL-3.0-or-later)";
     }
 
     public string texto_marcas () {
@@ -118,7 +118,7 @@ namespace MacOS {
         "Spotlyte — Based on Ulauncher © Aleksandr Gornostal (GPL-3.0)",
         "Constanza (theme) — Based on Mojave-gtk-theme © Vince Liuice (GPL-3.0); cursors based on McMojave-circle © Vince Liuice (GPL-3.0)",
         "slick-greeter-mac — Based on slick-greeter © Linux Mint and Canonical (GPL-3.0)",
-        "System Preferences, Activity Monitor, App Store, Force Quit, About This Mac, Lock Screen, Dock and menu services — Code © 2026 Jose Alberto de la Cruz Malena"
+        "System Preferences, Activity Monitor, App Store, Force Quit, About This Mac, Lock Screen, Dock and menu services — Code © 2026 Jose Alberto de la Cruz Malena (GPL-3.0-or-later)"
     };
 
     /** El About de todo el sistema: el de la función común y, además, la lista de componentes con lo que se basan. */
