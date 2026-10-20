@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 // El parpadeo de la Mac al escoger un ítem de menú (desde System 6): el resaltado parpadea antes de que el menú se cierre y la acción
 // corra. En Cinnamon todos los menús St pasan por PopupBaseMenuItem.activate, que emite «activate» (y con él el menú se cierra y el
 // applet hace lo suyo): este módulo lo envuelve para parpadear primero, con el menú todavía abierto. Se instala al cargar el applet y

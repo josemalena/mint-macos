@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 /*
  * El supervisor del bloqueo: no dibuja nada ni usa GTK. Lanza la pantalla (mac-bloqueo --pantalla) y, si esa se cae de cualquier
  * manera que no sea «la clave correcta» (salida 0), la vuelve a lanzar al instante: la pantalla nunca queda abierta por un fallo

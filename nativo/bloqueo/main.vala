@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 /*
  * mac-bloqueo: la pantalla de bloqueo de mint-macos (Lock Screen, ⌃⌘Q), dentro de la sesión, sin pasar por el greeter de LightDM.
  *   mac-bloqueo              bloquea (supervisor + pantalla); sale cuando se desbloquea. Si ya hay un bloqueo, no hace nada.

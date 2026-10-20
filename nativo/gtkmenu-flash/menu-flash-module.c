@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 /*
  * El parpadeo de la Mac al escoger un ítem de menú, en cualquier programa GTK3 (GTK_MODULES): al soltar el botón o pulsar Enter sobre un
  * ítem de un GtkMenu, el menú sigue abierto, el ítem alterna su resaltado N veces y entonces se activa con gtk_menu_shell_activate_item.

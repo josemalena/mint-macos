@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 /*
  * El estado del bloqueo, en $XDG_RUNTIME_DIR/mint-macos (solo el dueño lo lee):
  *   bloqueado     existe mientras la pantalla debe estar bloqueada; se escribe ANTES de dibujar nada y se borra solo cuando la

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 // Cuando una ventana no contesta, Muffin le pide a Cinnamon un «close dialog» (closeDialog.js: «… is not responding», Wait / Force Quit).
 // En Catalina no sale ningún diálogo: se abre Force Quit Applications con esa app escogida y marcada «(not responding)».
 // Este módulo cambia la clase CloseDialog de Cinnamon por una que lanza mac-forcequit-lanzar --seleccionar PID. No toca el JS del

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 /*
  * La pantalla de bloqueo, con la forma del login de Catalina (medidas del login de slick-greeter-mac, que salen de las capturas
  * de José): fondo de escritorio desenfocado, avatar de 144 px, el nombre en negrita a 20 px y un campo de 160×28 con «Enter Password».

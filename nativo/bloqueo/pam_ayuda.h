@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 #ifndef PAM_AYUDA_H
 #define PAM_AYUDA_H
 #include <stddef.h>

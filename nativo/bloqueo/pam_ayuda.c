@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 /*
  * La autenticación del bloqueo, con PAM (el mismo camino que usa cualquier pantalla de bloqueo de Linux: pam_unix → unix_chkpwd, sin
  * setuid propio). Nada se guarda: la clave llega por parámetro, la conversación de PAM recibe una copia que PAM mismo libera, y las

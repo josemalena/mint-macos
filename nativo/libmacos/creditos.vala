@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 /*
  * Los créditos que lleva el About de todos los programas de mint-macos (regla de José, 19-10-2026), todo en inglés:
  *   - la versión propia del programa (nunca la de Apple);

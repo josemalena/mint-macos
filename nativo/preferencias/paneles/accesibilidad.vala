@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 /*
  * Accessibility: la lista de la izquierda con las secciones de Catalina (Vision, Hearing, Motor, General) y la página de la derecha
  * (captura 08-pref-com.apple.preference.universalaccess--Mouse). Lo que Cinnamon tiene se sirve con sus ajustes (Zoom = el magnificador,
