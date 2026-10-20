@@ -36,6 +36,13 @@ poner_gestor() {
   # A Muffin, con SIGKILL: con SIGTERM se cae (SIGSEGV en libgdk) y systemd-coredump procesaba un
   # volcado cada ~40 s durante una corrida (19-10-2026, calor y CPU).
   if [ -n "$GPID" ]; then kill $([ "$GESTOR" = muffin ] && echo -KILL) "$GPID" 2>/dev/null; wait "$GPID" 2>/dev/null; fi
+  # Que el X suelte la composición del gestor que se fue antes de arrancar el otro: si el selector _NET_WM_CM_S0
+  # sigue con dueño, el nuevo arranca sin componer y la pantalla queda lisa (caso 95 en el armado, 19-10-2026).
+  for _ in $(seq 50); do
+    python3 -I -c 'import sys; from Xlib import display; d = display.Display(); sys.exit(d.get_selection_owner(d.intern_atom("_NET_WM_CM_S0")) != 0)' \
+      2>/dev/null && break
+    sleep 0.1
+  done
   GESTOR=""
   case "$1" in
     muffin)
