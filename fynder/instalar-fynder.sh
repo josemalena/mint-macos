@@ -1,4 +1,5 @@
 #!/bin/sh
+# SPDX-License-Identifier: GPL-3.0-or-later
 # Instala Fynder desde el HEAD del repo (nunca del árbol sucio) en ~/.local/bin,
 # con respaldo de los binarios y del esquema actuales y su volver.sh. No reinicia nada.
 set -eu
