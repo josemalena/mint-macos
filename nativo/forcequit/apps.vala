@@ -8,6 +8,8 @@ namespace MacForceQuit {
         public string nombre;
         public Gdk.Pixbuf? icono = null;
         public Array<int> pids = new Array<int> ();
+        /** Entre sus procesos está el escritorio de Fynder (nemo-desktop): Relaunch también lo vuelve a levantar. */
+        public bool con_escritorio = false;
         /** Alguna de sus ventanas no contesta: Muffin la marcó (--seleccionar) o su proceso está detenido. */
         public bool no_responde = false;
         /** Fynder es el Finder de aquí: en Catalina su botón dice «Relaunch» y no «Force Quit». */
@@ -82,8 +84,14 @@ namespace MacForceQuit {
 
         var por_clase = new HashTable<string, App> (str_hash, str_equal);
         var infos = AppInfo.get_all ();
+        int[] pids_escritorio = {};
         foreach (var w in pantalla.get_windows ()) {
             var tipo = w.get_window_type ();
+            if (tipo == Wnck.WindowType.DESKTOP && w.get_pid () > 0
+                && (w.get_class_group_name () ?? "").down () == "nemo-desktop") {
+                pids_escritorio += w.get_pid ();
+                continue;
+            }
             if (tipo != Wnck.WindowType.NORMAL && tipo != Wnck.WindowType.DIALOG) {
                 continue;
             }
@@ -115,6 +123,21 @@ namespace MacForceQuit {
             app.agregar_pid (pid);
             if ((colgados != null && colgados.contains (pid)) || detenido (pid)) {
                 app.no_responde = true;
+            }
+        }
+
+        // El escritorio de Fynder es otro proceso (nemo-desktop): Relaunch lo reinicia con el resto de Fynder.
+        // El relanzado lo hace la sesión; aquí solo se mata, por PID.
+        if (pids_escritorio.length > 0) {
+            var fynder = por_clase["fynder"];
+            if (fynder == null) {
+                fynder = new App () { clase = "fynder", nombre = "Fynder" };
+                fynder.icono = cargar_icono (null, "system-file-manager");
+                por_clase["fynder"] = fynder;
+            }
+            fynder.con_escritorio = true;
+            foreach (int p in pids_escritorio) {
+                fynder.agregar_pid (p);
             }
         }
 
