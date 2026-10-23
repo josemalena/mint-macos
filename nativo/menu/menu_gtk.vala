@@ -127,8 +127,15 @@ namespace Menu {
                 if (p < 0) {
                     nombre = accion;
                 } else {
-                    grupo = grupos.lookup (accion.substring (0, p));
+                    var prefijo = accion.substring (0, p);
+                    grupo = grupos.lookup (prefijo);
                     nombre = accion.substring (p + 1);
+                    // gtkmm arma «win» con insert_action_group y no lo exporta; libmint-macos-acciones.so lo publica en la ruta del menú
+                    // (como el «unity.» del módulo de appmenu): si el grupo de la ventana no trae la acción, se prueba ahí.
+                    if ((prefijo == "win" || prefijo == "app") && (grupo == null || !grupo.has_action (nombre))) {
+                        var respaldo = grupos.lookup ("unity");
+                        if (respaldo != null && respaldo.has_action (nombre)) grupo = respaldo;
+                    }
                 }
             }
             nodo.grupo = grupo;

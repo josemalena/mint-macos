@@ -29,4 +29,9 @@ if [ -f "$T/nativo/build/gtkmenu-flash/libmint-macos-menu-flash.so" ]; then
   install -d "$RAIZ/.local/lib/mint-macos"
   install -m 755 "$T/nativo/build/gtkmenu-flash/libmint-macos-menu-flash.so" "$RAIZ/.local/lib/mint-macos/"
 fi
+# El módulo GTK3 que exporta las acciones de ventana de las apps gtkmm (GTK_MODULES; nativo/gtk-acciones).
+if [ -f "$T/nativo/build/gtk-acciones/libmint-macos-acciones.so" ]; then
+  install -d "$RAIZ/.local/lib/mint-macos"
+  install -m 755 "$T/nativo/build/gtk-acciones/libmint-macos-acciones.so" "$RAIZ/.local/lib/mint-macos/"
+fi
 echo "compilado del HEAD $(git -C "$REPO" rev-parse --short HEAD)"
