@@ -5,7 +5,8 @@
                                             apariencia, formato y compresor
     car.py sacar <Assets.car> <carpeta> [nombre…]
                                             escribe en PNG lo que se pueda
-                                            descomprimir (sin comprimir, LZFSE y deepmap2)
+                                            descomprimir (sin comprimir, rle, LZFSE y
+                                            deepmap2; 8 bits y de 16 bits RGBW/GA16)
     car.py glifos <Assets.car> <carpeta> [--oscuro] [nombre…]
                                             los glifos que traen vector (PDF),
                                             dibujados con pdftocairo a su tamaño
@@ -36,6 +37,14 @@ ATRIBUTOS = {
     16: "subtipo", 17: "identificador", 18: "valor_previo", 19: "estado_previo",
     20: "clase_h", 21: "clase_v", 22: "memoria", 23: "gráficos", 24: "gamut",
     25: "despliegue",
+}
+# Nombre de apariencia → sufijo del archivo; la misma tabla que car-mac.js.
+APARIENCIAS = {
+    "NSAppearanceNameDarkAqua": "-oscuro", "UIAppearanceDark": "-oscuro",
+    "NSAppearanceNameAqua": "-claro", "UIAppearanceLight": "-claro",
+    "NSAppearanceNameAccessibilityDarkAqua": "-oscuro-ax",
+    "NSAppearanceNameAccessibilityAqua": "-claro-ax",
+    "NSAppearanceNameAccessibilitySystem": "-ax", "ISAppearanceTintable": "-tintable",
 }
 COMPRESORES = {
     0: "ninguno", 1: "rle", 2: "zip", 3: "lzvn", 4: "lzfse", 5: "jpeg-lzfse",
@@ -108,6 +117,30 @@ class Catalogo:
                 a, v = struct.unpack("<HH", valor[6 + 4 * i:10 + 4 * i])
                 if a == 17:
                     self.nombres[v] = clave.decode("utf-8", "replace")
+        # id de apariencia → nombre («NSAppearanceNameDarkAqua»…), desde 11.
+        self.apariencias = {}
+        if "APPEARANCEKEYS" in self.bom.vars:
+            for clave, valor in self.bom.arbol("APPEARANCEKEYS"):
+                self.apariencias[struct.unpack("<H", valor[:2])[0]] = clave.decode("utf-8", "replace")
+
+    def sufijo_apariencia(self, atr):
+        """La apariencia por su nombre en el .car, con la tabla de car-mac.js
+        (extraer-mac) para comparar archivo por archivo. Antes toda apariencia
+        distinta de 0 salía «-oscuro»: en 27 Aqua (8) y Tintable (10) pisaban al
+        oscuro de verdad. Un .car sin APPEARANCEKEYS (Catalina) solo tiene la 1."""
+        a = atr.get("apariencia")
+        if not a:
+            return ""
+        n = self.apariencias.get(a)
+        if n is None:
+            return "-oscuro" if a == 1 and not self.apariencias else f"-apariencia{a}"
+        if n in APARIENCIAS:
+            return APARIENCIAS[n]
+        for pre in ("NSAppearanceName", "UIAppearanceName", "ISAppearanceName",
+                    "NSAppearance", "UIAppearance", "ISAppearance"):
+            if n.startswith(pre):
+                return "-apariencia" + n[len(pre):]
+        return "-apariencia" + n
 
     def imagenes(self):
         for clave, valor in self.bom.arbol("RENDITIONS"):
@@ -118,6 +151,13 @@ class Catalogo:
             im.clave = frozenset((a, v) for a, v in zip(self.formato, vals) if v)
             yield atr, im
 
+    def formato_hoja(self, clave):
+        """El formato de píxel de la hoja a la que apunta un enlace: el del
+        enlace mismo no es fiable (car.py contaba ARGB lo que es GA8)."""
+        self.hoja(None) if not hasattr(self, "_hojas") else None
+        im = self._hojas.get(clave)
+        return im.pixeles if im else None
+
     def hoja(self, clave):
         """La hoja empaquetada con esa clave, ya abierta (con caché). Las hay
         en color (ARGB) y en gris (GA8): un recorte en color puede salir de
@@ -127,6 +167,8 @@ class Catalogo:
             for _, im in self.imagenes():
                 if im.nombre.startswith("ZZZZPackedAsset"):
                     self._hojas[im.clave] = im
+        if clave is None:
+            return None
         if clave not in self._abiertas:
             im = self._hojas.get(clave)
             self._abiertas[clave] = pixeles_de(im) if im else None
@@ -192,10 +234,65 @@ def lzfse(datos, esperado):
     return salida.raw[:n]
 
 
+def rle(cuerpo, bpp):
+    """Compresión 1 (Aqua, hojas chicas): un campo (4 en ARGB, 3 en GA8; los
+    bytes por píxel salen del formato, no de él), ancho y alto, una
+    tabla de desplazamientos por fila y en cada fila tramos con cabecera de 32
+    bits: el bit alto es «repetir el píxel que sigue», sin él «van N píxeles».
+    Dos filas iguales comparten desplazamiento (las dos últimas en Aqua): cada
+    fila se lee hasta llenar el ancho, no hasta la siguiente entrada.
+    Sale sin relleno de fila, en el orden de siempre (BGRA o GA)."""
+    _, ancho, alto = struct.unpack("<3I", cuerpo[:12])
+    ofs = struct.unpack(f"<{alto}I", cuerpo[12:12 + 4 * alto])
+    sal, fin = bytearray(), len(cuerpo)
+    for y in range(alto):
+        p, fila = ofs[y], bytearray()
+        while p < fin and len(fila) < ancho * bpp:
+            cab = struct.unpack("<I", cuerpo[p:p + 4])[0]
+            n = cab & 0x7FFFFFFF
+            if n * bpp > ancho * bpp - len(fila):
+                return None  # tramo más largo que la fila: no es este formato
+            if cab & 0x80000000:
+                fila += cuerpo[p + 4:p + 4 + bpp] * n
+                p += 4 + bpp
+            else:
+                fila += cuerpo[p + 4:p + 4 + n * bpp]
+                p += 4 + n * bpp
+        if len(fila) != ancho * bpp:
+            return None
+        sal += fila
+    return bytes(sal)
+
+
+# Píxeles anchos (desde Big Sur, sobre todo AppIcon): media precisión por
+# canal, premultiplicados. RGBW = R, G, B, A (8 bytes); GA16 = gris, alfa
+# (4 bytes). El orden R-G-B sale de los íconos (Notes amarillo); el espacio de
+# color (sRGB extendido o P3) es hipótesis: se recorta a 0..1 sin convertir.
+ANCHOS = {"RGBW": 4, "GA16": 2}
+
+
+def _de_media(crudo, ancho, alto, canales, fila=None, enteros=False):
+    import numpy as np
+    from PIL import Image as PImage
+    fila = fila or len(crudo) // alto
+    a = np.frombuffer(crudo[:fila * alto], np.uint8).reshape(alto, fila)[:, :ancho * canales * 2]
+    if enteros:  # deepmap2 «por defecto» (carfile-go): B, G, R, A en 0..10000
+        v = a.copy().view("<u2").reshape(alto, ancho, canales).astype(np.float32) / 10000
+        v = v[..., [2, 1, 0, 3]] if canales == 4 else v
+    else:
+        v = a.copy().view("<f2").reshape(alto, ancho, canales).astype(np.float32)
+    v = np.nan_to_num(np.clip(v, 0, 1))
+    alfa = v[..., -1:]
+    color = np.where(alfa > 0, np.clip(v[..., :-1] / np.maximum(alfa, 1e-6), 0, 1), 0)
+    if canales == 2:
+        color = np.repeat(color, 3, axis=-1)
+    return PImage.fromarray((np.dstack([color, alfa]) * 255 + 0.5).astype(np.uint8), "RGBA")
+
+
 def pixeles_de(im):
     """BGRA premultiplicado → bytes RGBA, o None si no se puede."""
     from PIL import Image as PImage
-    if im.pixeles not in ("ARGB", "GA8"):
+    if im.pixeles not in ("ARGB", "GA8") and im.pixeles not in ANCHOS:
         return None
     if not im.datos and im.enlace and getattr(im, "catalogo", None):
         (x, y, w, h), clave = im.enlace
@@ -205,8 +302,9 @@ def pixeles_de(im):
         # Coordenadas de CoreGraphics: el origen va abajo a la izquierda.
         y = hoja.height - y - h
         return hoja.crop((x, y, x + w, y + h))
-    canales = 4 if im.pixeles == "ARGB" else 2
-    esperado = im.ancho * im.alto * canales
+    ancho = im.pixeles in ANCHOS
+    canales = 4 if im.pixeles in ("ARGB", "RGBW") else 2
+    esperado = im.ancho * im.alto * canales * (2 if ancho else 1)
     d = im.datos
     if im.envoltura != "CELM":
         return None
@@ -219,6 +317,12 @@ def pixeles_de(im):
             a, h, formato, crudo = deepmap2.decodificar(cuerpo, lzfse)
         except deepmap2.Error:
             return None
+        if ancho:
+            # formato 20 (RGBW); el GA16 (18) deepmap2.py no lo trae. «Por
+            # defecto» (método 2) sale en enteros 0..10000; sin pérdida, en media.
+            if (a, h) != (im.ancho, im.alto) or formato != 20:
+                return None
+            return _de_media(crudo, a, h, 4, a * 8, enteros=cuerpo[20] == 2)
         if (a, h) != (im.ancho, im.alto) or formato != (4 if canales == 4 else 2):
             return None
     elif cuerpo[:4] == b"KCBC":
@@ -228,7 +332,7 @@ def pixeles_de(im):
             filas, largo = struct.unpack("<II", cuerpo[p + 12:p + 20])
             trozo = cuerpo[p + 20:p + 20 + largo]
             # Cada fila va rellenada hasta un múltiplo de 64 bytes.
-            n = filas * (-(-im.ancho * canales // 64) * 64)
+            n = filas * (-(-esperado // im.alto // 64) * 64)
             if im.compresor == 0:
                 partes.append(trozo)
             elif im.compresor == 4:
@@ -241,12 +345,18 @@ def pixeles_de(im):
         cuerpo = cuerpo[:struct.unpack("<I", d[12:16])[0]]
         if im.compresor == 0:
             crudo = cuerpo
+        elif im.compresor == 1:
+            crudo = rle(cuerpo, canales)
+            if crudo is None:
+                return None
         elif im.compresor == 4:
-            crudo = lzfse(cuerpo, im.alto * (-(-im.ancho * canales // 64) * 64))
+            crudo = lzfse(cuerpo, im.alto * (-(-esperado // im.alto // 64) * 64))
         else:
             return None
     if len(crudo) < esperado:
         return None
+    if ancho:
+        return _de_media(crudo, im.ancho, im.alto, canales)
     # El largo real de fila: con relleno (múltiplo de 64) o sin él.
     fila = len(crudo) // im.alto if len(crudo) % im.alto == 0 else im.ancho * canales
     if canales == 4:
@@ -291,9 +401,13 @@ def glifos(ruta, carpeta, solo, oscuro=False):
     import subprocess
     import tempfile
     pdfs, tam = {}, {}
-    for atr, im in Catalogo(ruta).imagenes():
+    cat = Catalogo(ruta)
+    for atr, im in cat.imagenes():
         nombre = im.faceta or im.nombre
-        es_oscuro = bool(atr.get("apariencia"))
+        ap = cat.sufijo_apariencia(atr)
+        if ap not in ("", "-claro", "-oscuro"):
+            continue  # accesibilidad, Tintable…: aparte
+        es_oscuro = ap == "-oscuro"
         if solo and nombre not in solo:
             continue
         if im.pixeles == "PDF" and im.envoltura == "RAWD":
@@ -332,8 +446,12 @@ def listar(ruta):
     cat = Catalogo(ruta)
     filas = []
     for atr, im in cat.imagenes():
+        pix = im.pixeles
+        if im.enlace and not im.datos:  # el formato de la hoja, no el del enlace
+            pix = cat.formato_hoja(im.enlace[1]) or pix
+        ap = cat.sufijo_apariencia(atr).lstrip("-") or "claro"
         filas.append((im.faceta or im.nombre, f"{im.ancho}x{im.alto}", f"@{im.escala:g}",
-                      "oscuro" if atr.get("apariencia") else "claro", im.pixeles, im.compresion))
+                      ap, pix, im.compresion))
     for f in sorted(filas):
         print("\t".join(f))
     cuenta = {}
@@ -358,7 +476,7 @@ def sacar(ruta, carpeta, solo):
         # apretado, inactivo…): los atributos van en el nombre del archivo.
         extra = "".join(f"-{k}{v}" for k, v in sorted(atr.items())
                         if v and k not in ("identificador", "escala", "apariencia"))
-        sufijo = f"-{im.ancho}x{im.alto}{extra}" + ("-oscuro" if atr.get("apariencia") else "") + \
+        sufijo = f"-{im.ancho}x{im.alto}{extra}" + cat.sufijo_apariencia(atr) + \
             (f"@{im.escala:g}x" if im.escala != 1 else "")
         img.save(os.path.join(carpeta, f"{archivo(nombre)}{sufijo}.png"))
         hechos += 1
