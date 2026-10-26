@@ -372,14 +372,33 @@ comprobar_permisos() {
   return 0
 }
 
+# Con la pantalla bloqueada no hay ventanas que capturar: el 26-10-2026 las
+# dos iMac corrieron así y el 08 salió sin ventana y el 18 sin ventana activa.
+# La sesión de consola y el candado salen de IOConsoleUsers (ioreg, sin root).
+pantalla_libre() {
+  # Una línea con un diccionario por sesión; se mira el del usuario que corre esto.
+  local d; d="$(ioreg -n Root -d1 2>/dev/null | grep IOConsoleUsers | tr '}' '\n' | grep "\"kCGSSessionUserNameKey\"=\"$USER\"")"
+  case "$d" in *'"kCGSSessionOnConsoleKey"=Yes'*) ;; *) echo "no hay sesión de $USER en la consola"; return 1 ;; esac
+  case "$d" in *'"CGSSessionScreenIsLocked"=Yes'*) echo "la pantalla está bloqueada"; return 1 ;; esac
+  return 0
+}
+exigir_pantalla() { # dónde
+  local m; m="$(pantalla_libre)" && return 0
+  log "=== parado en $1: $m ==="; aviso "Parado: $m. Entra a la sesión o desbloquéala y vuelve a correr."
+  exit 3
+}
+
 if quiere capturas || quiere videos; then
+  exigir_pantalla inicio
   comprobar_permisos || { log "=== abortado por permisos ==="; exit 2; }
   foto_sistema antes
   trap devolver EXIT
   # Que no arranque el protector de pantalla ni se apague la pantalla a mitad
   # de las capturas (en Catalina salió Flurry en el menú del escritorio,
   # 15-10-2026). caffeinate muere con este guion; el idleTime se devuelve.
-  caffeinate -d -i -u -w $$ >/dev/null 2>&1 &
+  # -dimsu: ni la pantalla ni el disco ni la Mac se duermen, y sin reposo la
+  # pantalla no se bloquea sola; no cambia ningún ajuste guardado.
+  caffeinate -dimsu -w $$ >/dev/null 2>&1 &
   defaults -currentHost write com.apple.screensaver idleTime -int 0
   read -r W HH ESC BARRA DOCK <<< "$(pantalla)"
   W=${W%.*}; HH=${HH%.*}; BARRA=${BARRA%.*}; DOCK=${DOCK%.*}
@@ -643,6 +662,7 @@ ajustes_recorrer() { # claro|oscuro
 bloque() { case " ${BLOQUES:-todos} " in *" todos "*|*" $1 "*) return 0;; esac; return 1; }
 tanda() { # claro | oscuro
   local M=$1 DM=false; [ "$M" = oscuro ] && DM=true
+  exigir_pantalla "tanda $M"
   log "=== tanda $M ==="; aviso "Capturas en modo $M"
   modo $DM; ocultar; finder_activar; cerrar_finder; raton_fuera
 
@@ -1248,12 +1268,13 @@ if quiere capturas; then
   mkdir -p "$CAP" "$MED"
   tanda claro
   tanda oscuro
-  bloque 18 && acentos
+  bloque 18 && { exigir_pantalla acentos; acentos; }
   aviso "Capturas listas: $(ls "$CAP" | wc -l | tr -d ' ')"
 fi
 
 # ---------------------------------------------------------------- videos
 if quiere videos; then
+  exigir_pantalla videos
   mkdir -p "$VID"; aviso "Videos (modo oscuro)"
   modo true; ocultar; finder_activar; cerrar_finder; raton_fuera
   grabar() { screencapture -V "$2" -x "$VID/$1.mov" & GP=$!; sleep 1.2; }

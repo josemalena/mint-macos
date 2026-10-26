@@ -65,6 +65,14 @@ muera a mitad. Si el color releído no cambia, se anota y sigue; no reinicia nad
 Las cadenas de `AppleHighlightColor` son las de uso común, sin leer de System Settings. La prueba es
 lo releído. Para correr solo ese bloque: `BLOQUES="18" bash extraer.sh capturas`.
 
+## Pantalla bloqueada
+
+«capturas» y «videos» necesitan la sesión en la consola y la pantalla abierta. Al empezar, antes
+de cada tanda, de los acentos y de los videos, el guion lo mira en `IOConsoleUsers` (`ioreg`, sin
+root) y, si está bloqueada o la sesión no está en la consola, para con salida 3 y un aviso; lo que
+haya tocado se devuelve igual. Mientras corre, `caffeinate -dimsu` evita que la pantalla se
+apague o se bloquee por reposo, sin cambiar ningún ajuste guardado.
+
 ## Pasos
 
 1. Córrelo desde la memoria TRANSPORTE. **La salida va al disco local**
