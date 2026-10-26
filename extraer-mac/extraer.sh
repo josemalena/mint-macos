@@ -4,7 +4,8 @@
 # toma del disco de Catalina: recursos del sistema, medidas y capturas.
 # Lo lanza «Extraer Mac.applescript»; también corre solo desde Terminal:
 #
-#   bash extraer.sh [permisos] [recursos] [medidas] [capturas] [videos] [entregar]   (sin nada: todo)
+#   bash extraer.sh [permisos] [recursos] [car] [medidas] [capturas] [videos] [entregar]   (sin nada: todo)
+#   bash extraer.sh car        el contenido de los .car de «recursos», convertido (car-mac.js)
 #   BLOQUES="08 09" bash extraer.sh capturas      (solo esos bloques de la tanda: 01 03 05 06 07 08 09 12 13 14 15 16 17)
 #   BLOQUES="18" bash extraer.sh capturas         los nueve acentos: colores releídos y una ventanita por color (una vez, no por tanda)
 #   BLOQUES="17" bash extraer.sh capturas         Stacks del escritorio (Mojave en adelante): pilas cerradas, una abierta y Group Stacks By
@@ -49,7 +50,7 @@ if [ "$MAYOR" -ge 13 ] 2>/dev/null; then AJUSTES="System Settings"; else AJUSTES
 SAL="${SALIDA:-$HOME/extraer-salida/macos$VERSION-$(date +%Y%m%d)}"
 CAP="$SAL/capturas"; VID="$SAL/videos"; MED="$SAL/medidas"; REC="$SAL/recursos"; HER="$SAL/herramientas"
 mkdir -p "$SAL"
-mkdir -p "$HER"; cp "$AQUI/extraer.sh" "$AQUI/herramientas.js" "$AQUI/ui.applescript" "$HER/" 2>/dev/null
+mkdir -p "$HER"; cp "$AQUI/extraer.sh" "$AQUI/herramientas.js" "$AQUI/ui.applescript" "$AQUI/car-mac.js" "$HER/" 2>/dev/null
 LOG="$HER/capturas.log"
 
 log() { echo "$(date +%H:%M:%S) $*" >> "$LOG"; }
@@ -88,7 +89,7 @@ pantalla() {
   echo "$w $h $esc ${barra:-22} ${dock:-0}"
 }
 
-PASOS="$*"; [ -z "$PASOS" ] && PASOS="permisos recursos medidas capturas videos entregar"
+PASOS="$*"; [ -z "$PASOS" ] && PASOS="permisos recursos car medidas capturas videos entregar"
 quiere() { case " $PASOS " in *" $1 "*) return 0 ;; esac; return 1; }
 
 log "=== extraer.sh ($PASOS) en $NOMBRE, macOS $VERSION, usuario $USER, TERM_PROGRAM=${TERM_PROGRAM:-?} ==="
@@ -245,6 +246,22 @@ if quiere recursos; then
     cp "/System/Library/CoreServices/loginwindow.app/Contents/Resources/$n.tiff" "$REC/cuenta/" 2>/dev/null
   done
   aviso "Recursos listos: $(du -sh "$REC" | awk '{print $1}')"
+fi
+
+# ---------------------------------------------------------------- car
+# El contenido de los .car copiados en «recursos», convertido con el CoreUI de
+# esta Mac (car-mac.js, JXA): lo que car.py no abre en Linux (efectos, SVG,
+# degradados, multisize, Mica…). Mismos nombres que car.py, para comparar.
+# Una cuenta.tsv por .car y cuenta-total.tsv: lo sacado y lo que no, con motivo.
+if quiere car; then
+  if [ -d "$REC/car" ] || [ -d "$REC/iconos" ]; then
+    aviso "Sacando el contenido de los .car"
+    nice -n 10 osascript -l JavaScript "$AQUI/car-mac.js" "$REC" "$REC/car-sacado" car iconos >> "$LOG" 2>&1 \
+      || log "  car-mac.js terminó con error (ver arriba)"
+    log "  car-sacado: $(find "$REC/car-sacado" -type f 2>/dev/null | wc -l | tr -d ' ') archivos, $(du -sh "$REC/car-sacado" 2>/dev/null | cut -f1)"
+  else
+    log "  car: no hay $REC/car ni $REC/iconos (corre antes «recursos»)"
+  fi
 fi
 
 # ---------------------------------------------------------------- medidas

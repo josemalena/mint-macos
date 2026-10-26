@@ -22,6 +22,7 @@ Catalina: es una referencia más.
 | `medidas/` | `medidas.json` (pantalla, barra, fuentes, colores en claro y oscuro, barra de título, semáforos), `pantalla.txt`, `ajustes-ui.txt`; `acentos/<color>.json` y `acentos/resumen.txt` del bloque 18 |
 | `capturas/` | PNG en claro y oscuro, `NN-area-estado-modo.png`, mismos números que macOS 27 |
 | `videos/` | Lupa del Dock, Control Center, Spotlight, Mission Control, minimizar, Notification Center y Launchpad |
+| `recursos/car-sacado/` | Paso `car`: el contenido de cada `.car` de `car/` e `iconos/` convertido con el CoreUI de la Mac (`car-mac.js`, JXA), con los nombres de `tema/iconos/car.py`: PNG de los mapas de bits, PDF/SVG con sus PNG, JSON de efectos, degradados, multisize y colores, y los `.caar` (con `.caml` si se puede). `cuenta.tsv` por `.car` y `cuenta-total.tsv` con lo que no salió y su motivo. Es de Apple: no va a ningún repo. |
 | `estado-sistema/` | Foto de solo lectura antes de empezar y al devolver: Login Items (por System Events), `launchctl print-disabled` de `system` y de la sesión, y `sharing -l`. `diferencias.txt` sale vacío si nada cambió. `sfltool dumpbtm` no va: pide root. |
 | `herramientas/` | Los guiones con que se sacó y `capturas.log`, la bitácora |
 
