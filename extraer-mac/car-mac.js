@@ -12,7 +12,8 @@
 //
 // Qué sale de cada tipo:
 //   mapas de bits (ARGB, GA8, GA16, RGBW, rle, JPEG, HEIF)  PNG sin premultiplicar
-//   PDF y SVG (y glifos vectoriales)   el original, más PNG @1x y @2x
+//   PDF y SVG (y glifos vectoriales)   el original, más PNG @1x y @2x («-vector»: el mapa de bits
+//                                      que CoreUI guarda del mismo PDF sale con el nombre sin él)
 //   efectos (CTFX)                     JSON con cada efecto y sus parámetros
 //   degradados (GRAD)                  JSON con las paradas de color y de opacidad
 //   multisize (MSIS)                   JSON con cada tamaño y su índice
@@ -69,29 +70,59 @@ function fourcc(n) {
 
 function archivo(nombre) { return nombre.replace(/\//g, '__'); }   // como archivo() de car.py
 
-// El nombre de car.py: <nombre>-<w>x<h>[-<atr><v>…][-oscuro][@<e>x]
+// La apariencia va por su nombre en el .car (st.appearances), no por si hay
+// una: el 8 es NSAppearanceNameAqua (claro explícito) y el 10 ISAppearanceTintable,
+// y los dos salían como «-oscuro» y pisaban al oscuro de verdad (1).
+const APARIENCIAS = {
+  NSAppearanceNameDarkAqua: '-oscuro', UIAppearanceDark: '-oscuro',
+  NSAppearanceNameAqua: '-claro', UIAppearanceLight: '-claro',
+  NSAppearanceNameAccessibilityDarkAqua: '-oscuro-ax', NSAppearanceNameAccessibilityAqua: '-claro-ax',
+  NSAppearanceNameAccessibilitySystem: '-ax', ISAppearanceTintable: '-tintable',
+};
+let APAR = {};   // id → nombre, del .car que se está sacando
+function sufijoApariencia(id) {
+  if (!id) return '';
+  const n = APAR[id];
+  return (n && APARIENCIAS[n]) || `-apariencia${n ? n.replace(/^(NS|UI|IS)AppearanceName|^(NS|UI|IS)Appearance/, '') : id}`;
+}
+
+// El nombre de car.py: <nombre>-<w>x<h>[-<atr><v>…][-<apariencia>][@<e>x]
 function sufijo(atr, w, h, esc) {
   const extra = Object.keys(atr).filter(k => !['identificador', 'escala', 'apariencia'].includes(k))
     .sort().map(k => `-${k}${atr[k]}`).join('');
   esc = Number(esc) || 1;   // la de la rendición (el CSI), como car.py; no la de la clave
-  return `-${w}x${h}${extra}` + (atr.apariencia ? '-oscuro' : '') + (esc !== 1 ? `@${esc}x` : '');
+  return `-${w}x${h}${extra}` + sufijoApariencia(atr.apariencia) + (esc !== 1 ? `@${esc}x` : '');
 }
+
+// NSNumber → número: Number() sobre el objeto del puente da NaN.
+function num(x) { return nada(x) ? null : Number(ObjC.unwrap(x)); }
 
 // ---- escritura
 const FM = $.NSFileManager.defaultManager;
 function carpeta(r) { FM.createDirectoryAtPathWithIntermediateDirectoriesAttributesError($(r), true, $(), null); }
-function escribirDatos(d, ruta) { return d.writeToFileAtomically($(ruta), true); }
-function escribirTexto(t, ruta) { return $(t).writeToFileAtomicallyEncodingError($(ruta), true, $.NSUTF8StringEncoding, null); }
+// Dos rendiciones distintas pueden dar el mismo nombre (p. ej. un PDF y el mapa
+// de bits que CoreUI guarda de él): la segunda lleva «-r2», «-r3»… antes de la
+// extensión, en vez de pisar a la primera. USADOS se vacía en cada .car.
+let USADOS = {}, REPETIDOS = 0;
+function libre(ruta) {
+  if (!USADOS[ruta]) { USADOS[ruta] = 1; return ruta; }
+  const m = ruta.match(/^(.*?)((?:@\dx)?\.[^./]+(?:\.[^./]+)?)$/) || [ruta, ruta, ''];
+  let i = 2; while (USADOS[`${m[1]}-r${i}${m[2]}`]) i++;
+  REPETIDOS++; USADOS[`${m[1]}-r${i}${m[2]}`] = 1;
+  return `${m[1]}-r${i}${m[2]}`;
+}
+function escribirDatos(d, ruta) { return d.writeToFileAtomically($(libre(ruta)), true); }
+function escribirTexto(t, ruta) { return $(t).writeToFileAtomicallyEncodingError($(libre(ruta)), true, $.NSUTF8StringEncoding, null); }
 function escribirJSON(o, ruta) { return escribirTexto(JSON.stringify(o, null, 1), ruta); }
 
-// CGImage → PNG (NSBitmapImageRep escribe el PNG sin premultiplicar).
-function png(cg, ruta) {
+// CGImage → PNG (NSBitmapImageRep escribe el PNG sin premultiplicar):
+// {datos, ancho, alto}, para que el nombre lleve el tamaño de verdad.
+function png(cg) {
   if (nada(cg)) return null;
   const rep = $.NSBitmapImageRep.alloc.initWithCGImage(cg);
   if (nada(rep)) return null;
   const d = rep.representationUsingTypeProperties($.NSBitmapImageFileTypePNG, $({}));
-  if (nada(d) || !escribirDatos(d, ruta)) return null;
-  return [Number(rep.pixelsWide), Number(rep.pixelsHigh)];
+  return nada(d) ? null : { datos: d, ancho: Number(rep.pixelsWide), alto: Number(rep.pixelsHigh) };
 }
 
 // Un dibujo vectorial (PDF o SVG) a PNG del tamaño w×h en puntos, a escala e.
@@ -204,7 +235,8 @@ function sacar(ruta, dest) {
   carpeta(dest);
   // apariencias: id → nombre
   const apar = {};
-  try { const d = st.appearances; if (!nada(d)) { const ks = d.allKeys; for (let i = 0; i < ks.count; i++) { const k = ks.objectAtIndex(i); apar[Number(d.objectForKey(k))] = k.js; } } } catch (e) {}
+  try { const d = st.appearances; if (!nada(d)) { const ks = d.allKeys; for (let i = 0; i < ks.count; i++) { const k = ks.objectAtIndex(i); apar[num(d.objectForKey(k))] = k.js; } } } catch (e) {}
+  APAR = apar; USADOS = {}; REPETIDOS = 0;
   // identificador → nombre de faceta, como FACETKEYS en car.py. Con
   // renditionNameForKeyList: el proceso se cae en algunas claves (SVG de
   // CoreTypes, 27.0.1): sale de la clave base de cada nombre.
@@ -247,16 +279,14 @@ function sacar(ruta, dest) {
           anota(tipo, !!ok, 'sin propiedades');
           continue;
         }
-        const cg = r.unslicedImage;
-        const t = png(cg, base + sufijo(atr, tam[0], tam[1], r.scale) + '.png');
-        if (t && (t[0] !== tam[0] || t[1] !== tam[1]))   // el nombre lleva el tamaño de verdad
-          FM.moveItemAtPathToPathError($(base + sufijo(atr, tam[0], tam[1], r.scale) + '.png'), $(base + sufijo(atr, t[0], t[1], r.scale) + '.png'), null);
+        const t = png(r.unslicedImage);   // el nombre lleva el tamaño de verdad del PNG
+        const ok = !!t && escribirDatos(t.datos, base + sufijo(atr, t.ancho, t.alto, r.scale) + '.png');
         if (clase === '_CUIRawPixelRendition' && t) {
           // el JPEG original, tal cual, si se encuentra en el CSI
           const j = pf === 'JPEG' ? desde(r.srcData, '\xff\xd8\xff') : null;
-          if (j) escribirDatos(j, base + sufijo(atr, t[0], t[1], r.scale) + '.jpg');
+          if (j) escribirDatos(j, base + sufijo(atr, t.ancho, t.alto, r.scale) + '.jpg');
         }
-        anota(tipo, !!t, 'unslicedImage vacía');
+        anota(tipo, ok, 'unslicedImage vacía');
       } else if (clase === '_CUIThemePDFRendition') {
         // Unos traen el PDF comprimido en el CSI (sin «%PDF»): sale del
         // CGPDFDocument que arma CoreUI, vuelto a escribir (no es el byte original).
@@ -266,7 +296,7 @@ function sacar(ruta, dest) {
         const pw = nada(ip) ? 0 : Math.round(Number(ip.size.width)), ph = nada(ip) ? 0 : Math.round(Number(ip.size.height));
         const s = sufijo(atr, pw, ph, 1);
         escribirDatos(pdf, base + s + '.pdf');
-        const ok1 = pngVector(pdf, 0, 0, 1, base + s + '.png'), ok2 = pngVector(pdf, 0, 0, 2, base + s + '@2x.png');
+        const ok1 = pngVector(pdf, 0, 0, 1, base + s + '-vector.png'), ok2 = pngVector(pdf, 0, 0, 2, base + s + '-vector@2x.png');
         anota(tipo, !!(ok1 && ok2), 'NSImage no dibuja el PDF');
       } else if (clase === '_CUIThemeSVGRendition' || clase === '_CUIThemeVectorGlyphRendition') {
         const svg = r.rawData;
@@ -274,7 +304,7 @@ function sacar(ruta, dest) {
         const w = Number(r.canvasSize.width), h = Number(r.canvasSize.height);
         const s = sufijo(atr, Math.round(w), Math.round(h), 1);
         escribirDatos(svg, base + s + '.svg');
-        const ok1 = pngVector(svg, w, h, 1, base + s + '.png'), ok2 = pngVector(svg, w, h, 2, base + s + '@2x.png');
+        const ok1 = pngVector(svg, w, h, 1, base + s + '-vector.png'), ok2 = pngVector(svg, w, h, 2, base + s + '-vector@2x.png');
         anota(tipo, !!(ok1 && ok2), 'NSImage no lee SVG en esta versión (llegó en macOS 14): solo el .svg');
       } else if (clase === '_CUIThemeEffectRendition') {
         const e = r.effectPreset;
@@ -286,8 +316,8 @@ function sacar(ruta, dest) {
       } else if (clase === '_CUIThemeGradientRendition') {
         const g = r.gradient;
         if (nada(g)) { anota(tipo, false, 'gradient nil'); continue; }
-        const pos = lista(g.colorLocations, Number), col = lista(g.colorStops, colorDeCUI);
-        const opos = lista(g.opacityLocations, Number), op = lista(g.opacityStops, Number);
+        const pos = lista(g.colorLocations, num), col = lista(g.colorStops, colorDeCUI);
+        const opos = lista(g.opacityLocations, num), op = lista(g.opacityStops, num);
         escribirJSON({ tipo: 'degradado', nombre: fac || r.name.js, atributos: atr,
           estilo: fourcc(r.gradientStyle), angulo: Number(r.gradientDrawingAngle),
           suavizado: Number(g.smoothingCoefficient), tramado: !!g.isDithered,
@@ -296,7 +326,7 @@ function sacar(ruta, dest) {
         anota(tipo, true);
       } else if (clase === '_CUIThemeNamedColorGradientRendition') {
         escribirJSON({ tipo: 'degradado_de_colores_con_nombre', nombre: fac || r.name.js, atributos: atr,
-          colores: lista(r.colorNames, x => x.js), paradas: lista(r.colorStops, Number), tipo_degradado: Number(r.gradientType),
+          colores: lista(r.colorNames, x => x.js), paradas: lista(r.colorStops, num), tipo_degradado: Number(r.gradientType),
           inicio: [Number(r.gradientStartPoint.x), Number(r.gradientStartPoint.y)],
           fin: [Number(r.gradientEndPoint.x), Number(r.gradientEndPoint.y)] }, base + sufijo(atr, 0, 0, 1) + '.json');
         anota(tipo, true);
@@ -356,6 +386,7 @@ function sacar(ruta, dest) {
       }
     } catch (e) { anota(tipo, false, 'error: ' + String(e).slice(0, 120)); }
   }
+  if (REPETIDOS) cuenta['(nombres repetidos, con -rN)'] = { sacado: REPETIDOS, faltan: {} };
   for (const a of Object.keys(colores)) escribirJSON({ apariencia: a, colores: colores[a] }, dest + '/colores-' + archivo(a) + '.json');
   return cuenta;
 }
