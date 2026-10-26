@@ -328,6 +328,20 @@ devolver() {
   [ -n "$MODO_ORIG" ] && osa -e "tell application \"System Events\" to tell appearance preferences to set dark mode to $MODO_ORIG"
   if $MUESTRA_CREADA && [ -d "$HOME/Muestra" ]; then rm -rf "${HOME:?}/Muestra"; fi
   log "estado del usuario devuelto"
+  foto_sistema despues
+  if diff -r "$SAL/estado-sistema/antes" "$SAL/estado-sistema/despues" > "$SAL/estado-sistema/diferencias.txt" 2>&1; then
+    log "Login Items y servicios de Sharing: iguales antes y después"
+  else log "OJO: Login Items o servicios de Sharing cambiaron; mira estado-sistema/diferencias.txt"; fi
+}
+# Lo que el 08 abre y no vive en defaults: Login Items y los servicios de Sharing.
+# Solo lectura. sfltool dumpbtm (13 o más) necesita root y no se corre: los
+# ítems se leen por System Events y los servicios por los «disabled» de launchd.
+foto_sistema() { # antes|despues
+  local d="$SAL/estado-sistema/$1"; mkdir -p "$d"
+  osa -e 'tell application "System Events" to get {name, path} of every login item' > "$d/login-items.txt" 2>&1
+  launchctl print-disabled system > "$d/launchd-system.txt" 2>&1
+  launchctl print-disabled "gui/$(id -u)" > "$d/launchd-gui.txt" 2>&1
+  sharing -l > "$d/carpetas-compartidas.txt" 2>&1
 }
 
 comprobar_permisos() {
@@ -343,6 +357,7 @@ comprobar_permisos() {
 
 if quiere capturas || quiere videos; then
   comprobar_permisos || { log "=== abortado por permisos ==="; exit 2; }
+  foto_sistema antes
   trap devolver EXIT
   # Que no arranque el protector de pantalla ni se apague la pantalla a mitad
   # de las capturas (en Catalina salió Flurry en el menú del escritorio,
