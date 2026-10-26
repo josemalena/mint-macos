@@ -398,6 +398,18 @@ cerrar_paneles_pref() { # hojas (sheets) que abren algunas pestañas, p. ej. Acc
       -e 'end repeat' -e 'end repeat' -e 'end tell' -e 'end timeout' 2>/dev/null; sleep 0.6; }
 ventana_de() { # dueño [regex del título] → id de la ventana normal MÁS GRANDE (no la primera: puede haber paneles sueltos)
   $H ventanas "$1" | awk -F'\t' -v t="${2:-}" '$2==0 && (t=="" || $4 ~ t) { split($5, b, " "); a=b[3]*b[4]; if (a>max) {max=a; id=$1} } END { if (id) print id }'; }
+ventana_alerta() { # dueños «a|b» → id de una alerta, diálogo o Force Quit. En CG no son capa 0
+  # (Monterey 12.7.6, 26-10-2026: ventana_de no las veía y salieron a pantalla completa): primero
+  # capa 0 como siempre; si no hay, cualquier capa de esos dueños, sin las que cubren la pantalla
+  # (loginwindow tiene escudos de pantalla entera) ni las de menos de 40 pt. Si no encuentra
+  # ninguna, deja en la bitácora lo que había, para afinar.
+  local id d
+  for d in $(echo "$1" | tr '|' ' '); do id="$(ventana_de "$d")"; [ -n "$id" ] && { echo "$id"; return; }; done
+  id="$($H ventanas | awk -F'\t' -v d="^($1)$" -v W="$W" -v HH="$HH" '$3 ~ d { split($5, b, " ");
+    if ((b[3] >= W && b[4] >= HH) || b[3] < 40 || b[4] < 40) next; a = b[3]*b[4]; if (a > max) { max = a; id = $1 } }
+    END { if (id) print id }')"
+  if [ -n "$id" ]; then echo "$id"; else log "sin ventana de $1; había: $($H ventanas | awk -F'\t' '{printf "%s/%s/%s; ", $3, $2, $5}')"; fi
+}
 centro() { local p s; p=(${1//,/ }); s=(${2//,/ }); echo "$(( ${p[0]} + ${s[0]}/2 )) $(( ${p[1]} + ${s[1]}/2 ))"; }
 finder_activar() { osa -e 'tell application "Finder" to activate'; sleep 0.5; }
 cerrar_finder() { osa -e 'tell application "Finder" to close every Finder window'; }
@@ -842,9 +854,9 @@ tanda() { # claro | oscuro
   # 09 Diálogos
   if bloque 09; then
   osascript -e 'display alert "Do you want to replace the existing file?" message "A file with the same name already exists in this location. Replacing it will overwrite its current contents." buttons {"Cancel","Replace"} default button 2' >/dev/null 2>&1 & P1=$!
-  sleep 2.5; raton_fuera; cap_win 09-alerta-2-botones-$M "$(ventana_de osascript)"; kill $P1 2>/dev/null; sleep 1
+  sleep 2.5; raton_fuera; cap_win 09-alerta-2-botones-$M "$(ventana_alerta 'osascript|CoreServicesUIAgent')"; kill $P1 2>/dev/null; sleep 1
   osascript -e 'display alert "Do you want to save the changes made to the document “Notas”?" message "Your changes will be lost if you don’t save them." buttons {"Don’t Save","Cancel","Save"} default button 3' >/dev/null 2>&1 & P2=$!
-  sleep 2.5; raton_fuera; cap_win 09-alerta-3-botones-$M "$(ventana_de osascript)"; kill $P2 2>/dev/null; sleep 1
+  sleep 2.5; raton_fuera; cap_win 09-alerta-3-botones-$M "$(ventana_alerta 'osascript|CoreServicesUIAgent')"; kill $P2 2>/dev/null; sleep 1
   osa -e 'tell application "TextEdit"' -e 'activate' -e 'make new document with properties {text:"Notas de la reunión" & linefeed & linefeed & "- Revisar presupuesto"}' \
       -e "set bounds of window 1 to {$((X1-40)), $((Y1-40)), $((X2-40)), $((Y2+80))}" -e 'end tell'; sleep 2; raton_fuera; ocultar_excepto TextEdit
   tecla TextEdit 'keystroke "s" using command down'; sleep 2.5; raton_fuera
@@ -872,7 +884,7 @@ tanda() { # claro | oscuro
   tecla TextEdit 'keystroke "o" using command down'; sleep 2.5; raton_fuera
   cap_win 09-dialogo-open-$M "$(ventana_de TextEdit)"; esc; sleep 1; osa -e 'tell application "TextEdit" to quit saving no'; sleep 1.5
   osascript -e 'do shell script "true" with administrator privileges' >/dev/null 2>&1 & P3=$!
-  sleep 3; raton_fuera; cap_win 09-dialogo-contrasena-admin-$M "$(ventana_de SecurityAgent)"
+  sleep 3; raton_fuera; cap_win 09-dialogo-contrasena-admin-$M "$(ventana_alerta SecurityAgent)"
   osa -e 'tell application "System Events" to tell process "SecurityAgent" to click button "Cancel" of window 1'; kill $P3 2>/dev/null; sleep 1.5
 
   fi
@@ -893,7 +905,7 @@ tanda() { # claro | oscuro
   # 15 Force Quit (⌥⌘Esc) y la barra de ⇧⌘5
   if bloque 15; then
   finder_activar; tecla Finder 'key code 53 using {command down, option down}'; sleep 2; raton_fuera
-  cap_win 15-force-quit-$M "$(ventana_de loginwindow)"; [ -f "$CAP/15-force-quit-$M.png" ] || cap_full 15-force-quit-$M
+  cap_win 15-force-quit-$M "$(ventana_alerta loginwindow)"; [ -f "$CAP/15-force-quit-$M.png" ] || cap_full 15-force-quit-$M
   osa -e 'tell application "System Events" to key code 53'; sleep 0.5   # Esc cierra Force Quit (antes iba además un ⌘W a ciegas)
   finder_activar; tecla Finder 'keystroke "5" using {shift down, command down}'; sleep 2; raton_fuera
   cap_full 15-captura-pantalla-barra-$M; esc; sleep 1
