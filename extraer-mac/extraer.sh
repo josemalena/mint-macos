@@ -6,6 +6,7 @@
 #
 #   bash extraer.sh [permisos] [recursos] [medidas] [capturas] [videos] [entregar]   (sin nada: todo)
 #   BLOQUES="08 09" bash extraer.sh capturas      (solo esos bloques de la tanda: 01 03 05 06 07 08 09 12 13 14 15 16 17)
+#   BLOQUES="18" bash extraer.sh capturas         los nueve acentos: colores releídos y una ventanita por color (una vez, no por tanda)
 #   BLOQUES="17" bash extraer.sh capturas         Stacks del escritorio (Mojave en adelante): pilas cerradas, una abierta y Group Stacks By
 #   BLOQUES="16" bash extraer.sh capturas         solo lo que faltaba de la lista de Catalina (en oscuro; pide la clave para el candado)
 #
@@ -209,6 +210,18 @@ if quiere recursos; then
     mkdir -p "$REC/iconos/coreservices/$app"
     cp "$a/"*.icns "$a/"*.car "$a/"*.png "$a/"*.pdf "$REC/iconos/coreservices/$app/" 2>/dev/null
   done
+  # Inventario de Apple de cada .car copiado (assetutil -I), para validar lo que saca car.py en
+  # la Mac mini: lo que car.py no abra se compara contra esto, no se adivina.
+  if command -v assetutil >/dev/null 2>&1; then
+    mkdir -p "$REC/car-inventario"; ninv=0
+    while IFS= read -r car; do
+      rel="${car#"$REC"/}"; dest="$REC/car-inventario/$(echo "$rel" | sed 's|/|__|g').json"
+      if assetutil -I "$car" > "$dest" 2>>"$LOG"; then ninv=$((ninv+1)); else log "  assetutil -I falló con $rel"; fi
+    done < <(find "$REC/car" "$REC/iconos" -name '*.car' -type f 2>/dev/null)
+    log "  inventario de .car con assetutil: $ninv archivos"
+  else
+    log "  no hay assetutil: sin inventario de los .car"
+  fi
   CUR=/System/Library/Frameworks/ApplicationServices.framework/Versions/A/Frameworks/HIServices.framework/Versions/A/Resources/cursors
   [ -d "$CUR" ] && ( cd "$CUR" && tar -cf - . ) | ( cd "$REC/cursores" && tar -xf - 2>/dev/null )
   cp /System/Library/Sounds/*.aiff "$REC/sonidos/sistema/" 2>>"$LOG"
@@ -283,6 +296,14 @@ ORI_ORIG="$(leer_def com.apple.dock orientation)"; DESK_ORIG="$(leer_def com.app
 STATUS_ORIG="$(leer_def com.apple.finder ShowStatusBar)"; AUTOHIDE_ORIG="$(leer_def com.apple.dock autohide)"
 SS_ORIG="$(defaults -currentHost read com.apple.screensaver idleTime 2>/dev/null || echo __sin__)"
 MUESTRA_CREADA=false
+# Bloque 18 (acentos): las tres claves globales como estaban; se reponen solo si el bloque las tocó.
+ACC_ORIG="$(leer_def -g AppleAccentColor)"; HIL_ORIG="$(leer_def -g AppleHighlightColor)"
+AQUA_ORIG="$(leer_def -g AppleAquaColorVariant)"; ACENTO_TOCADO=false
+acento_reponer() {
+  poner_def -g AppleAccentColor "$ACC_ORIG" int; poner_def -g AppleHighlightColor "$HIL_ORIG" string
+  poner_def -g AppleAquaColorVariant "$AQUA_ORIG" int
+  $H avisar-colores >/dev/null 2>>"$LOG"; ACENTO_TOCADO=false; log "18: acento devuelto"
+}
 EXP_ORIG=""; EXP2_ORIG=""   # bloque 09: la hoja Save desplegada por preferencia (13 o más)
 # Bloque 17 (Stacks): los archivos de prueba que puso en el Desktop y si cambió «Use Stacks».
 PILA_LISTA="$SAL/pila-archivos.txt"; : > "$PILA_LISTA"; STACKS_TOCADO=false
@@ -292,6 +313,7 @@ usar_stacks_marca() { # «si» o «no»: si «Use Stacks» del menú View del es
 usar_stacks_clic() { osa -e 'tell application "System Events" to tell process "Finder" to click menu item "Use Stacks" of menu 1 of menu bar item "View" of menu bar 1'; }
 borrar_pila() { local f; while IFS= read -r f; do case "$f" in "$HOME/Desktop/extraer-pila-"*|"$HOME/Downloads/extraer-pila-"*) rm -f "$f" ;; esac; done < "$PILA_LISTA"; : > "$PILA_LISTA"; }
 devolver() {
+  $ACENTO_TOCADO && acento_reponer
   if $STACKS_TOCADO; then osa -e 'tell application "Finder" to activate'; usar_stacks_clic; STACKS_TOCADO=false; log "17: Use Stacks devuelto en devolver"; fi
   borrar_pila
   [ -n "$EXP_ORIG" ] && poner_def -g NSNavPanelExpandedStateForSaveMode "$EXP_ORIG" bool
@@ -1126,10 +1148,51 @@ tanda() { # claro | oscuro
   log "=== fin tanda $M ==="
 }
 
+# 18 Acentos: una vez por color, no por tanda. Los colores se releen en claro y oscuro desde un
+# proceso nuevo (herramientas.js acento), que lee las preferencias al arrancar; la ventanita de
+# controles sale de ese mismo proceso. Aparte, la ventana del Finder (abierta desde antes) dice si
+# las apps que ya corrían toman el color en caliente: eso está SIN VERIFICAR hasta verlo en 12 y en 27.
+# Las cadenas de AppleHighlightColor son las de uso común, no leídas de System Settings: se anotan
+# como hipótesis y lo que cuenta es selectedTextBackgroundColor releído.
+acentos() {
+  local A="$MED/acentos" fila nombre acc hil aqua prev="" hex
+  mkdir -p "$A"; : > "$A/resumen.txt"
+  modo false; ocultar; finder_activar; cerrar_finder; raton_fuera
+  ventana_finder . list $X1 $Y1 $X2 $Y2
+  osa -e 'tell application "Finder" to select folder "Documentos" of folder "Muestra" of home'; raton_fuera
+  ACENTO_TOCADO=true
+  for fila in "multicolor|__sin__|__sin__|1" \
+              "azul|4|0.698039 0.843137 1.000000 Blue|1" \
+              "morado|5|0.968627 0.831373 1.000000 Purple|1" \
+              "rosa|6|1.000000 0.749020 0.823529 Pink|1" \
+              "rojo|0|1.000000 0.733333 0.721569 Red|1" \
+              "naranja|1|1.000000 0.874510 0.701961 Orange|1" \
+              "amarillo|2|1.000000 0.937255 0.690196 Yellow|1" \
+              "verde|3|0.752941 0.964706 0.678431 Green|1" \
+              "gris|-1|0.847059 0.847059 0.862745 Graphite|6"; do
+    IFS='|' read -r nombre acc hil aqua <<< "$fila"
+    poner_def -g AppleAccentColor "$acc" int; poner_def -g AppleHighlightColor "$hil" string
+    poner_def -g AppleAquaColorVariant "$aqua" int
+    $H avisar-colores >/dev/null 2>>"$LOG"; sleep 1.5
+    $H acento "$CAP/18-acento-${nombre}-claro.png" "$CAP/18-acento-${nombre}-oscuro.png" > "$A/${nombre}.json" 2>>"$LOG"
+    finder_activar; cap_win "18-acento-${nombre}-finder-claro" "$(id_finder)"
+    hex="$(grep -A2 '"controlAccentColor"' "$A/${nombre}.json" | grep '"hex"' | head -1 | tr -dc '#0-9A-F')"
+    printf '%-10s escrito AppleAccentColor=%s AppleHighlightColor=%s AppleAquaColorVariant=%s · releído controlAccentColor claro %s\n' \
+      "$nombre" "$acc" "$hil" "$aqua" "${hex:-?}" >> "$A/resumen.txt"
+    if [ -n "$prev" ] && [ "$hex" = "$prev" ] && [ "$nombre" != azul ]; then
+      log "18: ${nombre}: controlAccentColor releído igual que el anterior (${hex}); no se aplicó o el color coincide"
+    fi
+    log "18: ${nombre} listo (${hex:-sin color})"; prev="$hex"
+  done
+  acento_reponer
+  cerrar_finder; raton_fuera
+}
+
 if quiere capturas; then
-  mkdir -p "$CAP"
+  mkdir -p "$CAP" "$MED"
   tanda claro
   tanda oscuro
+  bloque 18 && acentos
   aviso "Capturas listas: $(ls "$CAP" | wc -l | tr -d ' ')"
 fi
 

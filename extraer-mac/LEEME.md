@@ -15,10 +15,11 @@ Catalina: es una referencia más.
 | `recursos/sistema/` | Un `.tar` por carpeta del sistema (Applications, CoreServices, PreferencePanes, Extensions, Frameworks, PrivateFrameworks, /Applications): `.icns`, `.car`, PDF, PNG, TIFF, plists, strings, `.loctable`, `.xml`, `.toolbar` y nib en inglés (y ExtensionKit, los paneles de Settings). Sin fuentes; binarios solo los de los paneles de Settings y de System Settings, para leer sus vistas SwiftUI. Si un `.tar` pasa de 3.9 GB sale partido (`.tar.aa`, `.tar.ab`) porque la memoria es FAT32. |
 | `recursos/car/` | Los `.car` de SystemAppearance (Aqua, DarkAqua, Vibrant…) |
 | `recursos/iconos/` | CoreTypes, cada app de /System/Applications, cada `.prefPane` y Finder, Dock, Control Center, Spotlight, Siri, loginwindow |
+| `recursos/car-inventario/` | `assetutil -I` de cada `.car` de `car/` e `iconos/` (la ruta con `__` en vez de `/`): el inventario de Apple para comparar lo que saca `tema/iconos/car.py`. Los PNG de los `.car` no se sacan aquí; se sacan en la Mac mini con car.py, a `referencias/`. |
 | `recursos/cursores/`, `recursos/sonidos/` | Cursores de HIServices; sonidos de alerta y de interfaz |
 | `recursos/fondos/` | Los fondos de fábrica y el que tienes puesto |
 | `recursos/cuenta/` | La foto de la cuenta y los botones Restart, Shut Down y Sleep del login |
-| `medidas/` | `medidas.json` (pantalla, barra, fuentes, colores en claro y oscuro, barra de título, semáforos), `pantalla.txt`, `ajustes-ui.txt` |
+| `medidas/` | `medidas.json` (pantalla, barra, fuentes, colores en claro y oscuro, barra de título, semáforos), `pantalla.txt`, `ajustes-ui.txt`; `acentos/<color>.json` y `acentos/resumen.txt` del bloque 18 |
 | `capturas/` | PNG en claro y oscuro, `NN-area-estado-modo.png`, mismos números que macOS 27 |
 | `videos/` | Lupa del Dock, Control Center, Spotlight, Mission Control, minimizar, Notification Center y Launchpad |
 | `herramientas/` | Los guiones con que se sacó y `capturas.log`, la bitácora |
@@ -41,6 +42,24 @@ Mojave en adelante): las pilas cerradas, una abierta y Group Stacks By. Para eso
 Desktop unos archivos `extraer-pila-*` (imágenes, PDF y capturas) que borra al terminar, y deja
 «Use Stacks» como estaba. Estas capturas llevan la versión en el nombre
 (`17-stacks-cerradas-macos<versión>-<modo>.png`). Solo ese bloque: `BLOQUES="17" bash extraer.sh capturas`.
+
+El bloque 18 corre una vez, después de las dos tandas, por cada acento (multicolor, azul, morado,
+rosa, rojo, naranja, amarillo, verde y gris). Cambia `AppleAccentColor`, `AppleHighlightColor` y
+`AppleAquaColorVariant` con `defaults write -g`, y luego hace tres cosas:
+
+- Desde un proceso nuevo relee `controlAccentColor`, `selectedContentBackgroundColor`,
+  `selectedTextBackgroundColor` y `keyboardFocusIndicatorColor`, en claro y en oscuro.
+- Captura una ventanita con controles de acento en cada apariencia (`18-acento-<color>-claro.png` y
+  `-oscuro.png`).
+- Captura la ventana del Finder, que ya estaba abierta (`18-acento-<color>-finder-claro.png`). Esa
+  dice si las apps abiertas toman el color en caliente, cosa que está **sin verificar** hasta verla
+  en 12 y en 27.
+
+Los tres valores originales vuelven al terminar el bloque y también en la salida del guion, aunque
+muera a mitad. Si el color releído no cambia, se anota y sigue; no reinicia nada.
+
+Las cadenas de `AppleHighlightColor` son las de uso común, sin leer de System Settings. La prueba es
+lo releído. Para correr solo ese bloque: `BLOQUES="18" bash extraer.sh capturas`.
 
 ## Pasos
 

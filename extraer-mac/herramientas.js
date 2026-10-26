@@ -16,6 +16,15 @@
 //       permisos de una vez, para concederlos al principio y no uno por uno.
 //       JSON con lo que AppKit dice de la interfaz, en puntos (como
 //       medidas.json de la entrega de macOS 27)
+//   osascript -l JavaScript herramientas.js acento [claro.png oscuro.png]
+//       JSON con AppleAccentColor/AppleHighlightColor tal como los lee este
+//       proceso y los cuatro colores de acento en claro y oscuro; con las dos
+//       rutas, además una ventanita con controles de acento (botón por
+//       defecto, checkbox, radio, popup, segmentos, slider, texto seleccionado
+//       con anillo de foco) capturada en cada apariencia
+//   osascript -l JavaScript herramientas.js avisar-colores
+//       publica las notificaciones con que las apps abiertas releen el acento
+//       (si de verdad las releen en caliente está sin verificar)
 //
 // Las coordenadas van en puntos, con el origen arriba a la izquierda (las de
 // screencapture -R y System Events).
@@ -34,7 +43,9 @@ function run(argv) {
   if (cmd === 'raton') return raton(argv.slice(1));
   if (cmd === 'medidas') return medidas(argv[1] || '');
   if (cmd === 'permisos') return permisos(argv[1] === 'pedir', argv[2] || '');
-  return 'uso: pantalla | ventanas [dueño] | raton … | medidas | permisos [pedir]';
+  if (cmd === 'acento') return acento(argv[1] || '', argv[2] || '');
+  if (cmd === 'avisar-colores') return avisarColores();
+  return 'uso: pantalla | ventanas [dueño] | raton … | medidas | permisos [pedir] | acento [claro.png oscuro.png] | avisar-colores';
 }
 
 function pantalla() {
@@ -243,4 +254,68 @@ function medidas(version) {
     dock_autohide: pref('com.apple.dock', 'autohide'),
   };
   return JSON.stringify(res, null, 2);
+}
+
+// ---- acento (bloque 18) ----------------------------------------------------
+// Un proceso nuevo lee las preferencias al arrancar: lo que da aquí es lo que
+// verá una app abierta DESPUÉS del cambio, no prueba que las abiertas cambien.
+const ACENTO_COLORES = ['controlAccentColor', 'selectedContentBackgroundColor', 'selectedTextBackgroundColor',
+  'keyboardFocusIndicatorColor'];
+function acento(pngClaro, pngOscuro) {
+  const app = $.NSApplication.sharedApplication;
+  const out = { AppleAccentColor: pref('-g', 'AppleAccentColor'), AppleHighlightColor: pref('-g', 'AppleHighlightColor'),
+    AppleAquaColorVariant: pref('-g', 'AppleAquaColorVariant'), colores: {} };
+  [['claro', $.NSAppearanceNameAqua, pngClaro], ['oscuro', $.NSAppearanceNameDarkAqua, pngOscuro]].forEach(([n, ap, png]) => {
+    $.NSAppearance.setCurrentAppearance($.NSAppearance.appearanceNamed(ap));
+    const c = {};
+    ACENTO_COLORES.forEach(k => {
+      try { const x = $.NSColor[k]; c[k] = (x && !x.isNil()) ? srgb(x) : 'no existe en esta versión'; }
+      catch (e) { c[k] = 'no existe en esta versión'; }
+    });
+    out.colores[n] = c;
+    if (png) {
+      try { out['captura_' + n] = ventanaAcento(app, ap, png); } catch (e) { out['captura_' + n] = 'error: ' + e; }
+    }
+  });
+  return JSON.stringify(out, null, 2);
+}
+function girar(seg) { $.NSRunLoop.currentRunLoop.runUntilDate($.NSDate.dateWithTimeIntervalSinceNow(seg)); }
+function ventanaAcento(app, ap, png) {
+  app.setActivationPolicy($.NSApplicationActivationPolicyAccessory);
+  app.finishLaunching;
+  // 1 | 2 = titled | closable
+  const w = $.NSWindow.alloc.initWithContentRectStyleMaskBackingDefer($.NSMakeRect(240, 240, 380, 190), 1 | 2, 2, false);
+  w.releasedWhenClosed = false;
+  w.title = $('Acento');
+  w.appearance = $.NSAppearance.appearanceNamed(ap);
+  const v = w.contentView;
+  const pon = (ctl, x, y, ancho, alto) => { ctl.setFrame($.NSMakeRect(x, y, ancho, alto)); v.addSubview(ctl); return ctl; };
+  const ok = pon($.NSButton.buttonWithTitleTargetAction($('OK'), null, null), 270, 16, 92, 32);
+  ok.keyEquivalent = $('\r');
+  pon($.NSButton.buttonWithTitleTargetAction($('Cancel'), null, null), 170, 16, 92, 32);
+  const chk = pon($.NSButton.checkboxWithTitleTargetAction($('Checkbox'), null, null), 20, 150, 120, 20); chk.state = 1;
+  const rad = pon($.NSButton.radioButtonWithTitleTargetAction($('Radio'), null, null), 150, 150, 100, 20); rad.state = 1;
+  const pop = pon($.NSPopUpButton.alloc.initWithFramePullsDown($.NSMakeRect(0, 0, 10, 10), false), 250, 146, 112, 26);
+  pop.addItemsWithTitles($(['Popup', 'Dos']));
+  const seg = pon($.NSSegmentedControl.segmentedControlWithLabelsTrackingModeTargetAction($(['Uno', 'Dos', 'Tres']), 0, null, null), 20, 112, 180, 24);
+  seg.selectedSegment = 0;
+  pon($.NSSlider.sliderWithValueMinValueMaxValueTargetAction(0.6, 0, 1, null, null), 210, 114, 152, 22);
+  const tf = pon($.NSTextField.textFieldWithString($('Texto seleccionado')), 20, 70, 342, 24);
+  w.makeKeyAndOrderFront(null);
+  app.activateIgnoringOtherApps(true);
+  girar(0.8);
+  w.makeFirstResponder(tf); tf.selectText(null);
+  w.display; girar(0.8);
+  const t = $.NSTask.launchedTaskWithLaunchPathArguments('/usr/sbin/screencapture',
+    $(['-x', '-o', '-l', String(w.windowNumber), png]));
+  t.waitUntilExit;
+  const st = t.terminationStatus;
+  w.close; girar(0.2);
+  return st === 0 ? png : 'screencapture salió con ' + st;
+}
+function avisarColores() {
+  const c = $.NSDistributedNotificationCenter.defaultCenter;
+  ['AppleColorPreferencesChangedNotification', 'AppleAquaColorVariantChanged'].forEach(n =>
+    c.postNotificationNameObjectUserInfoDeliverImmediately($(n), null, null, true));
+  return 'avisado';
 }
