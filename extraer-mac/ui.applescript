@@ -18,7 +18,7 @@
 --   osascript ui.applescript titulo <proceso>             el título de la ventana 1
 --   osascript ui.applescript hoja-hay <proceso>           «si» si hay una hoja o un diálogo encima
 --   osascript ui.applescript barra <proceso>              «n|texto|AXIdentifier» por cada fila de la barra lateral (la primera AXOutline)
---   osascript ui.applescript botones <proceso>            «n<TAB>nombre<TAB>descripción<TAB>AXIdentifier» de cada botón fuera de la barra lateral
+--   osascript ui.applescript botones <proceso>            «n<TAB>nombre<TAB>descripción<TAB>AXIdentifier<TAB>rol<TAB>subrol» de cada AXButton fuera de la barra lateral
 --   osascript ui.applescript barra-ir <proceso> <n>       selecciona la fila n de la barra lateral
 --   osascript ui.applescript clic-id <proceso> <id>       clic en el BOTÓN cuyo AXIdentifier es exactamente <id>
 --   osascript ui.applescript clic-igual <proceso> <texto> clic en el BOTÓN cuyo nombre o descripción es exactamente <texto>
@@ -111,7 +111,8 @@ end texto_en
 -- del scroll, y todo lo que cuelga de una barra de scroll o de un campo de búsqueda.
 on prohibido(e)
 	set sr to my atributo(e, "AXSubrole")
-	if sr is in {"AXCloseButton", "AXZoomButton", "AXMinimizeButton", "AXFullScreenButton", "AXIncrementArrow", "AXDecrementArrow", "AXIncrementPage", "AXDecrementPage", "AXSearchField"} then return true
+	-- Un interruptor o un conmutador cambia un ajuste aunque su rol diga botón.
+	if sr is in {"AXSwitch", "AXToggle", "AXCloseButton", "AXZoomButton", "AXMinimizeButton", "AXFullScreenButton", "AXIncrementArrow", "AXDecrementArrow", "AXIncrementPage", "AXDecrementPage", "AXSearchField"} then return true
 	tell application "System Events"
 		try
 			set p to value of attribute "AXParent" of e
@@ -389,7 +390,7 @@ on run argv
 				tell application "System Events" to set r to role of e
 				if r is "AXButton" and not my en_barra(e) and not my prohibido(e) then
 					set i to i + 1
-					set salida to salida & i & tab & my texto_de(e, "name") & tab & my texto_de(e, "description") & tab & my atributo(e, "AXIdentifier") & linefeed
+					set salida to salida & i & tab & my texto_de(e, "name") & tab & my texto_de(e, "description") & tab & my atributo(e, "AXIdentifier") & tab & r & tab & my atributo(e, "AXSubrole") & linefeed
 				end if
 			end try
 		end repeat

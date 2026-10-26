@@ -408,10 +408,10 @@ id_finder() { osa -e "tell application \"Finder\" to get id of Finder window ${1
 # abren subpáginas (salieron repetidas). Aquí se recorre la interfaz: cada fila de la barra
 # lateral, el panel llevado hasta abajo, y sus subpáginas (un nivel). Nada se cambia: solo se
 # pulsan botones que navegan o que abren una hoja, y cada hoja se cierra con Cancel o Done.
-SUBMAX="${SUBMAX:-25}"
+SUBMAX="${SUBMAX:-25}"   # subpáginas por panel, como mucho (Privacy & Security tiene unas 20)
 # En seco (por omisión) no se pulsa ninguna subpágina: se anota «pulsaría …» en la bitácora para
 # revisar la lista antes. Pulsar de verdad: AJ_SECO=0 (Planner, 26-10-2026).
-AJ_SECO="${AJ_SECO:-1}"   # subpáginas por panel, como mucho (Privacy & Security tiene unas 20)
+AJ_SECO="${AJ_SECO:-1}"
 # Botones con «…» que abren una hoja que se captura y se cierra; cualquier otro «…» no se pulsa.
 AJ_HOJAS='^(Keyboard Shortcuts|Hot Corners|Advanced|Options|Details|Customize)'
 # Lo que empieza así hace algo en vez de navegar: nunca se pulsa. Las filas que navegan
@@ -459,7 +459,7 @@ aj_hoja_filas() { # base modo: una hoja con lista a la izquierda (Keyboard Short
     sleep 1; raton_fuera; cap_full "$1-$(aj_slug "$c")-$2"; j=$((j+1))
   done < "$SAL/.hoja"; rm -f "$SAL/.hoja"; }
 ajustes_recorrer() { # claro|oscuro
-  local M=$1 n txt ident clave base titulo raiz c k sub tam ancho yo ult
+  local M=$1 n txt ident clave base titulo raiz c k sub tam ancho yo ult rol subrol
   yo="$(id -F 2>/dev/null)"
   cerrar_app "$AJUSTES"; sleep 1
   # En Sequoia salieron Finder y Finder Settings de otras tomas detrás, y la ventana sin foco.
@@ -501,16 +501,19 @@ ajustes_recorrer() { # claro|oscuro
     # o «com.apple.settings.»), que no sean de la barra lateral y cuyo último tramo no empiece con un
     # verbo de acción. Los que no tienen identificador (flechas del scroll, «Search», close, zoom,
     # minimize) NUNCA: el 26-10-2026 en 27 se pulsó «increment arrow button» por ir por la descripción.
-    awk -F'\t' '$4 ~ /^com\.apple\.(systempreferences|settings)\./ { print $4 }' "$SAL/.todos" | awk '!v[$0]++' > "$SAL/.botones"
+    # Y solo rol AXButton: un interruptor (AXCheckBox/AXSwitch), un popup o un deslizador también pueden
+    # traer un id com.apple.settings.*, y pulsarlo cambia un ajuste (Planner, 26-10-2026). Va con «|»
+    # porque el subrol puede venir vacío.
+    awk -F'\t' '$4 ~ /^com\.apple\.(systempreferences|settings)\./ && $5 == "AXButton" && $6 !~ /^AX(Switch|Toggle)$/ { print $4 "|" $5 "|" $6 }' "$SAL/.todos" | awk '!v[$0]++' > "$SAL/.botones"
     [ -s "$SAL/.botones" ] || log "08: $txt: ningún botón con identificador de System Settings; subpáginas sin recorrer"
     k=0
-    while IFS= read -r c; do
+    while IFS='|' read -r c rol subrol; do
       [ $k -lt "$SUBMAX" ] || { log "08: $txt: llegué a $SUBMAX subpáginas, paro"; break; }
       cut -d'|' -f3 "$SAL/.barra" | grep -qxF "$c" && continue        # es de la barra lateral
       ult="$(echo "$c" | sed 's/.*[.*]//')"
       echo "$ult" | grep -qiE "$AJ_NO_ID" && { log "08: $txt: no se pulsa ${ult} (acción)"; continue; }
       echo "$c" | grep -qiE "$AJ_PRIVADO" && { log "08: $txt: no se pulsa ${ult} (privado)"; continue; }
-      if [ "$AJ_SECO" != 0 ]; then log "08: $txt: pulsaría ${ult} (${c})"; continue; fi
+      if [ "$AJ_SECO" != 0 ]; then log "08: $txt: pulsaría ${ult} (${c}; ${rol}/${subrol:-sin subrol})"; continue; fi
       [ "$(aj clic-id "$c")" = ok ] || continue
       sleep 2
       sub="$base--$(aj_slug "$ult")"
