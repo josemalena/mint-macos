@@ -87,10 +87,12 @@ Desktop unos archivos `extraer-pila-*` (imágenes, PDF y capturas) que borra al 
 El bloque 08 no usa el diccionario de AppleScript (en Sequoia solo publicaba 6
 paneles y sus anclas no abrían nada): recorre la barra lateral fila por fila,
 captura cada panel (y otra vez llevado al fondo, `-fin`) y entra a sus
-subpáginas, un nivel, hasta `SUBMAX` por panel (25). Solo pulsa botones que
-navegan; nunca uno que empiece con un verbo de acción (Turn, Add, Remove,
-Reset, Erase, Update…) ni uno con «…», salvo los que abren una hoja que se cierra
-sola (Keyboard Shortcuts, Hot Corners, Advanced, Options, Details, Customize).
+subpáginas, un nivel, hasta `SUBMAX` por panel (25). Solo pulsa botones con
+AXIdentifier de System Settings (`com.apple.systempreferences.<panel>.<algo>` o
+`com.apple.settings.<algo>`), que no sean de la barra lateral, ni del semáforo,
+del scroll o de la búsqueda, y cuyo último tramo no empiece con un verbo de
+acción (turnOn, reset…). **Por omisión va en seco** (`AJ_SECO=1`): anota en la
+bitácora «pulsaría …» y no pulsa nada; con `AJ_SECO=0` pulsa de verdad.
 De la cuenta, Wallet, Passwords, Internet Accounts, Game Center y Family se
 captura el panel pero no sus subpáginas; con `AJENA=1` esas filas ni se abren.
 El árbol de Accessibility de cada panel queda en `herramientas/arbol-ajustes/`

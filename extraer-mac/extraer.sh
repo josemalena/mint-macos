@@ -272,7 +272,10 @@ fi
 # Estado del usuario, para devolverlo al terminar.
 leer_def() { defaults read "$1" "$2" 2>/dev/null || echo "__sin__"; }
 poner_def() { # dominio clave valor-anotado tipo
-  if [ "$3" = "__sin__" ]; then defaults delete "$1" "$2" 2>/dev/null; else defaults write "$1" "$2" "-$4" "$3"; fi
+  # defaults read da 0/1 para un booleano, pero «defaults write … -bool 0» no lo acepta e imprime su
+  # ayuda (Mint-Macos en 27, 26-10-2026): se traduce a false/true.
+  local v="$3"; [ "$4" = bool ] && case "$v" in 0) v=false ;; 1) v=true ;; esac
+  if [ "$3" = "__sin__" ]; then defaults delete "$1" "$2" 2>/dev/null; else defaults write "$1" "$2" "-$4" "$v"; fi
 }
 MODO_ORIG="$(osa -e 'tell application "System Events" to tell appearance preferences to get dark mode')"
 MAG_ORIG="$(leer_def com.apple.dock magnification)"; LARGE_ORIG="$(leer_def com.apple.dock largesize)"
@@ -405,18 +408,24 @@ id_finder() { osa -e "tell application \"Finder\" to get id of Finder window ${1
 # abren subpáginas (salieron repetidas). Aquí se recorre la interfaz: cada fila de la barra
 # lateral, el panel llevado hasta abajo, y sus subpáginas (un nivel). Nada se cambia: solo se
 # pulsan botones que navegan o que abren una hoja, y cada hoja se cierra con Cancel o Done.
-SUBMAX="${SUBMAX:-25}"   # subpáginas por panel, como mucho (Privacy & Security tiene unas 20)
+SUBMAX="${SUBMAX:-25}"
+# En seco (por omisión) no se pulsa ninguna subpágina: se anota «pulsaría …» en la bitácora para
+# revisar la lista antes. Pulsar de verdad: AJ_SECO=0 (Planner, 26-10-2026).
+AJ_SECO="${AJ_SECO:-1}"   # subpáginas por panel, como mucho (Privacy & Security tiene unas 20)
 # Botones con «…» que abren una hoja que se captura y se cierra; cualquier otro «…» no se pulsa.
 AJ_HOJAS='^(Keyboard Shortcuts|Hot Corners|Advanced|Options|Details|Customize)'
 # Lo que empieza así hace algo en vez de navegar: nunca se pulsa. Las filas que navegan
 # son sustantivos («About», «Storage», «Login Items & Extensions»).
 AJ_NO='^(Turn|Enable|Disable|Add|Remove|Delete|Erase|Reset|Restart|Shut|Log Out|Sign|Update|Upgrade|Install|Allow|Deny|Quit|Apply|Done|OK|Cancel|Set Up|Change|Edit|Lock|Unlock|Forget|Join|Connect|Disconnect|Pair|Unpair|Clear|Empty|Restore|Use|Buy|Learn|Manage|Store|Optimize|Review|Open|Show|Hide|Calibrate|Identify|Detect|Arrange|Back|Forward|Search|Help|Share|Send|Copy|Import|Export|Choose|Select|Start|Stop|Pause|Resume|Test|Check|Verify|Repair|Get|Download|Renew|Request|Approve|Leave|Invite|Accept|Decline|Revert|Default|Report|Create|New|Rename|Replace|Run|Play|Record|Scan|Print|Close|Dismiss)( |$|…|\.)'
+# Lo mismo para el último tramo de un AXIdentifier en camelCase (turnOn, resetAll): basta el prefijo.
+# Sin «start» (startupDisk navega). featureDescription es texto, no navega.
+AJ_NO_ID='^(turn|enable|disable|add|remove|delete|erase|reset|restart|shut|logout|signin|signout|update|upgrade|install|allow|deny|quit|apply|done|ok$|cancel|setup|change|edit|lock|unlock|forget|join|connect|disconnect|pair|unpair|clear|empty|restore|buy|learn|manage|optimize|open|show|hide|calibrate|identify|detect|arrange|back|forward|search|help|send|copy|import|export|choose|select|stop|pause|resume|test|check|verify|repair|download|renew|request|approve|leave|invite|accept|decline|revert|report|create|new|rename|replace|run|play|record|scan|print|close|dismiss|feature|zoom|minimi)'
 # Filas de la barra lateral con datos de la cuenta o de pago: su panel se captura, sus subpáginas no;
 # con AJENA=1 ni se abren. En Wi-Fi y Bluetooth tampoco se entra: ahí un botón con el nombre de
 # una red o de un aparato CONECTA, y la iMac de 27 se maneja por Remote Control. Se comparan sin
 # mayúsculas contra el texto de la fila Y su AXIdentifier (en 27 las filas no tienen texto:
 # com.apple.systempreferences.AppleIDSettings*AppleIDSettings, com.apple.settings.notifications).
-AJ_PRIVADO='apple ?account|apple ?id|wallet|password|internet.?accounts|game ?center|family'
+AJ_PRIVADO='apple ?account|apple ?id|wallet|password|passcode|internet.?accounts|game ?center|family|icloud|users ?(and|&) ?groups'
 AJ_SIN_SUB="$AJ_PRIVADO|wi-?fi|bluetooth"
 aj() { $U "$1" "$AJUSTES" "${@:2}" 2>>"$LOG"; }
 aj_frente() { osa -e "tell application \"$AJUSTES\" to activate"; sleep 0.8; }
@@ -450,7 +459,7 @@ aj_hoja_filas() { # base modo: una hoja con lista a la izquierda (Keyboard Short
     sleep 1; raton_fuera; cap_full "$1-$(aj_slug "$c")-$2"; j=$((j+1))
   done < "$SAL/.hoja"; rm -f "$SAL/.hoja"; }
 ajustes_recorrer() { # claro|oscuro
-  local M=$1 n txt ident clave base titulo raiz c k sub tam ancho yo
+  local M=$1 n txt ident clave base titulo raiz c k sub tam ancho yo ult
   yo="$(id -F 2>/dev/null)"
   cerrar_app "$AJUSTES"; sleep 1
   # En Sequoia salieron Finder y Finder Settings de otras tomas detrás, y la ventana sin foco.
@@ -477,8 +486,8 @@ ajustes_recorrer() { # claro|oscuro
     [ -n "$txt" ] || { log "08: fila $n sin etiqueta ni identificador (separador o búsqueda): se salta"; continue; }
     clave="$txt $ident"
     if [ "${AJENA:-0}" = 1 ] && { echo "$clave" | grep -qiE "$AJ_PRIVADO" || [ "$txt" = "$yo" ]; }; then
-      log "08: AJENA, no se abre «$txt»"; continue; fi
-    [ "$(aj barra-ir "$n")" = ok ] || { log "08: no pude abrir la fila $n «$txt»"; continue; }
+      log "08: AJENA, no se abre «${txt}»"; continue; fi
+    [ "$(aj barra-ir "$n")" = ok ] || { log "08: no pude abrir la fila $n «${txt}»"; continue; }
     sleep 2.5; echo "$clave" | grep -qiE 'storage|software.?update|general' && sleep 5   # Storage tarda en calcular
     aj_cerrar_hojas
     base="08-pref-$(printf %02d "$n")-$(aj_slug "$txt")"
@@ -488,21 +497,23 @@ ajustes_recorrer() { # claro|oscuro
       aj arbol > "$HER/arbol-ajustes/$base.txt"; cp "$SAL/.todos" "$HER/arbol-ajustes/$base.botones.txt"; fi
     if echo "$clave" | grep -qiE "$AJ_SIN_SUB" || [ "$txt" = "$yo" ]; then continue; fi
     titulo="$(aj titulo)"; raiz="$(aj_firma)"
-    # Solo botones con texto (nombre, o descripción que no sea el genérico «button»): sin texto no se
-    # sabe si un botón navega o hace algo, y no se pulsa. En 27 ninguno tiene texto (Mint-Macos,
-    # 26-10-2026): sus AXIdentifier quedan en arbol-ajustes/*.botones.txt para decidir con datos.
-    awk -F'\t' '{ c = ($2 != "" ? $2 : $3); if (c != "" && c != "button") print c }' "$SAL/.todos" | awk '!v[$0]++' > "$SAL/.botones"
-    [ -s "$SAL/.botones" ] || log "08: $txt: $(grep -c . "$SAL/.todos") botones sin texto; subpáginas sin recorrer"
+    # Solo se pulsan botones con AXIdentifier del propio System Settings («com.apple.systempreferences.»
+    # o «com.apple.settings.»), que no sean de la barra lateral y cuyo último tramo no empiece con un
+    # verbo de acción. Los que no tienen identificador (flechas del scroll, «Search», close, zoom,
+    # minimize) NUNCA: el 26-10-2026 en 27 se pulsó «increment arrow button» por ir por la descripción.
+    awk -F'\t' '$4 ~ /^com\.apple\.(systempreferences|settings)\./ { print $4 }' "$SAL/.todos" | awk '!v[$0]++' > "$SAL/.botones"
+    [ -s "$SAL/.botones" ] || log "08: $txt: ningún botón con identificador de System Settings; subpáginas sin recorrer"
     k=0
     while IFS= read -r c; do
       [ $k -lt "$SUBMAX" ] || { log "08: $txt: llegué a $SUBMAX subpáginas, paro"; break; }
-      case "$c" in "+"|"-"|"?"|missing\ value) continue ;; esac
-      cut -d'|' -f2 "$SAL/.barra" | grep -qxF "$c" && continue        # es de la barra lateral
-      echo "$c" | grep -qE "$AJ_NO" && continue
-      case "$c" in *…*|*...*) echo "$c" | grep -qE "$AJ_HOJAS" || continue ;; esac
-      [ "$(aj clic-igual "$c")" = ok ] || continue
+      cut -d'|' -f3 "$SAL/.barra" | grep -qxF "$c" && continue        # es de la barra lateral
+      ult="$(echo "$c" | sed 's/.*[.*]//')"
+      echo "$ult" | grep -qiE "$AJ_NO_ID" && { log "08: $txt: no se pulsa ${ult} (acción)"; continue; }
+      echo "$c" | grep -qiE "$AJ_PRIVADO" && { log "08: $txt: no se pulsa ${ult} (privado)"; continue; }
+      if [ "$AJ_SECO" != 0 ]; then log "08: $txt: pulsaría ${ult} (${c})"; continue; fi
+      [ "$(aj clic-id "$c")" = ok ] || continue
       sleep 2
-      sub="$base--$(aj_slug "$c")"
+      sub="$base--$(aj_slug "$ult")"
       if [ "$(aj hoja-hay)" = si ]; then
         aj_frente; raton_fuera; cap_full "$sub-$M"; k=$((k+1))
         aj_hoja_filas "$sub" "$M"; aj_cerrar_hojas
@@ -510,7 +521,7 @@ ajustes_recorrer() { # claro|oscuro
         aj_cap "$sub-$M"; aj_fondo "$sub" "$M"; k=$((k+1))
         aj_volver "$n" "$raiz"
       else
-        log "08: «$c» en $txt no abrió subpágina ni hoja: revisar si era un botón de acción"
+        log "08: «${c}» en ${txt} no abrió subpágina ni hoja: revisar si era un botón de acción"
       fi
     done < "$SAL/.botones"
     log "08: $txt: $k subpáginas u hojas"

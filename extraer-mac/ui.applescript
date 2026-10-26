@@ -20,6 +20,7 @@
 --   osascript ui.applescript barra <proceso>              «n|texto|AXIdentifier» por cada fila de la barra lateral (la primera AXOutline)
 --   osascript ui.applescript botones <proceso>            «n<TAB>nombre<TAB>descripción<TAB>AXIdentifier» de cada botón fuera de la barra lateral
 --   osascript ui.applescript barra-ir <proceso> <n>       selecciona la fila n de la barra lateral
+--   osascript ui.applescript clic-id <proceso> <id>       clic en el BOTÓN cuyo AXIdentifier es exactamente <id>
 --   osascript ui.applescript clic-igual <proceso> <texto> clic en el BOTÓN cuyo nombre o descripción es exactamente <texto>
 --   osascript ui.applescript desplazar <proceso>          lleva al fondo el área con scroll que no es la barra lateral («ok» si se movió)
 --   osascript ui.applescript desplazar-arriba <proceso>   la devuelve arriba
@@ -88,7 +89,8 @@ end identificador_en
 -- El primer texto visible bajo e (respaldo de la etiqueta), sin el genérico «button».
 on texto_en(e, nivel)
 	if nivel > 5 then return ""
-	repeat with campo in {"value", "name", "title", "description"}
+	-- Sin «description»: en 27 trae la del rol («outline row»), y la búsqueda salió como un panel.
+	repeat with campo in {"value", "name", "title"}
 		set v to my texto_de(e, campo as text)
 		if v is not "" and v is not "button" and v is not "0" and v is not "1" then return v
 	end repeat
@@ -104,6 +106,20 @@ on texto_en(e, nivel)
 	end repeat
 	return ""
 end texto_en
+
+-- Botones de la ventana que nunca se pulsan: semáforo y pantalla completa, flechas y páginas
+-- del scroll, y todo lo que cuelga de una barra de scroll o de un campo de búsqueda.
+on prohibido(e)
+	set sr to my atributo(e, "AXSubrole")
+	if sr is in {"AXCloseButton", "AXZoomButton", "AXMinimizeButton", "AXFullScreenButton", "AXIncrementArrow", "AXDecrementArrow", "AXIncrementPage", "AXDecrementPage", "AXSearchField"} then return true
+	tell application "System Events"
+		try
+			set p to value of attribute "AXParent" of e
+			if role of p is in {"AXScrollBar", "AXIncrementor", "AXSearchField", "AXTextField"} then return true
+		end try
+	end tell
+	return false
+end prohibido
 
 -- Si e está dentro de la barra lateral (algún antecesor es una AXOutline).
 on en_barra(e)
@@ -186,6 +202,20 @@ on run argv
 						set salida to salida & i & "|" & txt & "|" & ident & linefeed
 					end repeat
 					return salida
+				end if
+			end try
+		end repeat
+		return "no"
+	end if
+
+	if cmd is "clic-id" then
+		set t to item 3 of argv
+		repeat with e in todo
+			try
+				tell application "System Events" to set r to role of e
+				if r is "AXButton" and my atributo(e, "AXIdentifier") is t and not my prohibido(e) and not my en_barra(e) then
+					tell application "System Events" to click e
+					return "ok"
 				end if
 			end try
 		end repeat
@@ -357,7 +387,7 @@ on run argv
 		repeat with e in todo
 			try
 				tell application "System Events" to set r to role of e
-				if r is "AXButton" and not my en_barra(e) then
+				if r is "AXButton" and not my en_barra(e) and not my prohibido(e) then
 					set i to i + 1
 					set salida to salida & i & tab & my texto_de(e, "name") & tab & my texto_de(e, "description") & tab & my atributo(e, "AXIdentifier") & linefeed
 				end if
