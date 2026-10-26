@@ -421,7 +421,10 @@ AJ_SIN_SUB="$AJ_PRIVADO|wi-?fi|bluetooth"
 aj() { $U "$1" "$AJUSTES" "${@:2}" 2>>"$LOG"; }
 aj_frente() { osa -e "tell application \"$AJUSTES\" to activate"; sleep 0.8; }
 aj_slug() { echo "$1" | tr -c 'A-Za-z0-9\n' '-' | tr A-Z a-z | sed 's/--*/-/g; s/^-//; s/-*$//' | cut -c1-40; }
-aj_cap() { aj_frente; raton_fuera; cap_win "$1" "$(ventana_pref)"; }
+aj_cap() { # una sola ventana; si CG no da ninguna, se anota lo que había antes de ir a la pantalla entera
+  local id; aj_frente; raton_fuera; id="$(ventana_pref | head -1)"
+  [ -n "$id" ] || log "08: sin ventana de $AJUSTES para $1; CG tenía: $($H ventanas 2>>"$LOG" | grep -i -E 'setting|prefer' | tr '\t\n' ' ;')"
+  cap_win "$1" "$id"; }
 aj_firma() { aj arbol | head -80 | cksum | cut -d' ' -f1; }   # cambia si cambió lo que se ve
 aj_cerrar_hojas() { # hojas y diálogos encima (en Sequoia, «Sign In to View AppleCare & Warranty»): Cancel primero
   local i=0
@@ -465,6 +468,8 @@ ajustes_recorrer() { # claro|oscuro
   sleep 1; aj_cap 08-preferencias-todas-$M
   mkdir -p "$HER/arbol-ajustes"
   aj barra > "$SAL/.barra"; log "08: System Settings, barra lateral con $(grep -c . "$SAL/.barra") filas"
+  # Antes del bucle, para que una corrida que falle deje con qué corregir.
+  cp "$SAL/.barra" "$HER/arbol-ajustes/barra-$M.txt"; aj arbol > "$HER/arbol-ajustes/ventana-inicio-$M.txt"
   # Separados por «|»: con tabulador, bash junta dos seguidos y el texto vacío se come al identificador.
   while IFS='|' read -r n txt ident; do
     # La etiqueta: el texto de la fila; si no tiene (27), lo último del AXIdentifier tras «.» o «*».

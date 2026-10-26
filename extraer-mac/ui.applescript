@@ -88,7 +88,7 @@ end identificador_en
 -- El primer texto visible bajo e (respaldo de la etiqueta), sin el genérico «button».
 on texto_en(e, nivel)
 	if nivel > 5 then return ""
-	repeat with campo in {"value", "name", "title"}
+	repeat with campo in {"value", "name", "title", "description"}
 		set v to my texto_de(e, campo as text)
 		if v is not "" and v is not "button" and v is not "0" and v is not "1" then return v
 	end repeat
