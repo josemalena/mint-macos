@@ -262,6 +262,13 @@ def pixeles_de(im):
     return PImage.fromarray(rgba, "RGBA")
 
 
+def archivo(nombre):
+    """Nombre de imagen → nombre de archivo. Desde Monterey hay nombres con «/»
+    (CoreTypes «DropFolderBadge/image_100x100», FindMy): se cambian por «__»
+    para no partir la ruta."""
+    return nombre.replace("/", "__")
+
+
 def mayor(ruta, nombre):
     """La imagen más grande que se pueda abrir con ese nombre, o None."""
     mejor = None
@@ -305,7 +312,7 @@ def glifos(ruta, carpeta, solo, oscuro=False):
             with open(ent, "wb") as f:
                 f.write(pdf)
             for esc in (1, 2):
-                base = os.path.join(carpeta, f"{nombre}@{esc}x")
+                base = os.path.join(carpeta, f"{archivo(nombre)}@{esc}x")
                 orden = ["pdftocairo", "-png", "-singlefile", "-transp"]
                 if nombre in tam:
                     w, h = tam[nombre]
@@ -353,7 +360,7 @@ def sacar(ruta, carpeta, solo):
                         if v and k not in ("identificador", "escala", "apariencia"))
         sufijo = f"-{im.ancho}x{im.alto}{extra}" + ("-oscuro" if atr.get("apariencia") else "") + \
             (f"@{im.escala:g}x" if im.escala != 1 else "")
-        img.save(os.path.join(carpeta, f"{nombre}{sufijo}.png"))
+        img.save(os.path.join(carpeta, f"{archivo(nombre)}{sufijo}.png"))
         hechos += 1
     print(f"  {hechos} imágenes; {saltados} sin poder abrir (vectores u otro formato)")
 
