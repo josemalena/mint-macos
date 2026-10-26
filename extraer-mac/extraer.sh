@@ -360,7 +360,9 @@ raton_fuera() { $H raton mover $((W-10)) $((HH/2)); sleep 0.3; }
 cap_full() { sleep 0.7; screencapture -x "$CAP/$1.png" && log "cap $1"; }
 cap_reg()  { sleep 0.7; screencapture -x -R "$2" "$CAP/$1.png" && log "cap $1 ($2)"; }
 cap_win()  { [ -n "$2" ] || { log "sin ventana para $1: va la pantalla entera"; cap_full "$1"; return; }; sleep 0.7; screencapture -x -o -l "$2" "$CAP/$1.png" && log "cap $1 (ventana $2)"; }
-ventana_pref() { # la ventana principal de System Preferences (o System Settings): la que tiene título (el panel actual); si no, la más grande
+ventana_pref() { # la ventana principal de System Preferences: la que tiene título (el panel actual); si no, la más grande.
+  # System Settings: la más grande de capa 0, porque en 27 la de inicio no tiene título en CGWindowList (Mint-Macos, 26-10-2026).
+  [ "$AJUSTES" = "System Settings" ] && { ventana_de "$AJUSTES"; return; }
   local id; id=$($H ventanas "$AJUSTES" | awk -F'\t' '$2==0 && $4!="" {print $1; exit}')
   [ -n "$id" ] && echo "$id" || ventana_de "$AJUSTES"; }
 cerrar_paneles_pref() { # hojas (sheets) que abren algunas pestañas, p. ej. Accessibility ▸ Dwell con «Done»: bloquean la ventana hasta cerrarlas.
@@ -411,9 +413,11 @@ AJ_HOJAS='^(Keyboard Shortcuts|Hot Corners|Advanced|Options|Details|Customize)'
 AJ_NO='^(Turn|Enable|Disable|Add|Remove|Delete|Erase|Reset|Restart|Shut|Log Out|Sign|Update|Upgrade|Install|Allow|Deny|Quit|Apply|Done|OK|Cancel|Set Up|Change|Edit|Lock|Unlock|Forget|Join|Connect|Disconnect|Pair|Unpair|Clear|Empty|Restore|Use|Buy|Learn|Manage|Store|Optimize|Review|Open|Show|Hide|Calibrate|Identify|Detect|Arrange|Back|Forward|Search|Help|Share|Send|Copy|Import|Export|Choose|Select|Start|Stop|Pause|Resume|Test|Check|Verify|Repair|Get|Download|Renew|Request|Approve|Leave|Invite|Accept|Decline|Revert|Default|Report|Create|New|Rename|Replace|Run|Play|Record|Scan|Print|Close|Dismiss)( |$|…|\.)'
 # Filas de la barra lateral con datos de la cuenta o de pago: su panel se captura, sus subpáginas no;
 # con AJENA=1 ni se abren. En Wi-Fi y Bluetooth tampoco se entra: ahí un botón con el nombre de
-# una red o de un aparato CONECTA, y la iMac de 27 se maneja por Remote Control.
-AJ_PRIVADO='Apple Account|Apple ID|Wallet|Passwords|Internet Accounts|Game Center|Family'
-AJ_SIN_SUB="$AJ_PRIVADO|^Wi-Fi\$|^Bluetooth\$"
+# una red o de un aparato CONECTA, y la iMac de 27 se maneja por Remote Control. Se comparan sin
+# mayúsculas contra el texto de la fila Y su AXIdentifier (en 27 las filas no tienen texto:
+# com.apple.systempreferences.AppleIDSettings*AppleIDSettings, com.apple.settings.notifications).
+AJ_PRIVADO='apple ?account|apple ?id|wallet|password|internet.?accounts|game ?center|family'
+AJ_SIN_SUB="$AJ_PRIVADO|wi-?fi|bluetooth"
 aj() { $U "$1" "$AJUSTES" "${@:2}" 2>>"$LOG"; }
 aj_frente() { osa -e "tell application \"$AJUSTES\" to activate"; sleep 0.8; }
 aj_slug() { echo "$1" | tr -c 'A-Za-z0-9\n' '-' | tr A-Z a-z | sed 's/--*/-/g; s/^-//; s/-*$//' | cut -c1-40; }
@@ -443,7 +447,7 @@ aj_hoja_filas() { # base modo: una hoja con lista a la izquierda (Keyboard Short
     sleep 1; raton_fuera; cap_full "$1-$(aj_slug "$c")-$2"; j=$((j+1))
   done < "$SAL/.hoja"; rm -f "$SAL/.hoja"; }
 ajustes_recorrer() { # claro|oscuro
-  local M=$1 n txt base titulo raiz c k sub tam ancho yo
+  local M=$1 n txt ident clave base titulo raiz c k sub tam ancho yo
   yo="$(id -F 2>/dev/null)"
   cerrar_app "$AJUSTES"; sleep 1
   # En Sequoia salieron Finder y Finder Settings de otras tomas detrás, y la ventana sin foco.
@@ -461,24 +465,34 @@ ajustes_recorrer() { # claro|oscuro
   sleep 1; aj_cap 08-preferencias-todas-$M
   mkdir -p "$HER/arbol-ajustes"
   aj barra > "$SAL/.barra"; log "08: System Settings, barra lateral con $(grep -c . "$SAL/.barra") filas"
-  while IFS="$(printf '\t')" read -r n txt; do
-    [ -n "$txt" ] || continue   # separadores y la búsqueda
-    if [ "${AJENA:-0}" = 1 ] && { echo "$txt" | grep -qE "$AJ_PRIVADO" || [ "$txt" = "$yo" ]; }; then
+  # Separados por «|»: con tabulador, bash junta dos seguidos y el texto vacío se come al identificador.
+  while IFS='|' read -r n txt ident; do
+    # La etiqueta: el texto de la fila; si no tiene (27), lo último del AXIdentifier tras «.» o «*».
+    [ -n "$txt" ] || txt="$(echo "$ident" | sed 's/.*[.*]//')"
+    [ -n "$txt" ] || { log "08: fila $n sin etiqueta ni identificador (separador o búsqueda): se salta"; continue; }
+    clave="$txt $ident"
+    if [ "${AJENA:-0}" = 1 ] && { echo "$clave" | grep -qiE "$AJ_PRIVADO" || [ "$txt" = "$yo" ]; }; then
       log "08: AJENA, no se abre «$txt»"; continue; fi
     [ "$(aj barra-ir "$n")" = ok ] || { log "08: no pude abrir la fila $n «$txt»"; continue; }
-    sleep 2.5; case "$txt" in Storage|"Software Update"|General) sleep 5 ;; esac   # Storage tarda en calcular
+    sleep 2.5; echo "$clave" | grep -qiE 'storage|software.?update|general' && sleep 5   # Storage tarda en calcular
     aj_cerrar_hojas
     base="08-pref-$(printf %02d "$n")-$(aj_slug "$txt")"
     aj_cap "$base-$M"; aj_fondo "$base" "$M"
-    [ "$M" = claro ] && aj arbol > "$HER/arbol-ajustes/$base.txt"   # para afinar la próxima versión
-    if echo "$txt" | grep -qE "$AJ_SIN_SUB" || [ "$txt" = "$yo" ]; then continue; fi
+    aj botones > "$SAL/.todos"
+    if [ "$M" = claro ]; then   # para afinar la próxima versión
+      aj arbol > "$HER/arbol-ajustes/$base.txt"; cp "$SAL/.todos" "$HER/arbol-ajustes/$base.botones.txt"; fi
+    if echo "$clave" | grep -qiE "$AJ_SIN_SUB" || [ "$txt" = "$yo" ]; then continue; fi
     titulo="$(aj titulo)"; raiz="$(aj_firma)"
-    aj arbol | awk -F' \\| ' '$1=="AXButton" { print ($2 != "" ? $2 : $3) }' | grep -v '^ *$' | awk '!v[$0]++' > "$SAL/.botones"
+    # Solo botones con texto (nombre, o descripción que no sea el genérico «button»): sin texto no se
+    # sabe si un botón navega o hace algo, y no se pulsa. En 27 ninguno tiene texto (Mint-Macos,
+    # 26-10-2026): sus AXIdentifier quedan en arbol-ajustes/*.botones.txt para decidir con datos.
+    awk -F'\t' '{ c = ($2 != "" ? $2 : $3); if (c != "" && c != "button") print c }' "$SAL/.todos" | awk '!v[$0]++' > "$SAL/.botones"
+    [ -s "$SAL/.botones" ] || log "08: $txt: $(grep -c . "$SAL/.todos") botones sin texto; subpáginas sin recorrer"
     k=0
     while IFS= read -r c; do
       [ $k -lt "$SUBMAX" ] || { log "08: $txt: llegué a $SUBMAX subpáginas, paro"; break; }
       case "$c" in "+"|"-"|"?"|missing\ value) continue ;; esac
-      cut -f2 "$SAL/.barra" | grep -qxF "$c" && continue        # es de la barra lateral
+      cut -d'|' -f2 "$SAL/.barra" | grep -qxF "$c" && continue        # es de la barra lateral
       echo "$c" | grep -qE "$AJ_NO" && continue
       case "$c" in *…*|*...*) echo "$c" | grep -qE "$AJ_HOJAS" || continue ;; esac
       [ "$(aj clic-igual "$c")" = ok ] || continue
@@ -496,7 +510,7 @@ ajustes_recorrer() { # claro|oscuro
     done < "$SAL/.botones"
     log "08: $txt: $k subpáginas u hojas"
   done < "$SAL/.barra"
-  rm -f "$SAL/.barra" "$SAL/.botones"
+  rm -f "$SAL/.barra" "$SAL/.botones" "$SAL/.todos"
   cerrar_app "$AJUSTES"; sleep 1
 }
 

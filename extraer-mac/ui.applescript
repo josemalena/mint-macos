@@ -12,12 +12,13 @@
 --   osascript ui.applescript popup-item <proceso> <n> <ítem>  abre el desplegable n y escoge <ítem>
 --   osascript ui.applescript marcado <proceso> <texto>     «si» o «no»: si el botón de radio o la casilla <texto> está marcado
 --   osascript ui.applescript candado <proceso>            «abierto», «cerrado» o «sin candado»
---   osascript ui.applescript arbol <proceso>              rol y nombre de cada elemento (para la bitácora)
+--   osascript ui.applescript arbol <proceso>              rol, nombre, descripción, valor y AXIdentifier de cada elemento (para la bitácora)
 --
 -- System Settings (macOS 13 en adelante), para el bloque 08:
 --   osascript ui.applescript titulo <proceso>             el título de la ventana 1
 --   osascript ui.applescript hoja-hay <proceso>           «si» si hay una hoja o un diálogo encima
---   osascript ui.applescript barra <proceso>              «n<TAB>texto» por cada fila de la barra lateral (la primera AXOutline)
+--   osascript ui.applescript barra <proceso>              «n|texto|AXIdentifier» por cada fila de la barra lateral (la primera AXOutline)
+--   osascript ui.applescript botones <proceso>            «n<TAB>nombre<TAB>descripción<TAB>AXIdentifier» de cada botón fuera de la barra lateral
 --   osascript ui.applescript barra-ir <proceso> <n>       selecciona la fila n de la barra lateral
 --   osascript ui.applescript clic-igual <proceso> <texto> clic en el BOTÓN cuyo nombre o descripción es exactamente <texto>
 --   osascript ui.applescript desplazar <proceso>          lleva al fondo el área con scroll que no es la barra lateral («ok» si se movió)
@@ -41,6 +42,85 @@ on texto_de(e, campo)
 		end try
 	end tell
 end texto_de
+
+-- Un atributo de Accessibility como texto («» si no lo tiene).
+on atributo(e, a)
+	tell application "System Events"
+		try
+			set v to value of attribute a of e
+			if v is missing value then return ""
+			return v as text
+		on error
+			return ""
+		end try
+	end tell
+end atributo
+
+-- En macOS 27 las filas de la barra lateral de System Settings no tienen texto accesible y
+-- «entire contents» de una fila sale vacío: se baja por UI elements (fila → celda → botón) y
+-- se toma el AXIdentifier, primero el de un botón (verificado por Mint-Macos, 26-10-2026:
+-- «com.apple.settings.notifications»).
+on identificador_en(e, nivel, soloBoton)
+	if nivel > 5 then return ""
+	set r to ""
+	tell application "System Events"
+		try
+			set r to role of e
+		end try
+	end tell
+	if (not soloBoton) or r is "AXButton" then
+		set v to my atributo(e, "AXIdentifier")
+		if v is not "" then return v
+	end if
+	set hijos to {}
+	tell application "System Events"
+		try
+			set hijos to UI elements of e
+		end try
+	end tell
+	repeat with h in hijos
+		set v to my identificador_en(h, nivel + 1, soloBoton)
+		if v is not "" then return v
+	end repeat
+	return ""
+end identificador_en
+
+-- El primer texto visible bajo e (respaldo de la etiqueta), sin el genérico «button».
+on texto_en(e, nivel)
+	if nivel > 5 then return ""
+	repeat with campo in {"value", "name", "title"}
+		set v to my texto_de(e, campo as text)
+		if v is not "" and v is not "button" and v is not "0" and v is not "1" then return v
+	end repeat
+	set hijos to {}
+	tell application "System Events"
+		try
+			set hijos to UI elements of e
+		end try
+	end tell
+	repeat with h in hijos
+		set v to my texto_en(h, nivel + 1)
+		if v is not "" then return v
+	end repeat
+	return ""
+end texto_en
+
+-- Si e está dentro de la barra lateral (algún antecesor es una AXOutline).
+on en_barra(e)
+	set x to e
+	repeat 10 times
+		tell application "System Events"
+			try
+				set x to value of attribute "AXParent" of x
+				if role of x is "AXOutline" then return true
+				if role of x is "AXWindow" then return false
+			on error
+				return false
+			end try
+		end tell
+	end repeat
+	return false
+end en_barra
 
 on empieza(a, b)
 	if b is "" then return false
@@ -100,17 +180,10 @@ on run argv
 					set i to 0
 					repeat with f in fs
 						set i to i + 1
-						tell application "System Events" to set dentro to entire contents of f
-						set txt to ""
-						repeat with c in dentro
-							tell application "System Events" to set rc to role of c
-							if rc is "AXStaticText" then
-								set txt to my texto_de(c, "value")
-								if txt is "" then set txt to my texto_de(c, "name")
-								if txt is not "" then exit repeat
-							end if
-						end repeat
-						set salida to salida & i & tab & txt & linefeed
+						set txt to my texto_en(f, 0)
+						set ident to my identificador_en(f, 0, true)
+						if ident is "" then set ident to my identificador_en(f, 0, false)
+						set salida to salida & i & "|" & txt & "|" & ident & linefeed
 					end repeat
 					return salida
 				end if
@@ -278,12 +351,27 @@ on run argv
 		return "sin candado"
 	end if
 
+	if cmd is "botones" then
+		set salida to ""
+		set i to 0
+		repeat with e in todo
+			try
+				tell application "System Events" to set r to role of e
+				if r is "AXButton" and not my en_barra(e) then
+					set i to i + 1
+					set salida to salida & i & tab & my texto_de(e, "name") & tab & my texto_de(e, "description") & tab & my atributo(e, "AXIdentifier") & linefeed
+				end if
+			end try
+		end repeat
+		return salida
+	end if
+
 	if cmd is "arbol" then
 		set salida to ""
 		repeat with e in todo
 			try
 				tell application "System Events" to set r to role of e
-				set salida to salida & r & " | " & my texto_de(e, "name") & " | " & my texto_de(e, "description") & " | " & my texto_de(e, "value") & linefeed
+				set salida to salida & r & " | " & my texto_de(e, "name") & " | " & my texto_de(e, "description") & " | " & my texto_de(e, "value") & " | " & my atributo(e, "AXIdentifier") & linefeed
 			end try
 		end repeat
 		return salida
