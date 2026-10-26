@@ -37,6 +37,11 @@ H="osascript -l JavaScript $AQUI/herramientas.js"
 U="osascript $AQUI/ui.applescript"
 NOMBRE="$(scutil --get ComputerName 2>/dev/null | tr -cd 'A-Za-z0-9-' )"
 VERSION="$(sw_vers -productVersion)"
+# Desde macOS 13 System Preferences es System Settings: otro proceso, otras ventanas y
+# barra lateral en vez de rejilla. AJUSTES es el nombre de la app y de su proceso; con
+# 12 o menos todo sigue por el camino de System Preferences.
+MAYOR="${VERSION%%.*}"
+if [ "$MAYOR" -ge 13 ] 2>/dev/null; then AJUSTES="System Settings"; else AJUSTES="System Preferences"; fi
 # Siempre en disco local: la memoria USB (FAT32) escribe a menos de 1 MB/s con
 # archivos chicos y volvía lentísimas las capturas. Al final, «entregar» comprime
 # y copia UN solo archivo a la carpeta del guion (la memoria).
@@ -97,18 +102,23 @@ pedir_permisos() {
   local antes r i
   antes="$(permisos_estado)"; log "permisos antes: $antes"
   echo; echo "== Permisos =="; echo "Voy a pedir ahora TODOS los permisos que usa el guion. Acepta cada diálogo"
-  echo "y marca ${TERM_PROGRAM:-la terminal} en System Preferences ▸ Security & Privacy ▸ Privacy,"
-  echo "en Accessibility y en Screen Recording. Espero hasta 10 minutos."; echo
+  if [ "$AJUSTES" = "System Settings" ]; then
+    echo "y marca ${TERM_PROGRAM:-la terminal} en System Settings ▸ Privacy & Security, en Accessibility"
+    echo "y en Screen Recording (desde Sequoia: «Screen & System Audio Recording»). Espero hasta 10 minutos."; echo
+  else
+    echo "y marca ${TERM_PROGRAM:-la terminal} en System Preferences ▸ Security & Privacy ▸ Privacy,"
+    echo "en Accessibility y en Screen Recording. Espero hasta 10 minutos."; echo
+  fi
   # 1. Automatización: un evento inofensivo a cada app que el guion controla
-  #    (System Events, Finder, System Preferences, TextEdit y Terminal).
-  for app in "System Events" "Finder" "System Preferences" "TextEdit" "Terminal"; do
+  #    (System Events, Finder, System Preferences o System Settings, TextEdit y Terminal).
+  for app in "System Events" "Finder" "$AJUSTES" "TextEdit" "Terminal"; do
     if osascript -e "with timeout of 300 seconds" -e "tell application \"$app\" to get name" -e "end timeout" >/dev/null 2>>"$LOG"; then
       log "automatización de $app: ok"
     else
       log "automatización de $app: DENEGADA o sin respuesta"; echo "  ✗ Automatización de $app: denegada. Se concede en Privacy ▸ Automation."
     fi
   done
-  osascript -e 'tell application "System Preferences" to quit' >/dev/null 2>&1
+  osascript -e "tell application \"$AJUSTES\" to quit" >/dev/null 2>&1
   osascript -e 'tell application "TextEdit" to quit saving no' >/dev/null 2>&1
   # 2. Accessibility y Screen Recording: un solo disparo de los dos diálogos.
   permisos_estado >/dev/null; r="$($H permisos pedir "$VERSION" 2>>"$LOG")"; log "permisos pedidos: $r"
@@ -270,16 +280,19 @@ ORI_ORIG="$(leer_def com.apple.dock orientation)"; DESK_ORIG="$(leer_def com.app
 STATUS_ORIG="$(leer_def com.apple.finder ShowStatusBar)"; AUTOHIDE_ORIG="$(leer_def com.apple.dock autohide)"
 SS_ORIG="$(defaults -currentHost read com.apple.screensaver idleTime 2>/dev/null || echo __sin__)"
 MUESTRA_CREADA=false
+EXP_ORIG=""; EXP2_ORIG=""   # bloque 09: la hoja Save desplegada por preferencia (13 o más)
 # Bloque 17 (Stacks): los archivos de prueba que puso en el Desktop y si cambió «Use Stacks».
 PILA_LISTA="$SAL/pila-archivos.txt"; : > "$PILA_LISTA"; STACKS_TOCADO=false
 usar_stacks_marca() { # «si» o «no»: si «Use Stacks» del menú View del escritorio está marcado
   local m; m="$(osa -e 'tell application "System Events" to tell process "Finder" to get value of attribute "AXMenuItemMarkChar" of menu item "Use Stacks" of menu 1 of menu bar item "View" of menu bar 1')"
   case "$m" in ""|missing\ value) echo no ;; *) echo si ;; esac; }
 usar_stacks_clic() { osa -e 'tell application "System Events" to tell process "Finder" to click menu item "Use Stacks" of menu 1 of menu bar item "View" of menu bar 1'; }
-borrar_pila() { local f; while IFS= read -r f; do case "$f" in "$HOME/Desktop/extraer-pila-"*) rm -f "$f" ;; esac; done < "$PILA_LISTA"; : > "$PILA_LISTA"; }
+borrar_pila() { local f; while IFS= read -r f; do case "$f" in "$HOME/Desktop/extraer-pila-"*|"$HOME/Downloads/extraer-pila-"*) rm -f "$f" ;; esac; done < "$PILA_LISTA"; : > "$PILA_LISTA"; }
 devolver() {
   if $STACKS_TOCADO; then osa -e 'tell application "Finder" to activate'; usar_stacks_clic; STACKS_TOCADO=false; log "17: Use Stacks devuelto en devolver"; fi
   borrar_pila
+  [ -n "$EXP_ORIG" ] && poner_def -g NSNavPanelExpandedStateForSaveMode "$EXP_ORIG" bool
+  [ -n "$EXP2_ORIG" ] && poner_def -g NSNavPanelExpandedStateForSaveMode2 "$EXP2_ORIG" bool
   poner_def com.apple.dock magnification "$MAG_ORIG" bool; poner_def com.apple.dock largesize "$LARGE_ORIG" int
   poner_def com.apple.dock orientation "$ORI_ORIG" string; poner_def com.apple.finder CreateDesktop "$DESK_ORIG" bool
   poner_def com.apple.finder ShowStatusBar "$STATUS_ORIG" bool
@@ -347,9 +360,9 @@ raton_fuera() { $H raton mover $((W-10)) $((HH/2)); sleep 0.3; }
 cap_full() { sleep 0.7; screencapture -x "$CAP/$1.png" && log "cap $1"; }
 cap_reg()  { sleep 0.7; screencapture -x -R "$2" "$CAP/$1.png" && log "cap $1 ($2)"; }
 cap_win()  { [ -n "$2" ] || { log "sin ventana para $1: va la pantalla entera"; cap_full "$1"; return; }; sleep 0.7; screencapture -x -o -l "$2" "$CAP/$1.png" && log "cap $1 (ventana $2)"; }
-ventana_pref() { # la ventana principal de System Preferences: la que tiene título (el panel actual); si no, la más grande
-  local id; id=$($H ventanas "System Preferences" | awk -F'\t' '$2==0 && $4!="" {print $1; exit}')
-  [ -n "$id" ] && echo "$id" || ventana_de "System Preferences"; }
+ventana_pref() { # la ventana principal de System Preferences (o System Settings): la que tiene título (el panel actual); si no, la más grande
+  local id; id=$($H ventanas "$AJUSTES" | awk -F'\t' '$2==0 && $4!="" {print $1; exit}')
+  [ -n "$id" ] && echo "$id" || ventana_de "$AJUSTES"; }
 cerrar_paneles_pref() { # hojas (sheets) que abren algunas pestañas, p. ej. Accessibility ▸ Dwell con «Done»: bloquean la ventana hasta cerrarlas.
   # Cancel primero: en Catalina es la Mac de todos los días y un OK podría aplicar algo; OK solo si no hay otro botón.
   osa -e 'with timeout of 15 seconds' -e 'tell application "System Events" to tell process "System Preferences"' \
@@ -382,6 +395,110 @@ ventana_finder() { # carpeta-dentro-de-Muestra («.» = Muestra) vista x1 y1 x2 
   osa -e 'tell application "Finder"' -e "set w to make new Finder window to ($f)" \
       -e "set current view of w to $2 view" -e "set bounds of w to {$3, $4, $5, $6}" -e 'end tell'; sleep 1.5; }
 id_finder() { osa -e "tell application \"Finder\" to get id of Finder window ${1:-1}"; }
+
+# ---- Bloque 08 en System Settings (macOS 13 en adelante). SIN PROBAR en Mac (26-10-2026).
+# En Sequoia 15.8.1 el bloque 08 de System Preferences salió casi entero mal: el proceso
+# «System Preferences» ya no existe (cada captura fue la pantalla entera, sin System Settings
+# o sin foco), el diccionario de AppleScript publica 6 paneles de unos 35, y sus «anchors» no
+# abren subpáginas (salieron repetidas). Aquí se recorre la interfaz: cada fila de la barra
+# lateral, el panel llevado hasta abajo, y sus subpáginas (un nivel). Nada se cambia: solo se
+# pulsan botones que navegan o que abren una hoja, y cada hoja se cierra con Cancel o Done.
+SUBMAX="${SUBMAX:-25}"   # subpáginas por panel, como mucho (Privacy & Security tiene unas 20)
+# Botones con «…» que abren una hoja que se captura y se cierra; cualquier otro «…» no se pulsa.
+AJ_HOJAS='^(Keyboard Shortcuts|Hot Corners|Advanced|Options|Details|Customize)'
+# Lo que empieza así hace algo en vez de navegar: nunca se pulsa. Las filas que navegan
+# son sustantivos («About», «Storage», «Login Items & Extensions»).
+AJ_NO='^(Turn|Enable|Disable|Add|Remove|Delete|Erase|Reset|Restart|Shut|Log Out|Sign|Update|Upgrade|Install|Allow|Deny|Quit|Apply|Done|OK|Cancel|Set Up|Change|Edit|Lock|Unlock|Forget|Join|Connect|Disconnect|Pair|Unpair|Clear|Empty|Restore|Use|Buy|Learn|Manage|Store|Optimize|Review|Open|Show|Hide|Calibrate|Identify|Detect|Arrange|Back|Forward|Search|Help|Share|Send|Copy|Import|Export|Choose|Select|Start|Stop|Pause|Resume|Test|Check|Verify|Repair|Get|Download|Renew|Request|Approve|Leave|Invite|Accept|Decline|Revert|Default|Report|Create|New|Rename|Replace|Run|Play|Record|Scan|Print|Close|Dismiss)( |$|…|\.)'
+# Filas de la barra lateral con datos de la cuenta o de pago: su panel se captura, sus subpáginas no;
+# con AJENA=1 ni se abren. En Wi-Fi y Bluetooth tampoco se entra: ahí un botón con el nombre de
+# una red o de un aparato CONECTA, y la iMac de 27 se maneja por Remote Control.
+AJ_PRIVADO='Apple Account|Apple ID|Wallet|Passwords|Internet Accounts|Game Center|Family'
+AJ_SIN_SUB="$AJ_PRIVADO|^Wi-Fi\$|^Bluetooth\$"
+aj() { $U "$1" "$AJUSTES" "${@:2}" 2>>"$LOG"; }
+aj_frente() { osa -e "tell application \"$AJUSTES\" to activate"; sleep 0.8; }
+aj_slug() { echo "$1" | tr -c 'A-Za-z0-9\n' '-' | tr A-Z a-z | sed 's/--*/-/g; s/^-//; s/-*$//' | cut -c1-40; }
+aj_cap() { aj_frente; raton_fuera; cap_win "$1" "$(ventana_pref)"; }
+aj_firma() { aj arbol | head -80 | cksum | cut -d' ' -f1; }   # cambia si cambió lo que se ve
+aj_cerrar_hojas() { # hojas y diálogos encima (en Sequoia, «Sign In to View AppleCare & Warranty»): Cancel primero
+  local i=0
+  while [ "$(aj hoja-hay)" = si ] && [ $i -lt 3 ]; do
+    { [ "$($U clic "$AJUSTES::hoja" Cancel 2>>"$LOG")" = ok ] || [ "$($U clic "$AJUSTES::hoja" Done 2>>"$LOG")" = ok ] \
+      || [ "$($U clic "$AJUSTES::hoja" Close 2>>"$LOG")" = ok ] || [ "$($U clic "$AJUSTES::hoja" OK 2>>"$LOG")" = ok ]; } || esc
+    sleep 0.8; i=$((i+1))
+  done; }
+aj_fondo() { # base: si el panel tiene más abajo, una captura más llevada al fondo (-fin)
+  [ "$(aj desplazar)" = ok ] || return 0
+  sleep 1; aj_cap "$1-fin-$2"; aj desplazar-arriba >/dev/null; sleep 0.5; }
+aj_volver() { # fila firma: de una subpágina a la raíz del panel
+  aj clic Back >/dev/null; sleep 1.5
+  [ "$(aj_firma)" = "$2" ] && return 0
+  aj barra-ir $(( $1 == 1 ? 2 : $1 - 1 )) >/dev/null; sleep 1.5; aj barra-ir "$1" >/dev/null; sleep 2.5
+  [ "$(aj_firma)" = "$2" ] || log "08: no pude volver a la raíz de la fila $1 (sigo igual)"; }
+aj_hoja_filas() { # base modo: una hoja con lista a la izquierda (Keyboard Shortcuts): cada fila
+  local c j=0
+  $U filas "$AJUSTES::hoja" 2>>"$LOG" > "$SAL/.hoja"
+  while IFS= read -r c; do
+    [ -n "$c" ] && [ $j -lt "$SUBMAX" ] || continue
+    [ "$($U fila "$AJUSTES::hoja" "$c" 2>>"$LOG")" = ok ] || continue
+    sleep 1; raton_fuera; cap_full "$1-$(aj_slug "$c")-$2"; j=$((j+1))
+  done < "$SAL/.hoja"; rm -f "$SAL/.hoja"; }
+ajustes_recorrer() { # claro|oscuro
+  local M=$1 n txt base titulo raiz c k sub tam ancho yo
+  yo="$(id -F 2>/dev/null)"
+  cerrar_app "$AJUSTES"; sleep 1
+  # En Sequoia salieron Finder y Finder Settings de otras tomas detrás, y la ventana sin foco.
+  cerrar_finder
+  osa -e 'tell application "System Events" to tell process "Finder"' \
+      -e 'repeat with w in (every window whose name ends with "Settings" or name ends with "Preferences")' \
+      -e 'try' -e 'click (first button of w whose subrole is "AXCloseButton")' -e 'end try' -e 'end repeat' -e 'end tell'
+  open -b com.apple.systempreferences; sleep 3
+  ocultar_excepto "$AJUSTES"; osa -e 'tell application "System Events" to set visible of process "Finder" to false'
+  aj_frente
+  # La ventana tan alta como quepa (el ancho es fijo): menos paneles cortados abajo.
+  tam="$(osa -e "tell application \"System Events\" to get size of window 1 of process \"$AJUSTES\"")"; ancho="${tam%%,*}"; ancho="${ancho// /}"
+  [ -n "$ancho" ] && osa -e "tell application \"System Events\" to tell process \"$AJUSTES\"" \
+      -e "set position of window 1 to {$(( (W-ancho)/2 )), $((BARRA+8))}" -e "set size of window 1 to {$ancho, $((HH-BARRA-DOCK-24))}" -e 'end tell'
+  sleep 1; aj_cap 08-preferencias-todas-$M
+  mkdir -p "$HER/arbol-ajustes"
+  aj barra > "$SAL/.barra"; log "08: System Settings, barra lateral con $(grep -c . "$SAL/.barra") filas"
+  while IFS="$(printf '\t')" read -r n txt; do
+    [ -n "$txt" ] || continue   # separadores y la búsqueda
+    if [ "${AJENA:-0}" = 1 ] && { echo "$txt" | grep -qE "$AJ_PRIVADO" || [ "$txt" = "$yo" ]; }; then
+      log "08: AJENA, no se abre «$txt»"; continue; fi
+    [ "$(aj barra-ir "$n")" = ok ] || { log "08: no pude abrir la fila $n «$txt»"; continue; }
+    sleep 2.5; case "$txt" in Storage|"Software Update"|General) sleep 5 ;; esac   # Storage tarda en calcular
+    aj_cerrar_hojas
+    base="08-pref-$(printf %02d "$n")-$(aj_slug "$txt")"
+    aj_cap "$base-$M"; aj_fondo "$base" "$M"
+    [ "$M" = claro ] && aj arbol > "$HER/arbol-ajustes/$base.txt"   # para afinar la próxima versión
+    if echo "$txt" | grep -qE "$AJ_SIN_SUB" || [ "$txt" = "$yo" ]; then continue; fi
+    titulo="$(aj titulo)"; raiz="$(aj_firma)"
+    aj arbol | awk -F' \\| ' '$1=="AXButton" { print ($2 != "" ? $2 : $3) }' | grep -v '^ *$' | awk '!v[$0]++' > "$SAL/.botones"
+    k=0
+    while IFS= read -r c; do
+      [ $k -lt "$SUBMAX" ] || { log "08: $txt: llegué a $SUBMAX subpáginas, paro"; break; }
+      case "$c" in "+"|"-"|"?"|missing\ value) continue ;; esac
+      cut -f2 "$SAL/.barra" | grep -qxF "$c" && continue        # es de la barra lateral
+      echo "$c" | grep -qE "$AJ_NO" && continue
+      case "$c" in *…*|*...*) echo "$c" | grep -qE "$AJ_HOJAS" || continue ;; esac
+      [ "$(aj clic-igual "$c")" = ok ] || continue
+      sleep 2
+      sub="$base--$(aj_slug "$c")"
+      if [ "$(aj hoja-hay)" = si ]; then
+        aj_frente; raton_fuera; cap_full "$sub-$M"; k=$((k+1))
+        aj_hoja_filas "$sub" "$M"; aj_cerrar_hojas
+      elif [ "$(aj titulo)" != "$titulo" ] || [ "$(aj_firma)" != "$raiz" ]; then
+        aj_cap "$sub-$M"; aj_fondo "$sub" "$M"; k=$((k+1))
+        aj_volver "$n" "$raiz"
+      else
+        log "08: «$c» en $txt no abrió subpágina ni hoja: revisar si era un botón de acción"
+      fi
+    done < "$SAL/.botones"
+    log "08: $txt: $k subpáginas u hojas"
+  done < "$SAL/.barra"
+  rm -f "$SAL/.barra" "$SAL/.botones"
+  cerrar_app "$AJUSTES"; sleep 1
+}
 
 bloque() { case " ${BLOQUES:-todos} " in *" todos "*|*" $1 "*) return 0;; esac; return 1; }
 tanda() { # claro | oscuro
@@ -424,7 +541,17 @@ tanda() { # claro | oscuro
   S=$(osa -e 'tell application "System Events" to tell process "Dock" to get size of menu item "Options" of menu 1 of UI element "Safari" of list 1')
   [ -n "$P" ] && { $H raton mover $(centro "$P" "$S"); sleep 0.9; cap_full 05-dock-menu-options-$M; }
   esc; esc; raton_fuera
-  # la pila Downloads en Fan, Grid y List; al final vuelve a como estaba
+  # la pila Downloads en Fan, Grid y List; al final vuelve a como estaba.
+  # En Sequoia salió vacía en las tres: si Downloads tiene menos de 3 archivos, van cuatro de
+  # prueba (extraer-pila-*), que se borran al terminar el bloque (y en devolver).
+  if [ "$(ls "$HOME/Downloads" 2>/dev/null | wc -l | tr -d ' ')" -lt 3 ]; then
+    for n in 1 2; do printf 'Archivo de prueba %s (extraer-mac)\n' "$n" > "$HOME/Downloads/extraer-pila-nota-$n.txt" \
+        && echo "$HOME/Downloads/extraer-pila-nota-$n.txt" >> "$PILA_LISTA"; done
+    i=0; for f in $(ls "/System/Library/Desktop Pictures/"*.heic 2>/dev/null | head -2 | tr ' ' '?'); do
+      i=$((i+1)); sips -s format jpeg -Z 1200 "$(echo "$f" | tr '?' ' ')" --out "$HOME/Downloads/extraer-pila-imagen-$i.jpg" >/dev/null 2>&1 \
+        && echo "$HOME/Downloads/extraer-pila-imagen-$i.jpg" >> "$PILA_LISTA"; done
+    log "05: Downloads casi vacía: $(grep -c Downloads/extraer-pila- "$PILA_LISTA") archivos de prueba"; sleep 1.5
+  fi
   PILA_ORIG=""
   for v in Fan Grid List Automatic; do
     marca=$(osa -e 'tell application "System Events" to tell process "Dock"' -e 'perform action "AXShowMenu" of UI element "Downloads" of list 1' -e 'delay 0.6' \
@@ -441,7 +568,7 @@ tanda() { # claro | oscuro
   cap_full 05-dock-pila-menu-contextual-$M; esc
   [ -n "$PILA_ORIG" ] && osa -e 'tell application "System Events" to tell process "Dock"' -e 'perform action "AXShowMenu" of UI element "Downloads" of list 1' -e 'delay 0.6' \
         -e "click menu item \"$PILA_ORIG\" of menu 1 of UI element \"Downloads\" of list 1" -e 'end tell'
-  raton_fuera
+  borrar_pila; raton_fuera
   defaults write com.apple.dock magnification -bool true; defaults write com.apple.dock largesize -int 128; killall Dock; sleep 2.5
   P=$(osa -e 'tell application "System Events" to tell process "Dock" to get position of UI element "Safari" of list 1')
   S=$(osa -e 'tell application "System Events" to tell process "Dock" to get size of UI element "Safari" of list 1')
@@ -553,8 +680,11 @@ tanda() { # claro | oscuro
   open -a Launchpad; sleep 2; cap_full 07-launchpad-$M; esc; sleep 1
 
   fi
-  # 08 System Preferences: la cuadrícula, cada panel y cada pestaña (anchor)
-  if bloque 08; then
+  # 08 System Preferences: la cuadrícula, cada panel y cada pestaña (anchor).
+  # Desde macOS 13, System Settings: la barra lateral, cada panel y sus subpáginas (ajustes_recorrer).
+  if bloque 08 && [ "$AJUSTES" = "System Settings" ]; then
+  ajustes_recorrer "$M"
+  elif bloque 08; then
   cerrar_app "System Preferences"; sleep 1
   osa -e 'tell application "System Preferences" to activate' -e 'tell application "System Preferences" to set show all of it to true' ; sleep 2.5; raton_fuera
   # En Monterey «show all» no bastó (la captura salió con un panel): ⌘L es View ▸ Show All Preferences.
@@ -633,6 +763,17 @@ tanda() { # claro | oscuro
   osa -e 'tell application "System Events" to tell process "TextEdit" to get {description, name} of every button of sheet 1 of window 1' >> "$LOG"
   if osa -e 'tell application "System Events" to tell process "TextEdit" to click (first button of sheet 1 of window 1 whose description contains "isclos" or description contains "xpand")'; then
     sleep 1.5; raton_fuera; cap_win 09-dialogo-save-expandido-$M "$(ventana_de TextEdit)"
+  elif [ "$AJUSTES" = "System Settings" ]; then
+    # En Sequoia y en 27 el botón de desplegar no tiene nombre ni descripción («button, button»):
+    # System Events no lo encuentra. Se pide la hoja ya desplegada con la preferencia global de
+    # NSSavePanel, se abre otra vez y la preferencia vuelve como estaba (también en devolver).
+    esc; sleep 1
+    EXP_ORIG="$(leer_def -g NSNavPanelExpandedStateForSaveMode)"; EXP2_ORIG="$(leer_def -g NSNavPanelExpandedStateForSaveMode2)"
+    defaults write -g NSNavPanelExpandedStateForSaveMode -bool true; defaults write -g NSNavPanelExpandedStateForSaveMode2 -bool true
+    tecla TextEdit 'keystroke "s" using command down'; sleep 2.5; raton_fuera
+    cap_win 09-dialogo-save-expandido-$M "$(ventana_de TextEdit)"
+    poner_def -g NSNavPanelExpandedStateForSaveMode "$EXP_ORIG" bool; poner_def -g NSNavPanelExpandedStateForSaveMode2 "$EXP2_ORIG" bool
+    EXP_ORIG=""; EXP2_ORIG=""
   fi
   esc; sleep 1.2
   tecla TextEdit 'keystroke "w" using command down'; sleep 1.8; raton_fuera
@@ -775,7 +916,10 @@ tanda() { # claro | oscuro
   done
   cerrar_app "System Information"; sleep 1
 
-  # --- System Preferences
+  # --- System Preferences (en 13 o más lo cubre el bloque 08 por System Settings)
+  if [ "$AJUSTES" = "System Settings" ]; then
+  log "16: macOS $VERSION: lo de System Preferences va en el bloque 08 (System Settings)"
+  else
   osa -e 'tell application "System Preferences" to quit'; sleep 2
   osa -e 'tell application "System Preferences" to activate'; sleep 2; ocultar_excepto "System Preferences"
   # Keyboard ▸ Input Sources con la hoja de +
@@ -856,6 +1000,7 @@ tanda() { # claro | oscuro
     bloquear
   fi
   osa -e 'tell application "System Preferences" to quit'; sleep 1
+  fi
 
   # --- Launchpad en modo de edición (con ⌥ apretado, sin tocar ningún ícono)
   open -a Launchpad; sleep 2

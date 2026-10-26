@@ -14,6 +14,16 @@
 --   osascript ui.applescript candado <proceso>            «abierto», «cerrado» o «sin candado»
 --   osascript ui.applescript arbol <proceso>              rol y nombre de cada elemento (para la bitácora)
 --
+-- System Settings (macOS 13 en adelante), para el bloque 08:
+--   osascript ui.applescript titulo <proceso>             el título de la ventana 1
+--   osascript ui.applescript hoja-hay <proceso>           «si» si hay una hoja o un diálogo encima
+--   osascript ui.applescript barra <proceso>              «n<TAB>texto» por cada fila de la barra lateral (la primera AXOutline)
+--   osascript ui.applescript barra-ir <proceso> <n>       selecciona la fila n de la barra lateral
+--   osascript ui.applescript clic-igual <proceso> <texto> clic en el BOTÓN cuyo nombre o descripción es exactamente <texto>
+--   osascript ui.applescript desplazar <proceso>          lleva al fondo el área con scroll que no es la barra lateral («ok» si se movió)
+--   osascript ui.applescript desplazar-arriba <proceso>   la devuelve arriba
+--   Con «<proceso>::hoja» los comandos miran dentro de la hoja (sheet 1 de la ventana 1), no de la ventana.
+--
 -- Contesta «ok» o «no» (o el dato pedido). Nunca escribe texto ni cambia un ajuste
 -- por su cuenta: los clics los decide extraer.sh.
 
@@ -40,13 +50,114 @@ end empieza
 on run argv
 	set cmd to item 1 of argv
 	set proc to item 2 of argv
+	set enHoja to false
+	if proc ends with "::hoja" then
+		set enHoja to true
+		set proc to text 1 thru -7 of proc
+	end if
 	tell application "System Events"
 		if not (exists process proc) then return "no"
 		tell process proc
 			if (count of windows) is 0 then return "no"
-			set todo to entire contents of window 1
+			-- Los dos primeros no necesitan recorrer la ventana (en System Settings tarda).
+			if cmd is "titulo" then
+				try
+					return (name of window 1) as text
+				on error
+					return ""
+				end try
+			end if
+			if cmd is "hoja-hay" then
+				if exists sheet 1 of window 1 then return "si"
+				repeat with w in windows
+					try
+						if subrole of w is "AXDialog" or subrole of w is "AXSystemDialog" then return "si"
+					end try
+				end repeat
+				return "no"
+			end if
+			if enHoja and (exists sheet 1 of window 1) then
+				set todo to entire contents of sheet 1 of window 1
+			else
+				set todo to entire contents of window 1
+			end if
 		end tell
 	end tell
+
+	if cmd is "barra" or cmd is "barra-ir" then
+		repeat with e in todo
+			try
+				tell application "System Events" to set r to role of e
+				if r is "AXOutline" then
+					tell application "System Events" to set fs to rows of e
+					if cmd is "barra-ir" then
+						set n to (item 3 of argv) as integer
+						if n > (count of fs) then return "no"
+						tell application "System Events" to select item n of fs
+						return "ok"
+					end if
+					set salida to ""
+					set i to 0
+					repeat with f in fs
+						set i to i + 1
+						tell application "System Events" to set dentro to entire contents of f
+						set txt to ""
+						repeat with c in dentro
+							tell application "System Events" to set rc to role of c
+							if rc is "AXStaticText" then
+								set txt to my texto_de(c, "value")
+								if txt is "" then set txt to my texto_de(c, "name")
+								if txt is not "" then exit repeat
+							end if
+						end repeat
+						set salida to salida & i & tab & txt & linefeed
+					end repeat
+					return salida
+				end if
+			end try
+		end repeat
+		return "no"
+	end if
+
+	if cmd is "clic-igual" then
+		set t to item 3 of argv
+		repeat with e in todo
+			try
+				tell application "System Events" to set r to role of e
+				if r is "AXButton" and (my texto_de(e, "name") is t or my texto_de(e, "description") is t) then
+					tell application "System Events" to click e
+					return "ok"
+				end if
+			end try
+		end repeat
+		return "no"
+	end if
+
+	if cmd is "desplazar" or cmd is "desplazar-arriba" then
+		set movido to false
+		repeat with e in todo
+			try
+				tell application "System Events"
+					if role of e is "AXScrollArea" and (count of outlines of e) is 0 then
+						repeat with b in scroll bars of e
+							if (value of attribute "AXOrientation" of b) is "AXVerticalOrientation" then
+								set v to value of b
+								if cmd is "desplazar" and v < 1 then
+									set value of b to 1
+									set movido to true
+								else if cmd is "desplazar-arriba" and v > 0 then
+									set value of b to 0
+									set movido to true
+								end if
+							end if
+						end repeat
+					end if
+				end tell
+			end try
+		end repeat
+		if movido then return "ok"
+		return "no"
+	end if
 
 	if cmd is "clic" or cmd is "clic-valor" then
 		set t to item 3 of argv

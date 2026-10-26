@@ -32,7 +32,8 @@ el rectángulo de selección en una ventana y en el escritorio, Get Info y las
 cuatro pestañas de Preferences); Spotlight; Launchpad; System Preferences
 (todos los paneles con todas sus pestañas, las categorías de Keyboard ▸
 Shortcuts, Modifier Keys y Hot Corners con su menú abierto, Screen Saver Options,
-Notifications con una app); alertas y diálogos (Save, Save expandido, Open,
+Notifications con una app; desde macOS 13, System Settings: cada fila de la barra
+lateral, el panel llevado hasta abajo y sus subpáginas y hojas, ver más abajo); alertas y diálogos (Save, Save expandido, Open,
 «¿guardar cambios?», la clave de administrador, que se cancela sola); About
 This Mac con sus pestañas; Force Quit; la barra de ⇧⌘5; ⌘Tab; Mission Control
 y la primera pantalla de Migration Assistant; y los Stacks del escritorio (bloque 17, de
@@ -52,7 +53,7 @@ Desktop unos archivos `extraer-pila-*` (imágenes, PDF y capturas) que borra al 
    (`permisos`) dispara de una vez los diálogos de Automatización (System
    Events, Finder, System Preferences, TextEdit, Terminal), Accessibility y
    Screen Recording. Dale **OK** a cada uno y, en System Preferences ▸ Security
-   & Privacy ▸ Privacy, marca **Terminal** en **Accessibility** y en **Screen
+   & Privacy ▸ Privacy (desde macOS 13: System Settings ▸ Privacy & Security), marca **Terminal** en **Accessibility** y en **Screen
    Recording** (el candado pide tu clave). El guion espera hasta 10 minutos a
    que estén. Si Screen Recording se acaba de conceder, cierra Terminal y lo
    vuelve a abrir solo con los pasos que faltan. Después de eso no hace falta
@@ -80,6 +81,23 @@ Desktop unos archivos `extraer-pila-*` (imágenes, PDF y capturas) que borra al 
 - Capturas: unos 20 minutos por modo, 40 en total (System Preferences se lleva la mitad).
 - Videos: 2 minutos.
 - Entregar: 2 minutos de compresión y 15 a 40 de copia a la memoria (2.3 GB a menos de 2 MB/s).
+
+## System Settings (macOS 13 en adelante)
+
+El bloque 08 no usa el diccionario de AppleScript (en Sequoia solo publicaba 6
+paneles y sus anclas no abrían nada): recorre la barra lateral fila por fila,
+captura cada panel (y otra vez llevado al fondo, `-fin`) y entra a sus
+subpáginas, un nivel, hasta `SUBMAX` por panel (25). Solo pulsa botones que
+navegan; nunca uno que empiece con un verbo de acción (Turn, Add, Remove,
+Reset, Erase, Update…) ni uno con «…», salvo los que abren una hoja que se cierra
+sola (Keyboard Shortcuts, Hot Corners, Advanced, Options, Details, Customize).
+De la cuenta, Wallet, Passwords, Internet Accounts, Game Center y Family se
+captura el panel pero no sus subpáginas; con `AJENA=1` esas filas ni se abren.
+El árbol de Accessibility de cada panel queda en `herramientas/arbol-ajustes/`
+para afinar la próxima versión. La parte de System Preferences del bloque 16
+no corre (la cubre el 08). La hoja Save desplegada sale con la preferencia
+`NSNavPanelExpandedStateForSaveMode`, que se devuelve como estaba. **Sin probar
+en una Mac** al escribirlo (26-10-2026).
 
 ## Catalina
 
