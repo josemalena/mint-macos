@@ -414,6 +414,7 @@ SUBMAX="${SUBMAX:-25}"   # subpáginas por panel, como mucho (Privacy & Security
 AJ_SECO="${AJ_SECO:-1}"
 # Botones con «…» que abren una hoja que se captura y se cierra; cualquier otro «…» no se pulsa.
 AJ_HOJAS='^(Keyboard Shortcuts|Hot Corners|Advanced|Options|Details|Customize)'
+AJ_HOJAS_EXACTO='^(Keyboard Shortcuts|Hot Corners|Advanced|Options|Details|Customize)(…|[.][.][.])?$'   # [.]: awk -v se come las «\\»
 # Lo que empieza así hace algo en vez de navegar: nunca se pulsa. Las filas que navegan
 # son sustantivos («About», «Storage», «Login Items & Extensions»).
 AJ_NO='^(Turn|Enable|Disable|Add|Remove|Delete|Erase|Reset|Restart|Shut|Log Out|Sign|Update|Upgrade|Install|Allow|Deny|Quit|Apply|Done|OK|Cancel|Set Up|Change|Edit|Lock|Unlock|Forget|Join|Connect|Disconnect|Pair|Unpair|Clear|Empty|Restore|Use|Buy|Learn|Manage|Store|Optimize|Review|Open|Show|Hide|Calibrate|Identify|Detect|Arrange|Back|Forward|Search|Help|Share|Send|Copy|Import|Export|Choose|Select|Start|Stop|Pause|Resume|Test|Check|Verify|Repair|Get|Download|Renew|Request|Approve|Leave|Invite|Accept|Decline|Revert|Default|Report|Create|New|Rename|Replace|Run|Play|Record|Scan|Print|Close|Dismiss)( |$|…|\.)'
@@ -430,9 +431,13 @@ AJ_SIN_SUB="$AJ_PRIVADO|wi-?fi|bluetooth"
 aj() { $U "$1" "$AJUSTES" "${@:2}" 2>>"$LOG"; }
 aj_frente() { osa -e "tell application \"$AJUSTES\" to activate"; sleep 0.8; }
 aj_slug() { echo "$1" | tr -c 'A-Za-z0-9\n' '-' | tr A-Z a-z | sed 's/--*/-/g; s/^-//; s/-*$//' | cut -c1-40; }
+AJ_VENT_ANT=""
 aj_cap() { # una sola ventana; si CG no da ninguna, se anota lo que había antes de ir a la pantalla entera
   local id; aj_frente; raton_fuera; id="$(ventana_pref | head -1)"
   [ -n "$id" ] || log "08: sin ventana de $AJUSTES para $1; CG tenía: $($H ventanas 2>>"$LOG" | grep -i -E 'setting|prefer' | tr '\t\n' ' ;')"
+  # En 27 la ventana se recreó al llegar a Game Center y las filas siguientes no abrieron (26-10-2026).
+  [ -n "$id" ] && [ -n "$AJ_VENT_ANT" ] && [ "$id" != "$AJ_VENT_ANT" ] && log "08: la ventana de $AJUSTES cambió de id: $AJ_VENT_ANT → $id ($1)"
+  [ -n "$id" ] && AJ_VENT_ANT="$id"
   cap_win "$1" "$id"; }
 aj_firma() { aj arbol | head -80 | cksum | cut -d' ' -f1; }   # cambia si cambió lo que se ve
 aj_cerrar_hojas() { # hojas y diálogos encima (en Sequoia, «Sign In to View AppleCare & Warranty»): Cancel primero
@@ -450,6 +455,15 @@ aj_volver() { # fila firma: de una subpágina a la raíz del panel
   [ "$(aj_firma)" = "$2" ] && return 0
   aj barra-ir $(( $1 == 1 ? 2 : $1 - 1 )) >/dev/null; sleep 1.5; aj barra-ir "$1" >/dev/null; sleep 2.5
   [ "$(aj_firma)" = "$2" ] || log "08: no pude volver a la raíz de la fila $1 (sigo igual)"; }
+aj_ir() { # n: abre la fila n; si falla, cierra lo que haya encima, trae System Settings al frente y
+  # reintenta; si vuelve a fallar, reabre System Settings y prueba una última vez.
+  [ "$(aj barra-ir "$1")" = ok ] && return 0
+  log "08: barra-ir $1 falló; reintento con System Settings al frente"
+  aj_cerrar_hojas; aj_frente; sleep 1
+  [ "$(aj barra-ir "$1")" = ok ] && return 0
+  log "08: barra-ir $1 falló otra vez; reabro $AJUSTES"
+  cerrar_app "$AJUSTES"; sleep 1; open -b com.apple.systempreferences; sleep 3; aj_frente
+  [ "$(aj barra-ir "$1")" = ok ]; }
 aj_hoja_filas() { # base modo: una hoja con lista a la izquierda (Keyboard Shortcuts): cada fila
   local c j=0
   $U filas "$AJUSTES::hoja" 2>>"$LOG" > "$SAL/.hoja"
@@ -460,7 +474,9 @@ aj_hoja_filas() { # base modo: una hoja con lista a la izquierda (Keyboard Short
   done < "$SAL/.hoja"; rm -f "$SAL/.hoja"; }
 ajustes_recorrer() { # claro|oscuro
   local M=$1 n txt ident clave base titulo raiz c k sub tam ancho yo ult rol subrol
-  yo="$(id -F 2>/dev/null)"
+  yo="$(id -F 2>/dev/null)"; AJ_VENT_ANT=""
+  # Las del 08 de una corrida anterior del mismo día no se mezclan con estas.
+  rm -f "$CAP"/08-*-"$M".png "$CAP"/08-*-"$M"-fin.png
   cerrar_app "$AJUSTES"; sleep 1
   # En Sequoia salieron Finder y Finder Settings de otras tomas detrás, y la ventana sin foco.
   cerrar_finder
@@ -481,13 +497,14 @@ ajustes_recorrer() { # claro|oscuro
   cp "$SAL/.barra" "$HER/arbol-ajustes/barra-$M.txt"; aj arbol > "$HER/arbol-ajustes/ventana-inicio-$M.txt"
   # Separados por «|»: con tabulador, bash junta dos seguidos y el texto vacío se come al identificador.
   while IFS='|' read -r n txt ident; do
+    [ -n "$n" ] || continue   # la línea vacía del final
     # La etiqueta: el texto de la fila; si no tiene (27), lo último del AXIdentifier tras «.» o «*».
     [ -n "$txt" ] || txt="$(echo "$ident" | sed 's/.*[.*]//')"
     [ -n "$txt" ] || { log "08: fila $n sin etiqueta ni identificador (separador o búsqueda): se salta"; continue; }
     clave="$txt $ident"
     if [ "${AJENA:-0}" = 1 ] && { echo "$clave" | grep -qiE "$AJ_PRIVADO" || [ "$txt" = "$yo" ]; }; then
       log "08: AJENA, no se abre «${txt}»"; continue; fi
-    [ "$(aj barra-ir "$n")" = ok ] || { log "08: no pude abrir la fila $n «${txt}»"; continue; }
+    aj_ir "$n" || { log "08: no pude abrir la fila $n «${txt}»"; continue; }
     sleep 2.5; echo "$clave" | grep -qiE 'storage|software.?update|general' && sleep 5   # Storage tarda en calcular
     aj_cerrar_hojas
     base="08-pref-$(printf %02d "$n")-$(aj_slug "$txt")"
@@ -504,17 +521,32 @@ ajustes_recorrer() { # claro|oscuro
     # Y solo rol AXButton: un interruptor (AXCheckBox/AXSwitch), un popup o un deslizador también pueden
     # traer un id com.apple.settings.*, y pulsarlo cambia un ajuste (Planner, 26-10-2026). Va con «|»
     # porque el subrol puede venir vacío.
-    awk -F'\t' '$4 ~ /^com\.apple\.(systempreferences|settings)\./ && $5 == "AXButton" && $6 !~ /^AX(Switch|Toggle)$/ { print $4 "|" $5 "|" $6 }' "$SAL/.todos" | awk '!v[$0]++' > "$SAL/.botones"
+    # En 27, Privacy & Security navega con ids «<Nombre>_Navigator, N» (Mint-Macos, 26-10-2026: «Location
+    # Services_Navigator, 0»): también valen, solo AXButton sin subrol (Planner). Y un botón SIN id cuyo
+    # nombre sea exactamente uno de los que abren hoja (Hot Corners…, Keyboard Shortcuts…) va como
+    # «nombre:<nombre>» y se pulsa por su nombre; cualquier otro sin id, nunca.
+    awk -F'\t' -v hojas="$AJ_HOJAS_EXACTO" '
+      ($4 ~ /^com\.apple\.(systempreferences|settings)\./ && $5 == "AXButton" && $6 !~ /^AX(Switch|Toggle)$/) ||
+      ($4 ~ /^[A-Za-z0-9 &]+_Navigator, [0-9]+$/ && $5 == "AXButton" && $6 == "") { print $4 "|" $5 "|" $6; next }
+      ($4 == "" && $2 ~ hojas && $5 == "AXButton" && $6 == "") { print "nombre:" $2 "|" $5 "|" $6 }' "$SAL/.todos" | awk '!v[$0]++' > "$SAL/.botones"
     [ -s "$SAL/.botones" ] || log "08: $txt: ningún botón con identificador de System Settings; subpáginas sin recorrer"
     k=0
     while IFS='|' read -r c rol subrol; do
       [ $k -lt "$SUBMAX" ] || { log "08: $txt: llegué a $SUBMAX subpáginas, paro"; break; }
       cut -d'|' -f3 "$SAL/.barra" | grep -qxF "$c" && continue        # es de la barra lateral
-      ult="$(echo "$c" | sed 's/.*[.*]//')"
+      case "$c" in
+        nombre:*) ult="${c#nombre:}" ;;
+        *_Navigator*) ult="$(echo "$c" | sed 's/_Navigator.*//')" ;;
+        *) ult="$(echo "$c" | sed 's/.*[.*]//')" ;;
+      esac
       echo "$ult" | grep -qiE "$AJ_NO_ID" && { log "08: $txt: no se pulsa ${ult} (acción)"; continue; }
       echo "$c" | grep -qiE "$AJ_PRIVADO" && { log "08: $txt: no se pulsa ${ult} (privado)"; continue; }
       if [ "$AJ_SECO" != 0 ]; then log "08: $txt: pulsaría ${ult} (${c}; ${rol}/${subrol:-sin subrol})"; continue; fi
-      [ "$(aj clic-id "$c")" = ok ] || continue
+      case "$c" in
+        nombre:*) [ "$(aj clic-igual "$ult")" = ok ] || continue ;;
+        *) [ "$(aj clic-id "$c")" = ok ] || continue ;;
+      esac
+      log "08: $txt: pulsé ${ult} (${c}; ${rol}/${subrol:-sin subrol})"
       sleep 2
       sub="$base--$(aj_slug "$ult")"
       if [ "$(aj hoja-hay)" = si ]; then
