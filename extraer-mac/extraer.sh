@@ -455,15 +455,16 @@ aj_volver() { # fila firma: de una subpágina a la raíz del panel
   [ "$(aj_firma)" = "$2" ] && return 0
   aj barra-ir $(( $1 == 1 ? 2 : $1 - 1 )) >/dev/null; sleep 1.5; aj barra-ir "$1" >/dev/null; sleep 2.5
   [ "$(aj_firma)" = "$2" ] || log "08: no pude volver a la raíz de la fila $1 (sigo igual)"; }
-aj_ir() { # n: abre la fila n; si falla, cierra lo que haya encima, trae System Settings al frente y
-  # reintenta; si vuelve a fallar, reabre System Settings y prueba una última vez.
+aj_esperar() { # hasta 10 s mientras la ventana tenga una rueda o una barra de progreso
+  local i=0; while [ "$(aj ocupado)" = si ] && [ $i -lt 10 ]; do sleep 1; i=$((i+1)); done
+  [ $i -gt 0 ] && log "08: esperé ${i} s a que cargara"; return 0; }
+aj_ir() { # n: abre la fila n. Si falla (en 27, después de Game Center la ventana se recreó y las
+  # filas de abajo no abrían): espera a que cargue, cierra lo que haya encima, relee la ventana y
+  # reintenta UNA vez llevando la fila a la vista con la barra de scroll de la lista.
   [ "$(aj barra-ir "$1")" = ok ] && return 0
-  log "08: barra-ir $1 falló; reintento con System Settings al frente"
-  aj_cerrar_hojas; aj_frente; sleep 1
-  [ "$(aj barra-ir "$1")" = ok ] && return 0
-  log "08: barra-ir $1 falló otra vez; reabro $AJUSTES"
-  cerrar_app "$AJUSTES"; sleep 1; open -b com.apple.systempreferences; sleep 3; aj_frente
-  [ "$(aj barra-ir "$1")" = ok ]; }
+  aj_esperar; aj_cerrar_hojas; aj_frente
+  log "08: barra-ir $1 falló; reintento una vez (ventana ahora: $(ventana_pref | head -1))"
+  [ "$(aj barra-ir "$1" rodar)" = ok ]; }
 aj_hoja_filas() { # base modo: una hoja con lista a la izquierda (Keyboard Shortcuts): cada fila
   local c j=0
   $U filas "$AJUSTES::hoja" 2>>"$LOG" > "$SAL/.hoja"
@@ -506,6 +507,7 @@ ajustes_recorrer() { # claro|oscuro
       log "08: AJENA, no se abre «${txt}»"; continue; fi
     aj_ir "$n" || { log "08: no pude abrir la fila $n «${txt}»"; continue; }
     sleep 2.5; echo "$clave" | grep -qiE 'storage|software.?update|general' && sleep 5   # Storage tarda en calcular
+    aj_esperar
     aj_cerrar_hojas
     base="08-pref-$(printf %02d "$n")-$(aj_slug "$txt")"
     aj_cap "$base-$M"; aj_fondo "$base" "$M"

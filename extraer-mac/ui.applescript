@@ -19,7 +19,8 @@
 --   osascript ui.applescript hoja-hay <proceso>           «si» si hay una hoja o un diálogo encima
 --   osascript ui.applescript barra <proceso>              «n|texto|AXIdentifier» por cada fila de la barra lateral (la primera AXOutline)
 --   osascript ui.applescript botones <proceso>            «n<TAB>nombre<TAB>descripción<TAB>AXIdentifier<TAB>rol<TAB>subrol» de cada AXButton fuera de la barra lateral
---   osascript ui.applescript barra-ir <proceso> <n>       selecciona la fila n de la barra lateral
+--   osascript ui.applescript barra-ir <proceso> <n> [rodar]  selecciona la fila n de la barra lateral (antes la lleva a la vista)
+--   osascript ui.applescript ocupado <proceso>            «si» si la ventana tiene una rueda o una barra de progreso
 --   osascript ui.applescript clic-id <proceso> <id>       clic en el BOTÓN cuyo AXIdentifier es exactamente <id>
 --   osascript ui.applescript clic-igual <proceso> <texto> clic en el BOTÓN cuyo nombre o descripción es exactamente <texto>
 --   osascript ui.applescript desplazar <proceso>          lleva al fondo el área con scroll que no es la barra lateral («ok» si se movió)
@@ -164,6 +165,16 @@ on run argv
 					return ""
 				end try
 			end if
+			if cmd is "ocupado" then
+				-- «si» mientras haya una rueda o una barra de progreso (Game Center cargando en 27)
+				try
+					if (count of (every busy indicator of entire contents of window 1)) > 0 then return "si"
+				end try
+				try
+					if (count of (every progress indicator of entire contents of window 1)) > 0 then return "si"
+				end try
+				return "no"
+			end if
 			if cmd is "hoja-hay" then
 				if exists sheet 1 of window 1 then return "si"
 				repeat with w in windows
@@ -190,7 +201,29 @@ on run argv
 					if cmd is "barra-ir" then
 						set n to (item 3 of argv) as integer
 						if n > (count of fs) then return "no"
-						tell application "System Events" to select item n of fs
+						set fila to item n of fs
+						-- La fila a la vista antes de escogerla: en 27 las de abajo (32-38) no abrían
+						-- con la barra cortada. AXScrollToVisible y, con «rodar», también la barra de
+						-- scroll de la lista por su valor (nunca las flechas).
+						tell application "System Events"
+							try
+								perform action "AXScrollToVisible" of fila
+							end try
+						end tell
+						if (count of argv) > 3 and item 4 of argv is "rodar" then
+							tell application "System Events"
+								try
+									set sa to value of attribute "AXParent" of e
+									if role of sa is "AXScrollArea" and (count of fs) > 1 then
+										repeat with b in scroll bars of sa
+											if (value of attribute "AXOrientation" of b) is "AXVerticalOrientation" then set value of b to ((n - 1) / ((count of fs) - 1))
+										end repeat
+									end if
+								end try
+							end tell
+						end if
+						delay 0.3
+						tell application "System Events" to select fila
 						return "ok"
 					end if
 					set salida to ""
