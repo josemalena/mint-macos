@@ -473,7 +473,10 @@ aj_cap() { # una sola ventana; si CG no da ninguna, se anota lo que había antes
   [ -n "$id" ] && [ -n "$AJ_VENT_ANT" ] && [ "$id" != "$AJ_VENT_ANT" ] && log "08: la ventana de $AJUSTES cambió de id: $AJ_VENT_ANT → $id ($1)"
   [ -n "$id" ] && AJ_VENT_ANT="$id"
   cap_win "$1" "$id"; }
-aj_firma() { aj arbol | head -80 | cksum | cut -d' ' -f1; }   # cambia si cambió lo que se ve
+# Cambia si cambió lo que se ve. El título y los botones fuera de la barra lateral («botones» ya la
+# excluye): en 27 las primeras 80 líneas del árbol eran solo la barra, la firma salía siempre igual y
+# aj_volver daba por vuelto lo que seguía en About; en General solo se pulsó la primera (26-10-2026).
+aj_firma() { printf '%s|%s' "$(aj titulo)" "$(aj botones | cksum | cut -d' ' -f1)"; }
 aj_cerrar_hojas() { # hojas y diálogos encima (en Sequoia, «Sign In to View AppleCare & Warranty»): Cancel primero
   local i=0
   while [ "$(aj hoja-hay)" = si ] && [ $i -lt 3 ]; do
@@ -484,11 +487,14 @@ aj_cerrar_hojas() { # hojas y diálogos encima (en Sequoia, «Sign In to View Ap
 aj_fondo() { # base: si el panel tiene más abajo, una captura más llevada al fondo (-fin)
   [ "$(aj desplazar)" = ok ] || return 0
   sleep 1; aj_cap "$1-fin-$2"; aj desplazar-arriba >/dev/null; sleep 0.5; }
-aj_volver() { # fila firma: de una subpágina a la raíz del panel
-  aj clic Back >/dev/null; sleep 1.5
-  [ "$(aj_firma)" = "$2" ] && return 0
-  aj barra-ir $(( $1 == 1 ? 2 : $1 - 1 )) >/dev/null; sleep 1.5; aj barra-ir "$1" >/dev/null; sleep 2.5
-  [ "$(aj_firma)" = "$2" ] || log "08: no pude volver a la raíz de la fila $1 (sigo igual)"; }
+aj_volver_espera() { # firma: hasta 8 s (más lo que tarde la rueda) a que la firma vuelva a la de la raíz
+  local i=0; while [ $i -lt 8 ]; do aj_esperar; [ "$(aj_firma)" = "$1" ] && return 0; sleep 1; i=$((i+1)); done; return 1; }
+aj_volver() { # fila firma: de una subpágina a la raíz del panel, esperando a que de verdad vuelva
+  aj clic Back >/dev/null
+  aj_volver_espera "$2" && return 0
+  log "08: Back no volvió a la raíz de la fila $1 (título ahora «$(aj titulo)»); vuelvo por la barra"
+  aj barra-ir $(( $1 == 1 ? 2 : $1 - 1 )) >/dev/null; sleep 1.5; aj barra-ir "$1" >/dev/null
+  aj_volver_espera "$2" || log "08: no pude volver a la raíz de la fila $1 (título «$(aj titulo)»)"; }
 aj_esperar() { # hasta 10 s mientras la ventana tenga una rueda o una barra de progreso
   local i=0; while [ "$(aj ocupado)" = si ] && [ $i -lt 10 ]; do sleep 1; i=$((i+1)); done
   [ $i -gt 0 ] && log "08: esperé ${i} s a que cargara"; return 0; }
@@ -508,7 +514,7 @@ aj_hoja_filas() { # base modo: una hoja con lista a la izquierda (Keyboard Short
     sleep 1; raton_fuera; cap_full "$1-$(aj_slug "$c")-$2"; j=$((j+1))
   done < "$SAL/.hoja"; rm -f "$SAL/.hoja"; }
 ajustes_recorrer() { # claro|oscuro
-  local M=$1 n txt ident clave base titulo raiz c k sub tam ancho yo ult rol subrol
+  local M=$1 n txt ident clave base titulo raiz c k cand sub tam ancho yo ult rol subrol
   yo="$(id -F 2>/dev/null)"; AJ_VENT_ANT=""
   # Las del 08 de una corrida anterior del mismo día no se mezclan con estas.
   rm -f "$CAP"/08-*-"$M".png "$CAP"/08-*-"$M"-fin.png
@@ -566,7 +572,7 @@ ajustes_recorrer() { # claro|oscuro
       ($4 ~ /^[A-Za-z0-9 &]+_Navigator, [0-9]+$/ && $5 == "AXButton" && $6 == "") { print $4 "|" $5 "|" $6; next }
       ($4 == "" && $2 ~ hojas && $5 == "AXButton" && $6 == "") { print "nombre:" $2 "|" $5 "|" $6 }' "$SAL/.todos" | awk '!v[$0]++' > "$SAL/.botones"
     [ -s "$SAL/.botones" ] || log "08: $txt: ningún botón con identificador de System Settings; subpáginas sin recorrer"
-    k=0
+    k=0; cand=0
     while IFS='|' read -r c rol subrol; do
       [ $k -lt "$SUBMAX" ] || { log "08: $txt: llegué a $SUBMAX subpáginas, paro"; break; }
       cut -d'|' -f3 "$SAL/.barra" | grep -qxF "$c" && continue        # es de la barra lateral
@@ -577,10 +583,11 @@ ajustes_recorrer() { # claro|oscuro
       esac
       echo "$ult" | grep -qiE "$AJ_NO_ID" && { log "08: $txt: no se pulsa ${ult} (acción)"; continue; }
       echo "$c" | grep -qiE "$AJ_PRIVADO" && { log "08: $txt: no se pulsa ${ult} (privado)"; continue; }
+      cand=$((cand+1))
       if [ "$AJ_SECO" != 0 ]; then log "08: $txt: pulsaría ${ult} (${c}; ${rol}/${subrol:-sin subrol})"; continue; fi
       case "$c" in
-        nombre:*) [ "$(aj clic-igual "$ult")" = ok ] || continue ;;
-        *) [ "$(aj clic-id "$c")" = ok ] || continue ;;
+        nombre:*) [ "$(aj clic-igual "$ult")" = ok ] || { log "08: $txt: no encontré ${c} (título «$(aj titulo)»)"; continue; } ;;
+        *) [ "$(aj clic-id "$c")" = ok ] || { log "08: $txt: no encontré ${c} (título «$(aj titulo)»)"; continue; } ;;
       esac
       log "08: $txt: pulsé ${ult} (${c}; ${rol}/${subrol:-sin subrol})"
       sleep 2
@@ -595,7 +602,7 @@ ajustes_recorrer() { # claro|oscuro
         log "08: «${c}» en ${txt} no abrió subpágina ni hoja: revisar si era un botón de acción"
       fi
     done < "$SAL/.botones"
-    log "08: $txt: $k subpáginas u hojas"
+    log "08: $txt: $k de $cand subpáginas u hojas"
   done < "$SAL/.barra"
   rm -f "$SAL/.barra" "$SAL/.botones" "$SAL/.todos"
   cerrar_app "$AJUSTES"; sleep 1
@@ -1162,16 +1169,20 @@ tanda() { # claro | oscuro
 
 # 18 Acentos: una vez por color, no por tanda. Los colores se releen en claro y oscuro desde un
 # proceso nuevo (herramientas.js acento), que lee las preferencias al arrancar; la ventanita de
-# controles sale de ese mismo proceso. Aparte, la ventana del Finder (abierta desde antes) dice si
-# las apps que ya corrían toman el color en caliente: eso está SIN VERIFICAR hasta verlo en 12 y en 27.
+# controles sale de ese mismo proceso, como app Regular y con la ventana key (en 12.7.6 salió
+# inactiva y sin acento). La toma del Finder abierto, que diría si el color entra en caliente,
+# va solo con ACENTO_FINDER=1: en 12.7.6 no repintó con las notificaciones de avisar-colores, cuyos
+# nombres faltan por confirmar con «herramientas.js escuchar-colores» cambiando el acento a mano.
 # Las cadenas de AppleHighlightColor son las de uso común, no leídas de System Settings: se anotan
 # como hipótesis y lo que cuenta es selectedTextBackgroundColor releído.
 acentos() {
   local A="$MED/acentos" fila nombre acc hil aqua prev="" hex
   mkdir -p "$A"; : > "$A/resumen.txt"
   modo false; ocultar; finder_activar; cerrar_finder; raton_fuera
-  ventana_finder . list $X1 $Y1 $X2 $Y2
-  osa -e 'tell application "Finder" to select folder "Documentos" of folder "Muestra" of home'; raton_fuera
+  if [ "${ACENTO_FINDER:-0}" = 1 ]; then
+    ventana_finder . list $X1 $Y1 $X2 $Y2
+    osa -e 'tell application "Finder" to select folder "Documentos" of folder "Muestra" of home'; raton_fuera
+  fi
   ACENTO_TOCADO=true
   for fila in "multicolor|__sin__|__sin__|1" \
               "azul|4|0.698039 0.843137 1.000000 Blue|1" \
@@ -1187,7 +1198,8 @@ acentos() {
     poner_def -g AppleAquaColorVariant "$aqua" int
     $H avisar-colores >/dev/null 2>>"$LOG"; sleep 1.5
     $H acento "$CAP/18-acento-${nombre}-claro.png" "$CAP/18-acento-${nombre}-oscuro.png" > "$A/${nombre}.json" 2>>"$LOG"
-    finder_activar; cap_win "18-acento-${nombre}-finder-claro" "$(id_finder)"
+    [ "${ACENTO_FINDER:-0}" = 1 ] && { finder_activar; cap_win "18-acento-${nombre}-finder-claro" "$(id_finder)"; }
+    grep -q '"ventana_key": false' "$A/${nombre}.json" && log "18: ${nombre}: la ventanita no quedó key; la toma puede salir sin acento"
     hex="$(grep -A2 '"controlAccentColor"' "$A/${nombre}.json" | grep '"hex"' | head -1 | tr -dc '#0-9A-F')"
     printf '%-10s escrito AppleAccentColor=%s AppleHighlightColor=%s AppleAquaColorVariant=%s · releído controlAccentColor claro %s\n' \
       "$nombre" "$acc" "$hil" "$aqua" "${hex:-?}" >> "$A/resumen.txt"

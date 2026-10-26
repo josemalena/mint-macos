@@ -24,7 +24,12 @@
 //       con anillo de foco) capturada en cada apariencia
 //   osascript -l JavaScript herramientas.js avisar-colores
 //       publica las notificaciones con que las apps abiertas releen el acento
-//       (si de verdad las releen en caliente está sin verificar)
+//       (si de verdad las releen en caliente está sin verificar; en 12.7.6 el
+//       Finder abierto no repintó)
+//   osascript -l JavaScript herramientas.js escuchar-colores [segundos]
+//       escucha las notificaciones distribuidas mientras se cambia el acento A
+//       MANO en System Settings/Preferences, y da en JSON cuáles llegaron: así
+//       se confirman los nombres que publica de verdad el sistema
 //
 // Las coordenadas van en puntos, con el origen arriba a la izquierda (las de
 // screencapture -R y System Events).
@@ -45,7 +50,8 @@ function run(argv) {
   if (cmd === 'permisos') return permisos(argv[1] === 'pedir', argv[2] || '');
   if (cmd === 'acento') return acento(argv[1] || '', argv[2] || '');
   if (cmd === 'avisar-colores') return avisarColores();
-  return 'uso: pantalla | ventanas [dueño] | raton … | medidas | permisos [pedir] | acento [claro.png oscuro.png] | avisar-colores';
+  if (cmd === 'escuchar-colores') return escucharColores(Number(argv[1]) || 30);
+  return 'uso: pantalla | ventanas [dueño] | raton … | medidas | permisos [pedir] | acento [claro.png oscuro.png] | avisar-colores | escuchar-colores [seg]';
 }
 
 function pantalla() {
@@ -281,7 +287,9 @@ function acento(pngClaro, pngOscuro) {
 }
 function girar(seg) { $.NSRunLoop.currentRunLoop.runUntilDate($.NSDate.dateWithTimeIntervalSinceNow(seg)); }
 function ventanaAcento(app, ap, png) {
-  app.setActivationPolicy($.NSApplicationActivationPolicyAccessory);
+  // Regular, no Accessory: en 12.7.6 la ventanita salió inactiva (checkbox y radio en gris,
+  // sin acento) y las nueve tomas quedaron iguales. Se espera hasta 3 s a que sea la key.
+  app.setActivationPolicy($.NSApplicationActivationPolicyRegular);
   app.finishLaunching;
   // 1 | 2 = titled | closable
   const w = $.NSWindow.alloc.initWithContentRectStyleMaskBackingDefer($.NSMakeRect(240, 240, 380, 190), 1 | 2, 2, false);
@@ -301,21 +309,41 @@ function ventanaAcento(app, ap, png) {
   seg.selectedSegment = 0;
   pon($.NSSlider.sliderWithValueMinValueMaxValueTargetAction(0.6, 0, 1, null, null), 210, 114, 152, 22);
   const tf = pon($.NSTextField.textFieldWithString($('Texto seleccionado')), 20, 70, 342, 24);
-  w.makeKeyAndOrderFront(null);
   app.activateIgnoringOtherApps(true);
-  girar(0.8);
+  w.makeKeyAndOrderFront(null); w.orderFrontRegardless;
+  for (let i = 0; i < 15 && !w.isKeyWindow; i++) { app.activateIgnoringOtherApps(true); w.makeKeyAndOrderFront(null); girar(0.2); }
+  girar(0.5);
   w.makeFirstResponder(tf); tf.selectText(null);
   w.display; girar(0.8);
+  const key = !!w.isKeyWindow, activa = !!app.isActive;
   const t = $.NSTask.launchedTaskWithLaunchPathArguments('/usr/sbin/screencapture',
     $(['-x', '-o', '-l', String(w.windowNumber), png]));
   t.waitUntilExit;
   const st = t.terminationStatus;
   w.close; girar(0.2);
-  return st === 0 ? png : 'screencapture salió con ' + st;
+  return { png: st === 0 ? png : 'screencapture salió con ' + st, ventana_key: key, app_activa: activa };
 }
 function avisarColores() {
   const c = $.NSDistributedNotificationCenter.defaultCenter;
   ['AppleColorPreferencesChangedNotification', 'AppleAquaColorVariantChanged'].forEach(n =>
     c.postNotificationNameObjectUserInfoDeliverImmediately($(n), null, null, true));
   return 'avisado';
+}
+function escucharColores(seg) {
+  // Con nombre nil se oye todo, pero desde 10.15 el sistema puede no entregarlo a un proceso
+  // sin privilegios: por eso además cada nombre candidato por separado. Lo que manda es lo que
+  // llega; la lista solo amplía la red.
+  const oidas = {};
+  ObjC.registerSubclass({ name: 'OyenteColores', methods: { 'oir:': { types: ['void', ['id']],
+    implementation: function (n) { const k = n.name.js; oidas[k] = (oidas[k] || 0) + 1; } } } });
+  const o = $.OyenteColores.alloc.init, c = $.NSDistributedNotificationCenter.defaultCenter;
+  c.addObserverSelectorNameObjectSuspensionBehavior(o, 'oir:', null, null, 4);
+  const candidatas = ['AppleColorPreferencesChangedNotification', 'AppleAquaColorVariantChanged',
+    'AppleInterfaceThemeChangedNotification', 'AppleInterfaceStyleChangedNotification',
+    'AppleSystemColorsChangedNotification', 'AppleHighlightColorChangedNotification',
+    'AppleAccentColorChangedNotification', 'NSSystemColorsDidChangeNotification'];
+  candidatas.forEach(n => c.addObserverSelectorNameObjectSuspensionBehavior(o, 'oir:', $(n), null, 4));
+  girar(seg);
+  return JSON.stringify({ segundos: seg, oidas: oidas, candidatas: candidatas,
+    nota: 'si con nil llegan otras, salen aquí con su nombre; las candidatas cuentan doble si nil funciona' }, null, 2);
 }

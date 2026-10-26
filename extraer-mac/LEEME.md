@@ -51,9 +51,11 @@ rosa, rojo, naranja, amarillo, verde y gris). Cambia `AppleAccentColor`, `AppleH
   `selectedTextBackgroundColor` y `keyboardFocusIndicatorColor`, en claro y en oscuro.
 - Captura una ventanita con controles de acento en cada apariencia (`18-acento-<color>-claro.png` y
   `-oscuro.png`).
-- Captura la ventana del Finder, que ya estaba abierta (`18-acento-<color>-finder-claro.png`). Esa
-  dice si las apps abiertas toman el color en caliente, cosa que está **sin verificar** hasta verla
-  en 12 y en 27.
+- Solo con `ACENTO_FINDER=1`, captura la ventana del Finder, que ya estaba abierta
+  (`18-acento-<color>-finder-claro.png`), para ver si las apps abiertas toman el color en caliente.
+  En 12.7.6 no lo tomaron: las nueve salieron iguales. Los nombres de las notificaciones se confirman
+  con `osascript -l JavaScript herramientas.js escuchar-colores 30` mientras se cambia el acento a
+  mano.
 
 Los tres valores originales vuelven al terminar el bloque y también en la salida del guion, aunque
 muera a mitad. Si el color releído no cambia, se anota y sigue; no reinicia nada.
