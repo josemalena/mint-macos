@@ -18,6 +18,7 @@
 //   multisize (MSIS)                   JSON con cada tamaño y su índice
 //   datos (DATA: .caar, .caml…)        el crudo; el .caar además en .caml si se puede
 //   colores                            colores-<apariencia>.json, para cotejar con el COLR
+//   pilas de capas (LayerStack/Group)  JSON con cada capa: a qué rendición apunta, marco y fusión
 //
 // La API de CoreUI es privada: los selectores salen de mirar las clases en la
 // Mac (class_copyMethodList, 26-10-2026, macOS 27.0.1). Lo que no exista en
@@ -337,7 +338,19 @@ function sacar(ruta, dest) {
         }
         anota(tipo, true);
       } else if (/Layer(Stack|Group)/.test(clase)) {
-        anota(tipo, false, 'pila de capas: no pedido (sus capas salen como imágenes)');
+        // Cada capa apunta a otra rendición por su clave (que sale como imagen
+        // aparte): aquí va a qué apunta, su marco y cómo se funde.
+        const capas = lista(r.layerReferences, l => {
+          const rk = l.referenceKey, ra = nada(rk) ? {} : atributos(rk), f = l.frame;
+          return { capa: nada(l.layerName) ? null : l.layerName.js, referencia: facetas[ra.identificador] || null,
+            atributos_referencia: ra, marco: [Number(f.origin.x), Number(f.origin.y), Number(f.size.width), Number(f.size.height)],
+            marco_fijo: !!l.fixedFrame, opacidad: Number(l.opacity), modo_fusion: Number(l.blendMode), opacidad_sombra: Number(l.shadowOpacity) };
+        });
+        const tam = [Number(r.unslicedSize.width), Number(r.unslicedSize.height)];
+        const ok = escribirJSON({ tipo: 'pila_de_capas', clase: clase, nombre: fac || r.name.js, atributos: atr, tamano: tam, capas: capas,
+          nota: 'las capas van en el orden de layerReferences; si la primera es la de abajo es hipótesis' },
+          base + sufijo(atr, tam[0], tam[1], r.scale) + '.json');
+        anota(tipo, !!ok && capas.length > 0, capas.length ? 'no se pudo escribir' : 'sin layerReferences');
       } else {
         anota(tipo, false, 'clase sin conversor: ' + clase);
       }
