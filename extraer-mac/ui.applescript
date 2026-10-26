@@ -167,11 +167,13 @@ on run argv
 			end if
 			if cmd is "ocupado" then
 				-- «si» mientras haya una rueda o una barra de progreso (Game Center cargando en 27)
+				-- «entire contents» es una lista: se mira el rol de cada uno, no «every busy indicator of».
 				try
-					if (count of (every busy indicator of entire contents of window 1)) > 0 then return "si"
-				end try
-				try
-					if (count of (every progress indicator of entire contents of window 1)) > 0 then return "si"
+					repeat with x in (entire contents of window 1)
+						try
+							if role of x is in {"AXBusyIndicator", "AXProgressIndicator"} then return "si"
+						end try
+					end repeat
 				end try
 				return "no"
 			end if
