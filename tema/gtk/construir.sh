@@ -150,7 +150,7 @@ cp "$TMP/mojave/src/other/plank/Theme-$([ "$COLOR" = dark ] && echo Dark || echo
 # SeparatorPadding) van en [PlankDockTheme]. Cada clave se escribe en su
 # línea: plank-reloaded reescribe el archivo al cargarlo y, si una clave
 # queda repetida, manda la última.
-python3 - "$PLANK/dock.theme" "$COLOR" <<'PY'
+python3 - "$PLANK/dock.theme" "$COLOR" "$TEMA_BASE" <<'PY'
 import sys
 ruta = sys.argv[1]
 claro = sys.argv[2] == 'light'
@@ -188,6 +188,22 @@ if claro:
         'InnerStrokeColor': '255;;255;;255;;0',
     })
     VALORES['PlankDockTheme']['IndicatorColor'] = '70;;70;;74;;255'
+if sys.argv[3] == 'Samana':
+    # El Dock de Monterey (referencias/.../trabajo-samana-20261026/dock/INFORME.md): placa de 79 px con esquinas de 20 en las cuatro puntas, aro de
+    # 1 px blanco α .14, márgenes de 5 px (arriba y lados) y 10 (abajo), pitch 68 con el tile de 64. Las claves de padding están calculadas para
+    # icon-size 64 (hipótesis: el tile de 64 pt no sale de las capturas): con otro tamaño se escalan (px = valor × icon-size / 10).
+    # Los colores de relleno son HIPÓTESIS (dependen del fondo de la Mac de referencia); el punto, el equivalente neutro de la mezcla aditiva ±128.
+    VALORES['PlankTheme'].update({'TopRoundness': '20', 'BottomRoundness': '20'})
+    VALORES['PlankDockTheme'].update({'TopPadding': '0.47', 'BottomPadding': '1.26', 'HorizPadding': '0.47', 'ItemPadding': '0.63',
+                                      'SeparatorPadding': '-2.3', 'IndicatorOffset': '-0.31'})
+    if claro:
+        VALORES['PlankTheme'].update({'OuterStrokeColor': '255;;255;;255;;36', 'FillStartColor': '255;;255;;255;;84',
+                                      'FillEndColor': '255;;255;;255;;84', 'InnerStrokeColor': '255;;255;;255;;0'})
+        VALORES['PlankDockTheme']['IndicatorColor'] = '0;;0;;0;;163'
+    else:
+        VALORES['PlankTheme'].update({'OuterStrokeColor': '255;;255;;255;;38', 'FillStartColor': '77;;60;;114;;64',
+                                      'FillEndColor': '77;;60;;114;;64', 'InnerStrokeColor': '255;;255;;255;;0'})
+        VALORES['PlankDockTheme']['IndicatorColor'] = '255;;255;;255;;150'
 lineas, seccion, vistos = open(ruta).read().splitlines(), None, set()
 salida = []
 def cerrar(sec):
