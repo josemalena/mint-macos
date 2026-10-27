@@ -48,7 +48,7 @@ namespace Preferencias {
 
         public PanelDock () {
             id = "com.apple.preference.dock";
-            nombre = "Dock";
+            nombre = es_monterey () ? "Dock & Menu Bar" : "Dock";
             palabras = "dock, size, magnification, position, minimize, genie, hide, zoom, title bar";
         }
 
@@ -164,14 +164,14 @@ namespace Preferencias {
 
             // Size
             cuadro.attach (etiqueta_fila ("Size:"), 0, fila, 1, 1);
-            cuadro.attach (escala (16, 128, p.get_int ("icon-size"), "Small", "Large", (v) => p.set_int ("icon-size", v)), 1, fila, 2, 1);
+            cuadro.attach (escala (16, 128, p.get_int ("icon-size"), es_monterey () ? "small" : "Small", es_monterey () ? "large" : "Large", (v) => p.set_int ("icon-size", v)), 1, fila, 2, 1);
             fila++;
 
             // Magnification
             var mag = new Gtk.CheckButton.with_label ("Magnification:");
             mag.active = p.get_boolean ("zoom-enabled");
             cuadro.attach (mag, 0, fila, 1, 1);
-            var zoom = escala (100, 300, double.min (300, double.max (100, p.get_int ("zoom-percent"))), "Min", "Max",
+            var zoom = escala (100, 300, double.min (300, double.max (100, p.get_int ("zoom-percent"))), es_monterey () ? "min" : "Min", es_monterey () ? "max" : "Max",
                                (v) => p.set_int ("zoom-percent", v));
             zoom.set_sensitive (mag.active);
             cuadro.attach (zoom, 1, fila, 2, 1);
@@ -214,6 +214,7 @@ namespace Preferencias {
             cuadro.attach (efecto, 1, fila, 2, 1);
             fila++;
 
+            if (!es_monterey ()) {
             // Prefer tabs when opening documents: lo decide cada app, no el sistema; como en una Mac que no tuviera la función,
             // se dibuja en gris (captura 12.12.52 AM).
             cuadro.attach (etiqueta_fila ("Prefer tabs when opening documents:"), 0, fila, 1, 1);
@@ -227,6 +228,8 @@ namespace Preferencias {
             pestanas.halign = Gtk.Align.START;
             cuadro.attach (pestanas, 1, fila, 2, 1);
             fila++;
+
+            }
 
             // Minimize windows into application icon (el Plank de mint-macos; con un Plank sin esa clave el control no sale: no
             // hay nada que escribir).
@@ -289,6 +292,56 @@ namespace Preferencias {
                 recientes.active = p.get_boolean ("show-recent-apps");
                 recientes.toggled.connect (() => p.set_boolean ("show-recent-apps", recientes.active));
                 cuadro.attach (recientes, 1, fila, 2, 1);
+            }
+
+            // Monterey: la sección «Menu Bar» al final (en Catalina «Automatically hide and show the menu bar» vivía en General): ocultar la barra
+            // de arriba en el escritorio (panels-autohide del panel de arriba de Cinnamon) y en pantalla completa (la Mac lo tiene; aquí no hay
+            // pantalla completa distinta: en gris).
+            if (es_monterey ()) {
+                fila++;
+                cuadro.attach (etiqueta_fila ("Menu Bar:"), 0, fila, 1, 1);
+                var cin = new Settings ("org.cinnamon");
+                string? arriba = null;
+                foreach (var e in cin.get_strv ("panels-enabled")) {
+                    var pe = e.split (":");
+                    if (pe.length >= 3 && pe[2] == "top") {
+                        arriba = pe[0];
+                        break;
+                    }
+                }
+                var escritorio = new Gtk.CheckButton.with_label ("Automatically hide and show the menu bar on desktop");
+                if (arriba != null) {
+                    foreach (var e in cin.get_strv ("panels-autohide")) {
+                        if (e.has_prefix (arriba + ":")) {
+                            escritorio.active = e.substring (arriba.length + 1) == "true";
+                        }
+                    }
+                    escritorio.toggled.connect (() => {
+                        string[] lista = {};
+                        bool visto = false;
+                        foreach (var e in cin.get_strv ("panels-autohide")) {
+                            if (e.has_prefix (arriba + ":")) {
+                                lista += "%s:%s".printf (arriba, escritorio.active ? "true" : "false");
+                                visto = true;
+                            } else {
+                                lista += e;
+                            }
+                        }
+                        if (!visto) {
+                            lista += "%s:%s".printf (arriba, escritorio.active ? "true" : "false");
+                        }
+                        cin.set_strv ("panels-autohide", lista);
+                    });
+                } else {
+                    escritorio.set_sensitive (false);
+                }
+                cuadro.attach (escritorio, 1, fila, 2, 1);
+                fila++;
+                var pantalla = new Gtk.CheckButton.with_label ("Automatically hide and show the menu bar in full screen");
+                pantalla.active = true;
+                pantalla.set_sensitive (false);
+                pantalla.set_tooltip_text ("Full-screen mode does not exist on this computer.");
+                cuadro.attach (pantalla, 1, fila, 2, 1);
             }
 
             cuadro.show_all ();

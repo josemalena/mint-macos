@@ -1,6 +1,17 @@
 # caso: Sound con el perfil de Monterey: las alertas con sus nombres de Monterey y en orden (Boop, Breeze, Bubble…), y «Play sound on startup»; con Catalina, los nombres de archivo
 # límite: 120
 # (INFORME-B de trabajo-samana-20261026/preferencias: los 14 sonidos de alerta cambian de nombre en Monterey)
+matar_preferencias() {   # la app es de instancia única: hasta que se vaya de verdad, o la siguiente solo activaría la vieja con su perfil
+  local p vivo i
+  for i in $(seq 40); do
+    vivo=false
+    for p in $(pgrep -x mac-preferenci); do
+      if grep -qz "^HOME=$HOME\$" "/proc/$p/environ" 2>/dev/null; then vivo=true; kill "$p" 2>/dev/null; fi
+    done
+    $vivo || break; sleep 0.25
+  done
+  sleep 1
+}
 volcar() {
   mkdir -p "$XDG_RUNTIME_DIR/mint-macos"
   printf '{"version":"%s"}' "$1" > "$XDG_RUNTIME_DIR/mint-macos/macos.json"
@@ -12,8 +23,7 @@ volcar() {
   sleep 2
   VOLCADO="$(python3 "$(dirname "$PRUEBAS_LIB")/atspi.py" --pid "$pid" --volcar 2>&1)"
   captura "sound-$1"
-  for p in $(pgrep -x mac-preferenci); do grep -qz "^HOME=$HOME\$" "/proc/$p/environ" 2>/dev/null && kill "$p"; done
-  sleep 2
+  matar_preferencias
 }
 prueba() {
   requiere mac-preferencias xdotool python3
