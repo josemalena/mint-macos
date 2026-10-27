@@ -28,6 +28,17 @@ prueba() {
   # la persona cambió el alto a mano estando en la versión con medida: al volver no se le pisa
   elegir prueba-con; gsettings set org.cinnamon panels-height "['1:30']"
   elegir prueba-sin;  [ "$(alto)" = "1:30" ] || falla "pisó el alto que la persona puso a mano: $(alto)"
+  # lo mismo al aplicar OTRA VEZ la versión con medida: se aplica, se cambia a mano y se vuelve a aplicar
+  gsettings set org.cinnamon panels-height "['1:22']"; rm -f "$XDG_CONFIG_HOME/mint-macos/barra-altura.json"
+  elegir prueba-con; gsettings set org.cinnamon panels-height "['1:30']"
+  elegir prueba-con;  [ "$(alto)" = "1:30" ] || falla "volver a aplicar la versión con medida pisó el alto puesto a mano: $(alto)"
+  # con dos paneles se toca el de arriba aunque no sea el primero
+  gsettings set org.cinnamon panels-enabled "['1:0:bottom', '2:0:top']"
+  gsettings set org.cinnamon panels-height "['1:40', '2:22']"
+  rm -f "$XDG_CONFIG_HOME/mint-macos/barra-altura.json"
+  elegir prueba-con;  [ "$(alto)" = "1:40,2:25" ] || falla "no tocó el panel de arriba (o tocó el de abajo): $(alto)"
+  gsettings set org.cinnamon panels-enabled "['1:0:top']"; gsettings set org.cinnamon panels-height "['1:22']"
+  rm -f "$XDG_CONFIG_HOME/mint-macos/barra-altura.json"
   # una versión que no existe, o con medidas ilegibles: no falla ni cambia nada
   echo 'no es json' > "$d/prueba-sin/medidas.json"
   gsettings set org.cinnamon panels-height "['1:22']"

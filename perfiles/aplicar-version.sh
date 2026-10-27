@@ -5,8 +5,8 @@
 #   - Si la versión activa trae el alto de la barra medido (medidas.json: pantalla.alto_barra_menu_pt), pone panels-height a ese valor y
 #     guarda el de antes en ~/.config/mint-macos/barra-altura.json para volver.
 #   - Si no lo trae (Catalina: sin medidas) y ya se había cambiado, devuelve el valor de antes. Ir y volver deja Catalina en 22.
-#   - Solo toca la barra de mint-macos (el panel de arriba con el menú Apple, appmenu y globalmenu); si el valor ya no es el que puso esta
-#     misma ruta (la persona lo cambió a mano), no lo pisa y suelta el estado.
+#   - Solo toca la barra de mint-macos (el único panel ':top' y el menú Apple en los applets); si el valor ya no es el que puso esta misma
+#     ruta (la persona lo cambió a mano), no lo pisa ni al aplicar ni al volver, y suelta el estado.
 #   - Sin gsettings o sin el esquema de Cinnamon no hace nada.
 #
 #   aplicar-version.sh [VERSIÓN]     (por omisión, la activa)
@@ -29,14 +29,25 @@ def alturas():
     """panels-height como lista de «id:alto» (una por panel)."""
     return ast.literal_eval(gs('get', 'org.cinnamon', 'panels-height').replace('@as ', ''))
 
-# la barra de mint-macos: un panel arriba y el menú Apple en sus applets
-if gs('get', 'org.cinnamon', 'panels-enabled').count('top') != 1 or 'applemenu@macos' not in gs('get', 'org.cinnamon', 'enabled-applets'):
+def analizar():
+    """(panel de arriba, lista de alturas, alto actual) o None si esta no es la barra de mint-macos o gsettings dio algo raro."""
+    try:
+        paneles = ast.literal_eval(gs('get', 'org.cinnamon', 'panels-enabled').replace('@as ', ''))
+        lista = alturas()
+        if 'applemenu@macos' not in gs('get', 'org.cinnamon', 'enabled-applets'):
+            return None
+        arriba = [p.split(':')[0] for p in paneles if p.endswith(':top')]
+        if len(arriba) != 1:
+            return None
+        actual = next((int(x.split(':')[1]) for x in lista if x.split(':')[0] == arriba[0]), None)
+        return (arriba[0], lista, actual) if actual is not None else None
+    except (ValueError, SyntaxError, IndexError):
+        return None
+
+r = analizar()
+if r is None:
     sys.exit(0)
-panel = ast.literal_eval(gs('get', 'org.cinnamon', 'panels-enabled').replace('@as ', ''))[0].split(':')[0]
-lista = alturas()
-actual = next((int(x.split(':')[1]) for x in lista if x.split(':')[0] == panel), None)
-if actual is None:
-    sys.exit(0)
+panel, lista, actual = r
 
 def poner(valor):
     nuevas = [('%s:%d' % (panel, valor)) if x.split(':')[0] == panel else x for x in lista]
@@ -58,7 +69,11 @@ if medido is None:
         os.remove(estado)
     sys.exit(0)
 
-anterior = previo.get('anterior') if previo and actual == previo.get('aplicada') else actual
+if previo and actual != previo.get('aplicada'):
+    # la persona cambió el alto a mano desde que se aplicó: no se le pisa; se suelta el estado
+    os.remove(estado)
+    sys.exit(0)
+anterior = previo.get('anterior') if previo else actual
 if actual != medido:
     poner(medido)
 os.makedirs(os.path.dirname(estado), exist_ok=True)

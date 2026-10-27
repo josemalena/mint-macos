@@ -22,6 +22,19 @@ prueba() {
     captura "menu-apple-$variante"
     xdotool key Escape; sleep 1
   done
+  # el alto de la barra con 25 px (el de Monterey: 24 + 1 de línea): cuántas filas pinta el tema de la barra en una columna vacía
+  gsettings set org.cinnamon panels-height "['1:25']"; sleep 3
+  gsettings set org.cinnamon.theme name "Samana-Oscuro"; sleep 3
+  captura barra-25
+  local filas
+  filas="$(python3 -I -c "
+from PIL import Image
+im = Image.open('$PRUEBAS_RES/$PRUEBAS_CASO-barra-25.png').convert('RGB')
+x = im.width // 2
+vals = [im.getpixel((x, y)) for y in range(0, 40)]
+print(' '.join('%02x%02x%02x' % v for v in vals))
+")"
+  paso "columna central de la barra a 25 px (filas 0-39): $filas"
   # el fondo del menú: un píxel dentro de la caja, a la izquierda de los textos (la barra mide 22-25 px de alto)
   local f="$PRUEBAS_RES/$PRUEBAS_CASO-menu-apple-Oscuro.png" px
   px="$(convert "$f" -format '%[hex:p{12,60}]' info:)"
