@@ -683,7 +683,19 @@ headerbar:backdrop, .csd headerbar:backdrop, headerbar.default-decoration:backdr
 PIEZAS_MONTEREY = {
     "boton": "PushButton_PushButton_Regular",
     "ayuda": "RoundHelpButton_Regular",
+    "pulldown": "PullDownButton_PullDownButton_Regular",
+    "seg-pista": "SegmentedControlSlider_SegmentedControl_Regular",
+    "seg-pastilla": "SegmentedControlSlider_RoundedSegmentBezel_Regular",
 }
+def CENTRO(izq, der, solape=None):
+    """Las líneas de background del centro de una pieza de tres partes (puntas de izq y der px): el centro se pinta `solape` px bajo cada punta
+    (no más: con imágenes translúcidas lo que queda doble se ve más claro u oscuro), para que entre el centro y las puntas no quede la raya clara de
+    1 px que dejaba el padding-box."""
+    if solape is None:   # piezas opacas: el centro entero bajo las puntas, 2 px menos de cada lado (así se probó que no queda raya)
+        return "center / calc(100% - 4px) 100% no-repeat;"
+    return f"{izq - solape}px 0 / calc(100% - {izq + der - 2 * solape}px) 100% no-repeat;"
+
+
 PUNTA_BOTON = 6   # px a 1x de cada punta (el radio ~5 más el borde); el resto es el centro
 
 
@@ -691,6 +703,100 @@ def recortar(img):
     """El lienzo de Apple sin el margen transparente (el cuerpo solo)."""
     caja = img.getchannel("A").point(lambda v: 255 if v > 8 else 0).getbbox()
     return img.crop(caja) if caja else img
+
+
+def segmentos_pestanas(carpeta, p):
+    """Las pestañas de Monterey («Keyboard | Text | Shortcuts» de System Preferences; GtkStackSwitcher): una pista gris translúcida con el
+    segmento activo como pastilla blanca (gris claro en oscuro), NO azul (confirmado en las capturas 08-pref-...keyboard--keyboardTab-claro y
+    --shortcutsTab-oscuro). Piezas: SegmentedControlSlider_SegmentedControl_Regular (34x24; valor1 sin separador; el separador de 1x12 está en
+    valor0, columna central) y SegmentedControlSlider_RoundedSegmentBezel_Regular (30x24). Las puntas de 8 px y el resto son hipótesis de corte.
+    Devuelve el CSS (vacío si el catálogo no trae las piezas)."""
+    PUNTA = 8
+    hechas = {}
+    for esc in (1, 2):
+        sufijo = "@2" if esc == 2 else ""
+        pista = p.get(("seg-pista", esc, 0, 0, 1, 0, 0))
+        con_sep = p.get(("seg-pista", esc, 0, 0, 0, 0, 0))
+        pastillas = {"seg-pastilla": p.get(("seg-pastilla", esc, 0, 0, 0, 0, 0)),
+                     "seg-pastilla-apretada": p.get(("seg-pastilla", esc, 0, 2, 0, 0, 0)),
+                     "seg-pastilla-desactivada": p.get(("seg-pastilla", esc, 0, 4, 0, 0, 0)),
+                     "seg-pastilla-sin-foco": p.get(("seg-pastilla", esc, 1, 0, 0, 0, 0))}
+        if pista is None or con_sep is None or pastillas["seg-pastilla"] is None:
+            return ""
+        pista = recortar(pista)
+        todo = [("seg-pista", pista)] + [(n, recortar(i)) for n, i in pastillas.items() if i is not None]
+        for nombre, img in todo:
+            img.save(os.path.join(carpeta, nombre + sufijo + ".png"))
+            a = PUNTA * esc
+            img.crop((a, 0, img.width - a, img.height)).save(os.path.join(carpeta, nombre + "-centro" + sufijo + ".png"))
+            hechas[nombre] = img.height // esc
+        # el separador: la columna central de la pista con separador, solo las filas que lo traen
+        ancho = con_sep.width
+        col = con_sep.crop((ancho // 2 - esc // 2 if esc == 1 else ancho // 2 - 1, 0, ancho // 2 + (1 if esc == 1 else 1), con_sep.height))
+        caja = col.getchannel("A").point(lambda v: 255 if v > 8 else 0).getbbox()
+        if caja:
+            col.crop((0, caja[1], esc, caja[3])).save(os.path.join(carpeta, "seg-sep" + sufijo + ".png"))
+            hechas["seg-sep"] = (caja[3] - caja[1]) // esc
+    alto_pista, alto_pastilla = hechas["seg-pista"], hechas["seg-pastilla"]
+
+    def tres_(img, extra=""):
+        return (f"  border-style: solid; border-width: 0 {PUNTA}px; border-radius: 0; box-shadow: none;\n"
+                f'  border-image: -gtk-scaled(url("catalina/{img}.png"), url("catalina/{img}@2.png")) 0 {PUNTA} 0 {PUNTA} stretch;\n'
+                f'  background: -gtk-scaled(url("catalina/{img}-centro.png"), url("catalina/{img}-centro@2.png")) {CENTRO(PUNTA, PUNTA, 2)}\n'
+                f"  background-clip: border-box; background-origin: border-box;{extra}")
+    # Especificidad alta (.linked, .toggle, :not(...)): el tema de base pinta .linked > button:checked:not(:last-child) con sus propios bordes
+    B = "stackswitcher.linked > button:not(.mp-ninguno):not(.mp-ninguna)"
+    c = ("\n/* Pestañas de Monterey (controles.py, segmentos_pestanas): pista gris con la pastilla blanca en la activa */\n"
+         f"stackswitcher.linked {{\n  min-height: {alto_pista}px; padding: 0; margin: 0;\n{tres_('seg-pista')} }}\n"
+         f"{B} {{\n  min-height: {alto_pastilla}px; margin: {(alto_pista - alto_pastilla) // 2}px 0; padding: 0 12px; border: none; border-radius: 0;\n"
+         "  box-shadow: none; background: none; text-shadow: none; }\n")
+    if "seg-sep" in hechas:
+        c += (f"{B}:not(:first-child) {{\n"
+              '  background: -gtk-scaled(url("catalina/seg-sep.png"), url("catalina/seg-sep@2.png")) left center no-repeat; }\n'
+              f"{B}:checked, {B}:checked + button {{ background-image: none; }}\n")
+    c += (f"{B}:checked, {B}:active {{\n{tres_('seg-pastilla')}\n  color: @catalina_texto; }}\n"
+          f"{B}:checked:active {{\n{tres_('seg-pastilla-apretada') if 'seg-pastilla-apretada' in hechas else tres_('seg-pastilla')} }}\n"
+          f"{B}:disabled {{ opacity: 0.5; }}\n"
+          f"{B}:checked:backdrop {{\n{tres_('seg-pastilla-sin-foco') if 'seg-pastilla-sin-foco' in hechas else tres_('seg-pastilla')} }}\n")
+    return c
+
+
+def pulldown(carpeta, p):
+    """El botón desplegable con texto de Monterey (PullDownButton, 47x25: cuerpo y, en la capa 7, el bloque con el chevron ⌄), como el popup. Se aplica
+    a `menubutton.pulldown > button` (la app lo pide con esa clase: un MenuButton con solo ícono no lleva este cuerpo). Las puntas de 7 y 23 px son
+    las del popup (hipótesis para este)."""
+    imgs = {}
+    for esc in (1, 2):
+        sufijo = "@2" if esc == 2 else ""
+        for nombre, pres, estado in (("pulldown", 0, 0), ("pulldown-apretado", 0, 2), ("pulldown-desactivado", 0, 4), ("pulldown-sin-foco", 1, 0)):
+            cuerpo = p.get(("pulldown", esc, pres, estado, 0, 0, 0))
+            capa = p.get(("pulldown", esc, pres, estado, 0, 7, 0))
+            if cuerpo is None:
+                continue
+            img = cuerpo.copy()
+            if capa is not None and capa.size == cuerpo.size:
+                img.alpha_composite(capa)
+            img.save(os.path.join(carpeta, nombre + sufijo + ".png"))
+            img.crop((7 * esc, 0, img.width - 23 * esc, img.height)).save(os.path.join(carpeta, nombre + "-centro" + sufijo + ".png"))
+            imgs[nombre] = img.height // esc
+    if "pulldown" not in imgs:
+        return ""
+
+    def tres_(img):
+        return ("  border-style: solid; border-width: 0 23px 0 7px; border-radius: 0; box-shadow: none; text-shadow: none;\n"
+                f'  border-image: -gtk-scaled(url("catalina/{img}.png"), url("catalina/{img}@2.png")) 0 23 0 7 stretch;\n'
+                f'  background: -gtk-scaled(url("catalina/{img}-centro.png"), url("catalina/{img}-centro@2.png")) center / calc(100% - 4px) 100% no-repeat;\n'
+                "  background-clip: border-box; background-origin: border-box;")
+    # GtkMenuButton es un ToggleButton: el nodo es button.toggle con la clase en él mismo (3.24); `menubutton.pulldown > button` por si el nodo es otro
+    def sel(estado=""):
+        return f"button.pulldown:not(.mp-ninguno){estado}, menubutton.pulldown > button:not(.mp-ninguno){estado}"
+    c = ("\n/* Pull-down de Monterey (controles.py, pulldown): MenuButton con la clase «pulldown» */\n"
+         f"{sel()} {{\n  min-height: {imgs['pulldown']}px; padding: 0 4px 1px 2px; color: @catalina_texto;\n{tres_('pulldown')} }}\n")
+    for estado, img in ((":checked", "pulldown-apretado"), (":active", "pulldown-apretado"), (":disabled", "pulldown-desactivado"), (":backdrop", "pulldown-sin-foco")):
+        if img in imgs:
+            c += f"{sel(estado)} {{\n{tres_(img)} }}\n"
+    c += "button.pulldown arrow, menubutton.pulldown > button arrow { -gtk-icon-source: none; min-width: 0; min-height: 0; margin: 0; padding: 0; }\n"
+    return c
 
 
 def monterey_botones(tema, oscuros, claro, acento=None):
@@ -736,7 +842,7 @@ def monterey_botones(tema, oscuros, claro, acento=None):
         return (f"  min-height: {alto1x}px; padding-top: 0; padding-bottom: 0;\n"
                 f"  border-style: solid; border-width: 0 {PUNTA_BOTON}px; border-radius: 0; box-shadow: none;\n"
                 f'  border-image: -gtk-scaled(url("catalina/{img}.png"), url("catalina/{img}@2.png")) 0 {PUNTA_BOTON} 0 {PUNTA_BOTON} stretch;\n'
-                f'  background: -gtk-scaled(url("catalina/{img}-centro.png"), url("catalina/{img}-centro@2.png")) center / calc(100% - 4px) 100% no-repeat;\n'
+                f'  background: -gtk-scaled(url("catalina/{img}-centro.png"), url("catalina/{img}-centro@2.png")) {CENTRO(PUNTA_BOTON, PUNTA_BOTON)}\n'
                 "  background-clip: border-box; background-origin: border-box; text-shadow: none; color: #ffffff;")
     alto1x = Image.open(os.path.join(carpeta, "boton-default.png")).height if "boton-default" in hechos else 23
     css_ = "\n/* Botón default y botón de ayuda de Monterey (controles.py, monterey_botones) */\n"
@@ -753,6 +859,8 @@ def monterey_botones(tema, oscuros, claro, acento=None):
             if img in hechos:
                 css_ += f"button.suggested-action{estado}, button.default{estado} {{\n{borde(img)} }}\n"
         css_ += "button.suggested-action:backdrop, button.default:backdrop { color: #262626; }\n"
+    css_ += segmentos_pestanas(carpeta, p)
+    css_ += pulldown(carpeta, p)
     if "ayuda" in hechos:
         def redondo(img):
             return ("  min-width: 22px; min-height: 22px; padding: 0; border: none; border-radius: 0; box-shadow: none; text-shadow: none;\n"
