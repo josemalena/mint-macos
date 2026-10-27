@@ -464,10 +464,24 @@ namespace Preferencias {
         static FilaAtajo[] filas_de (string categoria) {
             switch (categoria) {
             case "Launchpad & Dock":
+                // Monterey: «Show Launchpad» viene desmarcada y sin atajo (captura 08-pref-keyboard-shortcuts-1)
+                if (es_monterey ()) {
+                    return { a ("Turn Dock Hiding On/Off", "⌥⌘D", 1, 0), a ("Show Launchpad", "none", 0, 0) };
+                }
                 return { a ("Turn Dock Hiding On/Off", "⌥⌘D", 1, 0), a ("Show Launchpad", "⌥⌘L", 1, 0) };
             case "Display":
                 return { a ("Decrease display brightness", "F14", 1, 0), a ("Increase display brightness", "F15", 1, 0) };
             case "Mission Control":
+                // Monterey: «Show Desktop F11» marcada y la fila nueva «Quick Note fn Q» debajo del grupo (captura ...shortcuts-3)
+                if (es_monterey ()) {
+                    return { a ("Mission Control", "⌃↑", 1, 0), a ("Show Notification Center", "none", 0, 0),
+                             a ("Turn Do Not Disturb On/Off", "none", 1, 0), a ("Application windows", "⌃↓", 1, 0),
+                             a ("Show Desktop", "F11", 1, 0),
+                             g ("▾ Mission Control", -1, 0),
+                             a ("Move left a space", "⌃←", 1, 1), a ("Move right a space", "⌃→", 1, 1),
+                             a ("Switch to Desktop 1", "⌃1", 0, 1),
+                             a ("Quick Note", "fn Q", 1, 0) };
+                }
                 return { a ("Mission Control", "⌃↑", 1, 0), a ("Show Notification Center", "none", 0, 0),
                          a ("Turn Do Not Disturb On/Off", "none", 1, 0), a ("Application windows", "⌃↓", 1, 0),
                          a ("Show Desktop", "F11", 0, 0),
@@ -475,6 +489,16 @@ namespace Preferencias {
                          a ("Move left a space", "⌃←", 1, 1), a ("Move right a space", "⌃→", 1, 1),
                          a ("Switch to Desktop 1", "⌃1", 0, 1) };
             case "Keyboard":
+                // Monterey no tiene «Move focus to the window drawer»
+                if (es_monterey ()) {
+                    return { a ("Change the way Tab moves focus", "⌃F7", 1, 0), a ("Turn keyboard access on or off", "⌃F1", 1, 0),
+                             a ("Move focus to the menu bar", "⌃F2", 1, 0), a ("Move focus to the Dock", "⌃F3", 1, 0),
+                             a ("Move focus to active or next window", "⌃F4", 1, 0),
+                             a ("Move focus to the window toolbar", "⌃F5", 1, 0),
+                             a ("Move focus to the floating window", "⌃F6", 1, 0),
+                             a ("Move focus to next window", "⌘`", 1, 0),
+                             a ("Move focus to status menus", "⌃F8", 1, 0) };
+                }
                 return { a ("Change the way Tab moves focus", "⌃F7", 1, 0), a ("Turn keyboard access on or off", "⌃F1", 1, 0),
                          a ("Move focus to the menu bar", "⌃F2", 1, 0), a ("Move focus to the Dock", "⌃F3", 1, 0),
                          a ("Move focus to active or next window", "⌃F4", 1, 0),
@@ -493,6 +517,15 @@ namespace Preferencias {
                          a ("Copy picture of selected area to the clipboard", "⌃⇧⌘4", 1, 0),
                          a ("Screenshot and recording options", "⇧⌘5", 1, 0) };
             case "Services":
+                // Monterey: «Pictures» solo trae «Set Desktop Picture» y «Development» termina en «Run as AppleScript» (captura ...shortcuts-6)
+                if (es_monterey ()) {
+                    return { g ("▾ Pictures", 1, 0), a ("Set Desktop Picture", "none", 1, 1),
+                             g ("▾ Messaging", 1, 0), a ("New Email To Address", "none", 1, 1),
+                             a ("New Email With Selection", "none", 1, 1),
+                             g ("▾ Development", 0, 0), a ("Create Service", "none", 0, 1),
+                             a ("Create Workflow", "none", 0, 1), a ("Get Result of AppleScript", "⌘*", 0, 1),
+                             a ("Make New AppleScript", "none", 0, 1), a ("Run as AppleScript", "none", 0, 1) };
+                }
                 return { g ("▾ Pictures", 1, 0), a ("Import Image", "none", 1, 1), a ("Set Desktop Picture", "none", 1, 1),
                          g ("▾ Messaging", 1, 0), a ("New Email To Address", "none", 1, 1),
                          a ("New Email With Selection", "none", 1, 1),
@@ -516,6 +549,11 @@ namespace Preferencias {
         Gtk.Widget pagina_atajos () {
             string[] categorias_n = { "Launchpad & Dock", "Display", "Mission Control", "Keyboard", "Input Sources", "Screenshots",
                                       "Services", "Spotlight", "Accessibility", "App Shortcuts" };
+            if (es_monterey ()) {
+                // Monterey no muestra «Input Sources» entre las categorías (captura ...shortcutsTab; hipótesis: solo sale con más de una fuente)
+                categorias_n = { "Launchpad & Dock", "Display", "Mission Control", "Keyboard", "Screenshots",
+                                 "Services", "Spotlight", "Accessibility", "App Shortcuts" };
+            }
             var pagina = new Gtk.Box (Gtk.Orientation.VERTICAL, 8);
             pagina.margin_top = 14;
             pagina.margin_start = 20;
