@@ -9,6 +9,8 @@ prueba() {
   echo '{"id": "animaciones", "comportamiento": {"genio-minimizar": {"ms": 433}, "genio-restaurar": {"ms": 450}}}' \
     > "$XDG_DATA_HOME/mint-macos/macos/prueba/apps/animaciones.json"
   # Cinnamon leyó el perfil al hacer la animación (no al arrancar), así que basta con que exista
+  # (el gestor espera a cmdtab; Magic Lamp puede cargar unos segundos después, sobre todo con la máquina cargada)
+  for _ in $(seq 100); do grep -q 'Loaded extension CinnamonMagicLamp' "$PRUEBAS_RES/cinnamon.log" && break; sleep 0.2; done
   grep -q 'Loaded extension CinnamonMagicLamp' "$PRUEBAS_RES/cinnamon.log" || saltar "Magic Lamp no está instalada en esta máquina"
   # Xvfb con llvmpipe pinta la deformación a 1-2 cuadros por segundo: la grabación no sirve para medir el tiempo. Se mide dentro de Cinnamon: un
   # gancho en Clutter.Timeline.start anota la duración con la que se arma y lo que tardó en completarse (reloj monótono).

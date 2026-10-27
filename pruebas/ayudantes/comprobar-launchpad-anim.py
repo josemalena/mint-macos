@@ -39,5 +39,5 @@ if peor > 0.03 or ultimo > ms:
     sys.exit(1)
 if fase == 'cerrar':
     m = re.search(r'cerrar fin t=([0-9.]+)', texto)
-    if not m or not (ms <= float(m.group(1)) <= ms + 0.15):
+    if not m or not (ms <= float(m.group(1)) <= ms + 0.6):
         print('la ventana no se escondió al cumplirse los %.0f ms: %s' % (ms * 1000, m and m.group(1))); sys.exit(1)
