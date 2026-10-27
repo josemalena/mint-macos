@@ -34,6 +34,12 @@ X-GNOME-Autostart-enabled=true
 NoDisplay=true
 FIN
 nice -n 19 python3 -I "$AQUI/generar.py"
+# Los temas de íconos de Apple (Mint-Macos-<versión>) de las versiones cuyos glifos ya están en las referencias de esta máquina (paso «simbolos»
+# de car-mac); se instalan, no se activan.
+for d in "${XDG_DATA_HOME:-$HOME/.local/share}"/mint-macos/referencias/simbolos-*/*/; do
+	v="$(basename "$d")"
+	[ -d "$d" ] && python3 -I "$AQUI/../iconos/construir-tema-macos.py" "$v" || true
+done
 # La de esta sesión, si todavía no hay (la primera vez no hay que salir y entrar).
 [ -f "${XDG_RUNTIME_DIR:-/tmp}/mint-macos/macos.json" ] || "$BIN" --aplicar
 echo "Instalado: $BIN (versión activa: $("$BIN" | head -1 | cut -d' ' -f2)); vuelta atrás: $0 --quitar"
