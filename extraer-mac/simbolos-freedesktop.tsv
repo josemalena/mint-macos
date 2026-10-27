@@ -10,8 +10,8 @@ folder	folder	Places
 house	user-home	Places
 trash	user-trash	Places
 network	network-workgroup	Places
-gobackward	media-seek-backward	Actions
-goforward	media-seek-forward	Actions
+backward.fill	media-seek-backward	Actions
+forward.fill	media-seek-forward	Actions
 play.fill	media-playback-start	Actions
 pause.fill	media-playback-pause	Actions
 stop.fill	media-playback-stop	Actions
