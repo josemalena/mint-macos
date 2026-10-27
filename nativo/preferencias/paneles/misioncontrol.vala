@@ -137,9 +137,12 @@ namespace Preferencias {
             c.active = mut != null && !mut.get_boolean ("workspaces-only-on-primary");
             c.toggled.connect (() => { if (mut != null) mut.set_boolean ("workspaces-only-on-primary", !c.active); });
             cuadro.attach (c, 0, fila_c, 1, 1);
-            var pide = new Gtk.Label ("Requires log out");
-            pide.get_style_context ().add_class ("dim-label");
-            cuadro.attach (pide, 1, fila_c, 1, 1);
+            // Monterey no trae «Requires log out» junto a esta casilla (captura 08-pref-expose--Main)
+            if (!es_monterey ()) {
+                var pide = new Gtk.Label ("Requires log out");
+                pide.get_style_context ().add_class ("dim-label");
+                cuadro.attach (pide, 1, fila_c, 1, 1);
+            }
             caja.pack_start (marco, false, false, 0);
 
             var tit = new Gtk.Label ("Keyboard and Mouse Shortcuts");
@@ -159,11 +162,36 @@ namespace Preferencias {
             g.halign = Gtk.Align.START;
             string[] nombres = { "Mission Control:", "Application windows:", "Show Desktop:", "Spaces left and right:" };
             string[] teclas = { "⌃↑", "⌃↓", "–", "⌃←  ⌃→" };
-            for (int i = 0; i < 4; i++) {
+            // Monterey: solo las tres primeras filas, cada una con un menú de teclado y otro de ratón (captura 08-pref-expose--Main). Aquí los atajos
+            // los fija la extensión misioncontrol@macos: los menús se dibujan en gris con el valor de hoy y el ratón en «–».
+            int filas_n = es_monterey () ? 3 : 4;
+            for (int i = 0; i < filas_n; i++) {
                 g.attach (etiqueta_fila (nombres[i]), 0, i, 1, 1);
-                var v = new Gtk.Label (teclas[i]);
-                v.xalign = 0;
-                g.attach (v, 1, i, 1, 1);
+                if (es_monterey ()) {
+                    var teclado_m = new Gtk.ComboBoxText ();
+                    teclado_m.append ("v", teclas[i]);
+                    teclado_m.set_active (0);
+                    teclado_m.set_sensitive (false);
+                    teclado_m.set_tooltip_text ("The keys are set by the Mission Control extension on this computer.");
+                    var raton_m = new Gtk.ComboBoxText ();
+                    raton_m.append ("-", "–");
+                    raton_m.set_active (0);
+                    raton_m.set_sensitive (false);
+                    var par = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 10);
+                    par.pack_start (teclado_m, false, false, 0);
+                    par.pack_start (raton_m, false, false, 0);
+                    g.attach (par, 1, i, 1, 1);
+                } else {
+                    var v = new Gtk.Label (teclas[i]);
+                    v.xalign = 0;
+                    g.attach (v, 1, i, 1, 1);
+                }
+            }
+            if (es_monterey ()) {
+                var nota = new Gtk.Label ("(for additional choices press Shift, Control, Option, or Command)");
+                nota.xalign = 0;
+                nota.get_style_context ().add_class ("mp-sd-detalle");
+                g.attach (nota, 0, 3, 2, 1);
             }
             atajos.add (g);
             caja.pack_start (atajos, false, false, 0);
