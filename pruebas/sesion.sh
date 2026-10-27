@@ -120,6 +120,9 @@ for c in "$@"; do
   n="$(basename "$c" .sh)"
   limite="$(sed -n 's/^# límite: *//p' "$c" | head -1)"
   gestor="$(sed -n 's/^# gestor: *//p' "$c" | head -1)"
+  # La versión de macOS de un caso no pasa al siguiente: los casos que ponen macos.json (en el runtime o en la configuración) lo dejaban para los demás
+  # y el del runtime manda sobre el de la configuración.
+  rm -f "$XDG_RUNTIME_DIR/mint-macos/macos.json" "$XDG_CONFIG_HOME/mint-macos/macos.json"
   # Sin $(…): el gestor tiene que quedar en este shell (GESTOR, GPID).
   if ! poner_gestor "${gestor:-muffin}" > "$RES/gestor.err" 2>&1; then
     printf '  ✗ %-28s %s\n' "$n" "$(tail -1 "$RES/gestor.err")"
