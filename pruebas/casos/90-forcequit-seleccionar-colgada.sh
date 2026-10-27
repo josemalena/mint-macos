@@ -34,6 +34,7 @@ prueba() {
   # La app escogida es la colgada: Enter la fuerza
   wmctrl -i -a "$fq"; sleep 0.5
   teclas Return
+  sleep 1; teclas Return        # la confirmación («Do you want to force … to quit?»): Return acepta el botón por defecto
   for _ in $(seq 50); do kill -0 "$pid" 2>/dev/null || break; sleep 0.2; done
   kill -0 "$pid" 2>/dev/null && { kill -KILL "$pid" 2>/dev/null; falla "Enter no forzó la app que --seleccionar dejó escogida"; }
   paso "la app colgada quedó escogida y se forzó con Enter"

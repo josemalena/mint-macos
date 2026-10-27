@@ -23,6 +23,7 @@ prueba() {
   sleep 0.5
   teclas Down
   teclas Return
+  sleep 1; teclas Return        # la confirmación («Do you want to force … to quit?»): Return acepta el botón por defecto
   for _ in $(seq 50); do kill -0 "$pid" 2>/dev/null || break; sleep 0.2; done
   if kill -0 "$pid" 2>/dev/null; then falla "xed (pid $pid) sigue vivo después de Force Quit"; fi
   paso "xed ya no corre"

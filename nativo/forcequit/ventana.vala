@@ -69,6 +69,7 @@ button.fq-boton:disabled label { color: rgba(0, 0, 0, 0.35); }
         Gtk.Label rotulo_boton;
         uint repintar = 0;
         bool sin_prueba;
+        bool confirmando = false;
 
         public Ventana (bool sin_prueba, int seleccionar_pid = 0) {
             Object (type: Gtk.WindowType.TOPLEVEL);
@@ -123,7 +124,8 @@ button.fq-boton:disabled label { color: rgba(0, 0, 0, 0.35); }
             add (fijo);
 
             lista.row_selected.connect (al_escoger);
-            lista.row_activated.connect (() => { forzar (); });
+            // Un clic solo escoge la fila (como en Catalina): lo que fuerza la salida es el botón (o Return) y, después, aceptar la confirmación.
+            lista.activate_on_single_click = false;
             boton.clicked.connect (forzar);
             // Sin foco en la lista (GTK le selecciona la primera fila): las flechas se manejan aquí.
             key_press_event.connect ((ev) => {
@@ -242,11 +244,37 @@ button.fq-boton:disabled label { color: rgba(0, 0, 0, 0.35); }
             boton.sensitive = f != null;
         }
 
+        /** Pide confirmar antes de matar (Catalina: «Do you want to force “X” to quit?» con Cancel y Force Quit). */
         void forzar () {
             var f = lista.get_selected_row () as Fila;
-            if (f == null) {
+            if (f == null || confirmando) {
                 return;
             }
+            bool fynder = f.app.es_fynder;
+            string accion = fynder ? "Relaunch" : "Force Quit";
+            // El texto de Relaunch es hipótesis (la captura de Catalina solo trae el de Force Quit).
+            string pregunta = fynder ? "Do you want to relaunch “%s”?".printf (f.app.nombre)
+                                     : "Do you want to force “%s” to quit?".printf (f.app.nombre);
+            string detalle = fynder ? "Open windows and folders will close and open again." : "You will lose any unsaved changes.";
+            var dialogo = new Gtk.MessageDialog (this, Gtk.DialogFlags.MODAL | Gtk.DialogFlags.DESTROY_WITH_PARENT,
+                                                 Gtk.MessageType.WARNING, Gtk.ButtonsType.NONE, "%s", pregunta);
+            dialogo.format_secondary_text ("%s", detalle);
+            dialogo.title = "";
+            dialogo.add_button ("Cancel", Gtk.ResponseType.CANCEL);
+            dialogo.add_button (accion, Gtk.ResponseType.ACCEPT);
+            dialogo.set_default_response (Gtk.ResponseType.ACCEPT);
+            confirmando = true;
+            dialogo.response.connect ((r) => {
+                dialogo.destroy ();
+                confirmando = false;
+                if (r == Gtk.ResponseType.ACCEPT) {
+                    ejecutar (f);
+                }
+            });
+            dialogo.show_all ();
+        }
+
+        void ejecutar (Fila f) {
             bool relanzar = f.app.es_fynder;
             bool con_escritorio = f.app.con_escritorio;
             int[] pids = {};
