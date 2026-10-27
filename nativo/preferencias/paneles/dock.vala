@@ -147,6 +147,134 @@ namespace Preferencias {
 
         // ── la página ────────────────────────────────────────────────────
         public override Gtk.Widget? construir () {
+            return es_monterey () ? construir_con_barra () : pagina_dock ();
+        }
+
+        static Gtk.Widget gris_motivo (Gtk.Widget w, string motivo) {
+            w.set_sensitive (false);
+            w.set_tooltip_text (motivo);
+            return w;
+        }
+
+        // ── Monterey: la barra lateral de módulos (capturas 08-pref-...dock--Clock, --WiFi, --Sound…) ──
+        struct Modulo {
+            string id;
+            string nombre;
+            string seccion;
+            string applet;       // uuid de la miniapp de la barra, o "" si aquí no hay equivalente (la casilla va en gris)
+            string nota;         // «X is always available in Control Center.» y demás
+        }
+
+        Gtk.Widget construir_con_barra () {
+            Modulo[] modulos = {
+                Modulo () { id = "wifi", nombre = "Wi-Fi", seccion = "Control Center", applet = "network@cinnamon.org", nota = "Wi-Fi is always available in Control Center." },
+                Modulo () { id = "bluetooth", nombre = "Bluetooth", seccion = "Control Center", applet = "", nota = "Bluetooth is always available in Control Center." },
+                Modulo () { id = "airdrop", nombre = "AirDrop", seccion = "Control Center", applet = "", nota = "AirDrop is always available in Control Center." },
+                Modulo () { id = "focus", nombre = "Focus", seccion = "Control Center", applet = "", nota = "Focus is always available in Control Center." },
+                Modulo () { id = "mirroring", nombre = "Screen Mirroring", seccion = "Control Center", applet = "", nota = "Screen Mirroring is always available in Control Center." },
+                Modulo () { id = "display", nombre = "Display", seccion = "Control Center", applet = "", nota = "Display is always available in Control Center." },
+                Modulo () { id = "sound", nombre = "Sound", seccion = "Control Center", applet = "sound@cinnamon.org", nota = "Sound is always available in Control Center." },
+                Modulo () { id = "nowplaying", nombre = "Now Playing", seccion = "Control Center", applet = "", nota = "Now Playing is always available in Control Center." },
+                Modulo () { id = "accesibilidad", nombre = "Accessibility Shortcuts", seccion = "Other Modules", applet = "", nota = "" },
+                Modulo () { id = "bateria", nombre = "Battery", seccion = "Other Modules", applet = "power@cinnamon.org", nota = "" },
+                Modulo () { id = "usuarios", nombre = "Fast User Switching", seccion = "Other Modules", applet = "usuario@macos", nota = "" },
+                Modulo () { id = "oido", nombre = "Hearing", seccion = "Other Modules", applet = "", nota = "" },
+                Modulo () { id = "reloj", nombre = "Clock", seccion = "Menu Bar Only", applet = "calendar@cinnamon.org", nota = "" },
+                Modulo () { id = "spotlight", nombre = "Spotlight", seccion = "Menu Bar Only", applet = "buscar@macos", nota = "" },
+                Modulo () { id = "siri", nombre = "Siri", seccion = "Menu Bar Only", applet = "", nota = "" },
+                Modulo () { id = "timemachine", nombre = "Time Machine", seccion = "Menu Bar Only", applet = "", nota = "" }
+            };
+            var caja = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 0);
+            caja.get_style_context ().add_class ("mp-propio");
+            var lista = new Gtk.ListBox ();
+            lista.selection_mode = Gtk.SelectionMode.SINGLE;
+            lista.set_size_request (210, -1);
+            var pila = new Gtk.Stack ();
+            // la primera fila: el panel de siempre
+            var fila_dock = new Gtk.ListBoxRow ();
+            fila_dock.name = "dock";
+            var t_dock = new Gtk.Label ("Dock & Menu Bar");
+            t_dock.xalign = 0;
+            t_dock.margin = 8;
+            fila_dock.add (t_dock);
+            lista.add (fila_dock);
+            pila.add_named (pagina_dock (), "dock");
+            string seccion_actual = "";
+            foreach (var m in modulos) {
+                if (m.seccion != seccion_actual) {
+                    seccion_actual = m.seccion;
+                    var cab = new Gtk.ListBoxRow ();
+                    cab.selectable = false;
+                    cab.activatable = false;
+                    var c = new Gtk.Label (m.seccion);
+                    c.xalign = 0;
+                    c.margin = 8;
+                    c.get_style_context ().add_class ("dim-label");
+                    cab.add (c);
+                    lista.add (cab);
+                }
+                var fila = new Gtk.ListBoxRow ();
+                fila.name = m.id;
+                var v = new Gtk.Box (Gtk.Orientation.VERTICAL, 0);
+                var n = new Gtk.Label (m.nombre);
+                n.xalign = 0;
+                var sub = new Gtk.Label (m.applet != "" && applet_en_barra (m.applet) ? "Menu Bar & Control Center" : (m.seccion == "Menu Bar Only" ? "Menu Bar Only" : "Control Center"));
+                sub.xalign = 0;
+                sub.get_style_context ().add_class ("dim-label");
+                v.pack_start (n, false, false, 0);
+                v.pack_start (sub, false, false, 0);
+                v.margin = 8;
+                fila.add (v);
+                lista.add (fila);
+                pila.add_named (m.id == "reloj" ? new PanelDateTime ().pagina_reloj () : pagina_modulo (m.nombre, m.applet, m.nota, sub), m.id);
+            }
+            lista.row_selected.connect ((r) => {
+                if (r != null) {
+                    pila.set_visible_child_name (r.name);
+                }
+            });
+            var marco = new Gtk.ScrolledWindow (null, null);
+            marco.set_policy (Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC);
+            marco.add (lista);
+            marco.set_size_request (210, 360);
+            caja.pack_start (marco, false, false, 0);
+            caja.pack_start (pila, true, true, 0);
+            lista.select_row (fila_dock);
+            caja.show_all ();
+            return caja;
+        }
+
+        /** La página de un módulo del Control Center: título, la nota y «Show in Menu Bar» (la miniapp de la barra de Cinnamon, si hay). */
+        Gtk.Widget pagina_modulo (string nombre, string applet, string nota, Gtk.Label subtitulo) {
+            var pag = new Gtk.Box (Gtk.Orientation.VERTICAL, 8);
+            margenes (pag, 20, 20, 20, 20);
+            var t = new Gtk.Label (nombre);
+            t.xalign = 0;
+            t.get_style_context ().add_class ("mp-titulo-negrita");
+            pag.pack_start (t, false, false, 0);
+            if (nota != "") {
+                var n = new Gtk.Label (nota);
+                n.xalign = 0;
+                n.set_line_wrap (true);
+                n.set_max_width_chars (30);
+                n.get_style_context ().add_class ("dim-label");
+                pag.pack_start (n, false, false, 0);
+            }
+            var casilla = new Gtk.CheckButton.with_label ("Show in Menu Bar");
+            if (applet != "") {
+                casilla.active = applet_en_barra (applet);
+                casilla.toggled.connect (() => {
+                    poner_applet_en_barra (applet, casilla.active);
+                    subtitulo.set_text (casilla.active ? "Menu Bar & Control Center" : "Control Center");
+                });
+            } else {
+                gris_motivo (casilla, "There is no menu bar item for this on this computer.");
+            }
+            pag.pack_start (casilla, false, false, 4);
+            return pag;
+        }
+
+        Gtk.Widget? pagina_dock () {
             plank = abrir_dock ();
             if (plank == null) {
                 var l = new Gtk.Label ("The Dock is not installed.");

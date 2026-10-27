@@ -326,4 +326,51 @@ namespace Preferencias {
             break;
         }
     }
+
+    /** ¿Está la miniapp (applet) de Cinnamon en la barra de arriba? (enabled-applets: «panel1:zona:orden:uuid:instancia») */
+    public bool applet_en_barra (string uuid) {
+        foreach (var e in new Settings ("org.cinnamon").get_strv ("enabled-applets")) {
+            var p = e.split (":");
+            if (p.length >= 5 && p[3] == uuid) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** La pone en la barra (a la derecha, al final) o la quita; Cinnamon la carga o la descarga al momento. */
+    public void poner_applet_en_barra (string uuid, bool si) {
+        var cin = new Settings ("org.cinnamon");
+        string[] lista = {};
+        int orden = 0, instancia = 100;
+        string panel = "panel1";
+        bool quitada = false;
+        foreach (var e in cin.get_strv ("enabled-applets")) {
+            var p = e.split (":");
+            if (p.length >= 5) {
+                panel = p[0];
+                int o = int.parse (p[2]), i = int.parse (p[4]);
+                if (p[1] == "right" && o >= orden) {
+                    orden = o + 1;
+                }
+                if (i >= instancia) {
+                    instancia = i + 1;
+                }
+                if (p[3] == uuid) {
+                    if (si) {
+                        return;          // ya está (donde la haya puesto la persona: no se mueve)
+                    }
+                    if (!quitada) {
+                        quitada = true;  // se quita una sola entrada, la primera; si la persona tiene más copias, quedan
+                        continue;
+                    }
+                }
+            }
+            lista += e;
+        }
+        if (si) {
+            lista += "%s:right:%d:%s:%d".printf (panel, orden, uuid, instancia);
+        }
+        cin.set_strv ("enabled-applets", lista);
+    }
 }

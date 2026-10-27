@@ -96,7 +96,10 @@ namespace Preferencias {
             var stack = new Gtk.Stack ();
             stack.add_titled (pagina_fecha (), "fecha", "Date & Time");
             stack.add_titled (pagina_zona (), "zona", "Time Zone");
-            stack.add_titled (pagina_reloj (), "reloj", "Clock");
+            // Monterey: el reloj de la barra pasó a Dock & Menu Bar ▸ Clock (paneles/dock.vala): aquí solo Date & Time y Time Zone
+            if (!es_monterey ()) {
+                stack.add_titled (pagina_reloj (), "reloj", "Clock");
+            }
             var pestanas = new Gtk.StackSwitcher ();
             pestanas.stack = stack;
             pestanas.halign = Gtk.Align.CENTER;
@@ -369,7 +372,7 @@ namespace Preferencias {
         }
 
         // ── Clock ────────────────────────────────────────────────────────
-        Gtk.Widget pagina_reloj () {
+        public Gtk.Widget pagina_reloj () {
             var formato = formato_actual ();
             var pagina = new Gtk.Box (Gtk.Orientation.VERTICAL, 10);
             pagina.margin_top = 18;
