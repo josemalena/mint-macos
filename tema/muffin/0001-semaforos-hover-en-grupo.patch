@@ -1,0 +1,55 @@
+diff --git a/src/ui/frames.c b/src/ui/frames.c
+index 3c076b6..59b55bb 100644
+--- a/src/ui/frames.c
++++ b/src/ui/frames.c
+@@ -767,6 +767,15 @@ redraw_control (MetaUIFrame *frame,
+   gdk_window_invalidate_rect (frame->window, rect, FALSE);
+ }
+ 
++static gboolean
++is_window_button_control (MetaFrameControl control)
++{
++  return control == META_FRAME_CONTROL_DELETE ||
++         control == META_FRAME_CONTROL_MINIMIZE ||
++         control == META_FRAME_CONTROL_MAXIMIZE ||
++         control == META_FRAME_CONTROL_UNMAXIMIZE;
++}
++
+ static gboolean
+ meta_frame_titlebar_event (MetaUIFrame        *frame,
+                            const ClutterEvent *event,
+@@ -1462,6 +1471,15 @@ meta_ui_frame_update_prelit_control (MetaUIFrame     *frame,
+ 
+   redraw_control (frame, old_control);
+   redraw_control (frame, control);
++
++  /* El grupo de tres botones se ilumina junto: al entrar o salir de uno, los otros dos también se redibujan. */
++  if (is_window_button_control (old_control) || is_window_button_control (control))
++    {
++      redraw_control (frame, META_FRAME_CONTROL_DELETE);
++      redraw_control (frame, META_FRAME_CONTROL_MINIMIZE);
++      redraw_control (frame, META_FRAME_CONTROL_MAXIMIZE);
++      redraw_control (frame, META_FRAME_CONTROL_UNMAXIMIZE);
++    }
+ }
+ 
+ static gboolean
+@@ -1687,6 +1705,18 @@ meta_ui_frame_paint (MetaUIFrame  *frame,
+   if (button_type > -1)
+     button_states[button_type] = frame->button_state;
+ 
++  /* Como en la Mac: con el puntero sobre uno de los tres botones de la ventana
++   * (cerrar, minimizar, maximizar), los tres se ven en prelight a la vez. */
++  if (frame->button_state == META_BUTTON_STATE_PRELIGHT &&
++      (button_type == META_BUTTON_TYPE_CLOSE ||
++       button_type == META_BUTTON_TYPE_MINIMIZE ||
++       button_type == META_BUTTON_TYPE_MAXIMIZE))
++    {
++      button_states[META_BUTTON_TYPE_CLOSE] = META_BUTTON_STATE_PRELIGHT;
++      button_states[META_BUTTON_TYPE_MINIMIZE] = META_BUTTON_STATE_PRELIGHT;
++      button_states[META_BUTTON_TYPE_MAXIMIZE] = META_BUTTON_STATE_PRELIGHT;
++    }
++
+   mini_icon = frame->meta_window->mini_icon;
+   flags = meta_frame_get_flags (frame->meta_window->frame);
+   type = meta_window_get_frame_type (frame->meta_window);
