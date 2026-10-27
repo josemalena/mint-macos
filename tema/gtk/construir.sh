@@ -119,7 +119,7 @@ cp "$AQUI/../CREDITOS.md" "$BASE/CREDITOS.md"
 if [ -n "${AP:-}" ]; then
   python3 "$AQUI/controles.py" "$AP/$CAR_CLARO" "$AP/$CAR_OSCURO" "$BASE" \
     $([ "$COLOR" = light ] && echo --claro) ${ACENTO_MAC[$ACENTO]:+--acento ${ACENTO_MAC[$ACENTO]}} \
-    ${MEDIDAS:+--medidas "$MEDIDAS"} >/dev/null \
+    ${MEDIDAS:+--medidas "$MEDIDAS"} $([ "$TEMA_BASE" = Constanza ] || echo --version-propia) >/dev/null \
     || echo "  ⚠ $NOMBRE sin semáforos de Catalina (quedan los de Mojave)"
 fi
 

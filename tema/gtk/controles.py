@@ -9,6 +9,8 @@ de la Mac.
 --medidas: el medidas.json de la versión (extraer-mac): sus colores de sistema reemplazan los fijos
 que tienen equivalente en la Mac (fondo de ventana, de las vistas, del texto). Sin él, o sin el color,
 quedan los medidos en capturas (Catalina) y se anota.
+--version-propia: la versión no es Catalina (Samaná = Monterey): los semáforos de metacity-1 salen de la
+apariencia de la variante (clara u oscura) y la geometría del marco sale de las medidas (--medidas).
 --acento: Purple, Pink, Red, Orange, Yellow, Green o Graphite; lo que en Catalina va del color de
 acento (la doble flecha del menú desplegable, el interruptor encendido, la pista llena del
 deslizador) se tiñe con ese color. Sin --acento, el azul de siempre.
@@ -23,6 +25,7 @@ Cambia:
 Cada imagen se ajusta al tamaño del archivo que reemplaza. Nada de esto va
 al repo: se genera en local desde el disco de la Mac.
 """
+import json
 import os
 import re
 import subprocess
@@ -564,6 +567,41 @@ def marco(tema):
     return True
 
 
+def marco_medidas(tema, medidas):
+    """La geometría del marco que pinta Muffin (headerbar.default-decoration, en catalina.css) con las medidas de la
+    versión (medidas.json, ventana): alto de la barra de título, y el padding izquierdo que deja el centro del primer
+    semáforo a (x + ancho/2) del borde. El botón de 16 px va centrado en la barra (a la mitad del fotograma que
+    mide la versión) y el paso entre centros ya es de 20 (16 de botón + 6 de GTK - 2 de margen): se comprueba contra
+    la medida. Calibrado en el Muffin de esta máquina: con padding 6 el centro del primer semáforo cae a 13 px del
+    borde de la ventana, o sea centro = padding + 7."""
+    v = json.load(open(medidas)).get("ventana") or {}
+    sem, alto = v.get("semaforos"), v.get("alto_barra_titulo_pt")
+    if not (sem and alto):
+        return False
+    c, mi = sem["cerrar"], sem["minimizar"]
+    if mi["x_pt"] - c["x_pt"] != 20:
+        print(f"  ⚠ el paso de los semáforos es {mi['x_pt'] - c['x_pt']}, no 20: el marco queda con el de Catalina")
+    centro_x = c["x_pt"] + c["ancho_pt"] / 2
+    pad = round(centro_x - 7)
+    with open(os.path.join(tema, "gtk-3.0", "catalina.css"), "a") as f:
+        f.write(f"\n/* Marco de Muffin, medidas de la versión (ventana.alto_barra_titulo_pt={alto}, semáforos desde {centro_x:g} px) */\n"
+                f"headerbar.default-decoration, .csd headerbar.default-decoration {{ min-height: {alto}px; padding: 0 {pad}px; }}\n")
+    return True
+
+
+# Alto de un botón de empuje de Monterey a 1x, medido en 08-pref-com.apple.preference.displays-claro.png
+# («Night Shift…»: borde de arriba en y=261, de abajo en y=282 → 22 px). El de Mojave suma 6 px de padding y
+# borde a su min-height (20 → 26 px, medido en el Muffin de esta máquina), así que el min-height es 22 - 6.
+BOTON_ALTO = 22
+BOTON_ALTO_EXTRA = 2
+
+
+def botones_medidas(tema):
+    with open(os.path.join(tema, "gtk-3.0", "catalina.css"), "a") as f:
+        f.write(f"\n/* Botón de empuje de Monterey: {BOTON_ALTO} px (captura 08-pref-…displays-claro: Night Shift…) */\n"
+                f"button, button.text-button {{ min-height: {BOTON_ALTO - BOTON_ALTO_EXTRA}px; }}\n")
+
+
 MEDIDAS = None
 
 
@@ -574,20 +612,24 @@ def main():
         MEDIDAS = sys.argv[i + 1]
         del sys.argv[i:i + 2]
     claro = '--claro' in sys.argv
+    por_version = '--version-propia' in sys.argv      # no es Catalina: sus medidas y su apariencia clara
     acento = sys.argv[sys.argv.index('--acento') + 1] if '--acento' in sys.argv else None
     sys.argv = [a for i, a in enumerate(sys.argv)
-                if a != '--claro' and a != '--acento' and not (i > 0 and sys.argv[i - 1] == '--acento')]
+                if a not in ('--claro', '--version-propia') and a != '--acento' and not (i > 0 and sys.argv[i - 1] == '--acento')]
     if len(sys.argv) != 4 or (acento and acento not in ACENTOS):
         sys.exit(__doc__)
     claros, oscuros = semaforos(sys.argv[1]), semaforos(sys.argv[2])
     if not oscuros:
         sys.exit("  ✗ no salieron los semáforos del catálogo (¿falta liblzfse?)")
-    m = metacity(sys.argv[3], oscuros)
+    m = metacity(sys.argv[3], (claros or oscuros) if (por_version and claro) else oscuros)
     claras, oscuras = marcas(sys.argv[1]), marcas(sys.argv[2])
     g = gresource(sys.argv[3], claros or oscuros, oscuros, claras or oscuras, oscuras)
     marco(sys.argv[3])
     # Las piezas de la apariencia de la variante: la clara para Constanza-Claro.
     c = css(sys.argv[3], sys.argv[1] if claro else sys.argv[2], claro, acento)
+    if por_version and MEDIDAS:
+        marco_medidas(sys.argv[3], MEDIDAS)
+        botones_medidas(sys.argv[3])
     print(f"  controles de Catalina: {m} semáforos en metacity-1, {g} imágenes en gtk.gresource"
           f" y {c} piezas en catalina/")
 
