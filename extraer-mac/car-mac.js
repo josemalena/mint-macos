@@ -106,7 +106,8 @@ function carpeta(r) { FM.createDirectoryAtPathWithIntermediateDirectoriesAttribu
 let USADOS = {}, REPETIDOS = 0;
 function libre(ruta) {
   if (!USADOS[ruta]) { USADOS[ruta] = 1; return ruta; }
-  const m = ruta.match(/^(.*?)((?:@\dx)?\.[^./]+(?:\.[^./]+)?)$/) || [ruta, ruta, ''];
+  // el «-rN» va justo antes de la extensión final (o de «@Nx.ext»)
+  const m = ruta.match(/^(.*)(@\dx\.[^./]+)$/) || ruta.match(/^(.*)(\.[^./]+)$/) || [ruta, ruta, ''];
   let i = 2; while (USADOS[`${m[1]}-r${i}${m[2]}`]) i++;
   REPETIDOS++; USADOS[`${m[1]}-r${i}${m[2]}`] = 1;
   return `${m[1]}-r${i}${m[2]}`;
@@ -145,11 +146,38 @@ function pngVector(datos, w, h, e, ruta) {
 }
 
 // Un trozo de NSData desde la primera aparición de una firma («%PDF»).
-function desde(d, firma) {
+// Ojo: en JXA d.length y r.location llegan como texto («224» > «1360» es
+// verdad entre textos): van siempre por Number().
+function buscar(d, firma) {
+  if (nada(d)) return -1;
   const f = $(firma).dataUsingEncoding($.NSISOLatin1StringEncoding);
-  const r = d.rangeOfDataOptionsRange(f, 0, $.NSMakeRange(0, d.length));
-  if (r.location > d.length) return null;
-  return d.subdataWithRange($.NSMakeRange(r.location, d.length - r.location));
+  const largo = Number(d.length), r = d.rangeOfDataOptionsRange(f, 0, $.NSMakeRange(0, largo));
+  const en = Number(r.location);
+  return en < largo ? en : -1;
+}
+function desde(d, firma) {
+  const en = buscar(d, firma);
+  return en < 0 ? null : d.subdataWithRange($.NSMakeRange(en, Number(d.length) - en));
+}
+
+// uint32 little-endian en d[en..en+3] (por base64: el puente no da los bytes).
+function u32(d, en) {
+  const t = d.subdataWithRange($.NSMakeRange(en, 4)).base64EncodedStringWithOptions(0).js;
+  const A = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  const v = t.slice(0, 6).split('').reduce((n, c) => n * 64 + A.indexOf(c), 0);   // 36 bits: los 4 bytes y 4 de relleno
+  const b = [(v / 2 ** 28) & 255, (v / 2 ** 20) & 255, (v / 2 ** 12) & 255, (v / 2 ** 4) & 255];
+  return b[0] + b[1] * 256 + b[2] * 65536 + b[3] * 16777216;
+}
+
+// El PDF original del CSI: el bloque RAWD («DWAR» en disco) lleva etiqueta,
+// versión y largo (4 bytes cada uno) y después el PDF tal cual, como lo lee car.py.
+function pdfDelCSI(d) {
+  const en = buscar(d, 'DWAR');
+  if (en < 0 || en + 12 > Number(d.length)) return null;
+  const largo = u32(d, en + 8);
+  if (!(largo > 0) || en + 12 + largo > Number(d.length)) return null;
+  const pdf = d.subdataWithRange($.NSMakeRange(en + 12, largo));
+  return buscar(pdf, '%PDF') === 0 ? pdf : null;
 }
 
 // CGRect como CFData (4 doubles), para kCGPDFContextMediaBox: el puente no
@@ -181,7 +209,7 @@ function pdfDeDocumento(doc) {
     $.CGPDFContextEndPage(ctx);
   }
   $.CGPDFContextClose(ctx);
-  return md.length ? md : null;
+  return Number(md.length) ? md : null;
 }
 
 function srgb(cg) {
@@ -288,10 +316,12 @@ function sacar(ruta, dest) {
         }
         anota(tipo, ok, 'unslicedImage vacía');
       } else if (clase === '_CUIThemePDFRendition') {
-        // Unos traen el PDF comprimido en el CSI (sin «%PDF»): sale del
-        // CGPDFDocument que arma CoreUI, vuelto a escribir (no es el byte original).
-        const pdf = desde(r.srcData, '%PDF') || pdfDeDocumento(r.pdfDocument);
-        if (!pdf) { anota(tipo, false, 'sin %PDF en el CSI ni pdfDocument'); continue; }
+        // El original sale del RAWD del CSI; si no está, el CGPDFDocument que arma
+        // CoreUI, vuelto a escribir (mismo dibujo, no el byte original).
+        let pdf = pdfDelCSI(r.srcData), via = 'original';
+        if (!pdf) { pdf = pdfDeDocumento(r.pdfDocument); via = 'reescrito'; }
+        if (!pdf) { anota(tipo, false, 'sin RAWD con %PDF ni pdfDocument'); continue; }
+        anota(tipo + ' ' + via, true);
         const ip = $.NSImage.alloc.initWithData(pdf);
         const pw = nada(ip) ? 0 : Math.round(Number(ip.size.width)), ph = nada(ip) ? 0 : Math.round(Number(ip.size.height));
         const s = sufijo(atr, pw, ph, 1);
