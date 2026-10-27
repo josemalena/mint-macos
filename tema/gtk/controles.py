@@ -631,6 +631,39 @@ scale slider, scale slider:hover, scale slider:active {{ min-width: 21px; min-he
 MEDIDAS = None
 
 
+# Efectos de ventana y barras de Monterey, de referencias/.../trabajo-samana-20261026/efectos/INFORME.md (capturas 15-force-quit-* y los .car):
+#  - esquinas de ventana: 10.33 px medidos con alfa (toolbar, solo título, panel, diálogo, hoja); WindowShapeEdges da 9.5-9.75 pt.
+#  - sombra de ventana: NO está en los .car (los CTFX no traen offset ni blur); medida con un ajuste gaussiano en la captura 15-force-quit:
+#    activa en claro σ≈17 px, amplitud 0.32, ≈10 px de desplazamiento hacia abajo; inactiva σ≈12, amplitud 0.24. El CSS (blur = 2σ) es hipótesis.
+#    En oscuro la amplitud sale de 0.5-0.65 con ruido: hipótesis.
+#  - barra de título y de herramientas: color plano, sin degradado (no hay GRAD de toolbar): claro (250,245,249), oscuro (56,52,60).
+#  - barra lateral: color plano en la captura: claro (231,226,230), oscuro (70,67,73). Los .car la dan como capa Mica (blur 30), así que llevan el
+#    tinte del fondo de pantalla de la Mac de referencia: hipótesis de que valgan para otro fondo.
+EFECTOS = {
+    True:  {"titulo": "#faf5f9", "lateral": "#e7e2e6", "sombra": "0 10px 34px 5px rgba(0, 0, 0, 0.32)", "sombra_inactiva": "0 8px 24px 3px rgba(0, 0, 0, 0.24)"},
+    False: {"titulo": "#38343c", "lateral": "#464349", "sombra": "0 10px 34px 5px rgba(0, 0, 0, 0.55)", "sombra_inactiva": "0 8px 24px 3px rgba(0, 0, 0, 0.40)"},
+}
+VENTANA_RADIO = 10
+
+
+def efectos_medidos(tema, claro):
+    e = EFECTOS[claro]
+    r = VENTANA_RADIO
+    with open(os.path.join(tema, "gtk-3.0", "catalina.css"), "a") as f:
+        f.write(f"""
+/* Efectos de Monterey (controles.py, EFECTOS): esquinas de {r} px, barras planas y barra lateral. La sombra NO va aquí: una box-shadow en `.ssd decoration` hace que Muffin la sume al borde invisible
+   y el cliente se corre 30 px (probado en Xvfb); la sombra de Muffin se ajusta con su ShadowFactory (extensión), ver EFECTOS */
+.ssd decoration {{ border-radius: {r}px {r}px 0 0; }}
+headerbar.default-decoration, .csd headerbar.default-decoration {{ border-top-left-radius: {r}px; border-top-right-radius: {r}px; }}
+headerbar, .csd headerbar, headerbar.default-decoration, .titlebar:not(headerbar), .maximized headerbar, .tiled headerbar,
+headerbar:backdrop, .csd headerbar:backdrop, headerbar.default-decoration:backdrop, .titlebar:not(headerbar):backdrop, .maximized headerbar:backdrop {{
+  background-color: {e['titulo']}; background-image: none; }}
+.maximized headerbar, .tiled headerbar, .maximized decoration, .tiled decoration {{ border-radius: 0; }}
+.sidebar, .nemo-window .sidebar, placessidebar, placessidebar list,
+.nemo-window .places-treeview, .nemo-window treeview.places-treeview {{ background-color: {e['lateral']}; }}
+""")
+
+
 def main():
     global MEDIDAS
     if '--medidas' in sys.argv:
@@ -658,6 +691,7 @@ def main():
         marco_medidas(sys.argv[3], MEDIDAS)
         botones_medidas(sys.argv[3])
         slider_medidas(sys.argv[3], claro)
+        efectos_medidos(sys.argv[3], claro)
     print(f"  controles de Catalina: {m} semáforos en metacity-1, {g} imágenes en gtk.gresource"
           f" y {c} piezas en catalina/")
 
