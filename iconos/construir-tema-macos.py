@@ -48,6 +48,34 @@ def tema_base(version):
     return 'Constanza'
 
 
+def sin_tapar_regulares(carpeta, hereda):
+    """Quita del tema los glifos «X-symbolic» cuyo ícono regular «X» ya existe en el tema de la versión (o los que hereda).
+
+    GTK 3 busca tema por tema con TODOS los nombres que pide una app, en el orden de la lista: un GThemedIcon de carpeta pide «inode-directory»,
+    «folder» y «folder-symbolic»; si este tema (el primero) trae «folder-symbolic», gana a la carpeta regular del tema de la versión (el 27-10-2026 las
+    carpetas de Fynder salieron como el glifo de línea de Apple). Los glifos solo deben llenar lo que no hay: los simbólicos sin regular.
+    Devuelve los nombres quitados. Sin gi (GTK), no filtra."""
+    try:
+        import gi
+        gi.require_version('Gtk', '3.0')
+        from gi.repository import Gtk
+    except (ImportError, ValueError):
+        return []
+    tema = Gtk.IconTheme.new()
+    tema.set_custom_theme(hereda)
+    quitados = []
+    for raiz, _dirs, archivos in os.walk(os.path.join(carpeta, 'scalable')):
+        for f in archivos:
+            if not f.endswith('-symbolic.svg'):
+                continue
+            base = f[:-len('-symbolic.svg')]
+            info = tema.lookup_icon(base, 48, 0)
+            if info and ('/%s/' % hereda) in (info.get_filename() or ''):   # solo si el regular es del tema de la versión, no de Adwaita/hicolor
+                os.remove(os.path.join(raiz, f))
+                quitados.append(base)
+    return quitados
+
+
 def main():
     a = sys.argv[1:]
     if not a or a[0].startswith('-'):
@@ -56,6 +84,7 @@ def main():
     destino = os.path.join(ICONOS, 'Mint-Macos-' + version)
     if '--quitar' in a:
         shutil.rmtree(destino, ignore_errors=True)
+        shutil.rmtree(destino + '-glifos', ignore_errors=True)
         print('quitado', destino); return 0
     salida = a[a.index('--salida') + 1] if '--salida' in a else None
     origen = a[a.index('--origen') + 1] if '--origen' in a else buscar_origen(version, salida)
@@ -70,9 +99,13 @@ def main():
     texto = open(idx).read()
     texto = re.sub(r'(?m)^Inherits=.*$', 'Inherits=%s,Adwaita,hicolor' % hereda, texto)
     open(idx, 'w').write(texto)
+    quitados = sin_tapar_regulares(tmp, hereda)
     shutil.rmtree(destino, ignore_errors=True)
+    shutil.rmtree(destino + '-glifos', ignore_errors=True)   # (una versión anterior de este script los dejaba aparte)
     os.rename(tmp, destino)
     subprocess.run(['gtk-update-icon-cache', '-q', '-t', '-f', destino], check=False)
+    if quitados:
+        print('  no se instalan %d glifos porque taparían el ícono regular del tema %s (carpeta, home, trash…): %s' % (len(quitados), hereda, ', '.join(sorted(quitados)[:12])))
     n = sum(len(f) for _, _, f in os.walk(os.path.join(destino, 'scalable')))
     print('Mint-Macos-%s: %d glifos en %s (hereda %s)' % (version, n, destino, hereda))
     return 0
