@@ -657,6 +657,30 @@ EFECTOS = {
 VENTANA_RADIO = 10
 
 
+# Menús de GTK (menús contextuales y de los programas GTK) con los mismos números que los de Cinnamon (menus/INFORME.md, cambios 2-4, 6, 8, 13):
+# caja de 6 px de radio con 4 px de relleno, fila de 22, resaltado de radio 4 con el azul medido (H, varía con el fondo), separador de 1 px, atenuado a 0.25.
+MENUS = {
+    True:  {"fondo": "#ececec", "borde": "rgba(0, 0, 0, 0.23)", "texto": "#262626", "resalte": "#207ce0", "sep": "rgba(0, 0, 0, 0.10)"},
+    False: {"fondo": "#323232", "borde": "rgba(0, 0, 0, 0.85)", "texto": "#e5e5e5", "resalte": "#1c5bb9", "sep": "rgba(255, 255, 255, 0.14)"},
+}
+
+
+def menus_gtk(tema, claro):
+    m = MENUS[claro]
+    with open(os.path.join(tema, "gtk-3.0", "catalina.css"), "a") as f:
+        f.write(f"""
+/* Menús de GTK de Monterey (controles.py, MENUS) */
+menu, .menu, .context-menu, .popup menu {{
+  background-color: {m['fondo']}; color: {m['texto']}; border: 1px solid {m['borde']}; border-radius: 6px; padding: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.26); }}
+menu menuitem, .menu menuitem, .context-menu menuitem {{
+  min-height: 22px; padding: 0 10px 0 9px; border-radius: 4px; color: {m['texto']}; background-image: none; }}
+menu menuitem:hover, .menu menuitem:hover, .context-menu menuitem:hover {{ background-color: {m['resalte']}; color: #ffffff; }}
+menu menuitem:disabled, .menu menuitem:disabled, .context-menu menuitem:disabled {{ color: alpha({m['texto']}, 0.25); }}
+menu separator, .menu separator, .context-menu separator {{ min-height: 1px; margin: 5px 10px; background-color: {m['sep']}; border: none; }}
+""")
+
+
 def efectos_medidos(tema, claro):
     e = EFECTOS[claro]
     r = VENTANA_RADIO
@@ -950,6 +974,7 @@ def main():
         slider_medidas(sys.argv[3], claro)
         monterey_botones(sys.argv[3], sys.argv[1] if claro else sys.argv[2], claro, acento)
         efectos_medidos(sys.argv[3], claro)
+        menus_gtk(sys.argv[3], claro)
     print(f"  controles de Catalina: {m} semáforos en metacity-1, {g} imágenes en gtk.gresource"
           f" y {c} piezas en catalina/")
 
