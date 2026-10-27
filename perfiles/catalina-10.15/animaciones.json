@@ -5,9 +5,14 @@
  "nota": "Medido en videos de pantalla; lo no medido no está. Ver fuente de cada animación.",
  "comportamiento": {
   "launchpad-abrir": {
-   "curva": "ambigua (lineal / easeInEaseOut / easeIn)",
+   "rango_ms": "217-283",
+   "curva": "easeIn (0.42,0,1,1)",
+   "escala_inicial": "~1.05 (hipótesis)",
    "fuente": "referencias/animaciones-medidas/launchpad/INDICE.md",
-   "ms": 267
+   "ms": 250,
+   "ms_medido_en_catalina": 267,
+   "curva_medida_en_catalina": "ambigua (lineal / easeInEaseOut / easeIn)",
+   "origen": "heredado de monterey-12.7.6, iguales desde 10.0 según José (27-10-2026); fuente: referencias/animaciones-medidas/launchpad/INDICE.md"
   },
   "launchpad-cerrar": {
    "curva": "easeOut",
@@ -28,6 +33,53 @@
    "nota": "video de celular, ±33 ms",
    "fuente": "referencias/animaciones-medidas/login-entrada/INDICE.md",
    "ms": 550
+  },
+  "genio-minimizar": {
+   "ms_segunda_toma": 417,
+   "fases": {
+    "deformacion_ms": "100-133",
+    "deslizamiento_ms": "300-333"
+   },
+   "curva": "borde superior ~easeIn; por área forma de S",
+   "sobrepaso": false,
+   "fuente": "referencias/animaciones-medidas/genio-y-restaurar/INDICE.md",
+   "ms": 433,
+   "origen": "heredado de monterey-12.7.6, iguales desde 10.0 según José (27-10-2026); fuente: referencias/animaciones-medidas/genio-y-restaurar/INDICE.md"
+  },
+  "genio-restaurar": {
+   "curva": "borde superior ~default (0.25,0.1,0.25,1) o easeOut",
+   "sobrepaso": false,
+   "fuente": "referencias/animaciones-medidas/genio-y-restaurar/INDICE.md",
+   "ms": 450,
+   "origen": "heredado de monterey-12.7.6, iguales desde 10.0 según José (27-10-2026); fuente: referencias/animaciones-medidas/genio-y-restaurar/INDICE.md"
+  },
+  "dock-lupa": {
+   "rango_ms": "133-150",
+   "factor_maximo": 2.0,
+   "factor_tolerancia": 0.05,
+   "alcance_anchos": 6,
+   "alcance_nota": "campana 1+(f-1)(1-(d/6)^2), d en anchos de ícono; ajusta los puntos medidos a +-0.1 (INDICE, perfil de la vecindad)",
+   "curva": "casi lineal",
+   "fuente": "referencias/animaciones-medidas/dock-lupa/INDICE.md",
+   "ms": 142,
+   "origen": "heredado de monterey-12.7.6, iguales desde 10.0 según José (27-10-2026); fuente: referencias/animaciones-medidas/dock-lupa/INDICE.md"
+  },
+  "notification-center-entrar": {
+   "rango_ms": "230-255 (ajuste de la curva con el inicio fuera de pantalla)",
+   "visibles_ms": 200,
+   "curva": "easeInEaseOut (lineal no se descarta)",
+   "ancho_panel_pt": 360,
+   "fuente": "referencias/animaciones-medidas/notification-center/INDICE.md",
+   "ms": 240,
+   "origen": "heredado de monterey-12.7.6, iguales desde 10.0 según José (27-10-2026); fuente: referencias/animaciones-medidas/notification-center/INDICE.md"
+  },
+  "notification-center-salir": {
+   "rango_ms": "185-200 (ajuste de la curva)",
+   "visibles_ms": "150-167",
+   "curva": "easeIn (0.42,0,1,1); no se distingue de easeInEaseOut con certeza",
+   "fuente": "referencias/animaciones-medidas/notification-center/INDICE.md",
+   "ms": 190,
+   "origen": "heredado de monterey-12.7.6, iguales desde 10.0 según José (27-10-2026); fuente: referencias/animaciones-medidas/notification-center/INDICE.md"
   }
  }
 }

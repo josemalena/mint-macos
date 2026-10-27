@@ -109,6 +109,8 @@ Las animaciones medidas en los videos (fase A, 27-10-2026) van en `apps/animacio
 
 - `ms`: la duración central; `rango_ms` cuando las tomas o las versiones difieren; `curva`: la más cercana de las curvas por omisión
   del motor (linear, easeIn, easeOut, easeInEaseOut, default; si ninguna coincide, se dice); `cuadros` cuando la animación es de uno o pocos cuadros.
+- `origen`: un valor que no se midió en esa versión sino que se heredó de otra (hoy, Catalina hereda de Monterey el genio, la lupa, el
+  Notification Center y el abrir del Launchpad: «iguales desde 10.0», José, 27-10-2026; solo animaciones). Lo medido en la versión manda.
 - Lo que no se pudo medir **no se escribe**: una clave ausente significa «no medido», no «cero».
 - Los números son medidas nuestras (no contenido de Apple) y van **en el repo**: `perfiles/<versión>/animaciones.json`, con la ruta
   relativa del INDICE de donde salió cada uno (en `referencias/`, que no va al repo). `perfiles/generar.py` los copia a
