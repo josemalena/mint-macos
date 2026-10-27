@@ -79,6 +79,10 @@ poner_gestor() {
       if [ "$1" = cinnamon-animaciones ]; then
         cp -r "$MINT_MACOS_REPO"/applets/notificaciones@macos "$XDG_DATA_HOME/cinnamon/applets/"
         gsettings set org.cinnamon enabled-applets "['panel1:left:0:appmenu@macos:1', 'panel1:left:1:globalmenu@macos:2', 'panel1:right:0:notificaciones@macos:3']"
+        # El perfil de Monterey del repo (las medidas, no las de la máquina): lo leen las extensiones y los applets al arrancar.
+        mkdir -p "$XDG_CONFIG_HOME/mint-macos" "$XDG_DATA_HOME/mint-macos/macos/monterey-12.7.6/apps"
+        echo '{"version": "monterey-12.7.6"}' > "$XDG_CONFIG_HOME/mint-macos/macos.json"
+        cp "$MINT_MACOS_REPO/perfiles/monterey-12.7.6/animaciones.json" "$XDG_DATA_HOME/mint-macos/macos/monterey-12.7.6/apps/"
         ML="$PRUEBAS_HOME_REAL/.local/share/cinnamon/extensions/CinnamonMagicLamp@klangman"
         if [ -d "$ML" ]; then
           cp -r "$ML" "$XDG_DATA_HOME/cinnamon/extensions/"

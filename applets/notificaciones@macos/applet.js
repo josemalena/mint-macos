@@ -22,7 +22,32 @@ const { Gio, GLib, St, Clutter } = imports.gi;
 const Util = imports.misc.util;
 
 const ANCHO_ICONO = 18;
-const ANCHO_PANEL = 345;
+
+// Lo medido en la Mac, del perfil de la versión de macOS activa (apps/animaciones.json); sin perfil o sin ese número, lo de siempre.
+function delPerfil(animacion, campo) {
+  try {
+    let id = null;
+    for (let dir of [GLib.get_user_runtime_dir(), GLib.get_user_config_dir()]) {
+      try {   // file_get_contents lanza si el archivo no está
+        let [ok, bytes] = GLib.file_get_contents(GLib.build_filenamev([dir, "mint-macos", "macos.json"]));
+        if (ok) { id = JSON.parse(imports.byteArray.toString(bytes)).version; break; }
+      } catch (e) {}
+    }
+    if (!id) return null;
+    let [ok2, datos] = GLib.file_get_contents(GLib.build_filenamev([GLib.get_user_data_dir(), "mint-macos", "macos", id, "apps", "animaciones.json"]));
+    let v = ok2 ? JSON.parse(imports.byteArray.toString(datos)).comportamiento[animacion][campo] : 0;
+    return v > 0 ? v : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+// Ancho del contenido: el del perfil (360 pt en Monterey, 367 en Sequoia) es el del panel entero, con el borde de 1 px a cada lado.
+const ANCHO_PANEL = (delPerfil("notification-center-entrar", "ancho_panel_pt") || 347) - 2;
+// El panel entra deslizándose desde el borde derecho (Monterey: ~200 ms visibles, 230 de ajuste; sale en 150-167 ms), con easeInEaseOut y sin
+// fundido. Sin esos números no se anima y queda lo de Cinnamon.
+const MS_ENTRAR = delPerfil("notification-center-entrar", "ms");
+const MS_SALIR = delPerfil("notification-center-salir", "ms");
 const FONDO_PANEL = 0.96;   // sin vidrio (José, 18-10-2026: «no usemos vidrio»): la caja va casi opaca
 const FUENTE = 'font-family: ".SF NS", sans-serif;';
 
@@ -134,6 +159,31 @@ class NotificationCenter extends Applet.Applet {
     this.menu.toggle();
   }
 
+  // El panel se desliza desde el borde derecho de la pantalla, no se funde como los menús de Cinnamon. open/close del menú se envuelven: el original
+  // coloca y muestra (o esconde) sin animar y aquí se mueve el actor. open(false) —el calentamiento— queda sin animar.
+  _deslizar() {
+    let menu = this.menu, original = { open: menu.open, close: menu.close };
+    let desplazamiento = () => ANCHO_PANEL + 40;   // sobra: sale entero del borde, se recorta con la pantalla
+    menu.open = function (animate) {
+      this.actor.remove_all_transitions();
+      original.open.call(this, false);
+      if (!animate || !Main.wm.desktop_effects_menus) return;
+      let x = this.actor.x;
+      this.actor.x = x + desplazamiento();
+      this.actor.ease({ x: x, duration: MS_ENTRAR, mode: Clutter.AnimationMode.EASE_IN_OUT_QUAD });
+    };
+    menu.close = function (animate) {
+      if (!this.isOpen) return;
+      if (!animate || !Main.wm.desktop_effects_menus) { original.close.call(this, false); return; }
+      let actor = this.actor, x = actor.x, hide = actor.hide;
+      actor.remove_all_transitions();
+      actor.hide = () => {};   // el close original esconde de golpe: se esconde al terminar de deslizar
+      try { original.close.call(this, false); } finally { delete actor.hide; }
+      actor.ease({ x: x + desplazamiento(), duration: MS_SALIR, mode: Clutter.AnimationMode.EASE_IN_OUT_QUAD,
+                   onComplete: () => { if (!this.isOpen) { actor.hide(); actor.x = x; } } });
+    };
+  }
+
   _armarMenu() {
     if (this.menu) this.menu.destroy();
     this.menu = new Applet.AppletPopupMenu(this, this._orientation);
@@ -144,6 +194,7 @@ class NotificationCenter extends Applet.Applet {
     // Los colores (fondo, borde, textos) salen del tema: clase nc-panel en _constanza-cinnamon.css (oscuro) y en el -claro
     this.menu.box.add_style_class_name("nc-panel");
     this.menu.box.set_style(`width: ${ANCHO_PANEL}px; padding: 8px 0; border-radius: 0;`);
+    if (MS_ENTRAR !== null && MS_SALIR !== null) this._deslizar();
 
     // Today | Notifications arriba (captura 1.33.53 PM): el segmento activo en gris claro.
     this._pestanas = new St.BoxLayout({ style: "padding: 6px 24px 8px 24px;" });
