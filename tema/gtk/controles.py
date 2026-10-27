@@ -607,8 +607,9 @@ def botones_medidas(tema):
 # la pista, el relleno y la perilla los dibuja AppKit, así que los valores salen de la captura
 # 08-pref-com.apple.preference.displays-{claro,oscuro}.png (slider «Brightness», 1x): pista de 4 px (y=128..131) con el relleno
 # #1B85FB (27,133,251) y el resto #E0DEE0 (224,222,224) en claro; #206DE2 y #3E3A47 en oscuro; perilla blanca de 21 px (x=484..504,
-# con borde de 1 px) y sombra de 1 px debajo (y=140, 183 sobre 236). En oscuro la perilla de la captura es gris (148,146,153): puede ser
-# que la ventana estuviera inactiva, es hipótesis y se usa tal cual.
+# con borde de 1 px) y sombra de 1 px debajo (y=140, 183 sobre 236). En oscuro la perilla es gris (148,146,153) con el relleno azul (ventana activa): no es
+# el aspecto inactivo, que en 06-finder-iconos-activa-oscuro (ventana sin foco) es relleno gris y perilla de contorno oscuro. En
+# 03-control-center-oscuro la perilla es blanca, pero es el panel de Control Center, no un NSSlider de ventana.
 SLIDER = {
     False: dict(relleno="#206DE2", pista="#3E3A47", perilla="#949299", borde="rgba(0, 0, 0, 0.35)"),
     True: dict(relleno="#1B85FB", pista="#E0DEE0", perilla="#FFFFFF", borde="rgba(0, 0, 0, 0.22)"),
