@@ -15,6 +15,8 @@
 const Main = imports.ui.main;
 const Cinnamon = imports.gi.Cinnamon;
 const Workspace = imports.ui.workspace;
+const Overview = imports.ui.overview;
+const GLib = imports.gi.GLib;
 
 const ATAJOS = {
   'misioncontrol-todas':   ['<Control>Up', mostrarTodas],
@@ -27,6 +29,7 @@ const ATAJOS = {
 let soloApp = null;
 let filtroOriginal = null;
 let idOculta = 0;
+let showOriginal = null;
 
 function appDe(metaWindow) {
   try { return Cinnamon.WindowTracker.get_default().get_window_app(metaWindow); } catch (e) { return null; }
@@ -46,6 +49,32 @@ function mostrarApp() {
   Main.overview.show();
 }
 
+// La duración con que Cinnamon anima la entrada (las ventanas van a su lugar, EASE_IN_OUT_QUAD, que es la curva medida): la de la Mac
+// sale del perfil de la versión de macOS (apps/animaciones.json, «mission-control-entrar»). Overview.ANIMATION_TIME es de la vista, no el
+// ajuste global de animaciones de José; sin perfil queda la de Cinnamon (200 ms). Solo vale para ENTRAR (lo medido): la salida no está
+// medida y se queda con la de Cinnamon, así que la duración se pone al mostrar y se devuelve cuando la vista terminó de mostrarse.
+let duracionOriginal = null;
+let msEntrada = null;
+let idMostrada = 0;
+
+function msDelPerfil(clave) {
+  try {
+    let id = null;
+    for (let dir of [GLib.get_user_runtime_dir(), GLib.get_user_config_dir()]) {
+      try {   // file_get_contents lanza si el archivo no está
+        let [ok, bytes] = GLib.file_get_contents(GLib.build_filenamev([dir, 'mint-macos', 'macos.json']));
+        if (ok) { id = JSON.parse(imports.byteArray.toString(bytes)).version; break; }
+      } catch (e) {}
+    }
+    if (!id) return null;
+    let [ok2, datos] = GLib.file_get_contents(GLib.build_filenamev([GLib.get_user_data_dir(), 'mint-macos', 'macos', id, 'apps', 'animaciones.json']));
+    let ms = ok2 ? JSON.parse(imports.byteArray.toString(datos)).comportamiento[clave].ms : 0;
+    return ms > 0 ? ms : null;
+  } catch (e) {
+    return null;
+  }
+}
+
 function init(metadata) {}
 
 function enable() {
@@ -59,6 +88,16 @@ function enable() {
     return appDe(win.get_meta_window()) === soloApp;
   };
   idOculta = Main.overview.connect('hidden', () => { soloApp = null; });
+  msEntrada = msDelPerfil('mission-control-entrar');
+  if (msEntrada !== null) {
+    duracionOriginal = Overview.ANIMATION_TIME;
+    showOriginal = Main.overview.show;
+    Main.overview.show = function (...args) {
+      Overview.ANIMATION_TIME = msEntrada;
+      return showOriginal.apply(this, args);
+    };
+    idMostrada = Main.overview.connect('shown', () => { Overview.ANIMATION_TIME = duracionOriginal; });
+  }
 
   for (let [nombre, [atajo, fn]] of Object.entries(ATAJOS))
     Main.keybindingManager.addHotKey(nombre, atajo, fn);
@@ -74,6 +113,12 @@ function disable() {
   for (let nombre of Object.keys(ATAJOS))
     Main.keybindingManager.removeHotKey(nombre);
   if (idOculta) { Main.overview.disconnect(idOculta); idOculta = 0; }
+  if (duracionOriginal !== null) {
+    Overview.ANIMATION_TIME = duracionOriginal;
+    delete Main.overview.show;   // vuelve a la del prototipo
+    Main.overview.disconnect(idMostrada);
+    duracionOriginal = null;
+  }
   if (filtroOriginal) {
     Workspace.WorkspaceMonitor.prototype._isOverviewWindow = filtroOriginal;
     filtroOriginal = null;
