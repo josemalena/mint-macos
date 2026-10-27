@@ -5,8 +5,8 @@
 #
 #   sudo ./requisitos.sh                     instala
 #   ./requisitos.sh --simular                dice qué haría, sin tocar nada (apt-get -s)
-#   sudo ./requisitos.sh --quitar-rutas-mac  quita /Users, /Volumes y /Applications
-#                                            (solo lo que creó él; /Applications, vacía)
+#   sudo ./requisitos.sh --quitar-rutas-mac  quita /Users, /Volumes, /Applications y ~/Library
+#                                            (solo lo que creó él; /Applications y ~/Library, vacías)
 #
 # Qué pone:
 #   - los paquetes de apt para compilar Fynder (fork de Nemo) y Muelle,
@@ -44,13 +44,17 @@ paso() { printf '\n▸ %s\n' "$*"; }
 # tiene que verla como /Applications y aplicaciones/ escribe en ella sin sudo.
 # La marca dice que la creó mint-macos; sin ella, --quitar-rutas-mac no la toca.
 MARCA_APPS="$RAIZ/var/lib/mint-macos/applications-creada"
+# ~/Library: vacía, del usuario (no de root) y 700 como en la Mac; las
+# subcarpetas las pone Darling cuando hagan falta. Misma regla de la marca.
+LIBRARY="$RAIZ$(getent passwd "$USUARIO" | cut -d: -f6)/Library"
+MARCA_LIBRARY="$RAIZ/var/lib/mint-macos/library-creada"
 rutas_mac() { # → «enlace destino» por línea
   local medios="$RAIZ/media/$USUARIO"
   [ -d "$RAIZ/run/media" ] && [ ! -d "$RAIZ/media/$USUARIO" ] && medios="$RAIZ/run/media/$USUARIO"
   printf '%s %s\n' "$RAIZ/Users" "$RAIZ/home" "$RAIZ/Volumes" "$medios"
 }
 if $QUITAR_RUTAS; then
-  paso "Quitando /Users, /Volumes y /Applications"
+  paso "Quitando /Users, /Volumes, /Applications y ~/Library"
   [ -n "$RAIZ" ] || [ "$(id -u)" = 0 ] || { echo "  ✗ corre esto con sudo"; exit 1; }
   while read -r enlace destino; do
     if [ -L "$enlace" ] && [ "$(readlink "$enlace")" = "$destino" ]; then
@@ -64,6 +68,12 @@ if $QUITAR_RUTAS; then
     else echo "  $RAIZ/Applications no está vacía: corre antes aplicaciones/instalar.sh --quitar"; fi
   else
     echo "  $RAIZ/Applications no la creó mint-macos; no se toca"
+  fi
+  if [ -f "$MARCA_LIBRARY" ] && [ -d "$LIBRARY" ] && [ ! -L "$LIBRARY" ]; then
+    if rmdir -- "$LIBRARY" 2>/dev/null; then rm -f -- "$MARCA_LIBRARY"; echo "  quitada: $LIBRARY"
+    else echo "  $LIBRARY no está vacía: se deja"; fi
+  else
+    echo "  $LIBRARY no la creó mint-macos; no se toca"
   fi
   exit 0
 fi
@@ -176,7 +186,7 @@ PY
   echo "  $POL (Firefox lo toma al abrirlo otra vez)"
 fi
 
-paso "Rutas de macOS: /Users, /Volumes y /Applications"
+paso "Rutas de macOS: /Users, /Volumes, /Applications y ~/Library"
 while read -r enlace destino; do
   if [ -L "$enlace" ] && [ "$(readlink "$enlace")" = "$destino" ]; then
     echo "  ya está: $enlace → $destino"
@@ -199,6 +209,17 @@ else
   install -d -o "$USUARIO" -g "$GRUPO" -m 755 "$RAIZ/Applications"
   install -D -m 644 /dev/null "$MARCA_APPS"
   echo "  $RAIZ/Applications, carpeta de $USUARIO:$GRUPO"
+fi
+if [ -L "$LIBRARY" ] || { [ -e "$LIBRARY" ] && [ ! -d "$LIBRARY" ]; }; then
+  echo "  ⚠ $LIBRARY existe y no es una carpeta: no se toca"
+elif [ -d "$LIBRARY" ]; then
+  echo "  ya está: $LIBRARY ($(stat -c %U:%G "$LIBRARY"))"
+elif $SIMULAR; then
+  echo "  se crearía $LIBRARY, vacía, de $USUARIO:$GRUPO"
+else
+  install -d -o "$USUARIO" -g "$GRUPO" -m 700 "$LIBRARY"
+  install -D -m 644 /dev/null "$MARCA_LIBRARY"
+  echo "  $LIBRARY, vacía, de $USUARIO:$GRUPO"
 fi
 
 paso "Listo"
