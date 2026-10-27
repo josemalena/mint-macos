@@ -9,6 +9,7 @@ de la Mac.
 --medidas: el medidas.json de la versión (extraer-mac): sus colores de sistema reemplazan los fijos
 que tienen equivalente en la Mac (fondo de ventana, de las vistas, del texto). Sin él, o sin el color,
 quedan los medidos en capturas (Catalina) y se anota.
+--metacity-claro: solo lo de metacity-1 (en Constanza-Claro: los semáforos inactivos salían de la apariencia oscura).
 --version-propia: la versión no es Catalina (Samaná = Monterey): los semáforos de metacity-1 salen de la
 apariencia de la variante (clara u oscura) y la geometría del marco sale de las medidas (--medidas).
 --acento: Purple, Pink, Red, Orange, Yellow, Green o Graphite; lo que en Catalina va del color de
@@ -612,16 +613,17 @@ def main():
         MEDIDAS = sys.argv[i + 1]
         del sys.argv[i:i + 2]
     claro = '--claro' in sys.argv
+    por_apariencia = '--metacity-claro' in sys.argv  # los semáforos de metacity-1 de la variante clara salen de la apariencia clara
     por_version = '--version-propia' in sys.argv      # no es Catalina: sus medidas y su apariencia clara
     acento = sys.argv[sys.argv.index('--acento') + 1] if '--acento' in sys.argv else None
     sys.argv = [a for i, a in enumerate(sys.argv)
-                if a not in ('--claro', '--version-propia') and a != '--acento' and not (i > 0 and sys.argv[i - 1] == '--acento')]
+                if a not in ('--claro', '--version-propia', '--metacity-claro') and a != '--acento' and not (i > 0 and sys.argv[i - 1] == '--acento')]
     if len(sys.argv) != 4 or (acento and acento not in ACENTOS):
         sys.exit(__doc__)
     claros, oscuros = semaforos(sys.argv[1]), semaforos(sys.argv[2])
     if not oscuros:
         sys.exit("  ✗ no salieron los semáforos del catálogo (¿falta liblzfse?)")
-    m = metacity(sys.argv[3], (claros or oscuros) if (por_version and claro) else oscuros)
+    m = metacity(sys.argv[3], (claros or oscuros) if ((por_version or por_apariencia) and claro) else oscuros)
     claras, oscuras = marcas(sys.argv[1]), marcas(sys.argv[2])
     g = gresource(sys.argv[3], claros or oscuros, oscuros, claras or oscuras, oscuras)
     marco(sys.argv[3])

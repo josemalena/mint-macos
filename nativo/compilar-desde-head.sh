@@ -34,4 +34,9 @@ if [ -f "$T/nativo/build/gtk-acciones/libmint-macos-acciones.so" ]; then
   install -d "$RAIZ/.local/lib/mint-macos"
   install -m 755 "$T/nativo/build/gtk-acciones/libmint-macos-acciones.so" "$RAIZ/.local/lib/mint-macos/"
 fi
+# El módulo GTK3 del hover de los tres semáforos a la vez (GTK_MODULES; nativo/gtk-semaforos).
+if [ -f "$T/nativo/build/gtk-semaforos/libmint-macos-semaforos.so" ]; then
+  install -d "$RAIZ/.local/lib/mint-macos"
+  install -m 755 "$T/nativo/build/gtk-semaforos/libmint-macos-semaforos.so" "$RAIZ/.local/lib/mint-macos/"
+fi
 echo "compilado del HEAD $(git -C "$REPO" rev-parse --short HEAD)"
