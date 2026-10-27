@@ -110,8 +110,10 @@ Las animaciones medidas en los videos (fase A, 27-10-2026) van en `apps/animacio
 - `ms`: la duración central; `rango_ms` cuando las tomas o las versiones difieren; `curva`: la más cercana de las curvas por omisión
   del motor (linear, easeIn, easeOut, easeInEaseOut, default; si ninguna coincide, se dice); `cuadros` cuando la animación es de uno o pocos cuadros.
 - Lo que no se pudo medir **no se escribe**: una clave ausente significa «no medido», no «cero».
-- Los números de cada animación se calculan con `animaciones-medidas/herramientas/` (local, como las referencias) y el generador
-  (`generar-comportamiento.py`) los escribe en los perfiles; `perfiles/generar.py` no debe borrar `apps/animaciones.json` al regenerar.
+- Los números son medidas nuestras (no contenido de Apple) y van **en el repo**: `perfiles/<versión>/animaciones.json`, con la ruta
+  relativa del INDICE de donde salió cada uno (en `referencias/`, que no va al repo). `perfiles/generar.py` los copia a
+  `~/.local/share/mint-macos/macos/<versión>/apps/animaciones.json`. Para volver a medir: `animaciones-medidas/herramientas/`
+  (local) y `generar-comportamiento.py`, que escribe en el archivo del repo.
 
 ## Librerías
 

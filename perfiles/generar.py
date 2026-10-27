@@ -13,6 +13,7 @@ Si un archivo está en varias raíces, gana la primera.
 import json
 import os
 import plistlib
+import shutil
 import sys
 
 AQUI = os.path.dirname(os.path.abspath(__file__))
@@ -528,6 +529,17 @@ def generar(version, raices=None, medidas=None):
     return info
 
 
+def copiar_animaciones(version):
+    """perfiles/<versión>/animaciones.json (medidas nuestras, versionadas) a apps/animaciones.json del perfil generado."""
+    fuente = os.path.join(os.path.dirname(os.path.abspath(__file__)), version, 'animaciones.json')
+    if not os.path.isfile(fuente):
+        return 'sin medidas'
+    destino = os.path.join(SALIDA, version, 'apps')
+    os.makedirs(destino, exist_ok=True)
+    shutil.copyfile(fuente, os.path.join(destino, 'animaciones.json'))
+    return 'ok'
+
+
 def main():
     args = sys.argv[1:]
     version = args[args.index('--version') + 1] if '--version' in args else None
@@ -541,6 +553,7 @@ def main():
     medidas = args[args.index('--medidas') + 1] if '--medidas' in args else None
     for v in ([version] if version else list(VERSIONES)):
         info = generar(v, raices, medidas)
+        info['partes']['animaciones'] = copiar_animaciones(v)
         print('%s: %s' % (v, ', '.join('%s %s' % (k, e) for k, e in info['partes'].items())))
 
 

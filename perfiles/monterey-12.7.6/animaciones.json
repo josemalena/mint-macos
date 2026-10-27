@@ -1,0 +1,84 @@
+{
+ "id": "animaciones",
+ "medido": "2026-10-27",
+ "precision": "un cuadro (16.7 ms), salvo el login (33 ms)",
+ "nota": "Medido en videos de pantalla; lo no medido no está. Ver fuente de cada animación.",
+ "comportamiento": {
+  "genio-minimizar": {
+   "ms_segunda_toma": 417,
+   "fases": {
+    "deformacion_ms": "100-133",
+    "deslizamiento_ms": "300-333"
+   },
+   "curva": "borde superior ~easeIn; por área forma de S",
+   "sobrepaso": false,
+   "fuente": "referencias/animaciones-medidas/genio-y-restaurar/INDICE.md",
+   "ms": 433
+  },
+  "genio-restaurar": {
+   "curva": "borde superior ~default (0.25,0.1,0.25,1) o easeOut",
+   "sobrepaso": false,
+   "fuente": "referencias/animaciones-medidas/genio-y-restaurar/INDICE.md",
+   "ms": 450
+  },
+  "dock-lupa": {
+   "rango_ms": "133-150",
+   "factor_maximo": 2.0,
+   "factor_tolerancia": 0.05,
+   "alcance_anchos": 6,
+   "alcance_nota": "campana 1+(f-1)(1-(d/6)^2), d en anchos de ícono; ajusta los puntos medidos a +-0.1 (INDICE, perfil de la vecindad)",
+   "curva": "casi lineal",
+   "fuente": "referencias/animaciones-medidas/dock-lupa/INDICE.md",
+   "ms": 142
+  },
+  "launchpad-abrir": {
+   "rango_ms": "217-283",
+   "curva": "easeIn (0.42,0,1,1)",
+   "escala_inicial": "~1.05 (hipótesis)",
+   "fuente": "referencias/animaciones-medidas/launchpad/INDICE.md",
+   "ms": 250
+  },
+  "launchpad-cerrar": {
+   "rango_ms": "217-250",
+   "curva": "easeOut (0,0,0.58,1)",
+   "fuente": "referencias/animaciones-medidas/launchpad/INDICE.md",
+   "ms": 217
+  },
+  "mission-control-entrar": {
+   "rango_ms": "233-250",
+   "curva": "easeInEaseOut (0.42,0,0.58,1)",
+   "barra_spaces_alto_pt": 40,
+   "fuente": "referencias/animaciones-medidas/mission-control/INDICE.md",
+   "ms": 250
+  },
+  "spotlight-abrir": {
+   "cuadros": 1,
+   "nota": "opacidad 0 a 1 en un cuadro, sin escala",
+   "fuente": "referencias/animaciones-medidas/spotlight/INDICE.md"
+  },
+  "spotlight-contraer-al-borrar": {
+   "pasos": 4,
+   "fuente": "referencias/animaciones-medidas/spotlight/INDICE.md",
+   "ms": 67
+  },
+  "notification-center-entrar": {
+   "rango_ms": "200 visibles; ajuste 230-255",
+   "curva": "easeInEaseOut (lineal no se descarta)",
+   "ancho_panel_pt": 360,
+   "fuente": "referencias/animaciones-medidas/notification-center/INDICE.md",
+   "ms": 230
+  },
+  "notification-center-salir": {
+   "rango_ms": "150-167 visibles",
+   "curva": "easeInEaseOut (hipótesis, igual que entrar)",
+   "fuente": "referencias/animaciones-medidas/notification-center/INDICE.md",
+   "ms": 158
+  },
+  "control-center-cerrar": {
+   "rango_ms": "180-250",
+   "curva": "lineal (fundido)",
+   "fuente": "referencias/animaciones-medidas/control-center/INDICE.md",
+   "ms": 217
+  }
+ }
+}

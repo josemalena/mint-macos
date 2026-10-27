@@ -1,0 +1,34 @@
+{
+ "id": "animaciones",
+ "medido": "2026-10-27",
+ "precision": "un cuadro (16.7 ms), salvo el login (33 ms)",
+ "nota": "Medido en videos de pantalla; lo no medido no está. Ver fuente de cada animación.",
+ "comportamiento": {
+  "dock-lupa": {
+   "factor_maximo": 2.0,
+   "factor_tolerancia": 0.05,
+   "alcance_anchos": 6,
+   "curva": "easeInEaseOut",
+   "fuente": "referencias/animaciones-medidas/dock-lupa/INDICE.md",
+   "ms": 150
+  },
+  "mission-control-entrar": {
+   "rango_ms": "250-320 con cola",
+   "curva": "ninguna por omisión",
+   "fuente": "referencias/animaciones-medidas/mission-control/INDICE.md",
+   "ms": 250
+  },
+  "spotlight-expandir": {
+   "fuente": "referencias/animaciones-medidas/spotlight/INDICE.md",
+   "ms": 380
+  },
+  "control-center-abrir": {
+   "fuente": "referencias/animaciones-medidas/control-center/INDICE.md",
+   "ms": 200
+  },
+  "control-center-cerrar": {
+   "fuente": "referencias/animaciones-medidas/control-center/INDICE.md",
+   "ms": 183
+  }
+ }
+}

@@ -1,0 +1,55 @@
+{
+ "id": "animaciones",
+ "medido": "2026-10-27",
+ "precision": "un cuadro (16.7 ms), salvo el login (33 ms)",
+ "nota": "Medido en videos de pantalla; lo no medido no está. Ver fuente de cada animación.",
+ "comportamiento": {
+  "genio-minimizar": {
+   "fuente": "referencias/animaciones-medidas/genio-y-restaurar/INDICE.md",
+   "ms": 433
+  },
+  "genio-restaurar": {
+   "rango_ms": "417-433",
+   "fuente": "referencias/animaciones-medidas/genio-y-restaurar/INDICE.md",
+   "ms": 425
+  },
+  "dock-lupa": {
+   "factor_maximo": 2.0,
+   "factor_tolerancia": 0.05,
+   "alcance_anchos": 6,
+   "nota": "sin entrada en el video; el perfil de la vecindad empata con Monterey",
+   "fuente": "referencias/animaciones-medidas/dock-lupa/INDICE.md"
+  },
+  "launchpad-abrir": {
+   "curva": "easeIn",
+   "fuente": "referencias/animaciones-medidas/launchpad/INDICE.md",
+   "ms": 233
+  },
+  "launchpad-cerrar": {
+   "curva": "easeOut",
+   "fuente": "referencias/animaciones-medidas/launchpad/INDICE.md",
+   "ms": 217
+  },
+  "mission-control-entrar": {
+   "curva": "easeInEaseOut",
+   "fuente": "referencias/animaciones-medidas/mission-control/INDICE.md",
+   "ms": 250
+  },
+  "spotlight-abrir": {
+   "cuadros": 1,
+   "fuente": "referencias/animaciones-medidas/spotlight/INDICE.md"
+  },
+  "notification-center-entrar": {
+   "rango_ms": "183-200",
+   "ancho_panel_pt": 367,
+   "fuente": "referencias/animaciones-medidas/notification-center/INDICE.md",
+   "ms": 190
+  },
+  "notification-center-salir": {
+   "rango_ms": "150-167 visibles",
+   "curva": "easeInEaseOut (hipótesis, igual que entrar)",
+   "fuente": "referencias/animaciones-medidas/notification-center/INDICE.md",
+   "ms": 158
+  }
+ }
+}
