@@ -603,6 +603,30 @@ def botones_medidas(tema):
                 f"button, button.text-button {{ min-height: {BOTON_ALTO - BOTON_ALTO_EXTRA}px; }}\n")
 
 
+# El slider de Monterey. El .car (Aqua.car) solo trae la máscara de la perilla (Slider_KnobMask_Regular_Horizontal, 21×21 a 1x);
+# la pista, el relleno y la perilla los dibuja AppKit, así que los valores salen de la captura
+# 08-pref-com.apple.preference.displays-{claro,oscuro}.png (slider «Brightness», 1x): pista de 4 px (y=128..131) con el relleno
+# #1B85FB (27,133,251) y el resto #E0DEE0 (224,222,224) en claro; #206DE2 y #3E3A47 en oscuro; perilla blanca de 21 px (x=484..504,
+# con borde de 1 px) y sombra de 1 px debajo (y=140, 183 sobre 236). En oscuro la perilla de la captura es gris (148,146,153): puede ser
+# que la ventana estuviera inactiva, es hipótesis y se usa tal cual.
+SLIDER = {
+    False: dict(relleno="#206DE2", pista="#3E3A47", perilla="#949299", borde="rgba(0, 0, 0, 0.35)"),
+    True: dict(relleno="#1B85FB", pista="#E0DEE0", perilla="#FFFFFF", borde="rgba(0, 0, 0, 0.22)"),
+}
+
+
+def slider_medidas(tema, claro):
+    v = SLIDER[claro]
+    with open(os.path.join(tema, "gtk-3.0", "catalina.css"), "a") as f:
+        f.write(f"""
+/* Slider de Monterey (captura 08-pref-…displays: Brightness) */
+scale.horizontal trough {{ min-height: 4px; padding: 0; border: none; border-radius: 2px; background: {v['pista']}; }}
+scale.horizontal highlight, scale.horizontal fill {{ min-height: 4px; margin: 0; border: none; border-radius: 2px; background: {v['relleno']}; }}
+scale slider, scale slider:hover, scale slider:active {{ min-width: 21px; min-height: 21px; margin: -9px; border: 1px solid {v['borde']};
+  border-radius: 11px; background: {v['perilla']}; background-image: none; box-shadow: 0 1px 1px rgba(0, 0, 0, 0.18); }}
+""")
+
+
 MEDIDAS = None
 
 
@@ -632,6 +656,7 @@ def main():
     if por_version and MEDIDAS:
         marco_medidas(sys.argv[3], MEDIDAS)
         botones_medidas(sys.argv[3])
+        slider_medidas(sys.argv[3], claro)
     print(f"  controles de Catalina: {m} semáforos en metacity-1, {g} imágenes en gtk.gresource"
           f" y {c} piezas en catalina/")
 
