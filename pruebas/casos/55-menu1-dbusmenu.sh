@@ -10,6 +10,11 @@ import gi; gi.require_version("Gtk","3.0")
 from gi.repository import Gtk
 w=Gtk.Window(title="sin-menu"); w.set_wmclass("sinmenu","SinMenu"); w.show_all(); Gtk.main()'
   local w; w="$(esperar_ventana '[Ss]in[Mm]enu' 30)"
+  # un mac-menu de un caso anterior recuerda el xid (las ventanas de prueba repiten ids) y diría «ninguna»: se arranca uno nuevo
+  for p in $(pgrep -x mac-menu); do grep -qz "^HOME=$HOME\$" "/proc/$p/environ" 2>/dev/null && kill "$p"; done
+  # y el registrador (el de mint-macos o el de vala-panel) que un caso anterior hizo activar por D-Bus: tiene el nombre del Registrar y esta app es de mentira
+  for p in $(pgrep -f 'menu-global/mint-macos-registrador|menu-global/registrador.py|vala-panel/appmenu-registrar'); do grep -qz "^HOME=$HOME\$" "/proc/$p/environ" 2>/dev/null && kill "$p"; done
+  sleep 1.5
   lanzar mac-menu
   lanzar python3 "$MINT_MACOS_REPO/pruebas/ayudantes/dbusmenu-falso.py" "$w" "$reg"
   sleep 2
@@ -18,6 +23,10 @@ w=Gtk.Window(title="sin-menu"); w.set_wmclass("sinmenu","SinMenu"); w.show_all()
   f="$(llamar Fuente "$w")"; paso "Fuente: $f"
   b="$(llamar Barra "$w")"; paso "Barra: $b"
   case "$b" in *"'File'"*"'Edit'"*) ;; *) falla "la barra no trae File y Edit (sin el _): $b" ;; esac
+  # el menú propio de la app (x-constanza-app-menu): no es un menú de arriba y MenuApp lo devuelve
+  case "$b" in *FalsoApp*) falla "la barra repite el menú de la app marcado x-constanza-app-menu: $b" ;; esac
+  local ma; ma="$(llamar MenuApp "$w")"; paso "MenuApp: $ma"
+  case "$ma" in *"About FalsoApp"*"Quit FalsoApp"*) ;; *) falla "MenuApp no trae About y Quit del menú marcado: $ma" ;; esac
   local fid; fid="$(printf '%s' "$b" | grep -o "'id': <'d[0-9]*'>" | head -1 | grep -o "'d[0-9]*'" | tr -d "'")"
   local o; o="$(llamar Abrir "$w" "$fid")"; paso "File: $o"
   case "$o" in *"'New'"*) ;; *) falla "File no trae New: $o" ;; esac

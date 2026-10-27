@@ -21,6 +21,8 @@ namespace Menu {
         }
 
         public bool es_separador () { return texto ("type") == "separator"; }
+        /** x-constanza-app-menu = true: el menú propio de la app (convención de mint-macos, como en GTK): lo pinta appmenu, no la barra. */
+        public bool es_menu_app () { return bandera ("x-constanza-app-menu", false); }
         public bool visible () { return bandera ("visible", true); }
         public bool tiene_submenu () { return texto ("children-display") == "submenu" || hijos.length > 0; }
 
@@ -41,7 +43,8 @@ namespace Menu {
 
     public class FuenteDbusmenu : Fuente {
         const string IFAZ = "com.canonical.dbusmenu";
-        const string[] PROPS = { "type", "label", "enabled", "visible", "toggle-type", "toggle-state", "shortcut", "children-display" };
+        const int ESPERA_APP_MS = 150;
+        const string[] PROPS = { "type", "label", "enabled", "visible", "toggle-type", "toggle-state", "shortcut", "children-display", "x-constanza-app-menu" };
         DBusConnection con;
         string servicio;
         string ruta;
@@ -139,6 +142,7 @@ namespace Menu {
             for (int i = 0; i < raiz.hijos.length; i++) {
                 var h = raiz.hijos[i];
                 if (!h.visible () || h.es_separador () || limpiar_etiqueta (h.texto ("label")) == "") continue;
+                if (h.es_menu_app ()) continue;      // el menú de la app (Cocotron, Fynder…) no se repite entre los de arriba
                 var n = new Nodo ();
                 n.id = "d%d".printf (h.id);
                 n.tipo = "submenu";
@@ -199,7 +203,33 @@ namespace Menu {
         }
 
         public override async GenericArray<Nodo> menu_app () throws GLib.Error {
-            return new GenericArray<Nodo> ();
+            var res = new GenericArray<Nodo> ();
+            ItemD raiz;
+            try {
+                raiz = yield arbol (0);
+            } catch (GLib.Error e) {
+                return res;
+            }
+            for (int i = 0; i < raiz.hijos.length; i++) {
+                var h = raiz.hijos[i];
+                if (!h.es_menu_app () || !h.tiene_submenu ()) continue;
+                // los hijos del menú marcado, aplanados como en GTK; se pide el submenú por si la app lo arma en AboutToShow
+                ItemD sub = h;
+                try {
+                    yield antes_de_abrir (h.id, ESPERA_APP_MS);
+                    sub = yield arbol (h.id);
+                } catch (GLib.Error e) {
+                }
+                for (int j = 0; j < sub.hijos.length; j++) {
+                    var c = sub.hijos[j];
+                    if (!c.visible ()) continue;
+                    if (!c.es_separador () && c.texto ("label") == "" && !c.tiene_submenu ()) continue;
+                    res.add (a_nodo (c));
+                }
+                break;
+            }
+            limpiar_separadores (res);
+            return res;
         }
     }
 }

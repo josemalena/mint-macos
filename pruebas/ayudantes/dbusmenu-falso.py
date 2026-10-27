@@ -40,7 +40,10 @@ def arbol():
     archivo = (1, d_(label="_File", **{"children-display": "submenu"}),
                [GLib.Variant("(ia{sv}av)", h) for h in [hoja(2, "_New", shortcut=True), (3, d_(type="separator"), []), hoja(4, "Quit")]])
     edicion = (5, d_(label="_Edit", **{"children-display": "submenu"}), [GLib.Variant("(ia{sv}av)", hoja(6, "Copy", enabled=False))])
-    return (0, {}, [GLib.Variant("(ia{sv}av)", archivo), GLib.Variant("(ia{sv}av)", edicion)])
+    # El menú propio de la app (Cocotron, Fynder): primer hijo de la raíz, marcado x-constanza-app-menu
+    app = (8, d_(label="FalsoApp", **{"children-display": "submenu", "x-constanza-app-menu": True}),
+           [GLib.Variant("(ia{sv}av)", h) for h in [hoja(9, "About FalsoApp"), (10, d_(type="separator"), []), hoja(11, "Quit FalsoApp")]])
+    return (0, {}, [GLib.Variant("(ia{sv}av)", app), GLib.Variant("(ia{sv}av)", archivo), GLib.Variant("(ia{sv}av)", edicion)])
 
 def raiz():
     r = arbol()
@@ -57,11 +60,27 @@ def buscar(v, i):
             return r
     return None
 
+def filtrar(v, nombres):
+    """Como libdbusmenu: solo las propiedades que el cliente pide (propertyNames; vacío = todas), en todo el subárbol."""
+    i = v.get_child_value(0).get_int32()
+    dic = v.get_child_value(1)
+    props = {}
+    for k in range(dic.n_children()):
+        par = dic.get_child_value(k)
+        nombre = par.get_child_value(0).get_string()
+        if not nombres or nombre in nombres:
+            props[nombre] = par.get_child_value(1).get_variant()
+    av = v.get_child_value(2)
+    hijos = [filtrar(av.get_child_value(k).get_variant(), nombres) for k in range(av.n_children())]
+    return GLib.Variant("(ia{sv}av)", (i, props, hijos))
+
 def metodo_menu(con, remitente, ruta, ifaz, nombre, params, inv):
     if nombre == "GetLayout":
-        padre = params.unpack()[0]
+        padre, _prof, nombres = params.unpack()
         # Como el servidor real: el subárbol que pide el cliente.
         sub = buscar(raiz(), padre)
+        if nombres:
+            sub = filtrar(sub, nombres)
         inv.return_value(GLib.Variant.new_tuple(GLib.Variant.new_uint32(1), sub))
     elif nombre == "AboutToShow":
         anotar("AboutToShow %d" % params.unpack()[0])
