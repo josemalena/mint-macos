@@ -25,7 +25,15 @@ export FYNDER_VERSION
 echo "Compilando Fynder $HASH desde HEAD (puede tardar unos minutos)..."
 mkdir "$TMP/src"
 git -C "$REPO" archive HEAD | tar -x -C "$TMP/src"
-meson setup "$TMP/build" "$TMP/src" >"$TMP/setup.log" 2>&1 || { tail -20 "$TMP/setup.log"; exit 1; }
+# La versión de macOS escogida (perfiles/ESQUEMA.md): Fynder compila el mismo
+# perfil-macos.vala que las demás piezas. Un Fynder viejo, sin la opción, no la recibe.
+OPCIONES=""
+PERFIL="$(cd "$(dirname "$0")/.." && pwd)/perfiles/vala/perfil-macos.vala"
+if grep -q "perfil_macos" "$TMP/src/meson_options.txt"; then
+  OPCIONES="-Dperfil_macos=$PERFIL"
+fi
+# shellcheck disable=SC2086 # OPCIONES vacío o una sola opción sin espacios
+meson setup $OPCIONES "$TMP/build" "$TMP/src" >"$TMP/setup.log" 2>&1 || { tail -20 "$TMP/setup.log"; exit 1; }
 # con prioridad baja y dos trabajos: José trabaja en la computadora mientras compila (18-10-2026)
 nice -n 19 ionice -c3 meson compile -j 2 -C "$TMP/build" >"$TMP/compile.log" 2>&1 || { tail -30 "$TMP/compile.log"; exit 1; }
 
