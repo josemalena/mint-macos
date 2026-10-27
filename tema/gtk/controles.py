@@ -684,6 +684,7 @@ PIEZAS_MONTEREY = {
     "boton": "PushButton_PushButton_Regular",
     "ayuda": "RoundHelpButton_Regular",
     "pulldown": "PullDownButton_PullDownButton_Regular",
+    "disclosure": "DisclosureButton_Regular",
     "seg-pista": "SegmentedControlSlider_SegmentedControl_Regular",
     "seg-pastilla": "SegmentedControlSlider_RoundedSegmentBezel_Regular",
 }
@@ -754,10 +755,20 @@ def segmentos_pestanas(carpeta, p):
         c += (f"{B}:not(:first-child) {{\n"
               '  background: -gtk-scaled(url("catalina/seg-sep.png"), url("catalina/seg-sep@2.png")) left center no-repeat; }\n'
               f"{B}:checked, {B}:checked + button {{ background-image: none; }}\n")
-    c += (f"{B}:checked, {B}:active {{\n{tres_('seg-pastilla')}\n  color: @catalina_texto; }}\n"
-          f"{B}:checked:active {{\n{tres_('seg-pastilla-apretada') if 'seg-pastilla-apretada' in hechas else tres_('seg-pastilla')} }}\n"
+    # La pastilla va plana (color + radio + sombra leída de la imagen), no en tres partes: es un relleno uniforme translúcido y el corte en tres dejaba
+    # una raya clara u oscura en cada punta (en oscuro, blanco con alfa 64: el solape se ve doble y la costura, un hueco).
+    def pastilla(nombre):
+        from PIL import Image as _I
+        img = _I.open(os.path.join(carpeta, nombre + ".png")).convert("RGBA")
+        r, g, b_, a = img.getpixel((img.width // 2, img.height // 2))
+        sombra = img.getpixel((img.width // 2, img.height - 1))
+        sombra_css = f"0 1px 1px rgba(0, 0, 0, {sombra[3] / 255:.2f})" if sombra[3] > 6 and sombra[:3] == (0, 0, 0) else "none"
+        return (f"  border: none; border-radius: 6px; background-image: none; background-color: rgba({r}, {g}, {b_}, {a / 255:.3f});\n"
+                f"  box-shadow: {sombra_css}; color: @catalina_texto;")
+    c += (f"{B}:checked, {B}:active {{\n{pastilla('seg-pastilla')} }}\n"
+          f"{B}:checked:active {{\n{pastilla('seg-pastilla-apretada') if 'seg-pastilla-apretada' in hechas else pastilla('seg-pastilla')} }}\n"
           f"{B}:disabled {{ opacity: 0.5; }}\n"
-          f"{B}:checked:backdrop {{\n{tres_('seg-pastilla-sin-foco') if 'seg-pastilla-sin-foco' in hechas else tres_('seg-pastilla')} }}\n")
+          f"{B}:checked:backdrop {{\n{pastilla('seg-pastilla-sin-foco') if 'seg-pastilla-sin-foco' in hechas else pastilla('seg-pastilla')} }}\n")
     return c
 
 
@@ -796,6 +807,41 @@ def pulldown(carpeta, p):
         if img in imgs:
             c += f"{sel(estado)} {{\n{tres_(img)} }}\n"
     c += "button.pulldown arrow, menubutton.pulldown > button arrow { -gtk-icon-source: none; min-width: 0; min-height: 0; margin: 0; padding: 0; }\n"
+    return c
+
+
+def disclosure(carpeta, p):
+    """El botón de acción de Monterey: un chevron ⌄ (⌃ al estar abierto) sin cuerpo (DisclosureButton_Regular, 28x26, imagen fija; el menú de
+    acción de la barra del Finder). Clase «accion-disclosure» en un MenuButton (o Button) con solo ícono: la app la pone; aquí solo se dibuja.
+    Estados: apretado, deshabilitado y sin foco. El ícono de GTK se oculta (la imagen ya trae el chevron)."""
+    hechas = []
+    variantes = {"disclosure": (0, 0, 0), "disclosure-abierto": (0, 0, 1), "disclosure-apretado": (0, 2, 0), "disclosure-desactivado": (0, 4, 0),
+                 "disclosure-sin-foco": (1, 0, 0)}
+    for esc in (1, 2):
+        sufijo = "@2" if esc == 2 else ""
+        for nombre, (pres, estado, valor) in variantes.items():
+            img = p.get(("disclosure", esc, pres, estado, valor, 0, 0))
+            if img is None:
+                continue
+            img.save(os.path.join(carpeta, nombre + sufijo + ".png"))
+            if esc == 1:
+                hechas.append(nombre)
+    if "disclosure" not in hechas:
+        return ""
+
+    def fondo(img):
+        return (f"  min-width: 22px; min-height: 22px; padding: 0; border: none; border-radius: 0; box-shadow: none; background-color: transparent;\n"
+                f'  background-image: -gtk-scaled(url("catalina/{img}.png"), url("catalina/{img}@2.png")); background-position: center; background-size: 28px 26px;\n'
+                "  background-repeat: no-repeat;")
+    c = "\n/* Botón de acción de Monterey (controles.py, disclosure): clase «accion-disclosure» */\n"
+    base = "button.accion-disclosure, menubutton.accion-disclosure > button"
+    c += f"{base}, {base}:hover {{\n{fondo('disclosure')} }}\n"
+    for estado, img in ((":checked", "disclosure-abierto"), (":active", "disclosure-apretado"), (":disabled", "disclosure-desactivado"),
+                        (":backdrop", "disclosure-sin-foco")):
+        if img in hechas:
+            c += ",\n".join(f"{b}{estado}" for b in base.split(", ")) + f" {{\n{fondo(img)} }}\n"
+    c += ("button.accion-disclosure image, button.accion-disclosure arrow, menubutton.accion-disclosure > button image, "
+          "menubutton.accion-disclosure > button arrow { -gtk-icon-source: none; min-width: 0; min-height: 0; margin: 0; padding: 0; opacity: 0; }\n")
     return c
 
 
@@ -861,6 +907,7 @@ def monterey_botones(tema, oscuros, claro, acento=None):
         css_ += "button.suggested-action:backdrop, button.default:backdrop { color: #262626; }\n"
     css_ += segmentos_pestanas(carpeta, p)
     css_ += pulldown(carpeta, p)
+    css_ += disclosure(carpeta, p)
     if "ayuda" in hechos:
         def redondo(img):
             return ("  min-width: 22px; min-height: 22px; padding: 0; border: none; border-radius: 0; box-shadow: none; text-shadow: none;\n"
