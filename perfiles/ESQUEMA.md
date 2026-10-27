@@ -98,6 +98,21 @@ con el primer panel; el piloto son los menús.
 del Dock al abrir y al pedir atención, las animaciones de Mission Control…), cada uno con su
 `fuente`.
 
+Las animaciones medidas en los videos (fase A, 27-10-2026) van en `apps/animaciones.json`, con esta forma:
+
+```json
+{"id": "animaciones", "medido": "2026-10-27", "precision": "un cuadro (16.7 ms), salvo el login (33 ms)",
+ "comportamiento": {
+   "launchpad-abrir": {"ms": 250, "rango_ms": "217-283", "curva": "easeIn (0.42,0,1,1)",
+                       "escala_inicial": "~1.05 (hipótesis)", "fuente": "referencias/animaciones-medidas/launchpad/INDICE.md"}}}
+```
+
+- `ms`: la duración central; `rango_ms` cuando las tomas o las versiones difieren; `curva`: la más cercana de las curvas por omisión
+  del motor (linear, easeIn, easeOut, easeInEaseOut, default; si ninguna coincide, se dice); `cuadros` cuando la animación es de uno o pocos cuadros.
+- Lo que no se pudo medir **no se escribe**: una clave ausente significa «no medido», no «cero».
+- Los números de cada animación se calculan con `animaciones-medidas/herramientas/` (local, como las referencias) y el generador
+  (`generar-comportamiento.py`) los escribe en los perfiles; `perfiles/generar.py` no debe borrar `apps/animaciones.json` al regenerar.
+
 ## Librerías
 
 - Python: `perfiles/macos_version.py` — `activa()`, `perfil(app)`, `menu(app, id_menu)`,
