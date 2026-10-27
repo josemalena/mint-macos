@@ -161,28 +161,29 @@ namespace Preferencias {
             string id;
             string nombre;
             string seccion;
+            string icono;        // el nombre del ícono del .car del panel (iconos-monterey/Dock/<icono>.png)
             string applet;       // uuid de la miniapp de la barra, o "" si aquí no hay equivalente (la casilla va en gris)
             string nota;         // «X is always available in Control Center.» y demás
         }
 
         Gtk.Widget construir_con_barra () {
             Modulo[] modulos = {
-                Modulo () { id = "wifi", nombre = "Wi-Fi", seccion = "Control Center", applet = "network@cinnamon.org", nota = "Wi-Fi is always available in Control Center." },
-                Modulo () { id = "bluetooth", nombre = "Bluetooth", seccion = "Control Center", applet = "", nota = "Bluetooth is always available in Control Center." },
-                Modulo () { id = "airdrop", nombre = "AirDrop", seccion = "Control Center", applet = "", nota = "AirDrop is always available in Control Center." },
-                Modulo () { id = "focus", nombre = "Focus", seccion = "Control Center", applet = "", nota = "Focus is always available in Control Center." },
-                Modulo () { id = "mirroring", nombre = "Screen Mirroring", seccion = "Control Center", applet = "", nota = "Screen Mirroring is always available in Control Center." },
-                Modulo () { id = "display", nombre = "Display", seccion = "Control Center", applet = "", nota = "Display is always available in Control Center." },
-                Modulo () { id = "sound", nombre = "Sound", seccion = "Control Center", applet = "sound@cinnamon.org", nota = "Sound is always available in Control Center." },
-                Modulo () { id = "nowplaying", nombre = "Now Playing", seccion = "Control Center", applet = "", nota = "Now Playing is always available in Control Center." },
-                Modulo () { id = "accesibilidad", nombre = "Accessibility Shortcuts", seccion = "Other Modules", applet = "", nota = "" },
-                Modulo () { id = "bateria", nombre = "Battery", seccion = "Other Modules", applet = "power@cinnamon.org", nota = "" },
-                Modulo () { id = "usuarios", nombre = "Fast User Switching", seccion = "Other Modules", applet = "usuario@macos", nota = "" },
-                Modulo () { id = "oido", nombre = "Hearing", seccion = "Other Modules", applet = "", nota = "" },
-                Modulo () { id = "reloj", nombre = "Clock", seccion = "Menu Bar Only", applet = "calendar@cinnamon.org", nota = "" },
-                Modulo () { id = "spotlight", nombre = "Spotlight", seccion = "Menu Bar Only", applet = "buscar@macos", nota = "" },
-                Modulo () { id = "siri", nombre = "Siri", seccion = "Menu Bar Only", applet = "", nota = "" },
-                Modulo () { id = "timemachine", nombre = "Time Machine", seccion = "Menu Bar Only", applet = "", nota = "" }
+                Modulo () { id = "wifi", icono = "WiFi", nombre = "Wi-Fi", seccion = "Control Center", applet = "network@cinnamon.org", nota = "Wi-Fi is always available in Control Center." },
+                Modulo () { id = "bluetooth", icono = "Bluetooth", nombre = "Bluetooth", seccion = "Control Center", applet = "", nota = "Bluetooth is always available in Control Center." },
+                Modulo () { id = "airdrop", icono = "AirDrop", nombre = "AirDrop", seccion = "Control Center", applet = "", nota = "AirDrop is always available in Control Center." },
+                Modulo () { id = "focus", icono = "FocusModes", nombre = "Focus", seccion = "Control Center", applet = "", nota = "Focus is always available in Control Center." },
+                Modulo () { id = "mirroring", icono = "ScreenMirroring", nombre = "Screen Mirroring", seccion = "Control Center", applet = "", nota = "Screen Mirroring is always available in Control Center." },
+                Modulo () { id = "display", icono = "Display", nombre = "Display", seccion = "Control Center", applet = "", nota = "Display is always available in Control Center." },
+                Modulo () { id = "sound", icono = "Sound", nombre = "Sound", seccion = "Control Center", applet = "sound@cinnamon.org", nota = "Sound is always available in Control Center." },
+                Modulo () { id = "nowplaying", icono = "NowPlaying", nombre = "Now Playing", seccion = "Control Center", applet = "", nota = "Now Playing is always available in Control Center." },
+                Modulo () { id = "accesibilidad", icono = "AccessibilityShortcuts", nombre = "Accessibility Shortcuts", seccion = "Other Modules", applet = "", nota = "" },
+                Modulo () { id = "bateria", icono = "Battery", nombre = "Battery", seccion = "Other Modules", applet = "power@cinnamon.org", nota = "" },
+                Modulo () { id = "usuarios", icono = "UserSwitcher", nombre = "Fast User Switching", seccion = "Other Modules", applet = "usuario@macos", nota = "" },
+                Modulo () { id = "oido", icono = "Hearing", nombre = "Hearing", seccion = "Other Modules", applet = "", nota = "" },
+                Modulo () { id = "reloj", icono = "Clock", nombre = "Clock", seccion = "Menu Bar Only", applet = "calendar@cinnamon.org", nota = "" },
+                Modulo () { id = "spotlight", icono = "Spotlight", nombre = "Spotlight", seccion = "Menu Bar Only", applet = "buscar@macos", nota = "" },
+                Modulo () { id = "siri", icono = "Siri", nombre = "Siri", seccion = "Menu Bar Only", applet = "", nota = "" },
+                Modulo () { id = "timemachine", icono = "TimeMachine", nombre = "Time Machine", seccion = "Menu Bar Only", applet = "", nota = "" }
             };
             var caja = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 0);
             caja.get_style_context ().add_class ("mp-propio");
@@ -196,7 +197,15 @@ namespace Preferencias {
             var t_dock = new Gtk.Label ("Dock & Menu Bar");
             t_dock.xalign = 0;
             t_dock.margin = 8;
-            fila_dock.add (t_dock);
+            var caja_dock = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 8);
+            var ic_dock = IconosCatalina.de_modulo_dock ("DockAndMenuBar");
+            if (ic_dock != null) {
+                ic_dock.margin_start = 8;
+                caja_dock.pack_start (ic_dock, false, false, 0);
+                t_dock.margin_start = 0;
+            }
+            caja_dock.pack_start (t_dock, false, false, 0);
+            fila_dock.add (caja_dock);
             lista.add (fila_dock);
             pila.add_named (pagina_dock (), "dock");
             string seccion_actual = "";
@@ -224,7 +233,17 @@ namespace Preferencias {
                 v.pack_start (n, false, false, 0);
                 v.pack_start (sub, false, false, 0);
                 v.margin = 8;
-                fila.add (v);
+                var ic = IconosCatalina.de_modulo_dock (m.icono);
+                if (ic != null) {
+                    var h = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 8);
+                    ic.margin_start = 8;
+                    h.pack_start (ic, false, false, 0);
+                    v.margin_start = 0;
+                    h.pack_start (v, true, true, 0);
+                    fila.add (h);
+                } else {
+                    fila.add (v);
+                }
                 lista.add (fila);
                 pila.add_named (m.id == "reloj" ? new PanelDateTime ().pagina_reloj () : pagina_modulo (m.nombre, m.applet, m.nota, sub), m.id);
             }

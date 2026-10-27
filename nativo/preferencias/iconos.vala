@@ -51,6 +51,11 @@ namespace Preferencias {
             return imagen (buscar (Path.build_filename (casa (), "iconos-catalina-deepmap2", "ScreenTime"), nombre + "-*@2x.png"), tam);
         }
 
+        /** El ícono de un módulo de Dock & Menu Bar de Monterey («WiFi», «Sound», «Clock»…): perfiles/iconos-modulos-monterey.sh los copia del .car del panel. */
+        public Gtk.Image? de_modulo_dock (string nombre, int tam = 24) {
+            return imagen (Path.build_filename (casa (), "iconos-monterey", "Dock", nombre + ".png"), tam);
+        }
+
         public Gtk.Image? de_atajos (string categoria, int tam = 16) {
             return imagen (buscar (Path.build_filename (casa (), "iconos-catalina-deepmap2", "shortcuts"),
                                    "category_%s-32x32@2x.png".printf (categoria)), tam);

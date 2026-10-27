@@ -26,6 +26,12 @@ prueba() {
   [ -d "$esq" ] && export GSETTINGS_SCHEMA_DIR="$esq"
   trap "gsettings reset org.cinnamon enabled-applets" EXIT
   gsettings set org.cinnamon enabled-applets "['panel1:left:1:applemenu@macos:24', 'panel1:right:8:network@cinnamon.org:26', 'panel1:right:9:sound@cinnamon.org:11']"
+  # los íconos de los módulos (de las referencias de la máquina, si están): el script los copia al HOME de prueba
+  if [ -d "$PRUEBAS_HOME_REAL/.local/share/mint-macos/referencias" ]; then
+    mkdir -p "$HOME/.local/share/mint-macos"
+    ln -sfn "$PRUEBAS_HOME_REAL/.local/share/mint-macos/referencias" "$HOME/.local/share/mint-macos/referencias"
+    XDG_DATA_HOME="$HOME/.local/share" "$MINT_MACOS_REPO/perfiles/iconos-modulos-monterey.sh" >&2 || true
+  fi
   local volcado atspi; atspi="$(dirname "$PRUEBAS_LIB")/atspi.py"
   abrir monterey-12.7.6 com.apple.preference.dock "Control Center"
   volcado="$(python3 "$atspi" --pid "$PID" --volcar 2>&1)"
@@ -35,6 +41,7 @@ prueba() {
   paso "Monterey: la barra lateral con sus tres secciones"; captura barra-lateral
   # Wi-Fi: la casilla «Show in Menu Bar» quita su applet de la barra (network@cinnamon.org) y no toca los otros
   python3 "$atspi" --pid "$PID" --texto "Wi-Fi" --clic --segundos 10 > /dev/null 2>&1 || falla "no pude escoger «Wi-Fi» en la barra lateral"
+  sleep 1.5   # (la página tarda en cambiar con la máquina cargada)
   python3 "$atspi" --pid "$PID" --texto "Show in Menu Bar" --segundos 10 > /dev/null 2>&1 || falla "no salió «Show in Menu Bar» en la página de Wi-Fi"
   python3 "$atspi" --pid "$PID" --texto "Show in Menu Bar" --pulsar --segundos 10 > /dev/null 2>&1 || falla "no pude apagar «Show in Menu Bar»"
   sleep 1

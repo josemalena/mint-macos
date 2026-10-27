@@ -34,6 +34,8 @@ X-GNOME-Autostart-enabled=true
 NoDisplay=true
 FIN
 nice -n 19 python3 -I "$AQUI/generar.py"
+# Los íconos de los módulos de Dock & Menu Bar de Monterey (del .car del panel, en las referencias); sin ellas la fila va sin ícono.
+"$AQUI/iconos-modulos-monterey.sh" || true
 # Los temas de íconos de Apple (Mint-Macos-<versión>) de las versiones cuyos glifos ya están en las referencias de esta máquina (paso «simbolos»
 # de car-mac); se instalan, no se activan.
 for d in "${XDG_DATA_HOME:-$HOME/.local/share}"/mint-macos/referencias/simbolos-*/*/; do
