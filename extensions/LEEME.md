@@ -12,6 +12,7 @@ todo como estaba.
 | Extensión | Qué hace |
 |---|---|
 | `cmdtab@macos` | el ⌘Tab de Catalina; encendida reemplaza el selector de Cinnamon, apagada vuelve el de Cinnamon |
+| `sombras@macos` | la sombra de las ventanas con lo medido en la Mac (`apps/efectos.json` del perfil, por Meta.ShadowFactory); sin sombra medida queda la de Cinnamon |
 | `misioncontrol@macos` | ⌃↑ todas las ventanas, ⌃↓ las de la app del frente, ⌃← ⌃→ entre escritorios (necesita la capa `[control]` de `keyd/default.conf`) |
 | `entrada@macos` | la espera de Catalina al iniciar sesión (abajo) |
 | `magiclamp.sh` y `parches/` | el efecto genio de [Magic Lamp](https://github.com/klangman/CinnamonMagicLamp) (de klangman, no es de este repo): se baja en un commit fijo y se le aplica `parches/magiclamp-sin-icono-va-al-dock.patch` (una ventana sin ícono en el panel va al Dock) |

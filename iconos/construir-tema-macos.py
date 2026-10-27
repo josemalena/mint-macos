@@ -2,9 +2,11 @@
 """Instala el tema de íconos Mint-Macos-<versión> (los glifos de Apple de esa versión, hechos por el paso «simbolos» de car-mac) en
 $XDG_DATA_HOME/icons (~/.local/share/icons). No lo activa: activarlo en la sesión es decisión de José.
 
-    construir-tema-macos.py VERSIÓN [--origen CARPETA] [--hereda TEMA] [--quitar]
+    construir-tema-macos.py VERSIÓN [--salida SAL | --origen CARPETA] [--hereda TEMA] [--quitar]
 
 - VERSIÓN: 12.7.6, 27.0.1… (el nombre del tema es Mint-Macos-<versión>).
+- --salida: la carpeta de salida de extraer-mac de la máquina del usuario (<SAL>, con <SAL>/iconos-simbolicos/Mint-Macos-<versión>/); también
+  vale la variable MINT_MACOS_SALIDA. Se busca ahí primero; el migrador la usa así.
 - --origen: la carpeta Mint-Macos-<versión> que dejó car-mac («<SAL>/iconos-simbolicos/Mint-Macos-<versión>/»); por omisión se busca en
   ~/.local/share/mint-macos/referencias/simbolos-*/<versión>/. Son de Apple: se quedan en la máquina, nunca en el repo ni en el paquete.
 - --hereda: el tema de íconos que va debajo (el de la versión: Constanza o Samaná; si no existe en esta máquina, Constanza), y después
@@ -17,7 +19,13 @@ ICONOS = os.path.join(DATOS, 'icons')
 REFS = os.path.join(DATOS, 'mint-macos', 'referencias')
 
 
-def buscar_origen(version):
+def buscar_origen(version, salida=None):
+    """Primero la salida de extraer-mac del usuario (--salida o MINT_MACOS_SALIDA), después las referencias de la máquina de trabajo."""
+    for sal in (salida, os.environ.get('MINT_MACOS_SALIDA')):
+        if sal:
+            c = os.path.join(sal, 'iconos-simbolicos', 'Mint-Macos-' + version)
+            if os.path.isfile(os.path.join(c, 'index.theme')):
+                return c
     for c in sorted(glob.glob(os.path.join(REFS, 'simbolos-*', version, '*', 'iconos-simbolicos', 'Mint-Macos-' + version)), reverse=True):
         if os.path.isfile(os.path.join(c, 'index.theme')):
             return c
@@ -49,7 +57,8 @@ def main():
     if '--quitar' in a:
         shutil.rmtree(destino, ignore_errors=True)
         print('quitado', destino); return 0
-    origen = a[a.index('--origen') + 1] if '--origen' in a else buscar_origen(version)
+    salida = a[a.index('--salida') + 1] if '--salida' in a else None
+    origen = a[a.index('--origen') + 1] if '--origen' in a else buscar_origen(version, salida)
     if not origen or not os.path.isfile(os.path.join(origen, 'index.theme')):
         print('no encuentro los glifos de %s (paso «simbolos» de car-mac): %s' % (version, origen or 'sin carpeta'), file=sys.stderr)
         return 1

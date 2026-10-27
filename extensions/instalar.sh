@@ -11,6 +11,8 @@
 #   misioncontrol@macos  ⌃↑ todas las ventanas, ⌃↓ las de la app del frente,
 #                        ⌃← ⌃→ entre escritorios (necesita la capa [control]
 #                        de keyd/default.conf).
+#   sombras@macos        la sombra de las ventanas medida en la Mac (perfil: apps/efectos.json);
+#                        sin sombra medida queda la de Cinnamon.
 #   entrada@macos        la espera de Catalina al iniciar sesión: solo el
 #                        fondo, y la barra de menú con un fundido cuando iCloud
 #                        y el escritorio de Fynder están listos.
@@ -21,7 +23,7 @@ set -euo pipefail
 
 AQUI="$(cd "$(dirname "$0")" && pwd)"
 DESTINO="$HOME/.local/share/cinnamon/extensions"
-EXTENSIONES=(cmdtab@macos misioncontrol@macos entrada@macos)
+EXTENSIONES=(cmdtab@macos misioncontrol@macos entrada@macos sombras@macos)
 ENCENDER=false
 [ "${1:-}" = "--encender" ] && ENCENDER=true
 

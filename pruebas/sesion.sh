@@ -82,15 +82,15 @@ poner_gestor() {
         # El perfil de Monterey del repo (las medidas, no las de la máquina): lo leen las extensiones y los applets al arrancar.
         mkdir -p "$XDG_CONFIG_HOME/mint-macos" "$XDG_DATA_HOME/mint-macos/macos/monterey-12.7.6/apps"
         echo '{"version": "monterey-12.7.6"}' > "$XDG_CONFIG_HOME/mint-macos/macos.json"
-        cp "$MINT_MACOS_REPO/perfiles/monterey-12.7.6/animaciones.json" "$XDG_DATA_HOME/mint-macos/macos/monterey-12.7.6/apps/"
+        cp "$MINT_MACOS_REPO/perfiles/monterey-12.7.6/animaciones.json" "$MINT_MACOS_REPO/perfiles/monterey-12.7.6/efectos.json" "$XDG_DATA_HOME/mint-macos/macos/monterey-12.7.6/apps/"
         ML="$PRUEBAS_HOME_REAL/.local/share/cinnamon/extensions/CinnamonMagicLamp@klangman"
         if [ -d "$ML" ]; then
           cp -r "$ML" "$XDG_DATA_HOME/cinnamon/extensions/"
           patch -s -N -p1 -d "$XDG_DATA_HOME/cinnamon/extensions/CinnamonMagicLamp@klangman" \
             < "$MINT_MACOS_REPO/extensions/parches/magiclamp-duracion-del-perfil.patch" > /dev/null || true
-          gsettings set org.cinnamon enabled-extensions "['cmdtab@macos', 'misioncontrol@macos', 'CinnamonMagicLamp@klangman']"
+          gsettings set org.cinnamon enabled-extensions "['cmdtab@macos', 'misioncontrol@macos', 'sombras@macos', 'CinnamonMagicLamp@klangman']"
         else
-          gsettings set org.cinnamon enabled-extensions "['cmdtab@macos', 'misioncontrol@macos']"
+          gsettings set org.cinnamon enabled-extensions "['cmdtab@macos', 'misioncontrol@macos', 'sombras@macos']"
         fi
         gsettings set org.cinnamon desktop-effects true
         gsettings set org.cinnamon startup-animation false

@@ -1,0 +1,13 @@
+{
+ "id": "efectos",
+ "medido": "2026-10-27",
+ "nota": "Efectos de ventana medidos en capturas; lo que no está aquí no se midió. HIPÓTESIS donde se dice.",
+ "ventana": {
+  "sombra": {
+   "activa": {"sigma_px": 17, "opacidad": 0.32, "desplazamiento_y_px": 10, "nota": "ajuste gaussiano en la captura, tema claro; en oscuro la amplitud sale de 0.5-0.65 con ruido (hipótesis)"},
+   "inactiva": {"sigma_px": 12, "opacidad": 0.24, "desplazamiento_y_px": 8, "nota": "sigma y amplitud medidas; el desplazamiento es hipótesis (no hay captura de los lados ni de arriba)"},
+   "fuente": "referencias/trabajo-samana-20261026/efectos/INFORME.md (capturas 15-force-quit-*); los .car no traen offset ni blur"
+  },
+  "esquina_px": {"valor": 10.33, "fuente": "referencias/trabajo-samana-20261026/efectos/INFORME.md (capturas con alfa)"}
+ }
+}

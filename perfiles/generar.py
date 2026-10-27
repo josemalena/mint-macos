@@ -529,15 +529,20 @@ def generar(version, raices=None, medidas=None):
     return info
 
 
-def copiar_animaciones(version):
-    """perfiles/<versión>/animaciones.json (medidas nuestras, versionadas) a apps/animaciones.json del perfil generado."""
-    fuente = os.path.join(os.path.dirname(os.path.abspath(__file__)), version, 'animaciones.json')
-    if not os.path.isfile(fuente):
-        return 'sin medidas'
-    destino = os.path.join(SALIDA, version, 'apps')
-    os.makedirs(destino, exist_ok=True)
-    shutil.copyfile(fuente, os.path.join(destino, 'animaciones.json'))
-    return 'ok'
+def copiar_medidas_propias(version):
+    """perfiles/<versión>/animaciones.json y efectos.json (medidas nuestras, versionadas) a apps/ del perfil generado."""
+    aqui = os.path.join(os.path.dirname(os.path.abspath(__file__)), version)
+    estado = {}
+    for nombre in ('animaciones', 'efectos'):
+        fuente = os.path.join(aqui, nombre + '.json')
+        if not os.path.isfile(fuente):
+            estado[nombre] = 'sin medidas'
+            continue
+        destino = os.path.join(SALIDA, version, 'apps')
+        os.makedirs(destino, exist_ok=True)
+        shutil.copyfile(fuente, os.path.join(destino, nombre + '.json'))
+        estado[nombre] = 'ok'
+    return estado
 
 
 def main():
@@ -553,7 +558,7 @@ def main():
     medidas = args[args.index('--medidas') + 1] if '--medidas' in args else None
     for v in ([version] if version else list(VERSIONES)):
         info = generar(v, raices, medidas)
-        info['partes']['animaciones'] = copiar_animaciones(v)
+        info['partes'].update(copiar_medidas_propias(v))
         # version.json se escribió antes de copiar las medidas: se pone al día para que quede el estado («ok» o «sin medidas»)
         ruta = os.path.join(SALIDA, v, 'version.json')
         if os.path.isfile(ruta):

@@ -17,6 +17,14 @@ prueba() {
   done < <(python3 -I "$aqui/ayudantes/icono-del-tema.py" Mint-Macos-12.7.6 edit-copy-symbolic edit-cut-symbolic folder-symbolic user-trash-symbolic user-home-symbolic printer-symbolic drive-harddisk-symbolic preferences-system-symbolic)
   [ "$fallan" = 0 ] || falla "$fallan de $n íconos no salen del tema o no se pintan"
   paso "$n íconos salen del tema de Apple y se recolorean"
+  # la salida de extraer-mac de la máquina del usuario (<SAL>/iconos-simbolicos/Mint-Macos-<versión>): con --salida y con MINT_MACOS_SALIDA
+  local sal="$PRUEBAS_RES/sal"; rm -rf "$sal"; mkdir -p "$sal/iconos-simbolicos"; cp -r "$ref" "$sal/iconos-simbolicos/"
+  rm -rf "$XDG_DATA_HOME/icons/Mint-Macos-12.7.6"
+  python3 -I "$aqui/../iconos/construir-tema-macos.py" 12.7.6 --salida "$sal" --hereda Adwaita > /dev/null || falla "--salida no encontró el tema"
+  [ -f "$XDG_DATA_HOME/icons/Mint-Macos-12.7.6/index.theme" ] || falla "--salida no instaló"
+  rm -rf "$XDG_DATA_HOME/icons/Mint-Macos-12.7.6"
+  MINT_MACOS_SALIDA="$sal" python3 -I "$aqui/../iconos/construir-tema-macos.py" 12.7.6 --hereda Adwaita > /dev/null || falla "MINT_MACOS_SALIDA no encontró el tema"
+  paso "la salida de extraer-mac se acepta con --salida y con MINT_MACOS_SALIDA"
   # lo que no está en el tema cae al que hereda
   python3 -I "$aqui/ayudantes/icono-del-tema.py" Mint-Macos-12.7.6 document-new-symbolic | grep -q Adwaita || paso "(document-new-symbolic no cayó en Adwaita; puede estar en el tema de Apple)"
   true
