@@ -43,7 +43,14 @@ git -C "$TMP/mojave" checkout -q "$MOJAVE_COMMIT"
 # entra al repo. El disco se monta una vez para todas las variantes.
 source "$AQUI/../comun.sh"
 AP=""
-if montar_mac_sistema; then
+CAR_CLARO=SystemAppearance.car; CAR_OSCURO=DarkAquaAppearance.car
+if [ "$TEMA_BASE" != Constanza ]; then
+  # Otra versión de macOS (Samaná = Monterey): los catálogos sueltos de sus referencias, que se desempacan
+  # con extraer-mac (recursos/car); el claro es Aqua.car y el oscuro DarkAqua.car. No hay disco que montar.
+  AP="${CATALOGOS_TEMA:-$HOME/.local/share/mint-macos/referencias/monterey-20261015/recursos/car}"
+  CAR_CLARO=Aqua.car; CAR_OSCURO=DarkAqua.car
+  [ -f "$AP/$CAR_CLARO" ] || { echo "  ⚠ $TEMA_BASE: no hay $AP/$CAR_CLARO"; AP=""; }
+elif montar_mac_sistema; then
   AP="$MAC_SISTEMA/System/Library/CoreServices/SystemAppearance.bundle/Contents/Resources"
 fi
 
@@ -110,7 +117,7 @@ cp "$AQUI/../CREDITOS.md" "$BASE/CREDITOS.md"
 # los catálogos de apariencia (car.py, con liblzfse) y los pone en
 # metacity-1 y en gtk.gresource. Nada de Apple entra al repo.
 if [ -n "${AP:-}" ]; then
-  python3 "$AQUI/controles.py" "$AP/SystemAppearance.car" "$AP/DarkAquaAppearance.car" "$BASE" \
+  python3 "$AQUI/controles.py" "$AP/$CAR_CLARO" "$AP/$CAR_OSCURO" "$BASE" \
     $([ "$COLOR" = light ] && echo --claro) ${ACENTO_MAC[$ACENTO]:+--acento ${ACENTO_MAC[$ACENTO]}} \
     ${MEDIDAS:+--medidas "$MEDIDAS"} >/dev/null \
     || echo "  ⚠ $NOMBRE sin semáforos de Catalina (quedan los de Mojave)"
@@ -218,4 +225,4 @@ for color in dark light; do
     armar "$color" "$a" "$nombre"
   done
 done
-[ -n "$AP" ] && desmontar_mac
+[ -n "$AP" ] && [ "$TEMA_BASE" = Constanza ] && desmontar_mac || true

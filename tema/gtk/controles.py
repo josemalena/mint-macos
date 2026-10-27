@@ -54,6 +54,8 @@ def semaforos(ruta):
         img = car.pixeles_de(im)
         if img is None:
             continue
+        if atr.get("capa", 0):
+            continue
         clave = (int(im.escala), atr.get("dimensión1", 0), atr.get("presentación", 0), atr.get("estado", 0))
         salida[clave] = img
     return salida
@@ -73,7 +75,8 @@ def marcas(ruta):
     salida = {}
     for atr, im in car.Catalogo(ruta).imagenes():
         tipo = next((t for n, t in MARCAS.items() if im.nombre.startswith(n)), None)
-        if not tipo or atr.get("presentación", 0):
+        # capa: desde Monterey hay renditions extra de capa 2 (una máscara roja lisa); la imagen es la de capa 0.
+        if not tipo or atr.get("presentación", 0) or atr.get("capa", 0):
             continue
         img = car.pixeles_de(im)
         if img is not None:
