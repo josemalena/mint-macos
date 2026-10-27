@@ -482,11 +482,22 @@ def css(tema, oscuros, claro=False, acento=None):
     hechos = 0
     for esc in (1, 2):
         sufijo = "@2" if esc == 2 else ""
+        def con_capa(pieza, pres, estado):
+            """El cuerpo de una pieza y, encima, su capa 7 (desde Monterey el bloque de acento con las flechas ▲▼ va en una imagen aparte del
+            mismo lienzo: referencias/.../trabajo-samana-20261026/piezas/INFORME.md). Catálogos sin esa capa (Catalina): el cuerpo solo."""
+            cuerpo = p.get((pieza, esc, pres, estado, 0, 0, 0))
+            capa = p.get((pieza, esc, pres, estado, 0, 7, 0))
+            if cuerpo is None or capa is None or capa.size != cuerpo.size:
+                return cuerpo
+            lienzo = cuerpo.copy()
+            lienzo.alpha_composite(capa)
+            return lienzo
+
         imagenes = {
-            "popup": p.get(("popup", esc, 0, 0, 0, 0, 0)),
-            "popup-apretado": p.get(("popup", esc, 0, 2, 0, 0, 0)),
-            "popup-desactivado": p.get(("popup", esc, 0, 4, 0, 0, 0)),
-            "popup-sin-foco": p.get(("popup", esc, 1, 0, 0, 0, 0)),
+            "popup": con_capa("popup", 0, 0),
+            "popup-apretado": con_capa("popup", 0, 2),
+            "popup-desactivado": con_capa("popup", 0, 4),
+            "popup-sin-foco": con_capa("popup", 1, 0),
             "pista": p.get(("pista", esc, 0, 0, 0, 0, 0)),
             "pista-llena": p.get(("pista", esc, 0, 0, 0, 7, 0)),
             "perilla": p.get(("perilla", esc, 0, 0, 0, 0, 0)),
