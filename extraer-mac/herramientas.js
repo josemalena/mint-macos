@@ -9,6 +9,9 @@
 //   osascript -l JavaScript herramientas.js raton arrastrar X1 Y1 X2 Y2 [captura.png]
 //       con captura.png toma la pantalla con el botón todavía apretado
 //       (el rectángulo de selección) y después lo suelta
+//   osascript -l JavaScript herramientas.js raton apretar|soltar|clic-shift X Y
+//       apretar deja el botón abajo (estado «pressed»); soltar lo levanta ahí
+//   osascript -l JavaScript herramientas.js raton rueda DY [DX] [veces]
 //   osascript -l JavaScript herramientas.js medidas
 //   osascript -l JavaScript herramientas.js permisos [pedir]
 //       {"accesibilidad":bool,"grabacion":bool} para la app que corre esto
@@ -51,7 +54,73 @@ function run(argv) {
   if (cmd === 'acento') return acento(argv[1] || '', argv[2] || '');
   if (cmd === 'avisar-colores') return avisarColores();
   if (cmd === 'escuchar-colores') return escucharColores(Number(argv[1]) || 30);
-  return 'uso: pantalla | ventanas [dueño] | raton … | medidas | permisos [pedir] | acento [claro.png oscuro.png] | avisar-colores | escuchar-colores [seg]';
+  if (cmd === 'ui') return ui(argv[1] || '', argv[2] || '', argv.slice(3));
+  if (cmd === 'liso') return liso(argv.slice(1));
+  return 'uso: pantalla | ventanas [dueño] | raton … | medidas | permisos [pedir] | acento [claro.png oscuro.png] | avisar-colores | escuchar-colores [seg] | ui PROCESO buscar|pulsar|menu|contar|fila … | liso R G B ruta.png';
+}
+
+// ---- elementos de la interfaz (fase C, 27-10-2026) -------------------------
+// Busca en la ventana de adelante del proceso (hojas incluidas) por rol AX y
+// una expresión sobre nombre, descripción, título, ayuda o valor. Así no se
+// amarra un control a una ruta de AppleScript que cambia entre versiones.
+//   ui PROC buscar ROL REGEX [n]   → «x y w h» del n-ésimo (1 por omisión), o nada
+//   ui PROC pulsar ROL REGEX [n]   → AXPress
+//   ui PROC menu   ROL REGEX [n]   → AXShowMenu (abre un popup sin escoger)
+//   ui PROC contar ROL [REGEX]     → cuántos hay
+//   ui PROC fila   N               → selecciona la fila N de la primera tabla o lista
+function uiElementos(proc, rol, regex) {
+  const se = Application('System Events');
+  const p = se.processes.byName(proc);
+  if (!p.exists() || p.windows.length === 0) return [];
+  const re = new RegExp(regex || '.', 'i');
+  const texto = (e) => {
+    const t = [];
+    for (const f of ['name', 'description', 'title', 'help']) { try { const v = e[f](); if (v) t.push(String(v)); } catch (x) {} }
+    try { const v = e.value(); if (v !== null && v !== undefined && typeof v !== 'object') t.push(String(v)); } catch (x) {}
+    return t;
+  };
+  const r = [];
+  for (const e of p.windows[0].entireContents()) {
+    let rl = ''; try { rl = e.role(); } catch (x) { continue; }
+    if (rl !== rol) continue;
+    if (!regex || texto(e).some((t) => re.test(t))) r.push(e);
+  }
+  return r;
+}
+function ui(proc, accion, a) {
+  if (accion === 'fila') {
+    const se = Application('System Events'); const w = se.processes.byName(proc).windows[0];
+    for (const e of w.entireContents()) {
+      let rl = ''; try { rl = e.role(); } catch (x) { continue; }
+      if (rl === 'AXTable' || rl === 'AXOutline') {
+        const filas = e.rows(); const n = Number(a[0]) || 1;
+        if (n > filas.length) return '';
+        filas[n - 1].selected = true; return String(filas.length);
+      }
+    }
+    return '';
+  }
+  const lista = uiElementos(proc, a[0] || '', a[1] || '');
+  if (accion === 'contar') return String(lista.length);
+  const e = lista[(Number(a[2]) || 1) - 1];
+  if (!e) return '';
+  if (accion === 'buscar') { const p = e.position(), s = e.size(); return [p[0], p[1], s[0], s[1]].map(Math.round).join(' '); }
+  if (accion === 'pulsar') { e.actions.byName('AXPress').perform(); return 'ok'; }
+  if (accion === 'menu') { e.actions.byName('AXShowMenu').perform(); return 'ok'; }
+  return 'uso: ui PROC buscar|pulsar|menu ROL REGEX [n] | contar ROL [REGEX] | fila N';
+}
+
+// Un PNG de un solo color (64x64) para el fondo de pantalla liso (E2): R G B de 0 a 255.
+function liso(a) {
+  const [r, g, b] = a.slice(0, 3).map(Number); const ruta = a[3];
+  const img = $.NSImage.alloc.initWithSize($.NSMakeSize(64, 64));
+  img.lockFocus;
+  $.NSColor.colorWithSRGBRedGreenBlueAlpha(r / 255, g / 255, b / 255, 1).setFill;
+  $.NSRectFill($.NSMakeRect(0, 0, 64, 64));
+  img.unlockFocus;
+  const rep = $.NSBitmapImageRep.imageRepWithData(img.TIFFRepresentation);
+  rep.representationUsingTypeProperties($.NSBitmapImageFileTypePNG, $()).writeToFileAtomically(ruta, true);
+  return ruta;
 }
 
 function pantalla() {
@@ -112,7 +181,39 @@ function raton(a) {
       evento($.kCGEventLeftMouseUp, x2, y2);
       break;
     }
-    default: return 'uso: raton mover|clic|derecho X Y | arrastrar X1 Y1 X2 Y2 [captura.png]';
+    // Para los estados de los controles: el botón queda apretado hasta «soltar».
+    // Soltar en otro punto (fuera del control) no dispara la acción.
+    case 'apretar':
+      evento($.kCGEventMouseMoved, n[0], n[1]); pausa(0.08);
+      evento($.kCGEventLeftMouseDown, n[0], n[1]); break;
+    // Arrastrar con el botón todavía abajo (p. ej. bajar por un popup abierto sin escoger).
+    case 'arrastrar-a':
+      evento($.kCGEventLeftMouseDragged, n[0], n[1]); break;
+    case 'soltar':
+      evento($.kCGEventLeftMouseDragged, n[0], n[1]); pausa(0.08);
+      evento($.kCGEventLeftMouseUp, n[0], n[1]); break;
+    // Clic con ⇧ (el genio lento del botón amarillo).
+    case 'clic-shift': {
+      const mov = $.CGEventCreateMouseEvent($(), $.kCGEventMouseMoved, $.CGPointMake(n[0], n[1]), $.kCGMouseButtonLeft);
+      $.CGEventPost($.kCGHIDEventTap, mov); pausa(0.1);
+      for (const t of [$.kCGEventLeftMouseDown, $.kCGEventLeftMouseUp]) {
+        const e = $.CGEventCreateMouseEvent($(), t, $.CGPointMake(n[0], n[1]), $.kCGMouseButtonLeft);
+        $.CGEventSetFlags(e, $.kCGEventFlagMaskShift);
+        $.CGEventPost($.kCGHIDEventTap, e); pausa(0.06);
+      }
+      break;
+    }
+    // La rueda: dy (vertical) y dx (horizontal) en líneas, repetido «veces» cada 0.03 s.
+    // Es la rueda de un ratón, no el gesto del trackpad: no hay inercia ni fases.
+    case 'rueda': {
+      const [dy, dx, veces] = [n[0] || 0, n[1] || 0, n[2] || 1];
+      for (let i = 0; i < veces; i++) {
+        $.CGEventPost($.kCGHIDEventTap, $.CGEventCreateScrollWheelEvent($(), $.kCGScrollEventUnitLine, 2, dy, dx));
+        pausa(0.03);
+      }
+      break;
+    }
+    default: return 'uso: raton mover|clic|derecho|apretar|soltar|clic-shift X Y | arrastrar X1 Y1 X2 Y2 [captura.png] | rueda DY [DX] [veces]';
   }
   return '';
 }

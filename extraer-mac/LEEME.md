@@ -143,6 +143,25 @@ sueltas salen a 1x si la pantalla no es Retina.
 Pendiente: el video 06 falla porque `item_barra "Clock"` no existe en Catalina.
 Ahí el Notification Center es el ícono del extremo derecho de la barra.
 
+## Fase C (Monterey, 27-10-2026)
+
+`bash extraer.sh fase-c` (o «Fase C en Monterey.command») corre `fase-c.sh`: la lista de Dev-Dock en `referencias/trabajo-samana-20261026/LISTA-CAPTURAS-FASE-C.md`. Va en cinco secciones, que se pueden elegir con `FASE="A D"`:
+
+- **A**, controles: apretado (mouseDown sostenido y soltar fuera), puntero encima, foco con Tab e inactivo.
+- **B**, ventanas y Dock sobre fondo liso blanco, negro y gris, con «Reduce transparency» apagado y encendido.
+- **C**, los videos que faltaban.
+- **D**, las hojas de System Preferences.
+- **E**, datos.
+
+Más cosas:
+
+- Los controles se buscan en apps de Apple (System Preferences, Finder, TextEdit) con `herramientas.js ui`, porque una ventana creada desde osascript queda inactiva.
+- Lo que cambia (fondo, Reduce transparency, Full Keyboard Access, volumen, acento, Dock y modo) se devuelve en `devolver()`.
+- Lo que no se puede hacer de forma fiable queda en `fase-c/no-hecho.txt`.
+- Al final, `fase-c/tubo.txt` lista los paquetes de menos de 100 MB (van por scp) y `fase-c/transporte.txt` los más grandes (van a la memoria TRANSPORTE).
+- Por ssh no corre: si System Events da -600, el guion para con el aviso.
+- **Sin probar en una Mac todavía.**
+
 ## Lo que no puede
 
 - La pantalla de login y la de bloqueo: screencapture no corre ahí. Van con el celular.

@@ -11,6 +11,8 @@
 #   BLOQUES="18" bash extraer.sh capturas         los nueve acentos: colores releídos y una ventanita por color (una vez, no por tanda)
 #   BLOQUES="17" bash extraer.sh capturas         Stacks del escritorio (Mojave en adelante): pilas cerradas, una abierta y Group Stacks By
 #   BLOQUES="16" bash extraer.sh capturas         solo lo que faltaba de la lista de Catalina (en oscuro; pide la clave para el candado)
+#   FASE="A B C D E" bash extraer.sh fase-c       la ronda «fase C» de Dev-Dock (fase-c.sh): controles, fondos lisos, videos y hojas de
+#                                                 System Preferences. Desde Terminal.app («Fase C en Monterey.command»), no por ssh
 #
 #   «permisos» va primero y pide DE UNA VEZ todo lo que el guion va a usar
 #   (Accessibility, Screen Recording y la automatización de cada app), espera
@@ -51,7 +53,7 @@ if [ "$MAYOR" -ge 13 ] 2>/dev/null; then AJUSTES="System Settings"; else AJUSTES
 SAL="${SALIDA:-$HOME/extraer-salida/macos$VERSION-$(date +%Y%m%d)}"
 CAP="$SAL/capturas"; VID="$SAL/videos"; MED="$SAL/medidas"; REC="$SAL/recursos"; HER="$SAL/herramientas"
 mkdir -p "$SAL"
-mkdir -p "$HER"; cp "$AQUI/extraer.sh" "$AQUI/herramientas.js" "$AQUI/ui.applescript" "$AQUI/car-mac.js" "$AQUI/simbolos-freedesktop.tsv" "$HER/" 2>/dev/null
+mkdir -p "$HER"; cp "$AQUI/extraer.sh" "$AQUI/herramientas.js" "$AQUI/ui.applescript" "$AQUI/car-mac.js" "$AQUI/simbolos-freedesktop.tsv" "$AQUI/fase-c.sh" "$HER/" 2>/dev/null
 LOG="$HER/capturas.log"
 
 log() { echo "$(date +%H:%M:%S) $*" >> "$LOG"; }
@@ -345,6 +347,8 @@ usar_stacks_marca() { # «si» o «no»: si «Use Stacks» del menú View del es
 usar_stacks_clic() { osa -e 'tell application "System Events" to tell process "Finder" to click menu item "Use Stacks" of menu 1 of menu bar item "View" of menu bar 1'; }
 borrar_pila() { local f; while IFS= read -r f; do case "$f" in "$HOME/Desktop/extraer-pila-"*|"$HOME/Downloads/extraer-pila-"*) rm -f "$f" ;; esac; done < "$PILA_LISTA"; : > "$PILA_LISTA"; }
 devolver() {
+  # Lo que cambió la fase C (fondo, Reduce transparency, Full Keyboard Access, volumen): fase-c.sh.
+  declare -F fase_c_devolver >/dev/null && fase_c_devolver
   $ACENTO_TOCADO && acento_reponer
   if $STACKS_TOCADO; then osa -e 'tell application "Finder" to activate'; usar_stacks_clic; STACKS_TOCADO=false; log "17: Use Stacks devuelto en devolver"; fi
   borrar_pila
@@ -403,8 +407,21 @@ exigir_pantalla() { # dónde
   exit 3
 }
 
-if quiere capturas || quiere videos; then
+# Por ssh, desde las 17:15 del 27-10-2026 en cvrpc0187, `open` y System Events
+# dan -600 (la sesión gráfica no acepta Apple events de fuera). Todo lo que
+# toca la interfaz tiene que correr desde Terminal.app (un .command abierto en
+# la sesión). Se prueba una vez al empezar y, si no, se para con el aviso.
+exigir_eventos() {
+  local r; r="$(osascript -e 'tell application "System Events" to get name of first process' 2>&1)" && return 0
+  log "=== parado: System Events no contesta ($r) ==="
+  case "$r" in *-600*) echo "Parado: System Events da -600. Esto no corre por ssh: ábrelo con «Correr en Catalina.command» (o un .command) desde la sesión de la Mac." ;;
+               *) echo "Parado: System Events no contesta: $r" ;; esac
+  exit 4
+}
+
+if quiere capturas || quiere videos || quiere fase-c; then
   exigir_pantalla inicio
+  exigir_eventos
   comprobar_permisos || { log "=== abortado por permisos ==="; exit 2; }
   foto_sistema antes
   trap devolver EXIT
@@ -1310,6 +1327,14 @@ if quiere videos; then
   grabar 06-notification-center 7; item_barra "Clock"; sleep 3.5; item_barra "Clock"; raton_fuera; wait $GP; log "video 06"
   grabar 07-launchpad 6; open -a Launchpad; sleep 3; esc; wait $GP; log "video 07"
   aviso "Videos listos"
+fi
+
+# ---------------------------------------------------------------- fase-c
+# La ronda «fase C» de Dev-Dock (27-10-2026, pensada para Monterey): estados de
+# controles, ventanas sobre fondos lisos, videos que faltaban y hojas de System
+# Preferences. Vive aparte (fase-c.sh) y usa los ayudantes de aquí.
+if quiere fase-c; then
+  source "$AQUI/fase-c.sh"
 fi
 
 # ---------------------------------------------------------------- entregar
