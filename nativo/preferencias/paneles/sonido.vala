@@ -298,11 +298,24 @@ namespace Preferencias {
             mudo.active = sal != null && mudo_de (sal);
             mudo.toggled.connect (() => poner_mudo (mudo.active));
             g.attach (mudo, 2, 0, 1, 1);
-            var menu = new Gtk.CheckButton.with_label ("Show volume in menu bar");
+            // Monterey: «Show Sound in menu bar» con el popup «when active / always» (marcada por omisión)
+            var menu = new Gtk.CheckButton.with_label (es_monterey () ? "Show Sound in menu bar" : "Show volume in menu bar");
             menu.active = true;
             menu.set_sensitive (false);
             menu.set_tooltip_text ("The volume control lives in the Cinnamon panel.");
-            g.attach (menu, 1, 1, 2, 1);
+            if (es_monterey ()) {
+                var fila_menu = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 8);
+                var cuando = new Gtk.ComboBoxText ();
+                cuando.append ("activo", "when active");
+                cuando.append ("siempre", "always");
+                cuando.set_active (1);
+                cuando.set_sensitive (false);
+                fila_menu.pack_start (menu, false, false, 0);
+                fila_menu.pack_start (cuando, false, false, 0);
+                g.attach (fila_menu, 1, 1, 2, 1);
+            } else {
+                g.attach (menu, 1, 1, 2, 1);
+            }
             return g;
         }
 
@@ -340,12 +353,38 @@ namespace Preferencias {
             } catch (Error e) {
             }
             rutas.sort ((a, b) => strcmp (a, b));
+            // Monterey: los 14 sonidos de alerta cambian de nombre en pantalla (los archivos son los mismos) y salen en orden alfabético del nombre
+            // mostrado (INFORME-B: JSON de Sound de Monterey).
+            var por_nombre = new GenericArray<string> ();
+            var nombres_monterey = new HashTable<string, string> (str_hash, str_equal);
+            if (es_monterey ()) {
+                string[,] mapa = { { "Basso", "Mezzo" }, { "Blow", "Breeze" }, { "Bottle", "Pebble" }, { "Frog", "Jump" }, { "Funk", "Funky" },
+                                   { "Glass", "Crystal" }, { "Hero", "Heroine" }, { "Morse", "Pong" }, { "Ping", "Sonar" }, { "Pop", "Bubble" },
+                                   { "Purr", "Pluck" }, { "Sosumi", "Sonumi" }, { "Submarine", "Submerge" }, { "Tink", "Boop" } };
+                for (int k = 0; k < mapa.length[0]; k++) {
+                    nombres_monterey.insert (mapa[k, 0], mapa[k, 1]);
+                }
+                // se ordena por «nombre mostrado<TAB>ruta» (sin cierre en el comparador: CompareFunc no lo admite)
+                var claves_ord = new GenericArray<string> ();
+                for (int k = 0; k < rutas.length; k++) {
+                    string bn = Path.get_basename (rutas[k]);
+                    int pt = bn.last_index_of (".");
+                    string nb = pt > 0 ? bn.substring (0, pt) : bn;
+                    claves_ord.add ("%s\t%s".printf (nombres_monterey.lookup (nb) ?? nb, rutas[k]));
+                }
+                claves_ord.sort ((a, b) => strcmp (a, b));
+                rutas = new GenericArray<string> ();
+                for (int k = 0; k < claves_ord.length; k++) {
+                    rutas.add (claves_ord[k].split ("\t", 2)[1]);
+                }
+            }
             for (int i = 0; i < rutas.length; i++) {
                 var base_ = Path.get_basename (rutas[i]);
                 int punto = base_.last_index_of (".");
+                string nombre_ = punto > 0 ? base_.substring (0, punto) : base_;
                 Gtk.TreeIter it;
                 lista.append (out it);
-                lista.set (it, 0, punto > 0 ? base_.substring (0, punto) : base_, 1, "Built-in", 2, rutas[i], -1);
+                lista.set (it, 0, nombres_monterey.lookup (nombre_) ?? nombre_, 1, "Built-in", 2, rutas[i], -1);
             }
             var arbol = new Gtk.TreeView.with_model (lista);
             string[] titulos = { "Name", "Type" };
@@ -405,12 +444,22 @@ namespace Preferencias {
             var cfg = abrir_settings ("org.cinnamon.desktop.sound");
             string[] claves = { "event-sounds", "volume-sound-enabled" };
             string[] textos = { "Play user interface sound effects", "Play feedback when volume is changed" };
+            // Monterey: la primera casilla es «Play sound on startup» (el sonido de arranque de la Mac; aquí no existe: en gris, marcada)
+            int desfase = 0;
+            if (es_monterey ()) {
+                var arranque = new Gtk.CheckButton.with_label ("Play sound on startup");
+                arranque.active = true;
+                arranque.set_sensitive (false);
+                arranque.set_tooltip_text ("There is no startup chime on this computer.");
+                g.attach (arranque, 1, 2, 2, 1);
+                desfase = 1;
+            }
             for (int i = 0; i < 2; i++) {
                 var c = new Gtk.CheckButton.with_label (textos[i]);
                 var clave = claves[i];
                 c.active = cfg != null && cfg.get_boolean (clave);
                 c.toggled.connect (() => { if (!cargando && !prueba && cfg != null) cfg.set_boolean (clave, c.active); });
-                g.attach (c, 1, 2 + i, 2, 1);
+                g.attach (c, 1, 2 + desfase + i, 2, 1);
             }
             pagina.pack_start (g, false, false, 0);
             return pagina;
