@@ -809,6 +809,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "mint-macos-abrir-mac"
+version = "0.1.0"
+dependencies = [
+ "mint-macos-comun",
+]
+
+[[package]]
 name = "mint-macos-apariencia"
 version = "0.1.0"
 dependencies = [

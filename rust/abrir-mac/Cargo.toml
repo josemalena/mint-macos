@@ -1,0 +1,10 @@
+[package]
+name = "mint-macos-abrir-mac"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+description = "Abre una .app de Mac con Darling: la pregunta de la primera vez, el registro y el aviso si falla"
+
+[dependencies]
+# La pregunta de la primera vez, los avisos y el sha256, compartidos con appimages.
+comun = { package = "mint-macos-comun", path = "../comun" }
