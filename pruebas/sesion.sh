@@ -52,13 +52,13 @@ poner_gestor() {
       GPID=$!
       for _ in $(seq 50); do wmctrl -m >/dev/null 2>&1 && break; sleep 0.1; done
       wmctrl -m >/dev/null 2>&1 || { echo "Muffin no arrancó (muffin.log)"; return 1; } ;;
-    cinnamon|cinnamon-applets|cinnamon-notificaciones|cinnamon-colgadas)
+    cinnamon|cinnamon-applets|cinnamon-notificaciones|cinnamon-colgadas|cinnamon-animaciones)
       # Las extensiones del repo (las que se están probando), no las de José.
       mkdir -p "$XDG_DATA_HOME/cinnamon/extensions" "$XDG_CONFIG_HOME/autostart"
       cp -r "$MINT_MACOS_REPO"/extensions/*@macos "$XDG_DATA_HOME/cinnamon/extensions/"
       gsettings set org.cinnamon enabled-extensions "['cmdtab@macos']"
       # «cinnamon-applets» además pone en el panel la barra de menús (appmenu@macos y globalmenu@macos) del repo.
-      if [ "$1" = cinnamon-applets ] || [ "$1" = cinnamon-notificaciones ] || [ "$1" = cinnamon-colgadas ]; then
+      if [ "$1" = cinnamon-applets ] || [ "$1" = cinnamon-notificaciones ] || [ "$1" = cinnamon-colgadas ] || [ "$1" = cinnamon-animaciones ]; then
         mkdir -p "$XDG_DATA_HOME/cinnamon/applets"
         cp -r "$MINT_MACOS_REPO"/applets/appmenu@macos "$MINT_MACOS_REPO"/applets/globalmenu@macos "$XDG_DATA_HOME/cinnamon/applets/"
         gsettings set org.cinnamon panels-enabled "['1:0:top']"
@@ -74,9 +74,27 @@ poner_gestor() {
         cp -r "$MINT_MACOS_REPO"/applets/notificaciones@macos "$XDG_DATA_HOME/cinnamon/applets/"
         gsettings set org.cinnamon enabled-applets "['panel1:left:0:appmenu@macos:1', 'panel1:left:1:globalmenu@macos:2', 'panel1:right:0:notificaciones@macos:3']"
       fi
-      # Sin animaciones: una ventana recién abierta se ve (y se captura) al mapearse.
-      gsettings set org.cinnamon desktop-effects false
-      gsettings set org.cinnamon startup-animation false
+      # «cinnamon-animaciones»: lo del Notification Center y, ENCENDIDOS los efectos, el genio (Magic Lamp, la instalada de José copiada
+      # aquí y con el parche de duración del repo, no la suya) y Mission Control: para medir las animaciones contra el perfil.
+      if [ "$1" = cinnamon-animaciones ]; then
+        cp -r "$MINT_MACOS_REPO"/applets/notificaciones@macos "$XDG_DATA_HOME/cinnamon/applets/"
+        gsettings set org.cinnamon enabled-applets "['panel1:left:0:appmenu@macos:1', 'panel1:left:1:globalmenu@macos:2', 'panel1:right:0:notificaciones@macos:3']"
+        ML="$PRUEBAS_HOME_REAL/.local/share/cinnamon/extensions/CinnamonMagicLamp@klangman"
+        if [ -d "$ML" ]; then
+          cp -r "$ML" "$XDG_DATA_HOME/cinnamon/extensions/"
+          patch -s -N -p1 -d "$XDG_DATA_HOME/cinnamon/extensions/CinnamonMagicLamp@klangman" \
+            < "$MINT_MACOS_REPO/extensions/parches/magiclamp-duracion-del-perfil.patch" > /dev/null || true
+          gsettings set org.cinnamon enabled-extensions "['cmdtab@macos', 'misioncontrol@macos', 'CinnamonMagicLamp@klangman']"
+        else
+          gsettings set org.cinnamon enabled-extensions "['cmdtab@macos', 'misioncontrol@macos']"
+        fi
+        gsettings set org.cinnamon desktop-effects true
+        gsettings set org.cinnamon startup-animation false
+      else
+        # Sin animaciones: una ventana recién abierta se ve (y se captura) al mapearse.
+        gsettings set org.cinnamon desktop-effects false
+        gsettings set org.cinnamon startup-animation false
+      fi
       (ulimit -c 0; exec cinnamon --replace) > "$RES/cinnamon.log" 2>&1 &
       GPID=$!
       for _ in $(seq 600); do cinnamon_listo && break; sleep 0.1; done

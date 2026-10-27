@@ -1,0 +1,43 @@
+--- a/5.6/extension.js
++++ b/5.6/extension.js
+@@ -38,6 +38,28 @@
+ 
+ const ShouldAnimateManager = require("ShouldAnimateManager.js");
+ 
++// mint-macos: la duración sale del perfil de la versión de macOS (apps/animaciones.json, «genio-minimizar» y «genio-restaurar»,
++// medidas en los videos de la Mac); sin perfil o sin ese número queda la del ajuste «duration» de la extensión.
++function duracionDelPerfil(clave) {
++   try {
++      let ruta = (name) => GLib.build_filenamev([name, "mint-macos", "macos.json"]);
++      let id = null;
++      for (let dir of [GLib.get_user_runtime_dir(), GLib.get_user_config_dir()]) {
++         try {   // file_get_contents lanza si el archivo no está
++            let [ok, bytes] = GLib.file_get_contents(ruta(dir));
++            if (ok) { id = JSON.parse(imports.byteArray.toString(bytes)).version; break; }
++         } catch (e) {}
++      }
++      if (!id) return null;
++      let [ok2, datos] = GLib.file_get_contents(GLib.build_filenamev([GLib.get_user_data_dir(), "mint-macos", "macos", id, "apps", "animaciones.json"]));
++      if (!ok2) return null;
++      let ms = JSON.parse(imports.byteArray.toString(datos)).comportamiento[clave].ms;
++      return ms > 0 ? ms : null;
++   } catch (e) {
++      return null;
++   }
++}
++
+ const MINIMIZE_EFFECT_NAME = "minimize-magic-lamp-effect";
+ const UNMINIMIZE_EFFECT_NAME = "unminimize-magic-lamp-effect";
+ 
+@@ -330,7 +352,10 @@
+ 
+       this.set_n_tiles(this.X_TILES, this.Y_TILES);
+ 
+-      this.timerId = new Clutter.Timeline({ /*actor: this.actor,*/ duration: this.DURATION + (this.monitor.width * this.monitor.height) / (this.window.width * this.window.height) });
++      // mint-macos: con la medida de la Mac la duración es esa, sin sumarle el área (la extensión alarga las ventanas chicas); sin ella,
++      // la fórmula de siempre. La curva es lineal (la de Clutter.Timeline): la medida no coincide con ninguna otra dentro de 0.05.
++      let medida = duracionDelPerfil(this instanceof MagicLampMinimizeEffect ? "genio-minimizar" : "genio-restaurar");
++      this.timerId = new Clutter.Timeline({ /*actor: this.actor,*/ duration: medida !== null ? medida : this.DURATION + (this.monitor.width * this.monitor.height) / (this.window.width * this.window.height) });
+       this.newFrameEvent = this.timerId.connect('new-frame', this.on_tick_elapsed.bind(this));
+       this.completedEvent = this.timerId.connect('completed', this.destroy.bind(this));
+       this.timerId.start();

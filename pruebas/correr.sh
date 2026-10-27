@@ -168,7 +168,7 @@ glib-compile-schemas "$H/esquemas"
 HOME_REAL="$HOME"
 ARCH="$(dpkg-architecture -qDEB_HOST_MULTIARCH 2>/dev/null || echo x86_64-linux-gnu)"
 export MINT_MACOS_PRUEBA="$MARCA" MINT_MACOS_REPO="$(dirname "$AQUI")" PRUEBAS_RES="$RES" PRUEBAS_REAL="$REAL"
-export PRUEBAS_PREFIJO="$PREFIJO" PRUEBAS_LIB="$AQUI/lib.sh" PRUEBAS_CACHE_REAL="$CACHE"
+export PRUEBAS_PREFIJO="$PREFIJO" PRUEBAS_LIB="$AQUI/lib.sh" PRUEBAS_CACHE_REAL="$CACHE" PRUEBAS_HOME_REAL="$HOME_REAL"
 # PRUEBAS_RUST: la carpeta de los binarios de rust/ que se prueban (armar.sh la
 # pasa con lo recién compilado); si no, los de rust/target/release.
 export PRUEBAS_RUST="${PRUEBAS_RUST:-}"
