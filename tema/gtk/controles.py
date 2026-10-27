@@ -675,6 +675,97 @@ headerbar:backdrop, .csd headerbar:backdrop, headerbar.default-decoration:backdr
 """)
 
 
+# Piezas que solo trae Monterey (o que Mojave pinta con colores planos y aquí se toman del catálogo): el botón default azul y el botón redondo
+# de ayuda «?». Fuente de los nombres y los atributos: referencias/.../trabajo-samana-20261026/piezas/INFORME.md (puntos 3 y 5).
+#   boton:  PushButton_PushButton_Regular, lienzo 38x32 con el cuerpo en x5..33, y3..27; valor1 = default (azul), presentación1 = ventana sin foco
+#           (gris), estado2 = pulsado, estado4 = deshabilitado.
+#   ayuda:  RoundHelpButton_Regular, 25x25, el «?» ya va dentro; estado2 pulsado, estado4 deshabilitado.
+PIEZAS_MONTEREY = {
+    "boton": "PushButton_PushButton_Regular",
+    "ayuda": "RoundHelpButton_Regular",
+}
+PUNTA_BOTON = 6   # px a 1x de cada punta (el radio ~5 más el borde); el resto es el centro
+
+
+def recortar(img):
+    """El lienzo de Apple sin el margen transparente (el cuerpo solo)."""
+    caja = img.getchannel("A").point(lambda v: 255 if v > 8 else 0).getbbox()
+    return img.crop(caja) if caja else img
+
+
+def monterey_botones(tema, oscuros, claro, acento=None):
+    """Escribe el botón default y el botón de ayuda de Monterey en gtk-3.0/catalina/ y su CSS al final de catalina.css."""
+    tabla = {k: v for k, v in PIEZAS.items()}
+    PIEZAS.update(PIEZAS_MONTEREY)
+    try:
+        p = piezas(oscuros)
+    finally:
+        for k in PIEZAS_MONTEREY:
+            if k not in tabla:
+                PIEZAS.pop(k, None)
+    carpeta = os.path.join(tema, "gtk-3.0", "catalina")
+    os.makedirs(carpeta, exist_ok=True)
+    hechos = []
+    variantes = {  # nombre: (pieza, presentación, estado, valor)
+        "boton-default": ("boton", 0, 0, 1), "boton-default-apretado": ("boton", 0, 2, 1),
+        "boton-default-desactivado": ("boton", 0, 4, 1), "boton-default-sin-foco": ("boton", 1, 0, 1),
+        "ayuda": ("ayuda", 0, 0, 0), "ayuda-apretado": ("ayuda", 0, 2, 0),
+        "ayuda-desactivado": ("ayuda", 0, 4, 0), "ayuda-sin-foco": ("ayuda", 1, 0, 0),
+    }
+    for esc in (1, 2):
+        sufijo = "@2" if esc == 2 else ""
+        for nombre, (pieza, pres, estado, valor) in variantes.items():
+            img = p.get((pieza, esc, pres, estado, valor, 0, 0))
+            if img is None:
+                continue
+            img = recortar(img)
+            if acento and acento != 'Blue' and nombre.startswith("boton-default") and not nombre.endswith("sin-foco"):
+                img = tenir(img.copy(), acento)
+            img.save(os.path.join(carpeta, nombre + sufijo + ".png"))
+            if nombre.startswith("boton-"):
+                a = PUNTA_BOTON * esc
+                img.crop((a, 0, img.width - a, img.height)).save(os.path.join(carpeta, nombre + "-centro" + sufijo + ".png"))
+            if esc == 1 and nombre not in hechos:
+                hechos.append(nombre)
+    if not hechos:
+        return False
+
+    def borde(img):
+        # min-height = el alto de la imagen (23 px a 1x): sin escala vertical no se mezcla el borde de las puntas con lo transparente de afuera
+        # (se veía una raya clara a 6 px del borde en el botón azul)
+        return (f"  min-height: {alto1x}px; padding-top: 0; padding-bottom: 0;\n"
+                f"  border-style: solid; border-width: 0 {PUNTA_BOTON}px; border-radius: 0; box-shadow: none;\n"
+                f'  border-image: -gtk-scaled(url("catalina/{img}.png"), url("catalina/{img}@2.png")) 0 {PUNTA_BOTON} 0 {PUNTA_BOTON} stretch;\n'
+                f'  background: -gtk-scaled(url("catalina/{img}-centro.png"), url("catalina/{img}-centro@2.png")) center / calc(100% - 4px) 100% no-repeat;\n'
+                "  background-clip: border-box; background-origin: border-box; text-shadow: none; color: #ffffff;")
+    alto1x = Image.open(os.path.join(carpeta, "boton-default.png")).height if "boton-default" in hechos else 23
+    css_ = "\n/* Botón default y botón de ayuda de Monterey (controles.py, monterey_botones) */\n"
+    # El centro se pinta 2 px por debajo de cada punta (calc(100% - 4px), centrado): con el centro solo dentro del padding-box, entre el centro y las
+    # puntas quedaba una raya clara de 1 px (probado en Xvfb). También en el popup, que tiene la misma costura.
+    css_ += ("combobox button.combo, .background combobox button.combo, combobox button.combo:hover, combobox button.combo:active,\n"
+             "combobox button.combo:checked, combobox button.combo:backdrop, combobox button.combo:disabled {\n"
+             "  background-clip: border-box; background-origin: border-box; background-size: calc(100% - 4px) 100%; background-position: center; }\n")
+    if "boton-default" in hechos:
+        sel = "button.suggested-action, .background button.suggested-action, button.default, .background button.default"
+        css_ += f"{sel}, {sel.replace('button.suggested-action', 'button.suggested-action:hover').replace('button.default', 'button.default:hover')} {{\n{borde('boton-default')} }}\n"
+        for estado, img in ((":active", "boton-default-apretado"), (":checked", "boton-default-apretado"),
+                            (":disabled", "boton-default-desactivado"), (":backdrop", "boton-default-sin-foco")):
+            if img in hechos:
+                css_ += f"button.suggested-action{estado}, button.default{estado} {{\n{borde(img)} }}\n"
+        css_ += "button.suggested-action:backdrop, button.default:backdrop { color: #262626; }\n"
+    if "ayuda" in hechos:
+        def redondo(img):
+            return ("  min-width: 22px; min-height: 22px; padding: 0; border: none; border-radius: 0; box-shadow: none; text-shadow: none;\n"
+                    f'  background: -gtk-scaled(url("catalina/{img}.png"), url("catalina/{img}@2.png")) center / 25px 25px no-repeat;')
+        css_ += f"button.circular, button.circular:hover {{\n{redondo('ayuda')} }}\n"
+        for estado, img in ((":active", "ayuda-apretado"), (":disabled", "ayuda-desactivado"), (":backdrop", "ayuda-sin-foco")):
+            if img in hechos:
+                css_ += f"button.circular{estado} {{\n{redondo(img)} }}\n"
+    with open(os.path.join(tema, "gtk-3.0", "catalina.css"), "a") as f:
+        f.write(css_)
+    return True
+
+
 def main():
     global MEDIDAS
     if '--medidas' in sys.argv:
@@ -702,6 +793,7 @@ def main():
         marco_medidas(sys.argv[3], MEDIDAS)
         botones_medidas(sys.argv[3])
         slider_medidas(sys.argv[3], claro)
+        monterey_botones(sys.argv[3], sys.argv[1] if claro else sys.argv[2], claro, acento)
         efectos_medidos(sys.argv[3], claro)
     print(f"  controles de Catalina: {m} semáforos en metacity-1, {g} imágenes en gtk.gresource"
           f" y {c} piezas en catalina/")
