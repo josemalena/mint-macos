@@ -12,6 +12,7 @@ comando que la escoge.
 """
 import json
 import os
+import subprocess
 import sys
 
 POR_DEFECTO = 'catalina-10.15'
@@ -112,6 +113,11 @@ def main():
         os.makedirs(os.path.dirname(ACTIVA), mode=0o700, exist_ok=True)
         with open(ACTIVA, 'w') as f:
             json.dump({'version': escogida()}, f)
+        # Lo de la sesión que sigue a la versión (hoy, el alto de la barra): aplicar-version.sh, sin hacer fallar el arranque si algo sale mal
+        try:
+            subprocess.run([os.path.join(os.path.dirname(os.path.abspath(__file__)), 'aplicar-version.sh')], timeout=20)
+        except (OSError, subprocess.SubprocessError):
+            pass
         return 0
     print(__doc__, file=sys.stderr)
     return 2
