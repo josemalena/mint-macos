@@ -3,6 +3,11 @@
 # un gestor de ventanas si hace falta y corre cada caso con su tiempo límite.
 #   sesion.sh CASO.sh…
 set -uo pipefail
+# Antes de nada: nada de lo que sigue borra ni escribe en lo real. Si las XDG son las de la persona (sesion.sh lanzado a mano, sin correr.sh), no se sigue:
+# este script borra el macos.json de la versión de macOS y escribe en el dconf (Infra, 27-10-2026).
+case "${XDG_CONFIG_HOME:-}" in ""|"$HOME/.config"|"$HOME/.config/") echo "  ✗ XDG_CONFIG_HOME es el real: no sigo"; exit 1 ;; esac
+[ "${XDG_RUNTIME_DIR:-}" != "/run/user/$(id -u)" ] || { echo "  ✗ XDG_RUNTIME_DIR es el real: no sigo"; exit 1; }
+[ -n "${XDG_RUNTIME_DIR:-}" ] || { echo "  ✗ XDG_RUNTIME_DIR vacío: no sigo"; exit 1; }
 # Qué cambió en el dconf de José y si es fuga (revisar_dconf).
 source "$(dirname "$0")/dconf-jose.sh"
 
