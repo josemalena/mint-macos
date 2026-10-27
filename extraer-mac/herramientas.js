@@ -68,8 +68,15 @@ function run(argv) {
 //   ui PROC menu   ROL REGEX [n]   → AXShowMenu (abre un popup sin escoger)
 //   ui PROC contar ROL [REGEX]     → cuántos hay
 //   ui PROC fila   N               → selecciona la fila N de la primera tabla o lista
-function uiElementos(proc, rol, regex) {
+// System Events se cierra solo tras un rato sin uso, y después JXA da -600 aunque vuelva a
+// correr (Mint-Macos en 12.7.6, 27-10-2026). Se relanza y se reintenta una vez.
+function sistemaEventos() {
   const se = Application('System Events');
+  try { se.processes.length; } catch (e) { se.launch(); delay(1); }
+  return se;
+}
+function uiElementos(proc, rol, regex) {
+  const se = sistemaEventos();
   const p = se.processes.byName(proc);
   if (!p.exists() || p.windows.length === 0) return [];
   const re = new RegExp(regex || '.', 'i');
@@ -79,17 +86,25 @@ function uiElementos(proc, rol, regex) {
     try { const v = e.value(); if (v !== null && v !== undefined && typeof v !== 'object') t.push(String(v)); } catch (x) {}
     return t;
   };
-  const r = [];
-  for (const e of p.windows[0].entireContents()) {
-    let rl = ''; try { rl = e.role(); } catch (x) { continue; }
-    if (rl !== rol) continue;
-    if (!regex || texto(e).some((t) => re.test(t))) r.push(e);
-  }
-  return r;
+  // Primero la barra de herramientas (en una ventana del Finder, entireContents de la ventana
+  // entera trae cada ícono y se pasa del tiempo: -1712); si ahí no está, la ventana.
+  const w = p.windows[0];
+  const buscar = (lista) => {
+    const r = [];
+    for (const e of lista) {
+      let rl = ''; try { rl = e.role(); } catch (x) { continue; }
+      if (rl !== rol) continue;
+      if (!regex || texto(e).some((t) => re.test(t))) r.push(e);
+    }
+    return r;
+  };
+  let r = [];
+  try { if (w.toolbars.length > 0) r = buscar(w.toolbars[0].entireContents()); } catch (x) {}
+  return r.length > 0 ? r : buscar(w.entireContents());
 }
 function ui(proc, accion, a) {
   if (accion === 'fila') {
-    const se = Application('System Events'); const w = se.processes.byName(proc).windows[0];
+    const se = sistemaEventos(); const w = se.processes.byName(proc).windows[0];
     for (const e of w.entireContents()) {
       let rl = ''; try { rl = e.role(); } catch (x) { continue; }
       if (rl === 'AXTable' || rl === 'AXOutline') {

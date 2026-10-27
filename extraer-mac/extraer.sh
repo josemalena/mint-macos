@@ -402,6 +402,9 @@ pantalla_libre() {
   return 0
 }
 exigir_pantalla() { # dónde
+  # Con la pantalla apagada (displaysleep) ioreg dice «bloqueada» aunque no haya contraseña:
+  # se despierta antes de mirar (Mint-Macos, 12.7.6, 27-10-2026).
+  caffeinate -u -t 3 >/dev/null 2>&1; sleep 1
   local m; m="$(pantalla_libre)" && return 0
   log "=== parado en $1: $m ==="; aviso "Parado: $m. Entra a la sesión o desbloquéala y vuelve a correr."
   exit 3

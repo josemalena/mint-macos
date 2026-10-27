@@ -47,9 +47,12 @@ fase_c_devolver() {
 }
 
 # ---- ayudantes ---------------------------------------------------------------------
-marco() { $H ui "$1" buscar "$2" "$3" "${4:-1}" 2>>"$LOG"; }            # proc rol regex [n] → x y w h
-pulsar() { $H ui "$1" pulsar "$2" "$3" "${4:-1}" >/dev/null 2>>"$LOG"; }
-abrir_popup() { $H ui "$1" menu "$2" "$3" "${4:-1}" >/dev/null 2>>"$LOG"; }
+# System Events se cierra solo tras un rato sin uso y JXA puede seguir dando -600 aunque vuelva;
+# AppleScript sí lo levanta (Mint-Macos, 12.7.6, 27-10-2026): se le habla así antes de cada búsqueda.
+se_despierto() { osascript -e 'tell application "System Events" to count processes' >/dev/null 2>&1; }
+marco() { se_despierto; $H ui "$1" buscar "$2" "$3" "${4:-1}" 2>>"$LOG"; }            # proc rol regex [n] → x y w h
+pulsar() { se_despierto; $H ui "$1" pulsar "$2" "$3" "${4:-1}" >/dev/null 2>>"$LOG"; }
+abrir_popup() { se_despierto; $H ui "$1" menu "$2" "$3" "${4:-1}" >/dev/null 2>>"$LOG"; }
 fuera_xy() { echo "$((W-60)) $((HH/2))"; }   # para soltar sin disparar nada (lejos de las esquinas activas)
 pref() { # pane [anchor]
   osa -e "tell application \"$SP\" to activate"
@@ -66,10 +69,13 @@ estados() { # nombre proc rol regex [n] [ventana-id-fn] [sitio|no-apretar]
   local nom="$1" p="$2" rol="$3" re="$4" n="${5:-1}" vfn="${6:-ventana_pref}" modo_s="${7:-}" m
   m="$(marco "$p" "$rol" "$re" "$n")"; [ -n "$m" ] || { fuera "A $nom" "no encontré $rol /$re/ en $p"; return 1; }
   set -- $m; local cx=$(( $1 + $3/2 )) cy=$(( $2 + $4/2 ))
-  cap_win "A-$nom-reposo-$M" "$($vfn)"
-  $H raton mover $cx $cy; sleep 0.6; cap_win "A-$nom-encima-$M" "$($vfn)"
+  # El id de la ventana se pide UNA vez, antes de apretar: con el botón abajo la app está
+  # en su bucle de seguimiento y no contesta (el Finder dio -1712 y salió la pantalla entera).
+  local wid; wid="$($vfn)"
+  cap_win "A-$nom-reposo-$M" "$wid"
+  $H raton mover $cx $cy; sleep 0.6; cap_win "A-$nom-encima-$M" "$wid"
   if [ "$modo_s" != no-apretar ]; then
-    $H raton apretar $cx $cy; sleep 0.6; cap_win "A-$nom-apretado-$M" "$($vfn)"
+    $H raton apretar $cx $cy; sleep 0.6; cap_win "A-$nom-apretado-$M" "$wid"
     if [ "$modo_s" = sitio ]; then $H raton soltar $cx $cy; else $H raton soltar $(fuera_xy); fi
     sleep 0.6
   fi
@@ -122,7 +128,9 @@ fase_a() {
     $H raton soltar $(fuera_xy); sleep 0.6; esc; raton_fuera
   done
   # A3 radios (Appearance), A14 el anillo de foco con Full Keyboard Access
-  estados radio-apariencia "$SP" AXRadioButton '^(Light|Dark|Auto)$' 2 || true
+  # En Monterey los tres de Appearance son AXCheckBox (subrol AXToggle): «Light», «Dark» y uno
+  # sin nombre cuya ayuda dice «Automatically adjusts…». El 2.º es Dark.
+  estados radio-apariencia "$SP" AXCheckBox '^(Light|Dark)$|^Automatically adjusts' 2 || true
   FKA_TOCADO=true; defaults write -g AppleKeyboardUIMode -int 2
   osa -e "tell application \"$SP\" to quit"; sleep 1.5; pref com.apple.preference.general
   for i in 1 2 3 4 5 6; do tecla "$SP" 'key code 48'; sleep 0.6; cap_win "A-foco-tab$i-$M" "$(ventana_pref)"; done
@@ -142,7 +150,12 @@ fase_a() {
   cerrar_finder; ventana_finder . icon $X1 $Y1 $X2 $Y2; finder_activar
   estados segmentado-vistas Finder AXRadioButton 'list' 1 id_finder || estados segmentado-vistas Finder AXButton 'list' 1 id_finder || true
   inactiva segmentado-vistas id_finder; finder_activar
+  # En Monterey la búsqueda está plegada en un AXButton «Search»; al pulsarlo sale el
+  # AXTextField (subrol AXSearchField, descripción «search text field»).
   local s; s="$(marco Finder AXTextField 'search')"
+  if [ -z "$s" ] && [ -n "$(marco Finder AXButton '^Search$')" ]; then
+    cap_win "A-busqueda-plegada-$M" "$(id_finder)"
+    pulsar Finder AXButton '^Search$'; sleep 1; s="$(marco Finder AXTextField 'search')"; fi
   if [ -n "$s" ]; then set -- $s; cap_win "A-busqueda-reposo-$M" "$(id_finder)"
     $H raton clic $(( $1 + $3/2 )) $(( $2 + $4/2 )); sleep 0.8; cap_win "A-busqueda-foco-$M" "$(id_finder)"
     tecla Finder 'keystroke "Lago"'; sleep 1.2; cap_win "A-busqueda-texto-$M" "$(id_finder)"; esc; esc
@@ -274,10 +287,10 @@ fi
 
 # ======================================================== D (System Preferences)
 filas() { # prefijo: selecciona cada fila de la primera tabla o lista y la captura
-  local i=1 n; n="$($H ui "$SP" fila 1 2>>"$LOG")"; [ -n "$n" ] || { fuera "D $1" "sin tabla"; return; }
+  local i=1 n; se_despierto; n="$($H ui "$SP" fila 1 2>>"$LOG")"; [ -n "$n" ] || { fuera "D $1" "sin tabla"; return; }
   while [ $i -le "$n" ] && [ $i -le 30 ]; do $H ui "$SP" fila $i >/dev/null 2>>"$LOG"; sleep 1.2; capsp "D-$1-fila$i-$M"; i=$((i+1)); done; }
 pestanas() { # prefijo: cada pestaña (AXRadioButton del tab group) de la ventana o la hoja de adelante
-  local i=1 n; n="$($H ui "$SP" contar AXRadioButton 2>>"$LOG")"
+  local i=1 n; se_despierto; n="$($H ui "$SP" contar AXRadioButton 2>>"$LOG")"
   while [ $i -le "${n:-0}" ] && [ $i -le 12 ]; do pulsar "$SP" AXRadioButton '' $i; sleep 1.2; capsp "D-$1-pestana$i-$M"; i=$((i+1)); done; }
 hoja() { # prefijo regex-del-botón: abre la hoja, la captura y la cierra
   pulsar "$SP" AXButton "$2" || { fuera "D $1" "no encontré el botón /$2/"; return 1; }
