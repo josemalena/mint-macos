@@ -501,9 +501,98 @@ function textoSVG(r) {
   return nada(t) || !Number(md.length) ? null : t.js;
 }
 
+// Los recortes del glifo como huecos de verdad. En el monocromo de SF una capa
+// puede abrir hueco en lo dibujado antes:
+//   27 (CoreSVG 362): la capa monochrome-N con -sfsymbols-clear-behind en su CSS;
+//     si además tiene opacity:0 solo recorta. Un path puede estar en varias capas
+//     (class="monochrome-1 monochrome-2": la misma forma en las dos).
+//   12 (CoreSVG 175.5): el path blanco del multicolor; recorta y no se dibuja.
+// Sin eso quedan manchas: el «?» de questionmark.square.fill invisible sobre el
+// cuadrado lleno. Las capas se componen en orden y cada recorte envuelve lo de
+// antes en una máscara alfa: un path evenodd con la forma de la capa y un
+// rectángulo grande. La forma va primero: en 27 los d empiezan con «m»
+// relativa, que después del «Z» del rectángulo saldría desde su esquina. Alfa porque GTK 3 mete
+// «path { fill: <color> !important }» y eso pinta también la máscara; el
+// fill="#fff" es para quien ignore mask-type y use luminancia.
+// Probado en librsvg 2.58 con ese CSS (26-10-2026): salen los huecos en claro y con acento.
+// null si no hay recortes; {cuerpo, criterio} o {motivo}.
+const GRANDE = 'M-100000 -100000H100000V100000H-100000Z';
+function esBlanco(v) { return /^(white|#fff|#ffffff|#ffffffff|rgb\(255,255,255\))$/i.test((v || '').replace(/\s+/g, '')); }
+function atributo(p, a) { return (p.match(new RegExp(`\\s${a}\\s*=\\s*["']([^"']*)["']`)) || [])[1]; }
+function conRecortes(cuerpo, reglas) {
+  const paths = [...cuerpo.matchAll(/<path\b[^>]*?\/>/g)];
+  if (!paths.length) return null;
+  const capas = [];   // {ps: [path…], recorta, visible}, en orden de dibujo
+  let criterio;
+  if (Object.values(reglas).some(r => /clear-behind\s*:\s*true/.test(r))) {
+    // capa → paths. Un path sin clase (el primero de calendar.badge.plus) va como
+    // capa visible en su lugar del documento: antes de la capa del path que lo
+    // sigue (hipótesis, cotejada con el dibujo de macOS).
+    const por = {}, sinClase = [];
+    paths.forEach(([p], i) => {
+      const cs = (atributo(p, 'class') || '').match(/\bmonochrome-\d+\b/g);
+      if (!cs) { sinClase.push(i); return; }
+      for (const c of cs) (por[+c.split('-')[1]] || (por[+c.split('-')[1]] = [])).push(p);
+    });
+    if (!Object.keys(por).length)
+      return { motivo: 'recorte de SF con las capas en LayerTree (shapeGroupLayer), no en los path' };
+    const orden = [];
+    for (const k of Object.keys(por)) {
+      const r = reglas['monochrome-' + k] || '';
+      orden.push({ clave: +k, ps: por[k], recorta: /clear-behind\s*:\s*true/.test(r), visible: !/(^|;)\s*opacity\s*:\s*0(\.0*)?\s*(;|$)/.test(r) });
+    }
+    for (const i of sinClase) {
+      const sig = paths.slice(i + 1).map(([p]) => (atributo(p, 'class') || '').match(/\bmonochrome-(\d+)\b/)).find(x => x);
+      orden.push({ clave: (sig ? +sig[1] : 1e9) - 0.5 + i * 1e-6, ps: [paths[i][0]], recorta: false, visible: true });
+    }
+    capas.push(...orden.sort((a, b) => a.clave - b.clave));
+    criterio = 'clear-behind';
+  } else if (paths.some(([p]) => esBlanco(atributo(p, 'fill')))) {
+    for (const [p] of paths) { const b = esBlanco(atributo(p, 'fill')); capas.push({ ps: [p], recorta: b, visible: !b }); }
+    criterio = 'blanco';
+  } else return null;
+  // solo una lista de <path/> dentro de <g>, como lo escribe CoreSVG
+  const ult = paths[paths.length - 1], ini = paths[0].index, fin = ult.index + ult[0].length;
+  let entre = cuerpo.slice(ini, fin);
+  for (const [p] of paths) entre = entre.replace(p, '');
+  const antes = cuerpo.slice(0, ini);
+  // fuera los metadatos de SF que no dibujan: grupos vacíos (<g id="da" data-d…/>,
+  // LayerTree) y el ancla de rotación (<circle id="ra" r="0"/>)
+  let despues = cuerpo.slice(fin), antes0;
+  do {
+    antes0 = despues;
+    despues = despues.replace(/<g\b[^>]*\/>|<g\b[^>]*>\s*<\/g>|<circle\b[^>]*\sr\s*=\s*["']0["'][^>]*\/>/g, '');
+  } while (despues !== antes0);
+  if (entre.trim() || !/^(\s*<g\b[^>]*>)*\s*$/.test(antes) || !/^(\s*<\/g>)*\s*$/.test(despues))
+    return { motivo: `recorte (${criterio}) en un SVG que no es una lista de path dentro de <g>` };
+  // el path dibujado, sin fill, clase, opacidad ni datos de animación de SF
+  const limpio = p => p.replace(/\s+(fill|class|opacity|data-[\w-]+)\s*=\s*["'][^"']*["']/g, '');
+  // La forma de una capa de varios path es su par-impar: document.on.document
+  // trae en monochrome-2 la hoja llena y otra más chica, y en macOS esa capa es el
+  // contorno (cotejado con NSImage imageWithSystemSymbolName, 27.0.1). Van en un
+  // solo path evenodd; la «m» inicial de cada d pasa a «M» (empiezan en 0,0) para
+  // poder juntarlos. Con un solo path, el path tal cual.
+  const forma = ps => ps.map(p => atributo(p, 'd').trim().replace(/^m/, 'M')).join(' ');
+  let acc = '', defs = '', n = 0;
+  for (const c of capas) {
+    if (c.recorta) {
+      n++;
+      defs += `<mask id="recorte${n}" mask-type="alpha" style="mask-type:alpha" maskUnits="userSpaceOnUse" x="-100000" y="-100000" width="200000" height="200000">` +
+        `<path fill="#fff" fill-rule="evenodd" d="${forma(c.ps)} ${GRANDE}"/></mask>`;
+      acc = `<g mask="url(#recorte${n})">${acc}</g>`;
+    }
+    if (c.visible) acc += c.ps.length === 1 ? limpio(c.ps[0]) : `<path fill-rule="evenodd" d="${forma(c.ps)}"/>`;
+  }
+  return { cuerpo: `<defs>${defs}</defs>` + antes.trim() + acc + despues.trim(), criterio };
+}
+
 // El SVG de CoreUI → -symbolic: con xmlns (CoreSVG no lo pone y librsvg lo
-// pide), viewBox llevado al canvasSize, centrado en una caja cuadrada y sin fill.
+// pide), viewBox llevado al canvasSize, centrado en una caja cuadrada, sin fill
+// y con los recortes como máscara (conRecortes).
 function simbolico(t, cw, ch) {
+  // las reglas de capa del CSS de SF, antes de quitarlo
+  const reglas = {};
+  for (const m of t.matchAll(/\.(monochrome-\d+)\s*\{([^}]*)\}/g)) reglas[m[1]] = m[2];
   // fuera la cabecera y el CSS de SF Symbols (-sfsymbols-…: capas y animación, que GTK no usa)
   t = t.replace(/<\?xml[\s\S]*?\?>/g, '').replace(/<!--[\s\S]*?-->/g, '').replace(/<!DOCTYPE[^>]*>/gi, '')
     .replace(/<style\b[\s\S]*?<\/style>/g, '').replace(/<defs>\s*<\/defs>/g, '');
@@ -513,19 +602,22 @@ function simbolico(t, cw, ch) {
   if (/<(image|linearGradient|radialGradient|pattern|mask|filter)\b/.test(cuerpo)) return { motivo: 'trae imagen, degradado, patrón, máscara o filtro' };
   // El color de relleno de un glifo es el tinte de su modo multicolor (Monterey lo
   // escribe como fill="#5856D6" en folder; 27 solo como clase): se quita y queda la
-  // forma de un solo color. El blanco no: pintado con el color del texto taparía
-  // el glifo (que sean recortes que el monocromo no tiene es hipótesis).
+  // forma de un solo color. El blanco es recorte (conRecortes); si no se puede
+  // enmascarar, se descarta: pintado con el color del texto taparía el glifo.
   const c = colores(cuerpo);
   if (c.otros.length) return { motivo: 'trazo o degradado con color', detalle: c.otros.join(' ') };
-  if (c.fill.some(v => /^(white|#fff|#ffffff|#ffffffff|rgb\(255,255,255\))$/.test(v)))
-    return { motivo: 'tiene partes en blanco', detalle: c.fill.join(' ') };
+  const rec = conRecortes(cuerpo, reglas);
+  if (rec && rec.motivo) return { motivo: rec.motivo, detalle: c.fill.join(' ') };
+  if (!rec && c.fill.some(esBlanco)) return { motivo: 'tiene partes en blanco', detalle: c.fill.join(' ') };
   const vb = (m[1].match(/viewBox\s*=\s*["']([^"']*)["']/) || [])[1];
   let [vx, vy, vw, vh] = vb ? vb.trim().split(/[\s,]+/).map(Number) : [0, 0, cw, ch];
   if (!(vw > 0 && vh > 0)) return { motivo: 'sin viewBox ni canvasSize' };
   if (!(cw > 0 && ch > 0)) { cw = vw; ch = vh; }
   // sin fill (salvo «none», que dice que esa forma es solo trazo) y sin las clases
   // de capa de SF (hierarchical-0:secondary…), que sin su CSS no dicen nada.
-  cuerpo = cuerpo.replace(/\s+fill\s*=\s*["'](?!none)[^"']*["']/gi, '').replace(/fill\s*:\s*(?!none)[^;"']+;?/gi, '')
+  // Con recortes, conRecortes ya dejó los path limpios (y la máscara lleva su fill).
+  if (rec) cuerpo = rec.cuerpo;
+  else cuerpo = cuerpo.replace(/\s+fill\s*=\s*["'](?!none)[^"']*["']/gi, '').replace(/fill\s*:\s*(?!none)[^;"']+;?/gi, '')
     .replace(/\s+class\s*=\s*["'][^"']*\b(monochrome|hierarchical|multicolor|palette)-\d[^"']*["']/g, '');
   const f = x => String(+(+x).toFixed(4));
   const sx = cw / vw, sy = ch / vh, tx = -vx * sx, ty = -vy * sy;
@@ -536,7 +628,7 @@ function simbolico(t, cw, ch) {
   const L = Math.max(cw, ch);
   return { svg: '<?xml version="1.0" encoding="UTF-8"?>\n' +
     `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="16" height="16" viewBox="${f(-(L - cw) / 2)} ${f(-(L - ch) / 2)} ${f(L)} ${f(L)}">` +
-    cuerpo.trim() + '</svg>\n', quitados: c.fill.join(' ') };
+    cuerpo.trim() + '</svg>\n', quitados: c.fill.join(' '), recorte: rec ? rec.criterio : '' };
 }
 
 function simbolos(argv) {
@@ -551,7 +643,7 @@ function simbolos(argv) {
     const en = FM.enumeratorAtPath($(a)); let p;
     while (!nada(p = en.nextObject)) if (/\.car$/.test(p.js)) cars.push(a.replace(/\/$/, '') + '/' + p.js);
   }
-  const cuenta = {}, filas = ['icono\tcontexto\tnombre_sf\talias\tclase\tatributos\tcolores_quitados\tcar'], hechos = {}, dirs = {};
+  const cuenta = {}, filas = ['icono\tcontexto\tnombre_sf\talias\tclase\tatributos\tcolores_quitados\trecorte\tcar'], hechos = {}, dirs = {};
   const fuera = ['nombre_sf\tclase\tmotivo\tdetalle\tcar'];
   const anota = (tipo, ok, motivo) => {
     const c = cuenta[tipo] || (cuenta[tipo] = { sacado: 0, faltan: {} });
@@ -601,8 +693,9 @@ function simbolos(argv) {
       if (!escribirTexto(s.svg, `${dir}/${icono}-symbolic.svg`)) { anota(tipo, false, 'no se pudo escribir'); continue; }
       hechos[icono] = 1;
       anota(tipo + (e ? ' (tabla)' : ' (nombre original)'), true);
+      if (s.recorte) anota(`${tipo}: recortes como máscara (${s.recorte})`, true);
       const a = Object.keys(atr).filter(x => x !== 'identificador').map(x => `${x}=${atr[x]}`).join(' ');
-      filas.push([icono, ctx, n, e ? e.alias : '', tipo, a, s.quitados, car].join('\t'));
+      filas.push([icono, ctx, n, e ? e.alias : '', tipo, a, s.quitados, s.recorte, car].join('\t'));
     }
   }
   const ds = Object.keys(dirs).sort();
