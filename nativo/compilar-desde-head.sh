@@ -7,7 +7,7 @@ RAIZ="${1:?uso: compilar-desde-head.sh RAIZ}"
 REPO="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
 for c in meson ninja valac; do command -v "$c" >/dev/null || { echo "falta $c" >&2; exit 1; }; done
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
-git -C "$REPO" archive HEAD nativo | tar -x -C "$T"
+git -C "$REPO" archive HEAD nativo perfiles/vala | tar -x -C "$T"
 meson setup "$T/nativo/build" "$T/nativo" --buildtype=release --prefix=/usr >/dev/null
 # Regla de José (18-10-2026, «cpu al 100%»): una compilación a la vez, con la menor prioridad y dos hilos. Si ya hay otro
 # ninja corriendo (el armado de Infra, otra sesión), se espera a que termine.

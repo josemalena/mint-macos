@@ -68,6 +68,37 @@ namespace Launchpad {
         return GLib.get_monotonic_time () / 1000000.0;
     }
 
+    /** Las curvas por omisión del motor de la Mac (cubic-bezier de CAMediaTimingFunction) por su nombre en el perfil; null si el nombre no es de ellas. */
+    double? curva_del_motor (string nombre, double x) {
+        double x1, y1, x2, y2;
+        var n = nombre.down ();
+        if (n.has_prefix ("easeineaseout")) {
+            x1 = 0.42; y1 = 0.0; x2 = 0.58; y2 = 1.0;
+        } else if (n.has_prefix ("easein")) {
+            x1 = 0.42; y1 = 0.0; x2 = 1.0; y2 = 1.0;
+        } else if (n.has_prefix ("easeout")) {
+            x1 = 0.0; y1 = 0.0; x2 = 0.58; y2 = 1.0;
+        } else if (n.has_prefix ("lineal") || n.has_prefix ("linear")) {
+            return x;
+        } else {
+            return null;
+        }
+        // x(t) = 3(1-t)²t·x1 + 3(1-t)t²·x2 + t³; se busca la t de esa x por bisección y se da y(t).
+        double lo = 0.0, hi = 1.0, t = x;
+        for (int i = 0; i < 24; i++) {
+            t = (lo + hi) / 2;
+            double u = 1 - t;
+            double xt = 3 * u * u * t * x1 + 3 * u * t * t * x2 + t * t * t;
+            if (xt < x) {
+                lo = t;
+            } else {
+                hi = t;
+            }
+        }
+        double u = 1 - t;
+        return 3 * u * u * t * y1 + 3 * u * t * t * y2 + t * t * t;
+    }
+
     public class Ventana : Gtk.Window {
         public int W;
         public int H;
@@ -84,6 +115,16 @@ namespace Launchpad {
         public Carpeta? carpeta = null;
         int pag_carpeta = 0;
         public double t0;
+        // Abrir y cerrar con lo medido en la Mac (perfil de macOS, apps/animaciones.json: «launchpad-abrir» y «launchpad-cerrar»). Sin perfil o sin esos
+        // números todo sigue como antes: fundido lineal de 0.18 s al abrir y nada al cerrar.
+        double abrir_dur = 0.0;                // s; 0 = sin la medida
+        string abrir_curva = "lineal";
+        double abrir_escala = 1.0;             // la escala con que empieza al abrir y a la que vuelve al cerrar
+        double cerrar_dur = 0.0;
+        string cerrar_curva = "lineal";
+        double t_mostrar = 0.0;
+        double t_cierre = 0.0;
+        bool cerrando = false;
         bool hay_arrastre = false;
         double arr_x = 0;
         double arr_y = 0;
@@ -163,6 +204,7 @@ namespace Launchpad {
             leer_aplicaciones (out elementos, out todas);
             recalcular_paginas ();
             t0 = ahora ();
+            leer_animaciones ();
 
             ruta_fondo = construir_fondo (W, H);
             cargar_fondo ();
@@ -207,6 +249,38 @@ namespace Launchpad {
             return null;
         }
 
+        /** Los números de abrir y cerrar del perfil de macOS (lo no medido no se escribe en el perfil y aquí queda como antes). */
+        void leer_animaciones () {
+            var perfil = PerfilMacos.perfil ("animaciones");
+            if (perfil == null || !perfil.has_member ("comportamiento")) {
+                return;
+            }
+            var c = perfil.get_object_member ("comportamiento");
+            if (c.has_member ("launchpad-abrir")) {
+                var a = c.get_object_member ("launchpad-abrir");
+                string curva = a.has_member ("curva") ? a.get_string_member ("curva") : "";
+                if (a.has_member ("ms") && curva_del_motor (curva, 0.5) != null) {
+                    abrir_dur = a.get_double_member ("ms") / 1000.0;
+                    abrir_curva = curva;
+                    // «escala_inicial»: «~1.05 (hipótesis)»: del video no sale con precisión (la escala se ve al inicio, con el fundido casi en 0)
+                    if (a.has_member ("escala_inicial")) {
+                        MatchInfo m;
+                        if (/([0-9]+\.[0-9]+)/.match (a.get_string_member ("escala_inicial"), 0, out m)) {
+                            abrir_escala = double.parse (m.fetch (1));
+                        }
+                    }
+                }
+            }
+            if (c.has_member ("launchpad-cerrar")) {
+                var a = c.get_object_member ("launchpad-cerrar");
+                string curva = a.has_member ("curva") ? a.get_string_member ("curva") : "";
+                if (a.has_member ("ms") && curva_del_motor (curva, 0.5) != null) {
+                    cerrar_dur = a.get_double_member ("ms") / 1000.0;
+                    cerrar_curva = curva;
+                }
+            }
+        }
+
         // ── residente: se arma una vez y se muestra y oculta ──────────────
         /** Pinta un cuadro fuera de pantalla para que los íconos queden cargados antes del primer atajo. */
         public void precalentar () {
@@ -243,6 +317,8 @@ namespace Launchpad {
             scroll_acum = 0.0;
             scroll_hasta = 0.0;
             t0 = ahora ();
+            t_mostrar = t0;
+            cerrando = false;
             show_all ();
             present_with_time (Gdk.CURRENT_TIME);
             if (adaptable) {
@@ -270,7 +346,17 @@ namespace Launchpad {
         }
 
         public void ocultar () {
-            hide ();
+            if (cerrando) {
+                return;
+            }
+            if (cerrar_dur <= 0.0 || !visible) {
+                hide ();
+                return;
+            }
+            // Sale con la animación medida; el cuadro() esconde la ventana al terminar.
+            cerrando = true;
+            t_cierre = ahora ();
+            queue_draw ();
         }
 
         // ── geometría ─────────────────────────────────────────────────────
@@ -298,7 +384,13 @@ namespace Launchpad {
                 revisar_borde ();
                 queue_draw ();
             }
-            if (mover || ahora () - t0 < 0.3) {
+            if (cerrando && ahora () - t_cierre >= cerrar_dur) {
+                depurar ("cerrar fin t=%.4f".printf (ahora () - t_cierre));
+                cerrando = false;
+                hide ();
+                return true;
+            }
+            if (mover || cerrando || ahora () - t0 < 0.3 || ahora () - t_mostrar < abrir_dur + 0.05) {
                 queue_draw ();
             }
             return true;
@@ -306,7 +398,20 @@ namespace Launchpad {
 
         // ── pintar ────────────────────────────────────────────────────────
         public bool al_pintar (Cairo.Context cr) {
+            double inicio_pintar = ahora ();
             double alfa = double.min (1.0, (ahora () - t0) / 0.18);
+            double escala = 1.0;
+            if (cerrando) {
+                double f = curva_del_motor (cerrar_curva, double.min (1.0, (ahora () - t_cierre) / cerrar_dur));
+                alfa = 1.0 - f;
+                escala = 1.0 + (abrir_escala - 1.0) * f;      // el cierre es el espejo del abrir (hipótesis)
+                depurar ("cerrar t=%.4f alfa=%.4f escala=%.4f".printf (ahora () - t_cierre, alfa, escala));
+            } else if (abrir_dur > 0.0 && ahora () - t_mostrar < abrir_dur) {
+                double f = curva_del_motor (abrir_curva, (ahora () - t_mostrar) / abrir_dur);
+                alfa = f;
+                escala = 1.0 + (abrir_escala - 1.0) * (1.0 - f);
+                depurar ("abrir t=%.4f alfa=%.4f escala=%.4f".printf (ahora () - t_mostrar, alfa, escala));
+            }
             if (fondo != null) {
                 cr.set_source_surface (fondo, 0, 0);
                 cr.paint ();
@@ -315,6 +420,11 @@ namespace Launchpad {
                 cr.paint ();
             }
             cr.push_group ();
+            if (escala != 1.0) {
+                cr.translate (W / 2.0, H / 2.0);
+                cr.scale (escala, escala);
+                cr.translate (-W / 2.0, -H / 2.0);
+            }
             if (carpeta != null) {
                 pintar_carpeta (cr);
             } else {
@@ -330,6 +440,9 @@ namespace Launchpad {
             }
             cr.pop_group_to_source ();
             cr.paint_with_alpha (alfa);
+            if (cerrando || ahora () - t_mostrar < 1.0) {
+                depurar ("pintar %.1f ms".printf ((ahora () - inicio_pintar) * 1000));
+            }
             return false;
         }
 
@@ -665,6 +778,9 @@ namespace Launchpad {
         }
 
         void abrir_elemento (Elemento el) {
+            if (cerrando) {
+                return;
+            }
             if (el is Carpeta) {
                 carpeta = (Carpeta) el;
                 pag_carpeta = 0;
