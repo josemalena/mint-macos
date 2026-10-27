@@ -7,7 +7,7 @@
 # Qué arma, todo en un HOME de prueba nuevo (se borra al salir) y un bus de D-Bus propio (dbus-run-session):
 #   - Xvfb en --display (por omisión :80);
 #   - Muffin, o con --cinnamon Cinnamon entero con las extensiones y los applets del repo (menú Apple, appmenu@macos y globalmenu@macos) y sin animaciones;
-#   - menu-global/registrador.py (com.canonical.AppMenu.Registrar) y, si está en el PATH o en --prefijo/bin, mac-ventanas --residente (org.mintmacos.Menu1).
+#   - menu-global/registrador.py (com.canonical.AppMenu.Registrar) y, si están en el PATH o en --prefijo/bin, mac-menu o si no mac-ventanas --residente (org.mintmacos.Menu1).
 # Corre COMANDO con DISPLAY y DBUS_SESSION_BUS_ADDRESS de ese bus y termina cuando COMANDO termina. Antes de correrlo escribe en stderr las variables
 # (DISPLAY, el bus y el HOME de prueba), por si COMANDO está en un contenedor que necesita la ruta del socket.
 set -uo pipefail
@@ -41,7 +41,8 @@ export ARGS_CMD_FILE="$H/cmd"; printf '%s\0' "$@" > "$ARGS_CMD_FILE"
 dbus-run-session -- bash -c '
   H="$PRUEBA_XVFB_HOME"; REPO="'"$REPO"'"; CINNAMON='"$CINNAMON"'
   python3 "$REPO/menu-global/registrador.py" > "$H/registrador.log" 2>&1 &
-  command -v mac-ventanas > /dev/null && { mac-ventanas --residente > "$H/menu1.log" 2>&1 & }
+  if command -v mac-menu > /dev/null; then mac-menu > "$H/menu1.log" 2>&1 &
+  elif command -v mac-ventanas > /dev/null; then mac-ventanas --residente > "$H/menu1.log" 2>&1 & fi
   if $CINNAMON; then
     mkdir -p "$XDG_DATA_HOME/cinnamon/extensions" "$XDG_DATA_HOME/cinnamon/applets"
     cp -r "$REPO"/extensions/*@macos "$XDG_DATA_HOME/cinnamon/extensions/"
