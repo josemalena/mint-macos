@@ -830,6 +830,7 @@ name = "mint-macos-appimages"
 version = "0.1.0"
 dependencies = [
  "backhand",
+ "mint-macos-comun",
 ]
 
 [[package]]
@@ -861,6 +862,10 @@ dependencies = [
  "rusqlite",
  "zbus",
 ]
+
+[[package]]
+name = "mint-macos-comun"
+version = "0.1.0"
 
 [[package]]
 name = "mint-macos-equipo"

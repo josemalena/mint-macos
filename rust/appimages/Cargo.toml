@@ -6,6 +6,8 @@ license.workspace = true
 description = "Integra las AppImages soltadas en /Applications sin ejecutarlas (servicio de usuario appimages.service)"
 
 [dependencies]
+# La pregunta de la primera vez, los avisos y el sha256, compartidos con abrir-mac.
+comun = { package = "mint-macos-comun", path = "../comun" }
 # backhand 0.25.5 (26-09-2026, MIT o Apache-2.0): lee el squashfs de la AppImage
 # desde su offset, a memoria. Sin las features por defecto: fuera rayon y
 # tracing; quedan gzip, xz, zstd y lz4, las compresiones que usan las AppImages.

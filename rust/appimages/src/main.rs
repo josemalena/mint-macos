@@ -31,6 +31,7 @@ use std::path::{Component, Path, PathBuf};
 use std::process::{exit, Command, Stdio};
 
 use backhand::{FilesystemReader, InnerNode, SquashfsFileReader};
+use comun::{home, origen_de, preguntar, sha256_de, xdg};
 
 const PREFIJO: &str = "mint-macos-appimage-";
 const MARCA: &str = "X-mint-macos-AppImage=true";
@@ -41,7 +42,6 @@ const SALTOS: usize = 8;
 // --- GLib, GIO y libc ---------------------------------------------------------
 
 const G_CHECKSUM_MD5: c_int = 0;
-const G_CHECKSUM_SHA256: c_int = 2;
 
 #[link(name = "gio-2.0")]
 #[link(name = "gobject-2.0")]
@@ -52,14 +52,6 @@ extern "C" {
     fn g_object_unref(obj: *mut c_void);
     fn g_free(p: *mut c_void);
     fn g_compute_checksum_for_string(tipo: c_int, s: *const c_char, len: isize) -> *mut c_char;
-    fn g_checksum_new(tipo: c_int) -> *mut c_void;
-    fn g_checksum_update(c: *mut c_void, data: *const u8, len: isize);
-    fn g_checksum_get_string(c: *mut c_void) -> *const c_char;
-    fn g_checksum_free(c: *mut c_void);
-}
-
-extern "C" {
-    fn getxattr(path: *const c_char, name: *const c_char, value: *mut c_void, size: usize) -> isize;
 }
 
 /// Toma un char* de GLib y lo libera.
@@ -86,53 +78,7 @@ fn md5_de(ruta: &Path) -> String {
     unsafe { de_glib(g_compute_checksum_for_string(G_CHECKSUM_MD5, u.as_ptr(), -1)) }
 }
 
-fn sha256_de(ruta: &Path) -> std::io::Result<String> {
-    let mut f = fs::File::open(ruta)?;
-    let mut buf = vec![0u8; 1 << 20];
-    unsafe {
-        let c = g_checksum_new(G_CHECKSUM_SHA256);
-        loop {
-            let n = match f.read(&mut buf) {
-                Ok(0) => break,
-                Ok(n) => n,
-                Err(e) => {
-                    g_checksum_free(c);
-                    return Err(e);
-                }
-            };
-            g_checksum_update(c, buf.as_ptr(), n as isize);
-        }
-        let s = CStr::from_ptr(g_checksum_get_string(c)).to_string_lossy().into_owned();
-        g_checksum_free(c);
-        Ok(s)
-    }
-}
-
-/// De dónde se bajó: Chrome y Firefox lo anotan en user.xdg.origin.url.
-fn origen_de(ruta: &Path) -> Option<String> {
-    let c = CString::new(ruta.as_os_str().as_bytes()).ok()?;
-    let nombre = CString::new("user.xdg.origin.url").unwrap();
-    let mut buf = vec![0u8; 4096];
-    let n = unsafe { getxattr(c.as_ptr(), nombre.as_ptr(), buf.as_mut_ptr() as *mut c_void, buf.len()) };
-    if n <= 0 {
-        return None;
-    }
-    buf.truncate(n as usize);
-    String::from_utf8(buf).ok().filter(|s| !s.is_empty())
-}
-
 // --- Dónde vive cada cosa ------------------------------------------------------
-
-fn xdg(var: &str, defecto: &str) -> PathBuf {
-    match std::env::var_os(var) {
-        Some(v) if Path::new(&v).is_absolute() => PathBuf::from(v),
-        _ => home().join(defecto),
-    }
-}
-
-fn home() -> PathBuf {
-    PathBuf::from(std::env::var_os("HOME").unwrap_or_else(|| OsString::from("/")))
-}
 
 struct Lugares {
     destinos: Vec<PathBuf>,
@@ -149,7 +95,7 @@ impl Lugares {
             destinos,
             apps: datos.join("applications"),
             iconos: datos.join("mint-macos/appimages"),
-            estado: xdg("XDG_STATE_HOME", ".local/state").join("mint-macos"),
+            estado: comun::estado(),
             yo: std::env::current_exe().unwrap_or_else(|_| PathBuf::from("mint-macos-appimages")),
         }
     }
@@ -487,14 +433,7 @@ fn clave(texto: &str, k: &str) -> Option<String> {
 // --- Avisos --------------------------------------------------------------------
 
 fn avisar(titulo: &str, cuerpo: &str) {
-    eprintln!("appimages: {titulo}: {cuerpo}");
-    // Sin esperar: en una sesión sin servidor de avisos, notify-send no debe trabar.
-    let _ = Command::new("notify-send")
-        .args(["-a", "Applications", "-i", "dialog-warning", titulo, cuerpo])
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .spawn();
+    comun::avisar("appimages", titulo, cuerpo);
 }
 
 /// Un aviso por AppImage y por versión del archivo, no uno en cada corrida.
@@ -638,10 +577,7 @@ fn abrir(l: &Lugares, ruta: &Path, args: &[OsString]) -> i32 {
         }
     };
     let aprobadas = l.estado.join("appimages-aprobadas");
-    let ya = fs::read_to_string(&aprobadas)
-        .map(|t| t.lines().any(|x| x.split(' ').next() == Some(sha.as_str())))
-        .unwrap_or(false);
-    if !ya {
+    if !comun::aprobada(&aprobadas, &sha) {
         let texto_lanz = fs::read_to_string(l.lanzador(&md5_de(&dada)))
             .or_else(|_| fs::read_to_string(l.lanzador(&md5_de(&ruta))))
             .unwrap_or_default();
@@ -651,10 +587,7 @@ fn abrir(l: &Lugares, ruta: &Path, args: &[OsString]) -> i32 {
         if !preguntar(&nombre, origen.as_deref(), icono.as_deref(), &ruta) {
             return 0;
         }
-        let _ = fs::create_dir_all(&l.estado);
-        if let Ok(mut f) = fs::OpenOptions::new().create(true).append(true).open(&aprobadas) {
-            let _ = writeln!(f, "{sha} {}", ruta.display());
-        }
+        comun::aprobar(&aprobadas, &sha, &ruta);
     }
     if let Ok(m) = fs::metadata(&ruta) {
         let modo = m.permissions().mode();
@@ -666,43 +599,6 @@ fn abrir(l: &Lugares, ruta: &Path, args: &[OsString]) -> i32 {
     let e = Command::new(&ruta).args(args).env("DESKTOPINTEGRATION", "1").exec();
     avisar(&format!("“{}” can't be opened", nombre_visible(&ruta)), &e.to_string());
     1
-}
-
-/// La ventana de Gatekeeper: mac-gatekeeper si está (Vala, con la cara de
-/// Catalina); si no, zenity. true = Open.
-fn preguntar(nombre: &str, origen: Option<&str>, icono: Option<&str>, ruta: &Path) -> bool {
-    let host = origen.and_then(|o| o.split("://").nth(1)).and_then(|r| r.split('/').next()).filter(|h| !h.is_empty());
-    let segunda = match host {
-        Some(h) => format!("It was downloaded from {h}."),
-        None => "Its origin is unknown.".to_string(),
-    };
-    let en_path = |p: &str| std::env::var_os("PATH").map(|v| std::env::split_paths(&v).any(|d| d.join(p).is_file())).unwrap_or(false);
-    let st = if en_path("mac-gatekeeper") {
-        let mut c = Command::new("mac-gatekeeper");
-        c.arg("--app").arg(nombre).arg("--ruta").arg(ruta);
-        if let Some(o) = origen {
-            c.arg("--origen").arg(o);
-        }
-        if let Some(i) = icono {
-            c.arg("--icono").arg(i);
-        }
-        c.status()
-    } else {
-        Command::new("zenity")
-            .args(["--question", "--title=", "--icon-name=dialog-warning", "--ok-label=Open", "--cancel-label=Cancel", "--width=420"])
-            .arg(format!(
-                "--text=<b>“{}” is an app downloaded from the Internet. Are you sure you want to open it?</b>\n\n{}",
-                marcado(nombre),
-                marcado(&segunda)
-            ))
-            .stderr(Stdio::null())
-            .status()
-    };
-    matches!(st, Ok(s) if s.success())
-}
-
-fn marcado(s: &str) -> String {
-    s.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;")
 }
 
 // --- main ----------------------------------------------------------------------
