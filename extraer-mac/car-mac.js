@@ -2,6 +2,8 @@
 // JXA, como herramientas.js: sin swiftc ni Command Line Tools.
 //
 //   osascript -l JavaScript car-mac.js <recursos> <salida> [subcarpeta…]
+//   osascript -l JavaScript car-mac.js simbolos <salida> <versión> <tabla.tsv> <.car o carpeta>…
+//     (los glifos vectoriales como íconos -symbolic de freedesktop: ver simbolos())
 //
 // Recorre los .car de <recursos>/<subcarpeta> (por omisión «car» e «iconos») y
 // deja en <salida>/<ruta relativa a recursos, con «__» por «/»>/ cada rendición
@@ -250,6 +252,21 @@ function colorDeCUI(c) {
 }
 function lista(a, f) { const o = []; if (nada(a)) return o; for (let i = 0; i < a.count; i++) o.push(f(a.objectAtIndex(i))); return o; }
 
+// identificador → nombre de faceta, como FACETKEYS en car.py. Con
+// renditionNameForKeyList: el proceso se cae en algunas claves (SVG de
+// CoreTypes, 27.0.1): sale de la clave base de cada nombre.
+function facetasDe(cat, st) {
+  const facetas = {};
+  try {
+    const ns = st.allRenditionNames;
+    for (let i = 0; !nada(ns) && i < ns.count; i++) {
+      const n = ns.objectAtIndex(i), bk = cat._baseKeyForName(n);
+      if (!nada(bk) && Number(bk.themeIdentifier)) facetas[Number(bk.themeIdentifier)] = n.js;
+    }
+  } catch (e) {}
+  return facetas;
+}
+
 // ---- un .car
 function sacar(ruta, dest) {
   const cuenta = {};   // tipo → {sacado, faltan: {motivo: n}}
@@ -265,17 +282,7 @@ function sacar(ruta, dest) {
   const apar = {};
   try { const d = st.appearances; if (!nada(d)) { const ks = d.allKeys; for (let i = 0; i < ks.count; i++) { const k = ks.objectAtIndex(i); apar[num(d.objectForKey(k))] = k.js; } } } catch (e) {}
   APAR = apar; USADOS = {}; REPETIDOS = 0;
-  // identificador → nombre de faceta, como FACETKEYS en car.py. Con
-  // renditionNameForKeyList: el proceso se cae en algunas claves (SVG de
-  // CoreTypes, 27.0.1): sale de la clave base de cada nombre.
-  const facetas = {};
-  try {
-    const ns = st.allRenditionNames;
-    for (let i = 0; !nada(ns) && i < ns.count; i++) {
-      const n = ns.objectAtIndex(i), bk = cat._baseKeyForName(n);
-      if (!nada(bk) && Number(bk.themeIdentifier)) facetas[Number(bk.themeIdentifier)] = n.js;
-    }
-  } catch (e) {}
+  const facetas = facetasDe(cat, st);
   const colores = {};   // apariencia → [...]
   const keys = st.allAssetKeys;
   for (let i = 0; i < keys.count; i++) {
@@ -421,6 +428,196 @@ function sacar(ruta, dest) {
   return cuenta;
 }
 
+// ---- símbolos: los glifos vectoriales como íconos -symbolic de freedesktop
+//
+//   osascript -l JavaScript car-mac.js simbolos <salida> <versión> <tabla.tsv> <.car o carpeta>…
+//
+// De cada nombre sale UN glifo: el vectorial (VectorGlyph o SVG, sin imagen,
+// degradado ni blanco) más cercano a regular mediano (peso 4, tamaño 2), sin apariencia.
+// Va a <salida>/iconos-simbolicos/Mint-Macos-<versión>/scalable/<contexto>/
+// <nombre>-symbolic.svg, con index.theme, simbolos.tsv (de dónde salió cada
+// uno) y descartados.tsv (los que no, con su motivo). <nombre> es el de freedesktop si el glifo está en la tabla; si no,
+// el del .car, en «sf». Si dos .car traen el mismo nombre gana el primero:
+// CoreGlyphs va primero.
+// GTK pinta los -symbolic con el color del texto: por eso van sin fill. Que
+// así sirvan en claro, en oscuro y con el acento es hipótesis hasta probarlo.
+const CONTEXTOS = { Actions: 'actions', Places: 'places', Status: 'status', Devices: 'devices',
+  Categories: 'categories', Applications: 'apps', Emblems: 'emblems', MimeTypes: 'mimetypes' };
+
+function leerTabla(ruta) {
+  const t = $.NSString.stringWithContentsOfFileEncodingError($(ruta), $.NSUTF8StringEncoding, null);
+  if (nada(t)) throw new Error('no se pudo leer la tabla ' + ruta);
+  const tabla = {};
+  for (const l of t.js.split('\n')) {
+    if (!l.trim() || l[0] === '#') continue;
+    const [sf, fd, ctx] = l.split('\t');
+    if (!CONTEXTOS[ctx]) throw new Error(`contexto desconocido en la tabla: «${l}»`);
+    tabla[sf] = { fd, ctx };
+  }
+  return tabla;
+}
+
+// name_aliases.strings de CoreGlyphs, junto al .car: nombre viejo → nuevo
+function alias(car) {
+  const d = $.NSDictionary.dictionaryWithContentsOfFile($(car.replace(/[^/]*$/, '') + 'name_aliases.strings'));
+  return nada(d) ? {} : ObjC.deepUnwrap(d);
+}
+
+// Los colores que no son negro ni «none», por propiedad: {fill: [...], otros: [...]}.
+function colores(t) {
+  const re = /(fill|stroke|stop-color|color)\s*(?:=\s*["']([^"']*)["']|:\s*([^;"'}]+))/gi, c = { fill: {}, otros: {} };
+  let m;
+  while ((m = re.exec(t))) {
+    const v = (m[2] || m[3] || '').trim().toLowerCase().replace(/\s+/g, '');
+    if (!/^(none|currentcolor|black|#000|#000000|#000000ff|rgb\(0,0,0\)|inherit|)$/.test(v)) c[m[1].toLowerCase() === 'fill' ? 'fill' : 'otros'][v] = 1;
+  }
+  return { fill: Object.keys(c.fill), otros: Object.keys(c.otros) };
+}
+
+// El texto SVG de una rendición. Los glifos de las apps traen el SVG en
+// rawData; los de CoreGlyphs (27.0.1) lo traen compilado («GVS» en el CSI) y
+// el texto sale de su svgDocument con CGSVGDocumentWriteToData (CoreSVG, privado).
+let escribirSVG;
+function textoSVG(r) {
+  const d = r.rawData;
+  if (!nada(d) && Number(d.length) > 0) {
+    const t = $.NSString.alloc.initWithDataEncoding(d, $.NSUTF8StringEncoding);
+    if (!nada(t) && /^\s*</.test(t.js)) return t.js;
+  }
+  if (escribirSVG === undefined) {
+    escribirSVG = null;
+    try {
+      $.NSBundle.bundleWithPath('/System/Library/PrivateFrameworks/CoreSVG.framework').load;
+      ObjC.bindFunction('CGSVGDocumentWriteToData', ['void', ['void *', 'id', 'void *']]);
+      escribirSVG = $.CGSVGDocumentWriteToData;
+    } catch (e) {}
+  }
+  if (!escribirSVG || !r.respondsToSelector('svgDocument')) return null;
+  const doc = msg(r, 'svgDocument');
+  if (!doc) return null;
+  const md = $.NSMutableData.data;
+  escribirSVG(doc, md, null);
+  const t = $.NSString.alloc.initWithDataEncoding(md, $.NSUTF8StringEncoding);
+  return nada(t) || !Number(md.length) ? null : t.js;
+}
+
+// El SVG de CoreUI → -symbolic: con xmlns (CoreSVG no lo pone y librsvg lo
+// pide), viewBox llevado al canvasSize, centrado en una caja cuadrada y sin fill.
+function simbolico(t, cw, ch) {
+  // fuera la cabecera y el CSS de SF Symbols (-sfsymbols-…: capas y animación, que GTK no usa)
+  t = t.replace(/<\?xml[\s\S]*?\?>/g, '').replace(/<!--[\s\S]*?-->/g, '').replace(/<!DOCTYPE[^>]*>/gi, '')
+    .replace(/<style\b[\s\S]*?<\/style>/g, '').replace(/<defs>\s*<\/defs>/g, '');
+  const m = t.match(/<svg\b([^>]*)>([\s\S]*)<\/svg>\s*$/);
+  if (!m) return { motivo: 'no es un <svg>' };
+  let cuerpo = m[2];
+  if (/<(image|linearGradient|radialGradient|pattern|mask|filter)\b/.test(cuerpo)) return { motivo: 'trae imagen, degradado, patrón, máscara o filtro' };
+  // El color de relleno de un glifo es el tinte de su modo multicolor (Monterey lo
+  // escribe como fill="#5856D6" en folder; 27 solo como clase): se quita y queda la
+  // forma de un solo color. El blanco no: pintado con el color del texto taparía
+  // el glifo (que sean recortes que el monocromo no tiene es hipótesis).
+  const c = colores(cuerpo);
+  if (c.otros.length) return { motivo: 'trazo o degradado con color', detalle: c.otros.join(' ') };
+  if (c.fill.some(v => /^(white|#fff|#ffffff|#ffffffff|rgb\(255,255,255\))$/.test(v)))
+    return { motivo: 'tiene partes en blanco', detalle: c.fill.join(' ') };
+  const vb = (m[1].match(/viewBox\s*=\s*["']([^"']*)["']/) || [])[1];
+  let [vx, vy, vw, vh] = vb ? vb.trim().split(/[\s,]+/).map(Number) : [0, 0, cw, ch];
+  if (!(vw > 0 && vh > 0)) return { motivo: 'sin viewBox ni canvasSize' };
+  if (!(cw > 0 && ch > 0)) { cw = vw; ch = vh; }
+  // sin fill (salvo «none», que dice que esa forma es solo trazo) y sin las clases
+  // de capa de SF (hierarchical-0:secondary…), que sin su CSS no dicen nada.
+  cuerpo = cuerpo.replace(/\s+fill\s*=\s*["'](?!none)[^"']*["']/gi, '').replace(/fill\s*:\s*(?!none)[^;"']+;?/gi, '')
+    .replace(/\s+class\s*=\s*["'][^"']*\b(monochrome|hierarchical|multicolor|palette)-\d[^"']*["']/g, '');
+  const f = x => String(+(+x).toFixed(4));
+  const sx = cw / vw, sy = ch / vh, tx = -vx * sx, ty = -vy * sy;
+  // el viewBox y el canvasSize difieren en redondeo (11.3813 y 11.381342): eso no lleva matriz
+  const e = 1e-3 * Math.max(cw, ch);
+  if (Math.abs(sx * vw - vw) > e || Math.abs(sy * vh - vh) > e || Math.abs(tx) > e || Math.abs(ty) > e)
+    cuerpo = `<g transform="matrix(${f(sx)} 0 0 ${f(sy)} ${f(tx)} ${f(ty)})">${cuerpo}</g>`;
+  const L = Math.max(cw, ch);
+  return { svg: '<?xml version="1.0" encoding="UTF-8"?>\n' +
+    `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="16" height="16" viewBox="${f(-(L - cw) / 2)} ${f(-(L - ch) / 2)} ${f(L)} ${f(L)}">` +
+    cuerpo.trim() + '</svg>\n', quitados: c.fill.join(' ') };
+}
+
+function simbolos(argv) {
+  if (argv.length < 4) return 'uso: car-mac.js simbolos <salida> <versión> <tabla.tsv> <.car o carpeta>…';
+  const sal = argv[0].replace(/\/$/, ''), version = argv[1], tabla = leerTabla(argv[2]);
+  const tema = `${sal}/iconos-simbolicos/Mint-Macos-${version}`;
+  const cars = [];
+  for (const a of argv.slice(3)) {
+    const dir = Ref();
+    if (!FM.fileExistsAtPathIsDirectory($(a), dir)) continue;
+    if (!dir[0]) { cars.push(a); continue; }
+    const en = FM.enumeratorAtPath($(a)); let p;
+    while (!nada(p = en.nextObject)) if (/\.car$/.test(p.js)) cars.push(a.replace(/\/$/, '') + '/' + p.js);
+  }
+  const cuenta = {}, filas = ['icono\tcontexto\tnombre_sf\talias\tclase\tatributos\tcolores_quitados\tcar'], hechos = {}, dirs = {};
+  const fuera = ['nombre_sf\tclase\tmotivo\tdetalle\tcar'];
+  const anota = (tipo, ok, motivo) => {
+    const c = cuenta[tipo] || (cuenta[tipo] = { sacado: 0, faltan: {} });
+    if (ok) c.sacado++; else c.faltan[motivo] = (c.faltan[motivo] || 0) + 1;
+  };
+  for (const car of cars) {
+    const cat = $.NSClassFromString('CUICatalog').alloc.initWithURLError($.NSURL.fileURLWithPath(car), null);
+    if (nada(cat)) { anota('catálogo', false, 'CUICatalog no lo abre'); continue; }
+    const ts = cat._themeStore, st = ts.store, facetas = facetasDe(cat, st), keys = st.allAssetKeys;
+    // nombre del .car → entrada de la tabla, directo o por su alias nuevo
+    const al = alias(car), deTabla = {};
+    for (const sf of Object.keys(tabla)) {
+      deTabla[sf] = { ...tabla[sf], alias: '' };
+      if (al[sf]) deTabla[al[sf]] = { ...tabla[sf], alias: sf };
+    }
+    // las claves de cada nombre, de la más cercana a regular mediano a la más
+    // lejana. Dirección 4 es la de derecha a izquierda (speaker.slash.fill con
+    // la bocina a la derecha, dibujado en 27.0.1): va después de la 5 y la 0.
+    const porNombre = {};
+    for (let i = 0; i < keys.count; i++) {
+      const k = keys.objectAtIndex(i), atr = atributos(k), n = facetas[atr.identificador];
+      if (!n) continue;
+      const w = atr['27'] || 0, s = atr['28'] || 0;
+      const nota = (atr.apariencia ? 1000 : 0) + (atr['dirección'] === 4 ? 100 : 0) + (w ? Math.abs(w - 4) * 10 : 0) + (s ? { 2: 0, 1: 1, 3: 2 }[s] || 3 : 0)
+        + ((atr.escala || 1) > 1 ? 0.5 : 0) - (atr.despliegue || 0) * 0.01;
+      (porNombre[n] || (porNombre[n] = [])).push({ k, atr, nota });
+    }
+    for (const n of Object.keys(porNombre)) {
+      let r = null, clase = '', atr = null, motivo = 'sin glifo vectorial';
+      for (const c of porNombre[n].sort((a, b) => a.nota - b.nota)) {
+        try { r = ObjC.castRefToObject(msg(ts, 'renditionWithKey:', msg(c.k, 'keyList'))); } catch (e) { r = null; }
+        if (nada(r)) continue;
+        clase = $.NSStringFromClass(r.class).js;
+        if (clase === '_CUIThemeVectorGlyphRendition' || clase === '_CUIThemeSVGRendition') { atr = c.atr; break; }
+        r = null;
+      }
+      if (!atr) continue;   // no es un glifo: lo saca el paso «car»
+      const tipo = clase.replace(/^_?CUI(Theme)?/, '').replace(/Rendition$/, '');
+      const texto = textoSVG(r);
+      if (!texto) { anota(tipo, false, 'ni rawData con texto SVG ni svgDocument que CoreSVG escriba'); continue; }
+      const s = simbolico(texto, Number(r.canvasSize.width), Number(r.canvasSize.height));
+      if (!s.svg) { anota(tipo, false, s.motivo); fuera.push([n, tipo, s.motivo, s.detalle || '', car].join('\t')); continue; }
+      const e = deTabla[n], icono = e ? e.fd : archivo(n), ctx = e ? CONTEXTOS[e.ctx] : 'sf';
+      if (hechos[icono]) { anota(tipo, false, 'el nombre ya salió de un .car anterior'); continue; }
+      const dir = `${tema}/scalable/${ctx}`;
+      if (!dirs[ctx]) { carpeta(dir); dirs[ctx] = e ? e.ctx : 'SF Symbols'; }
+      if (!escribirTexto(s.svg, `${dir}/${icono}-symbolic.svg`)) { anota(tipo, false, 'no se pudo escribir'); continue; }
+      hechos[icono] = 1;
+      anota(tipo + (e ? ' (tabla)' : ' (nombre original)'), true);
+      const a = Object.keys(atr).filter(x => x !== 'identificador').map(x => `${x}=${atr[x]}`).join(' ');
+      filas.push([icono, ctx, n, e ? e.alias : '', tipo, a, s.quitados, car].join('\t'));
+    }
+  }
+  const ds = Object.keys(dirs).sort();
+  if (!ds.length) return 'ningún glifo vectorial en ' + cars.length + ' .car\n' + tsv(cuenta);
+  escribirTexto(['[Icon Theme]', `Name=Mint-Macos-${version}`,
+    `Comment=Glifos de macOS ${version}, sacados de sus .car en esa Mac. Son de Apple: no se distribuyen.`,
+    'Inherits=Mint-Y,Adwaita,hicolor', 'Directories=' + ds.map(c => 'scalable/' + c).join(','), '']
+    .concat(...ds.map(c => [`[scalable/${c}]`, `Context=${dirs[c]}`, 'Size=16', 'MinSize=8', 'MaxSize=512', 'Type=Scalable', '']))
+    .join('\n'), tema + '/index.theme');
+  escribirTexto(filas.join('\n') + '\n', tema + '/simbolos.tsv');
+  escribirTexto(fuera.join('\n') + '\n', tema + '/descartados.tsv');
+  escribirTexto(tsv(cuenta), tema + '/cuenta.tsv');
+  return `${cars.length} .car → ${tema}\n` + tsv(cuenta);
+}
+
 function tsv(cuenta) {
   const filas = ['tipo\tsacado\tno_sacado\tmotivo'];
   for (const t of Object.keys(cuenta).sort()) {
@@ -432,8 +629,9 @@ function tsv(cuenta) {
 }
 
 function run(argv) {
-  if (argv.length < 2) return 'uso: car-mac.js <recursos> <salida> [subcarpeta…]';
   $.NSBundle.bundleWithPath('/System/Library/PrivateFrameworks/CoreUI.framework').load;
+  if (argv[0] === 'simbolos') return simbolos(argv.slice(1));
+  if (argv.length < 2) return 'uso: car-mac.js <recursos> <salida> [subcarpeta…]\n       car-mac.js simbolos <salida> <versión> <tabla.tsv> <.car o carpeta>…';
   const rec = argv[0].replace(/\/$/, ''), sal = argv[1].replace(/\/$/, '');
   const subs = argv.length > 2 ? argv.slice(2) : ['car', 'iconos'];
   carpeta(sal);

@@ -4,8 +4,9 @@
 # toma del disco de Catalina: recursos del sistema, medidas y capturas.
 # Lo lanza «Extraer Mac.applescript»; también corre solo desde Terminal:
 #
-#   bash extraer.sh [permisos] [recursos] [car] [medidas] [capturas] [videos] [entregar]   (sin nada: todo)
+#   bash extraer.sh [permisos] [recursos] [car] [simbolos] [medidas] [capturas] [videos] [entregar]   (sin nada: todo)
 #   bash extraer.sh car        el contenido de los .car de «recursos», convertido (car-mac.js)
+#   bash extraer.sh simbolos   los glifos vectoriales como íconos -symbolic de freedesktop (car-mac.js simbolos)
 #   BLOQUES="08 09" bash extraer.sh capturas      (solo esos bloques de la tanda: 01 03 05 06 07 08 09 12 13 14 15 16 17)
 #   BLOQUES="18" bash extraer.sh capturas         los nueve acentos: colores releídos y una ventanita por color (una vez, no por tanda)
 #   BLOQUES="17" bash extraer.sh capturas         Stacks del escritorio (Mojave en adelante): pilas cerradas, una abierta y Group Stacks By
@@ -50,7 +51,7 @@ if [ "$MAYOR" -ge 13 ] 2>/dev/null; then AJUSTES="System Settings"; else AJUSTES
 SAL="${SALIDA:-$HOME/extraer-salida/macos$VERSION-$(date +%Y%m%d)}"
 CAP="$SAL/capturas"; VID="$SAL/videos"; MED="$SAL/medidas"; REC="$SAL/recursos"; HER="$SAL/herramientas"
 mkdir -p "$SAL"
-mkdir -p "$HER"; cp "$AQUI/extraer.sh" "$AQUI/herramientas.js" "$AQUI/ui.applescript" "$AQUI/car-mac.js" "$HER/" 2>/dev/null
+mkdir -p "$HER"; cp "$AQUI/extraer.sh" "$AQUI/herramientas.js" "$AQUI/ui.applescript" "$AQUI/car-mac.js" "$AQUI/simbolos-freedesktop.tsv" "$HER/" 2>/dev/null
 LOG="$HER/capturas.log"
 
 log() { echo "$(date +%H:%M:%S) $*" >> "$LOG"; }
@@ -89,7 +90,7 @@ pantalla() {
   echo "$w $h $esc ${barra:-22} ${dock:-0}"
 }
 
-PASOS="$*"; [ -z "$PASOS" ] && PASOS="permisos recursos car medidas capturas videos entregar"
+PASOS="$*"; [ -z "$PASOS" ] && PASOS="permisos recursos car simbolos medidas capturas videos entregar"
 quiere() { case " $PASOS " in *" $1 "*) return 0 ;; esac; return 1; }
 
 log "=== extraer.sh ($PASOS) en $NOMBRE, macOS $VERSION, usuario $USER, TERM_PROGRAM=${TERM_PROGRAM:-?} ==="
@@ -262,6 +263,20 @@ if quiere car; then
   else
     log "  car: no hay $REC/car ni $REC/iconos (corre antes «recursos»)"
   fi
+fi
+
+# ---------------------------------------------------------------- simbolos
+# Los glifos vectoriales (los SF Symbols de CoreGlyphs y los de las apps) como
+# íconos -symbolic de freedesktop, en $SAL/iconos-simbolicos/Mint-Macos-<versión>,
+# con los nombres de simbolos-freedesktop.tsv. CoreGlyphs se lee en /System, sin
+# copiarlo; lo que no existe en esta versión se salta.
+if quiere simbolos; then
+  aviso "Glifos como íconos -symbolic"
+  G=/System/Library/CoreServices
+  nice -n 10 osascript -l JavaScript "$AQUI/car-mac.js" simbolos "$SAL" "$VERSION" "$AQUI/simbolos-freedesktop.tsv" \
+    "$G/CoreGlyphs.bundle/Contents/Resources/Assets.car" "$G/CoreGlyphsPrivate.bundle/Contents/Resources/Assets.car" \
+    "$REC/car" "$REC/iconos" >> "$LOG" 2>&1 || log "  car-mac.js simbolos terminó con error (ver arriba)"
+  log "  iconos-simbolicos: $(find "$SAL/iconos-simbolicos" -name '*.svg' 2>/dev/null | wc -l | tr -d ' ') svg"
 fi
 
 # ---------------------------------------------------------------- medidas

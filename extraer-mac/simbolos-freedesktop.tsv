@@ -1,0 +1,48 @@
+# Nombre de SF Symbol → nombre de la Icon Naming Specification de freedesktop
+# (versión 0.8.90, https://specifications.freedesktop.org/icon-naming/latest/),
+# con el contexto de la tabla de la especificación donde está cada nombre.
+# Solo nombres: nada de Apple. car-mac.js simbolos la lee; lo que no esté
+# aquí sale con su nombre original en «sf». Si en el .car el nombre ya cambió
+# (gobackward → arrow.trianglehead.counterclockwise en 27), se busca por
+# name_aliases.strings de CoreGlyphs.
+# sf	freedesktop	contexto
+folder	folder	Places
+house	user-home	Places
+trash	user-trash	Places
+network	network-workgroup	Places
+gobackward	media-seek-backward	Actions
+goforward	media-seek-forward	Actions
+play.fill	media-playback-start	Actions
+pause.fill	media-playback-pause	Actions
+stop.fill	media-playback-stop	Actions
+backward.end.fill	media-skip-backward	Actions
+forward.end.fill	media-skip-forward	Actions
+eject.fill	media-eject	Actions
+record.circle	media-record	Actions
+xmark	window-close	Actions
+magnifyingglass	system-search	Actions
+plus	list-add	Actions
+minus	list-remove	Actions
+chevron.left	go-previous	Actions
+chevron.right	go-next	Actions
+chevron.up	go-up	Actions
+chevron.down	go-down	Actions
+arrow.clockwise	view-refresh	Actions
+doc.on.doc	edit-copy	Actions
+scissors	edit-cut	Actions
+doc.on.clipboard	edit-paste	Actions
+arrow.uturn.backward	edit-undo	Actions
+arrow.uturn.forward	edit-redo	Actions
+paperplane	mail-send	Actions
+shuffle	media-playlist-shuffle	Status
+repeat	media-playlist-repeat	Status
+speaker.wave.3.fill	audio-volume-high	Status
+speaker.slash.fill	audio-volume-muted	Status
+info.circle	dialog-information	Status
+exclamationmark.triangle	dialog-warning	Status
+printer	printer	Devices
+internaldrive	drive-harddisk	Devices
+externaldrive	drive-removable-media	Devices
+desktopcomputer	computer	Devices
+wifi	network-wireless	Devices
+gearshape	preferences-system	Categories
