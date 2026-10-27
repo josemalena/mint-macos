@@ -46,7 +46,9 @@ VERSIONES = {
                        'medidas': os.path.join(REF, 'catalina-extraer-20261015', 'medidas', 'medidas.json'),
                        'capturas': None},
     'monterey-12.7.6': {'tema': 'Samana', 'nombre': 'macOS Monterey', 'numero': '12.7.6',
-                        'raices': [os.path.join(REF, 'monterey-20261015', 'recursos', 'sistema-nib')],
+                        # sistema-xml: los NSPrefPaneGroups*.xml de la tanda del 26-10 (el del 15-10 no los traía)
+                        'raices': [os.path.join(REF, 'monterey-20261015', 'recursos', 'sistema-nib'),
+                                   os.path.join(REF, 'monterey-20261026', 'recursos', 'sistema-xml')],
                         'medidas': os.path.join(REF, 'monterey-20261015', 'medidas', 'medidas.json'),
                         'capturas': os.path.join(REF, 'monterey-20261015', 'capturas')},
     'sequoia-15.8.1': {'tema': 'ValleNuevo', 'nombre': 'macOS Sequoia', 'numero': '15.8.1',
