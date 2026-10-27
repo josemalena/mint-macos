@@ -8,6 +8,8 @@ prueba() {
   AQUI="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
   local car="$PRUEBAS_HOME_REAL/.local/share/mint-macos/referencias/monterey-20261026/recursos/car"
   [ -d "$car" ] || saltar "no están los .car de Monterey (referencias/monterey-20261026)"
+  # lo que este caso cambia en el dconf de la prueba (tema de Cinnamon y alto de la barra) no se queda para el siguiente (el 95 usa la misma barra)
+  trap "gsettings reset org.cinnamon.theme name; gsettings reset org.cinnamon panels-height" EXIT
   local t="$XDG_DATA_HOME/themes"; mkdir -p "$t" "$XDG_DATA_HOME/plank-t"
   CATALOGOS_TEMA="$car" CONSTANZA_TEMAS="$t" CONSTANZA_PLANK="$XDG_DATA_HOME/plank-t" TEMA_BASE=Samana CONSTANZA_VARIANTES="Oscuro Claro" \
     "$AQUI/../tema/gtk/construir.sh" > "$PRUEBAS_RES/construir-samana.log" 2>&1 || falla "no se generó Samaná (construir-samana.log)"

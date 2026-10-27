@@ -30,6 +30,8 @@ prueba() {
   export MP_PYTHON_DIR="$MINT_MACOS_REPO/settings"
   local d="$HOME/.local/share/mint-macos/settings/sonidos" n
   mkdir -p "$d"
+  # los WAV vacíos de este caso no se quedan para el siguiente (el 99 también arma la lista de alertas)
+  trap "rm -f '$d'/{Basso,Blow,Bottle,Frog,Funk,Glass,Hero,Morse,Ping,Pop,Purr,Sosumi,Submarine,Tink}.wav" EXIT
   for n in Basso Blow Bottle Frog Funk Glass Hero Morse Ping Pop Purr Sosumi Submarine Tink; do : > "$d/$n.wav"; done
   volcar monterey-12.7.6
   local nuevo
