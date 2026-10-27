@@ -1,0 +1,35 @@
+/* ── Samaná claro: lo mismo que _samana-cinnamon.css con los valores de la Monterey clara (INFORME.md de menus/) ──
+   Se agrega después de _constanza-cinnamon-claro.css. Barra opaca #DADADA, menú #ECECEC. */
+#panel, .panel-top, .panel-bottom { background-color: #dadada; }
+#panel .applet-box:checked,
+#panel .applet-box:checked:hover,
+#panel .globalmenu-boton:checked,
+#panel .globalmenu-boton:checked:hover {
+  background-color: #c0c0c0;                     /* barra -26 */
+  border-radius: 4px;
+  color: #1d1d1f;
+}
+.constanza-menu-box,
+.popup-menu .popup-menu-content {
+  background-color: #ececec;
+  border: 1px solid rgba(0, 0, 0, 0.23);
+  border-radius: 6px;
+  padding: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.26);
+}
+.constanza-menu .popup-menu-item:active,
+.constanza-menu .popup-menu-item:hover,
+.constanza-menu .popup-menu-item:focus,
+.popup-menu .popup-menu-item:active,
+.popup-menu .popup-menu-item:hover,
+.popup-menu .popup-menu-item:focus {
+  background-color: #207ce0;                     /* (H) */
+  color: #ffffff;
+}
+.constanza-menu .popup-menu-item:insensitive,
+.popup-menu .popup-menu-item:insensitive { color: rgba(0, 0, 0, 0.25); }
+.constanza-menu .popup-separator-menu-item,
+.popup-menu .popup-separator-menu-item {
+  -gradient-start: rgba(0, 0, 0, 0.10);
+  -gradient-end: rgba(0, 0, 0, 0.10);
+}

@@ -107,6 +107,20 @@ function spawn(cmd) {
   Util.spawnCommandLine(cmd);
 }
 
+// El separador de los menús: el de Catalina (2 px, #45484b, bloque de 12) o, con un tema Samaná (Monterey), el medido: 1 px en un bloque de 11 con
+// 14 px de margen a cada lado (10 de margen más los 4 de relleno de la caja) y negro 0.10 / blanco 0.14 según el tema (menus/INFORME.md, cambio 4).
+function estiloSeparador() {
+  let tema = "";
+  try { tema = new imports.gi.Gio.Settings({ schema_id: "org.cinnamon.theme" }).get_string("name"); } catch (e) {}
+  if (tema.indexOf("Samana") !== 0) {
+    return { fila: "padding: 7px 0 3px 0; margin: 0; min-height: 0; spacing: 0;",
+             linea: "height: 2px; padding: 0; margin: 0; border-bottom-width: 0; -margin-horizontal: 0px; -gradient-height: 2px; -gradient-start: #45484b; -gradient-end: #45484b;" };
+  }
+  let c = tema.indexOf("Claro") >= 0 ? "rgba(0, 0, 0, 0.10)" : "rgba(255, 255, 255, 0.14)";
+  return { fila: "padding: 5px 0 5px 0; margin: 0 10px; min-height: 0; spacing: 0;",
+           linea: `height: 1px; padding: 0; margin: 0; border-bottom-width: 0; -margin-horizontal: 0px; -gradient-height: 1px; -gradient-start: ${c}; -gradient-end: ${c};` };
+}
+
 class AppleMenuApplet extends Applet.IconApplet {
   constructor(metadata, orientation, panel_height, instance_id) {
     super(orientation, panel_height, instance_id);
@@ -263,9 +277,9 @@ class AppleMenuApplet extends Applet.IconApplet {
     // 12 px en total (7 + 2 + 3), con la línea donde la pone la Mac (c28);
     // sin el min-height de 17
     // que la clase común les da a los renglones.
-    sep.actor.set_style("padding: 7px 0 3px 0; margin: 0; min-height: 0; spacing: 0;");
-    sep._drawingArea.set_style("height: 2px; padding: 0; margin: 0; border-bottom-width: 0; -margin-horizontal: 0px; " +
-      "-gradient-height: 2px; -gradient-start: #45484b; -gradient-end: #45484b;");
+    let est = estiloSeparador();
+    sep.actor.set_style(est.fila);
+    sep._drawingArea.set_style(est.linea);
     return sep;
   }
 

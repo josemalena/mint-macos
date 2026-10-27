@@ -93,6 +93,11 @@ done
 cat "$AQUI/_constanza-cinnamon.css" >> "$BASE/cinnamon/cinnamon.css"
 # Ese archivo está medido en Catalina oscura (barra #282828, texto blanco): en las variantes claras va encima el de Catalina clara.
 [ "$COLOR" = light ] && cat "$AQUI/_constanza-cinnamon-claro.css" >> "$BASE/cinnamon/cinnamon.css"
+# Samaná (Monterey): encima de lo de Catalina, la barra y los menús medidos en Monterey.
+if [ "$TEMA_BASE" = Samana ]; then
+  cat "$AQUI/_samana-cinnamon.css" >> "$BASE/cinnamon/cinnamon.css"
+  [ "$COLOR" = light ] && cat "$AQUI/_samana-cinnamon-claro.css" >> "$BASE/cinnamon/cinnamon.css"
+fi
 # La fuente del shell (menú de Cinnamon, panel, menús de applets, OSD): Mojave
 # pide «Futura Bk bt», que no está, y fontconfig la cambia por Noto Sans. Va
 # la SF a 10 pt (13 px, como los menús de macOS), o Inter si no está. Los

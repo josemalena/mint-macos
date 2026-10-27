@@ -1,0 +1,50 @@
+/* ── Samaná oscuro: la barra de menús y los menús de Cinnamon con Monterey ──
+   Se agrega después de _constanza-cinnamon.css solo en Samaná (construir.sh). Medido en las capturas de Monterey 12.7.6 y en sus .car
+   (referencias/.../trabajo-samana-20261026/menus/INFORME.md, cambios 1-8): los números con (H) son hipótesis.
+   Sin vidrio (los colores son los opacos que define el .car: MenuBar #202020, menú #323232). */
+#panel, .panel-top, .panel-bottom { background-color: #202020; }
+/* Ítem activo de la barra: píldora gris de radio 4 (barra +26..+38), no azul; el texto no cambia de color */
+#panel .applet-box:checked,
+#panel .applet-box:checked:hover,
+#panel .globalmenu-boton:checked,
+#panel .globalmenu-boton:checked:hover {
+  background-color: #3a3a3a;
+  border-radius: 4px;
+  color: #ffffff;
+}
+.constanza-menu, .popup-menu, .popup-combo-menu { font-size: 13px; }
+.constanza-menu-box,
+.popup-menu .popup-menu-content {
+  background-color: #323232;
+  border: 1px solid rgba(0, 0, 0, 0.85);
+  border-radius: 6px;
+  padding: 4px;                                  /* relleno vertical y lateral de 4 px */
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.26);    /* (H) el alcance de ~12 px está medido; la regla exacta no */
+}
+.constanza-menu .popup-menu-item,
+.popup-menu .popup-menu-item {
+  padding: 0 10px 0 9px;                         /* el texto a 9 px dentro del resaltado */
+  min-height: 22px;                              /* fila de 22 px */
+  border-radius: 4px;
+}
+.constanza-menu .popup-menu-item:active,
+.constanza-menu .popup-menu-item:hover,
+.constanza-menu .popup-menu-item:focus,
+.popup-menu .popup-menu-item:active,
+.popup-menu .popup-menu-item:hover,
+.popup-menu .popup-menu-item:focus {
+  background-color: #1c5bb9;                     /* (H) el azul medido sobre ese fondo; en Monterey varía con lo de atrás */
+  color: #ffffff;
+}
+.constanza-menu .popup-menu-item:insensitive,
+.popup-menu .popup-menu-item:insensitive { color: rgba(255, 255, 255, 0.25); }
+/* Separador: 1 px en un bloque de 11 px, con 14 px de margen a cada lado; blanco 0.14 */
+.constanza-menu .popup-separator-menu-item,
+.popup-menu .popup-separator-menu-item {
+  height: 1px;
+  -gradient-height: 1px;
+  -gradient-start: rgba(255, 255, 255, 0.14);
+  -gradient-end: rgba(255, 255, 255, 0.14);
+  -margin-horizontal: 10px;                      /* 14 de margen menos los 4 de relleno de la caja */
+  border-bottom-width: 0;
+}
