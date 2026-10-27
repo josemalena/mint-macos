@@ -140,6 +140,9 @@ captura 03 y el video 02 se saltan), el reloj y Notification Center viven en
 SystemUIServer, y System Preferences tiene sus propios paneles. Las ventanas
 sueltas salen a 1x si la pantalla no es Retina.
 
+Pendiente: el video 06 falla porque `item_barra "Clock"` no existe en Catalina.
+Ahí el Notification Center es el ícono del extremo derecho de la barra.
+
 ## Lo que no puede
 
 - La pantalla de login y la de bloqueo: screencapture no corre ahí. Van con el celular.

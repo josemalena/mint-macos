@@ -1299,8 +1299,14 @@ if quiere videos; then
   grabar 02-control-center 7; item_barra "Control Center" || true; sleep 3.5; esc; raton_fuera; wait $GP; log "video 02"
   grabar 03-spotlight 8; tecla no-terminal 'keystroke space using command down'; sleep 2; tecla no-terminal 'keystroke "Lago"'; sleep 2.5; esc; sleep 0.3; esc; wait $GP; log "video 03"
   grabar 04-mission-control 7; open -a "Mission Control"; sleep 3; esc; sleep 1; wait $GP; log "video 04"
-  ventana_finder . list $X1 $Y1 $X2 $Y2; raton_fuera
-  grabar 05-minimizar-ventana 7; tecla Finder 'keystroke "m" using command down'; sleep 3; osa -e 'tell application "Finder" to set collapsed of Finder window 1 to false'; sleep 1.5; wait $GP; log "video 05"; cerrar_finder
+  # Los videos 02 a 04 se llevan el foco y ventana_finder no activa el Finder:
+  # sin finder_activar, «tecla Finder» no manda el ⌘M y el 05 sale quieto.
+  ventana_finder . list $X1 $Y1 $X2 $Y2; finder_activar; raton_fuera
+  grabar 05-minimizar-ventana 7; tecla Finder 'keystroke "m" using command down'; sleep 3
+  log "  video 05: minimizada=$(osascript -e 'tell application "Finder" to get collapsed of Finder window 1' 2>&1)"
+  osa -e 'tell application "Finder" to set collapsed of Finder window 1 to false'; sleep 1.5
+  wait $GP; log "video 05"
+  cerrar_finder
   grabar 06-notification-center 7; item_barra "Clock"; sleep 3.5; item_barra "Clock"; raton_fuera; wait $GP; log "video 06"
   grabar 07-launchpad 6; open -a Launchpad; sleep 3; esc; wait $GP; log "video 07"
   aviso "Videos listos"
