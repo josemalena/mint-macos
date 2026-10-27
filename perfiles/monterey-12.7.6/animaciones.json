@@ -62,17 +62,19 @@
    "ms": 67
   },
   "notification-center-entrar": {
-   "rango_ms": "200 visibles; ajuste 230-255",
+   "rango_ms": "230-255 (ajuste de la curva con el inicio fuera de pantalla)",
+   "visibles_ms": 200,
    "curva": "easeInEaseOut (lineal no se descarta)",
    "ancho_panel_pt": 360,
    "fuente": "referencias/animaciones-medidas/notification-center/INDICE.md",
-   "ms": 230
+   "ms": 240
   },
   "notification-center-salir": {
-   "rango_ms": "150-167 visibles",
-   "curva": "easeInEaseOut (hipótesis, igual que entrar)",
+   "rango_ms": "185-200 (ajuste de la curva)",
+   "visibles_ms": "150-167",
+   "curva": "easeIn (0.42,0,1,1); no se distingue de easeInEaseOut con certeza",
    "fuente": "referencias/animaciones-medidas/notification-center/INDICE.md",
-   "ms": 158
+   "ms": 190
   },
   "control-center-cerrar": {
    "rango_ms": "180-250",

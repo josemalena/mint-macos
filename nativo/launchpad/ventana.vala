@@ -68,6 +68,13 @@ namespace Launchpad {
         return GLib.get_monotonic_time () / 1000000.0;
     }
 
+    /** Segundos de CPU de este hilo: lo que cuesta pintar un cuadro sin la espera por una máquina cargada. */
+    double cpu_hilo () {
+        Posix.timespec ts;
+        Posix.clock_gettime (Posix.CLOCK_THREAD_CPUTIME_ID, out ts);
+        return ts.tv_sec + ts.tv_nsec / 1e9;
+    }
+
     /** Las curvas por omisión del motor de la Mac (cubic-bezier de CAMediaTimingFunction) por su nombre en el perfil; null si el nombre no es de ellas. */
     double? curva_del_motor (string nombre, double x) {
         double x1, y1, x2, y2;
@@ -122,6 +129,7 @@ namespace Launchpad {
         double abrir_escala = 1.0;             // la escala con que empieza al abrir y a la que vuelve al cerrar
         double cerrar_dur = 0.0;
         string cerrar_curva = "lineal";
+        Cairo.ImageSurface? cache = null;       // la rejilla ya pintada mientras dura la animación de abrir o cerrar
         double t_mostrar = 0.0;
         double t_cierre = 0.0;
         bool cerrando = false;
@@ -397,8 +405,26 @@ namespace Launchpad {
         }
 
         // ── pintar ────────────────────────────────────────────────────────
+        /** Lo que va sobre el fondo: la carpeta abierta, o el buscador con los resultados o las páginas. */
+        void pintar_contenido (Cairo.Context cr) {
+            if (carpeta != null) {
+                pintar_carpeta (cr);
+            } else {
+                pintar_buscador (cr);
+                if (consulta != "") {
+                    pintar_resultados (cr);
+                } else {
+                    pintar_paginas (cr);
+                    if (paginas > 1) {
+                        pintar_puntos (cr);
+                    }
+                }
+            }
+        }
+
         public bool al_pintar (Cairo.Context cr) {
             double inicio_pintar = ahora ();
+            double cpu0 = cpu_hilo ();
             double alfa = double.min (1.0, (ahora () - t0) / 0.18);
             double escala = 1.0;
             if (cerrando) {
@@ -419,29 +445,28 @@ namespace Launchpad {
                 cr.set_source_rgb (0.05, 0.12, 0.25);
                 cr.paint ();
             }
-            cr.push_group ();
-            if (escala != 1.0) {
+            if (escala != 1.0 || cerrando) {
+                // Animando abrir o cerrar: la rejilla no cambia durante los ~250 ms, así que se pinta una vez en una superficie y cada cuadro
+                // solo la escala y la funde (pintarla entera cuesta ~30 ms de CPU por cuadro: a 250 ms saldrían 7 cuadros).
+                if (cache == null) {
+                    cache = new Cairo.ImageSurface (Cairo.Format.ARGB32, W, H);
+                    var cc = new Cairo.Context (cache);
+                    pintar_contenido (cc);
+                }
                 cr.translate (W / 2.0, H / 2.0);
                 cr.scale (escala, escala);
                 cr.translate (-W / 2.0, -H / 2.0);
-            }
-            if (carpeta != null) {
-                pintar_carpeta (cr);
+                cr.set_source_surface (cache, 0, 0);
+                cr.paint_with_alpha (alfa);
             } else {
-                pintar_buscador (cr);
-                if (consulta != "") {
-                    pintar_resultados (cr);
-                } else {
-                    pintar_paginas (cr);
-                    if (paginas > 1) {
-                        pintar_puntos (cr);
-                    }
-                }
+                cache = null;
+                cr.push_group ();
+                pintar_contenido (cr);
+                cr.pop_group_to_source ();
+                cr.paint_with_alpha (alfa);
             }
-            cr.pop_group_to_source ();
-            cr.paint_with_alpha (alfa);
             if (cerrando || ahora () - t_mostrar < 1.0) {
-                depurar ("pintar %.1f ms".printf ((ahora () - inicio_pintar) * 1000));
+                depurar ("pintar %.1f ms (cpu %.1f ms)".printf ((ahora () - inicio_pintar) * 1000, (cpu_hilo () - cpu0) * 1000));
             }
             return false;
         }

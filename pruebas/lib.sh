@@ -176,3 +176,12 @@ comprobar() {
   local desc="$1"; shift
   if "$@"; then paso "bien: $desc"; else falla "$desc"; fi
 }
+
+# eval_js CÓDIGO: lo corre dentro de Cinnamon (org.Cinnamon.Eval).
+eval_js() { gdbus call --session --dest org.Cinnamon --object-path /org/Cinnamon --method org.Cinnamon.Eval "$1"; }
+# gancho_ease: cada animación que Cinnamon arma con Actor.ease anota «MEDIDA duracion=N claves=a,b» en cinnamon.log (una sola vez por Cinnamon:
+# los casos que comparten gestor comparten el gancho y el formato).
+gancho_ease() {
+  eval_js "const A = imports.gi.Clutter.Actor.prototype; if (!A.__gancho) { A.__gancho = true; const ini = A.ease;
+    A.ease = function (p) { if (p && p.duration !== undefined) global.log('MEDIDA duracion=' + p.duration + ' claves=' + Object.keys(p).filter(k => k != 'duration' && k != 'mode' && k != 'onComplete').join(',')); return ini.call(this, p); }; }" > /dev/null
+}

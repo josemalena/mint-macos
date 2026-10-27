@@ -554,6 +554,11 @@ def main():
     for v in ([version] if version else list(VERSIONES)):
         info = generar(v, raices, medidas)
         info['partes']['animaciones'] = copiar_animaciones(v)
+        # version.json se escribió antes de copiar las medidas: se pone al día para que quede el estado («ok» o «sin medidas»)
+        ruta = os.path.join(SALIDA, v, 'version.json')
+        if os.path.isfile(ruta):
+            with open(ruta, 'w') as f:
+                json.dump(info, f, ensure_ascii=False, indent=1)
         print('%s: %s' % (v, ', '.join('%s %s' % (k, e) for k, e in info['partes'].items())))
 
 

@@ -36,6 +36,7 @@ function delPerfil(animacion, campo) {
     if (!id) return null;
     let [ok2, datos] = GLib.file_get_contents(GLib.build_filenamev([GLib.get_user_data_dir(), "mint-macos", "macos", id, "apps", "animaciones.json"]));
     let v = ok2 ? JSON.parse(imports.byteArray.toString(datos)).comportamiento[animacion][campo] : 0;
+    if (typeof v === "string") return v;
     return v > 0 ? v : null;
   } catch (e) {
     return null;
@@ -48,6 +49,14 @@ const ANCHO_PANEL = (delPerfil("notification-center-entrar", "ancho_panel_pt") |
 // fundido. Sin esos números no se anima y queda lo de Cinnamon.
 const MS_ENTRAR = delPerfil("notification-center-entrar", "ms");
 const MS_SALIR = delPerfil("notification-center-salir", "ms");
+// La curva medida, la más cercana de las del motor: easeInEaseOut (entrada de Monterey) o easeIn (salida de Monterey); la cuadrática es la
+// aproximación que trae Clutter. Sin curva reconocida, easeInEaseOut.
+function modoDeCurva(animacion) {
+  let c = String(delPerfil(animacion, "curva") || "").toLowerCase();
+  if (c.startsWith("easein ") || c === "easein") return Clutter.AnimationMode.EASE_IN_QUAD;
+  if (c.startsWith("easeout")) return Clutter.AnimationMode.EASE_OUT_QUAD;
+  return Clutter.AnimationMode.EASE_IN_OUT_QUAD;
+}
 const FONDO_PANEL = 0.96;   // sin vidrio (José, 18-10-2026: «no usemos vidrio»): la caja va casi opaca
 const FUENTE = 'font-family: ".SF NS", sans-serif;';
 
@@ -163,14 +172,15 @@ class NotificationCenter extends Applet.Applet {
   // coloca y muestra (o esconde) sin animar y aquí se mueve el actor. open(false) —el calentamiento— queda sin animar.
   _deslizar() {
     let menu = this.menu, original = { open: menu.open, close: menu.close };
-    let desplazamiento = () => ANCHO_PANEL + 40;   // sobra: sale entero del borde, se recorta con la pantalla
+    let desplazamiento = () => ANCHO_PANEL + 8;   // el panel entero y su separación del borde: la Mac lo anima desde fuera de la pantalla
+    let modoEntrar = modoDeCurva("notification-center-entrar"), modoSalir = modoDeCurva("notification-center-salir");
     menu.open = function (animate) {
       this.actor.remove_all_transitions();
       original.open.call(this, false);
       if (!animate || !Main.wm.desktop_effects_menus) return;
       let x = this.actor.x;
       this.actor.x = x + desplazamiento();
-      this.actor.ease({ x: x, duration: MS_ENTRAR, mode: Clutter.AnimationMode.EASE_IN_OUT_QUAD });
+      this.actor.ease({ x: x, duration: MS_ENTRAR, mode: modoEntrar });
     };
     menu.close = function (animate) {
       if (!this.isOpen) return;
@@ -179,7 +189,7 @@ class NotificationCenter extends Applet.Applet {
       actor.remove_all_transitions();
       actor.hide = () => {};   // el close original esconde de golpe: se esconde al terminar de deslizar
       try { original.close.call(this, false); } finally { delete actor.hide; }
-      actor.ease({ x: x + desplazamiento(), duration: MS_SALIR, mode: Clutter.AnimationMode.EASE_IN_OUT_QUAD,
+      actor.ease({ x: x + desplazamiento(), duration: MS_SALIR, mode: modoSalir,
                    onComplete: () => { if (!this.isOpen) { actor.hide(); actor.x = x; } } });
     };
   }

@@ -40,16 +40,17 @@
    "fuente": "referencias/animaciones-medidas/spotlight/INDICE.md"
   },
   "notification-center-entrar": {
-   "rango_ms": "183-200",
+   "rango_ms": "ajuste libre 265 ms",
+   "visibles_ms": "183-200",
+   "curva": "indecisa (lineal, easeInEaseOut)",
    "ancho_panel_pt": 367,
    "fuente": "referencias/animaciones-medidas/notification-center/INDICE.md",
-   "ms": 190
+   "ms": 265
   },
   "notification-center-salir": {
-   "rango_ms": "150-167 visibles",
-   "curva": "easeInEaseOut (hipótesis, igual que entrar)",
-   "fuente": "referencias/animaciones-medidas/notification-center/INDICE.md",
-   "ms": 158
+   "visibles_ms": "150-167",
+   "nota": "sin ajuste de la curva: solo los cuadros visibles",
+   "fuente": "referencias/animaciones-medidas/notification-center/INDICE.md"
   }
  }
 }

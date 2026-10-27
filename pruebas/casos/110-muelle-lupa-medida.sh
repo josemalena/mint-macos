@@ -27,11 +27,22 @@ prueba() {
   dconf write /org/mintmacos/muelle/docks/dock1/dock-items "[${lista%, }]"
   dconf write /org/mintmacos/muelle/docks/dock1/zoom-enabled true
   dconf write /org/mintmacos/muelle/docks/dock1/zoom-percent 200
-  local franja_alto=400 W H X Y cx cy video ms dur geo
-  for ms in 142 400; do
-    perfil_lupa "$ms"
+  local franja_alto=400 W H X Y cx cy video ms dur geo vivo
+  for ms in 142 400 ausente roto; do
+    case "$ms" in
+      ausente) rm -f "$XDG_DATA_HOME/mint-macos/macos/prueba/apps/animaciones.json" ;;
+      roto) echo '{"comportamiento": {"dock-lupa": {"ms": ' > "$XDG_DATA_HOME/mint-macos/macos/prueba/apps/animaciones.json" ;;
+      *) perfil_lupa "$ms" ;;
+    esac
     # Muelle lee el perfil al arrancar: uno nuevo por cada duración
     for p in $(pgrep -x muelle); do grep -qz "^HOME=$HOME\$" "/proc/$p/environ" 2>/dev/null && kill "$p"; done
+    # hasta que se vaya de verdad: Muelle es de instancia única y un segundo arranque, con el primero todavía vivo, no lee el perfil
+    for _ in $(seq 50); do
+      vivo=false
+      for p in $(pgrep -x muelle); do grep -qz "^HOME=$HOME\$" "/proc/$p/environ" 2>/dev/null && vivo=true; done
+      $vivo || break; sleep 0.2
+    done
+    for p in $(pgrep -x muelle); do grep -qz "^HOME=$HOME\$" "/proc/$p/environ" 2>/dev/null && { paso "Muelle $p no salió con TERM: KILL"; kill -KILL "$p"; }; done
     sleep 1
     lanzar muelle
     esperar_ventana '^[Mm]uelle$' 30 >/dev/null
@@ -53,12 +64,16 @@ prueba() {
     if [ "$ms" = 142 ]; then
       captura lupa-completa
       geo="$dur"
-      # entre lo del perfil (142) y lo de antes (200 ms, easeOutCubic llega al 98 % a los ~146): un cuadro de error a cada lado
-      [ "$dur" -ge 90 ] && [ "$dur" -le 190 ] || falla "con 142 ms en el perfil la lupa tardó $dur ms"
+      # con la máquina cargada los cuadros salen espaciados y la medida se infla hasta ~100 ms: la tolerancia es ancha, y lo que prueba que el perfil manda es la corrida de 400 ms
+      [ "$dur" -ge 30 ] && [ "$dur" -le 300 ] || falla "con 142 ms en el perfil la lupa tardó $dur ms"
       # la campana: los íconos de las puntas (a 7 pasos del puntero) quedan en reposo y el del centro, al doble
       python3 -I "$aqui/ayudantes/medir-campana.py" "$PRUEBAS_RES/$PRUEBAS_CASO-lupa-completa.png" "$cx" || falla "la campana no es la medida"
+    elif [ "$ms" = 400 ]; then
+      [ "$dur" -ge 330 ] || falla "con 400 ms en el perfil la lupa tardó $dur ms: el perfil no manda"
     else
-      [ "$dur" -ge $((geo + 150)) ] || falla "con 400 ms en el perfil la lupa tardó $dur ms: el perfil no manda"
+      # sin las medidas (archivo ausente o JSON roto): Muelle arranca y la lupa crece como siempre (el medidor ya falló si el ícono no creció).
+      # El tiempo no se juzga: con la máquina cargada los cuadros salen tan espaciados que la medida va de 50 a 350 ms para los mismos 200.
+      [ -n "$dur" ] || falla "perfil $ms: la lupa no creció"
     fi
     xdotool mousemove 5 5
   done

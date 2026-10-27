@@ -3,7 +3,6 @@
 # gestor: cinnamon-animaciones
 # Una ventana de xed abierta y ⌃↑ (por Main.overview): las ventanas van a su lugar con Overview.ANIMATION_TIME. Un gancho
 # anota (en Clutter.Actor.ease) las duraciones con que Cinnamon arma sus animaciones (Xvfb con llvmpipe pinta a pocos cuadros: no se mide el reloj de pared).
-eval_js() { gdbus call --session --dest org.Cinnamon --object-path /org/Cinnamon --method org.Cinnamon.Eval "$1"; }
 prueba() {
   requiere xed xdotool gdbus
   mkdir -p "$XDG_CONFIG_HOME/mint-macos" "$XDG_DATA_HOME/mint-macos/macos/prueba/apps"
@@ -14,8 +13,7 @@ prueba() {
   eval_js "const EM = imports.ui.extensionSystem; EM.disableExtension ? 0 : 0;" > /dev/null || true
   gsettings set org.cinnamon enabled-extensions "['cmdtab@macos']"; sleep 1
   gsettings set org.cinnamon enabled-extensions "['cmdtab@macos', 'misioncontrol@macos']"; sleep 2
-  eval_js "const A = imports.gi.Clutter.Actor.prototype; if (!A.__gancho) { A.__gancho = true; const ini = A.ease;
-    A.ease = function (p) { if (p && p.duration !== undefined) global.log('MEDIDA duracion=' + p.duration); return ini.call(this, p); }; }" > /dev/null
+  gancho_ease
   for p in $(pgrep -x xed); do grep -qz "^HOME=$HOME\$" "/proc/$p/environ" 2>/dev/null && kill "$p"; done
   lanzar xed
   local v; v="$(esperar_ventana '^[Xx]ed$' 30)"
@@ -44,5 +42,19 @@ prueba() {
   case " $d" in *" 90 "*) ;; *) falla "apagada la extensión no volvió a la duración de Cinnamon (fundido de 90 ms): $d" ;; esac
   case " $d" in *" 250 "*) falla "apagada la extensión siguió con 250 ms: $d" ;; esac
   eval_js "imports.ui.main.overview.hide()" > /dev/null
+  # sin las medidas (archivo ausente, JSON roto): lo de Cinnamon (200 ms), sin fallar
+  local variante perfil="$XDG_DATA_HOME/mint-macos/macos/prueba/apps/animaciones.json"
+  for variante in ausente roto; do
+    if [ "$variante" = ausente ]; then rm -f "$perfil"; else echo '{"comportamiento": {"mission-control-entrar": {"ms": ' > "$perfil"; fi
+    gsettings set org.cinnamon enabled-extensions "['cmdtab@macos']"; sleep 1
+    gsettings set org.cinnamon enabled-extensions "['cmdtab@macos', 'misioncontrol@macos']"; sleep 2
+    n0="$(grep -c 'MEDIDA' "$PRUEBAS_RES/cinnamon.log" || true)"
+    eval_js "imports.ui.main.overview.show()" > /dev/null; sleep 3
+    d="$(grep 'MEDIDA' "$PRUEBAS_RES/cinnamon.log" | tail -n +$((n0 + 1)) | sed -n 's/.*duracion=\([0-9.]*\).*/\1/p' | tr '\n' ' ' || true)"
+    paso "perfil $variante: $d"
+    case " $d" in *" 90 "*) ;; *) falla "perfil $variante: no quedó la duración de Cinnamon: $d" ;; esac
+    case " $d" in *" 250 "*) falla "perfil $variante: usó 250 ms: $d" ;; esac
+    eval_js "imports.ui.main.overview.hide()" > /dev/null; sleep 1
+  done
   cerrar_ventana "$v"
 }

@@ -21,9 +21,18 @@ prueba() {
   ciclo con-perfil
   python3 -I "$AQUI/ayudantes/comprobar-launchpad-anim.py" "$LOG" abrir 250 easeIn 1.05 || falla "al abrir no sigue la curva del perfil"
   python3 -I "$AQUI/ayudantes/comprobar-launchpad-anim.py" "$LOG" cerrar 217 easeOut 1.05 || falla "al cerrar no sigue la curva del perfil"
-  # sin perfil: como antes (sin escala, sin animar el cierre)
-  rm -f "$XDG_CONFIG_HOME/mint-macos/macos.json"; rm -rf "$XDG_DATA_HOME/mint-macos/macos"
-  ciclo sin-perfil
-  grep -q '^\[launchpad [0-9.]*\] \(abrir\|cerrar\) t=' "$LOG" && falla "sin perfil hubo animación de abrir o cerrar"
+  # sin las medidas: como antes (sin escala, sin animar el cierre), y sin fallar: sin perfil, con el archivo ausente y con un JSON roto
+  local v perfil="$XDG_DATA_HOME/mint-macos/macos/monterey-12.7.6/apps/animaciones.json"
+  for v in sin-archivo roto sin-perfil; do
+    case "$v" in
+      sin-archivo) rm -f "$perfil" ;;
+      roto) mkdir -p "$(dirname "$perfil")"; echo '{"comportamiento": {"launchpad-abrir": {"ms": ' > "$perfil" ;;
+      sin-perfil) rm -f "$XDG_CONFIG_HOME/mint-macos/macos.json"; rm -rf "$XDG_DATA_HOME/mint-macos/macos" ;;
+    esac
+    ciclo "$v"
+    grep -q 'mostrar (W=' "$LOG" || falla "$v: el Launchpad no llegó a mostrarse"
+    ! grep -q '^\[launchpad [0-9.]*\] \(abrir\|cerrar\) t=' "$LOG" || falla "$v: hubo animación de abrir o cerrar"
+    paso "$v: sin animación y sin fallar"
+  done
   true
 }
