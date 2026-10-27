@@ -75,6 +75,23 @@ namespace Preferencias {
                                                "apps", "system-preferences.json"));
     }
 
+    /** El id de la versión de macOS activa (la de esta sesión, o la escogida, o Catalina): para lo que un panel cambia según la versión. */
+    public string version_macos () {
+        foreach (var ruta in new string[] { Path.build_filename (Environment.get_user_runtime_dir (), "mint-macos", "macos.json"),
+                                            Path.build_filename (Environment.get_user_config_dir (), "mint-macos", "macos.json") }) {
+            var o = leer_json (ruta);
+            if (o != null && o.has_member ("version")) {
+                return o.get_string_member ("version");
+            }
+        }
+        return "catalina-10.15";
+    }
+
+    /** ¿Monterey? Lo medido en sus capturas (monterey-20261026) cambia General, Dock y otros paneles; Catalina y las demás versiones quedan como estaban. */
+    public bool es_monterey () {
+        return version_macos ().has_prefix ("monterey");
+    }
+
     /** ¿Un control de un panel está marcado «ocultar» en el perfil de la versión activa (perfiles/adaptaciones.json)? `clave` es la del nib (p. ej. KCv-2t-qIH). */
     public bool control_oculto (string panel_id, string clave) {
         string? version = null;

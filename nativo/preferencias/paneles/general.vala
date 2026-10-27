@@ -428,6 +428,14 @@ namespace Preferencias {
                 g.attach (puntos, 1, fila, 2, 1);
             }
             fila++;
+            if (es_monterey ()) {
+                // La leyenda con el nombre del acento escogido bajo los círculos (captura 08-pref-general--Main)
+                var leyenda = new Gtk.Label (acento_actual != "" ? acento_actual : "Multicolor");
+                leyenda.xalign = 0;
+                leyenda.get_style_context ().add_class ("mp-sd-detalle");
+                g.attach (leyenda, 1, fila, 2, 1);
+                fila++;
+            }
             g.attach (etiqueta_fila ("Highlight color:"), 0, fila, 1, 1);
             var c1 = new Gtk.ComboBoxText ();
             resaltado_c = c1;
@@ -458,6 +466,13 @@ namespace Preferencias {
             c2.set_active (1);
             g.attach (gris (c2), 1, fila, 2, 1);
             fila++;
+            // Monterey: el panel General ya no lo trae (pasó a Dock & Menu Bar ▸ Menu Bar); en su lugar, «Allow wallpaper tinting in windows»
+            // (captura 08-pref-general--Main). Sin equivalente aquí: en gris y marcada como en la Mac.
+            if (es_monterey ()) {
+                var tinte = new Gtk.CheckButton.with_label ("Allow wallpaper tinting in windows");
+                tinte.active = true;
+                g.attach (gris_motivo (tinte, "Window tinting is not available on this computer."), 1, fila, 2, 1);
+            } else {
             var ocultar = new Gtk.CheckButton.with_label ("Automatically hide and show the menu bar");
             var cin = abrir_settings ("org.cinnamon");
             var arriba = cin != null ? panel_de_arriba (cin) : null;
@@ -467,6 +482,7 @@ namespace Preferencias {
                 g.attach (ocultar, 1, fila, 2, 1);
             } else {
                 g.attach (gris (ocultar), 1, fila, 2, 1);
+            }
             }
             fila++;
 
@@ -537,6 +553,22 @@ namespace Preferencias {
             g.attach (linea (), 0, fila, 3, 1);
             fila++;
 
+            // Monterey: «Prefer tabs: [in full screen] when opening documents» es una fila de General (en Catalina vive en Dock). Cada app lo decide
+            // por su cuenta aquí: en gris, como en el panel Dock.
+            if (es_monterey ()) {
+                g.attach (etiqueta_fila ("Prefer tabs:"), 0, fila, 1, 1);
+                var pest = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
+                var modo = new Gtk.ComboBoxText ();
+                modo.append ("full", "in full screen");
+                modo.append ("always", "always");
+                modo.append ("manual", "manually");
+                modo.set_active (0);
+                pest.pack_start (modo, false, false, 0);
+                pest.pack_start (new Gtk.Label ("when opening documents"), false, false, 0);
+                pest.halign = Gtk.Align.START;
+                g.attach (gris_motivo (pest, "Each app decides this on this computer."), 1, fila, 2, 1);
+                fila++;
+            }
             // Lo de los documentos, Recent items, Handoff y font smoothing: sin equivalente aquí, en gris.
             string[] docs = { "Ask to keep changes when closing documents", "Close windows when quitting an app" };
             bool[] docs_on = { false, true };
@@ -604,6 +636,13 @@ namespace Preferencias {
                 handoff.active = true;
                 g.attach (gris (handoff), 1, fila, 2, 1);
                 fila++;
+            }
+            if (es_monterey ()) {
+                // Monterey no tiene «Use font smoothing when available» (se quitó de General): no se dibuja
+                caja.pack_start (g, false, false, 0);
+                caja.show_all ();
+                cargando = false;
+                return caja;
             }
             var suavizado = new Gtk.CheckButton.with_label ("Use font smoothing when available");
             var xs_f = abrir_settings ("org.cinnamon.settings-daemon.plugins.xsettings");
