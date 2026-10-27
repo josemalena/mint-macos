@@ -5,8 +5,8 @@ matar_preferencias() {   # la app es de instancia única: hasta que se vaya de v
   local p vivo i
   for i in $(seq 40); do
     vivo=false
-    for p in $(pgrep -x mac-preferenci); do
-      if grep -qz "^HOME=$HOME\$" "/proc/$p/environ" 2>/dev/null; then vivo=true; kill "$p" 2>/dev/null; fi
+    for p in $(pgrep -x mac-preferencia); do
+      if grep -qz "^HOME=$HOME\$" "/proc/$p/environ" 2>/dev/null; then vivo=true; kill $([ "$i" -gt 12 ] && echo -KILL) "$p" 2>/dev/null; fi
     done
     $vivo || break; sleep 0.25
   done
