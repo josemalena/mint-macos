@@ -252,10 +252,11 @@ button.fq-boton:disabled label { color: rgba(0, 0, 0, 0.35); }
             }
             bool fynder = f.app.es_fynder;
             string accion = fynder ? "Relaunch" : "Force Quit";
-            // El texto de Relaunch es hipótesis (la captura de Catalina solo trae el de Force Quit).
-            string pregunta = fynder ? "Do you want to relaunch “%s”?".printf (f.app.nombre)
+            // Los textos son los de loginwindow.strings de Catalina: FORCE_QUIT_ALERT_MESSAGE, FORCE_QUIT_ALERT_RELAUNCH_MESSAGE (sin comillas) y FORCE_QUIT_INFO_MESSAGE.
+            // Que el botón por defecto sea el de la acción es hipótesis (sin captura del diálogo).
+            string pregunta = fynder ? "Do you want to force %s to relaunch?".printf (f.app.nombre)
                                      : "Do you want to force “%s” to quit?".printf (f.app.nombre);
-            string detalle = fynder ? "Open windows and folders will close and open again." : "You will lose any unsaved changes.";
+            string detalle = "You will lose any unsaved changes.";
             var dialogo = new Gtk.MessageDialog (this, Gtk.DialogFlags.MODAL | Gtk.DialogFlags.DESTROY_WITH_PARENT,
                                                  Gtk.MessageType.WARNING, Gtk.ButtonsType.NONE, "%s", pregunta);
             dialogo.format_secondary_text ("%s", detalle);
