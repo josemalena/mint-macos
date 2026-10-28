@@ -50,6 +50,32 @@ namespace MacForceQuit {
         return null;
     }
 
+    /**
+     * Las apps de Mac que corren en Darling no tienen .desktop (decisión de José, 27-10-2026): su ventana trae el nombre en
+     * _DARLING_APP_NAME (UTF8_STRING, acordado con Darling; no es WM_NAME, que es el título) y el ícono en _NET_WM_ICON.
+     * El .desktop con ese StartupWMClass, si existe, manda.
+     */
+    string? nombre_darling (Wnck.Window w) {
+        var display = Gdk.Display.get_default ();
+        var x11 = display as Gdk.X11.Display;
+        if (x11 == null) {
+            return null;
+        }
+        var gw = new Gdk.X11.Window.foreign_for_display (x11, (X.Window) w.get_xid ());
+        if (gw == null) {
+            return null;
+        }
+        Gdk.Atom tipo;
+        int formato;
+        uint8[] datos;
+        if (!Gdk.property_get (gw, Gdk.Atom.intern ("_DARLING_APP_NAME", false), Gdk.Atom.intern ("UTF8_STRING", false),
+                               0, 1024, 0, out tipo, out formato, out datos) || datos.length <= 0) {
+            return null;
+        }
+        var nombre = ((string) datos).strip ();
+        return nombre != "" ? nombre : null;
+    }
+
     /** Pids que Muffin dio por colgados (el ayudante de Cinnamon los manda con --seleccionar). */
     HashTable<int, bool>? colgados = null;
 
@@ -112,8 +138,15 @@ namespace MacForceQuit {
                     app.nombre = d.get_display_name () ?? d.get_name ();
                     app.icono = cargar_icono (d.get_icon (), null);
                 } else {
-                    app.nombre = embellecer (w.get_class_group_name () ?? clase);
+                    string? de_darling = clase.has_prefix ("darling-") ? nombre_darling (w) : null;
+                    app.nombre = de_darling ?? embellecer (w.get_class_group_name () ?? clase);
                     app.icono = cargar_icono (null, "application-x-executable");
+                    if (de_darling != null) {
+                        var grande = w.get_icon ();       // de _NET_WM_ICON
+                        if (grande != null) {
+                            app.icono = grande.scale_simple (16, 16, Gdk.InterpType.BILINEAR);
+                        }
+                    }
                 }
                 if (app.icono == null) {
                     var mini = w.get_mini_icon ();

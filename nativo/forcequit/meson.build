@@ -5,6 +5,6 @@ gio_unix_dep = dependency('gio-unix-2.0')
 forcequit_lib_fuentes = files('apps.vala', 'ventana.vala', 'frente.vala')
 
 executable('mac-forcequit', forcequit_lib_fuentes + files('main.vala'),
-  dependencies: [libmacos_dep, wnck_dep, gio_unix_dep, gtk_dep, glib_dep, gio_dep, posix_dep],
+  dependencies: [dependency('x11'), libmacos_dep, wnck_dep, gio_unix_dep, gtk_dep, gtk_x11_dep, glib_dep, gio_dep, posix_dep],
   c_args: ['-DWNCK_I_KNOW_THIS_IS_UNSTABLE'],
   install: false)
