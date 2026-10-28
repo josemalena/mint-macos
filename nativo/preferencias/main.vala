@@ -66,7 +66,7 @@ namespace Preferencias {
                 dialogo_acerca.present ();
                 return;
             }
-            var d = MacOS.dialogo_acerca (TITULO, Path.build_filename (carpeta_apps (), "iconos", "sistema.png"), null, "preferences-system");
+            var d = MacOS.dialogo_acerca (TITULO, Path.build_filename (carpeta_apps (), "iconos", "sistema.png"), null, "preferences-system", ventana);
             d.destroy.connect (() => { dialogo_acerca = null; });
             dialogo_acerca = d;
             d.present ();

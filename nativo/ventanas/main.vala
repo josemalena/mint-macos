@@ -38,7 +38,7 @@ public class Ventanas : Gtk.Application {
             else if (activa != null && activa == acerca) nombre = "About This Mac";
             else if (activa != null && activa == emojis) nombre = "Emoji & Symbols";
             else if (activa != null && activa == barra) nombre = "Screenshot";
-            var d = MacOS.dialogo_acerca (nombre, null, null, "preferences-system");
+            var d = MacOS.dialogo_acerca (nombre, null, null, "preferences-system", activa);
             d.present ();
         });
         add_action (acerca_accion);

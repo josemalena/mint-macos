@@ -83,9 +83,18 @@ namespace MacOS {
         return s.str;
     }
 
-    /** El About de un programa de mint-macos. */
-    public Gtk.AboutDialog dialogo_acerca (string programa, string? ruta_icono = null, string? basado_en = null, string icono_tema = "application-x-executable") {
+    /**
+     * El About de un programa de mint-macos. Con `padre` sale encima de la ventana del programa, modal y centrado en ella (José, 27-10-2026:
+     * sin ventana madre Muffin lo ponía en el otro monitor; en la Mac el About estándar es un panel suelto, pero José lo quiere modal).
+     */
+    public Gtk.AboutDialog dialogo_acerca (string programa, string? ruta_icono = null, string? basado_en = null, string icono_tema = "application-x-executable",
+                                           Gtk.Window? padre = null) {
         var d = new Gtk.AboutDialog ();
+        if (padre != null) {
+            d.set_transient_for (padre);
+            d.set_modal (true);
+            d.window_position = Gtk.WindowPosition.CENTER_ON_PARENT;
+        }
         d.program_name = programa;
         d.version = version_programa ();
         d.copyright = texto_codigo ();
@@ -123,8 +132,8 @@ namespace MacOS {
     };
 
     /** El About de todo el sistema: el de la función común y, además, la lista de componentes con lo que se basan. */
-    public Gtk.AboutDialog dialogo_creditos (string programa) {
-        var d = dialogo_acerca (programa, null, null, "computer");
+    public Gtk.AboutDialog dialogo_creditos (string programa, Gtk.Window? padre = null) {
+        var d = dialogo_acerca (programa, null, null, "computer", padre);
         d.add_credit_section ("Components", COMPONENTES);
         return d;
     }
@@ -142,7 +151,7 @@ namespace MacOS {
                 abierto.present ();
                 return;
             }
-            abierto = dialogo_acerca (programa, ruta_icono, basado_en, icono_tema);
+            abierto = dialogo_acerca (programa, ruta_icono, basado_en, icono_tema, app.get_active_window ());
             abierto.destroy.connect (() => { abierto = null; });
             abierto.present ();
         });
