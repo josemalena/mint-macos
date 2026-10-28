@@ -1,7 +1,7 @@
 #!/bin/bash
 # La ronda «fase C» (27-10-2026) en Monterey, con doble clic desde la sesión de la
 # Mac. Por ssh no sirve: System Events da -600 y el guion para solo.
-# Pide los permisos una vez y después corre las cinco secciones (FASE="A B C D E").
+# Pide los permisos una vez y después corre las seis secciones (FASE="A B C D E F").
 # Al final, fase-c/tubo.txt dice qué paquetes miden menos de 100 MB (van por scp)
 # y fase-c/transporte.txt, los que van a la memoria TRANSPORTE (se copian solos a
 # esta carpeta si es la memoria).
@@ -17,7 +17,7 @@ echo
 read -r -p "Pulsa Enter para empezar (o cierra esta ventana para cancelar)… " _
 
 cd "$AQUI" || { echo "No encuentro la carpeta extraer-mac."; exit 1; }
-SALIDA="$SALIDA" FASE="${FASE:-A B C D E}" bash extraer.sh permisos fase-c
+SALIDA="$SALIDA" FASE="${FASE:-A B C D E F}" bash extraer.sh permisos fase-c
 r=$?
 echo
 echo "extraer.sh terminó con código $r. La bitácora está en $SALIDA/herramientas/capturas.log"

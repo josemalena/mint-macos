@@ -12,6 +12,9 @@
 #      genio con ⇧, Dock oculto, pila, NC, banner, ventana, menú)
 #   D  hojas y páginas de System Preferences que no había
 #   E  datos: ajustes de accesibilidad y `defaults read` de Dock, reloj, Control Center y global
+#   F  alertas del Finder (Planner, 27-10-2026): el conflicto de nombre, Delete Immediately, Eject
+#      de un disco en uso, el alias roto y el cambio de extensión, para ver si salen como hoja o
+#      como panel. Todo sobre archivos de una carpeta propia; nunca Replace ni Delete de verdad.
 #
 # Fuera de esta ronda, y anotado en la bitácora (no se inventa): C8 el login (hay que
 # cerrar la sesión), C9 de macOS 27 (es otra Mac), D1 con dos pantallas, D5 portátil o
@@ -24,7 +27,7 @@
 
 FC="$SAL/fase-c"; FCC="$FC/capturas"; FCV="$FC/videos"; FCD="$FC/datos"
 mkdir -p "$FCC" "$FCV" "$FCD"
-seccion() { case " ${FASE:-A B C D E} " in *" $1 "*) return 0;; esac; return 1; }
+seccion() { case " ${FASE:-A B C D E F} " in *" $1 "*) return 0;; esac; return 1; }
 fuera() { log "fase-c: NO SE HACE $1 — $2"; echo "$1: $2" >> "$FC/no-hecho.txt"; }
 : > "$FC/no-hecho.txt"
 SP="System Preferences"
@@ -43,6 +46,9 @@ fase_c_devolver() {
   [ -n "$VOL_ORIG" ] && osascript -e "set volume output volume $VOL_ORIG" 2>/dev/null
   osa -e "tell application \"$SP\" to quit" 2>/dev/null
   osa -e 'tell application "TextEdit" to quit saving no' 2>/dev/null
+  # Sección F: solo lo que creó ella (su carpeta y el archivo de prueba en la memoria).
+  [ -n "${ALERTAS_DIR:-}" ] && case "$ALERTAS_DIR" in "$HOME/extraer-alertas-prueba") rm -rf -- "$ALERTAS_DIR" ;; esac
+  [ -n "${ALERTAS_MEMORIA:-}" ] && case "$ALERTAS_MEMORIA" in /Volumes/*/extraer-alertas-prueba.txt) rm -f -- "$ALERTAS_MEMORIA" ;; esac
   return 0
 }
 
@@ -360,6 +366,67 @@ if seccion D; then
     ocultar; CAP="$FCC"
     for M in claro oscuro; do modo $([ $M = oscuro ] && echo true || echo false); osa -e "tell application \"$SP\" to quit"; sleep 1; ocultar_excepto "$SP"; fase_d; done
   fi
+fi
+
+# ========================================================= F (alertas del Finder)
+# Cada alerta se captura como esté: si es una hoja, sale con la ventana del Finder; si es un panel
+# suelto, se busca la ventana de la alerta. La bitácora dice cuál fue («hoja=true|false»).
+alerta() { # nombre: captura, anota si es hoja y la cierra con el botón que no hace nada
+  local nom="$1" cierre="$2" hoja
+  sleep 1.5; raton_fuera
+  hoja="$(osa -e 'tell application "System Events" to tell process "Finder" to exists sheet 1 of window 1')"
+  if [ "$hoja" = true ]; then cap_win "F-$nom-hoja-$M" "$(id_finder)"
+  else cap_win "F-$nom-panel-$M" "$(ventana_alerta 'Finder|CoreServicesUIAgent')"; fi
+  log "fase-c F $nom: hoja=$hoja"
+  # Solo botones que no cambian nada: Stop, Cancel, OK, Keep .txt. Si no está, Esc.
+  osa -e "tell application \"System Events\" to tell process \"Finder\" to click button \"$cierre\" of (sheet 1 of window 1)" 2>/dev/null \
+    || osa -e "tell application \"System Events\" to tell process \"Finder\" to click button \"$cierre\" of window 1" 2>/dev/null || esc
+  sleep 1
+}
+fase_f() {
+  ALERTAS_DIR="$HOME/extraer-alertas-prueba"; rm -rf -- "$ALERTAS_DIR"
+  mkdir -p "$ALERTAS_DIR/origen" "$ALERTAS_DIR/destino"
+  printf 'prueba\n' > "$ALERTAS_DIR/origen/prueba.txt"; printf 'prueba\n' > "$ALERTAS_DIR/destino/prueba.txt"
+  printf 'borrar\n' > "$ALERTAS_DIR/origen/borrar.txt"; printf 'extension\n' > "$ALERTAS_DIR/origen/extension.txt"
+  printf 'original\n' > "$ALERTAS_DIR/origen/original.txt"
+  local fo='folder "origen" of folder "extraer-alertas-prueba" of home' fd='folder "destino" of folder "extraer-alertas-prueba" of home'
+  cerrar_finder
+  # 1) El conflicto de nombre: ⌘C de prueba.txt en origen y ⌘V en destino (que ya la tiene) → Stop.
+  osa -e 'tell application "Finder"' -e "set w to make new Finder window to ($fo)" -e "set bounds of w to {$X1, $Y1, $X2, $Y2}" \
+      -e "select file \"prueba.txt\" of ($fo)" -e 'activate' -e 'end tell'; sleep 1.5
+  tecla Finder 'keystroke "c" using command down'; sleep 0.8
+  osa -e 'tell application "Finder"' -e "set target of Finder window 1 to ($fd)" -e 'end tell'; sleep 1.2
+  tecla Finder 'keystroke "v" using command down'; alerta conflicto-nombre Stop
+  # 2) Delete Immediately: ⌥⌘⌫ sobre borrar.txt → Cancel.
+  osa -e 'tell application "Finder"' -e "set target of Finder window 1 to ($fo)" -e "select file \"borrar.txt\" of ($fo)" -e 'end tell'; sleep 1
+  tecla Finder 'key code 51 using {option down, command down}'; alerta delete-immediately Cancel
+  # 3) El cambio de extensión: renombrar extension.txt a extension.rtf → «Keep .txt».
+  osa -e "tell application \"Finder\" to select file \"extension.txt\" of ($fo)"; sleep 0.8
+  tecla Finder 'key code 36'; sleep 0.8; tecla Finder 'keystroke "a" using command down'; tecla Finder 'keystroke "extension.rtf"'
+  tecla Finder 'key code 36'; alerta cambio-extension "Keep .txt"
+  # 4) El alias roto: alias de original.txt, se borra el original (de la prueba) y se abre el alias → OK.
+  osa -e "tell application \"Finder\" to make new alias file to file \"original.txt\" of ($fo) at ($fd)"; sleep 1
+  rm -f -- "$ALERTAS_DIR/origen/original.txt"; sleep 1
+  osa -e 'tell application "Finder"' -e "set target of Finder window 1 to ($fd)" -e 'end tell'; sleep 1
+  osa -e "tell application \"Finder\" to open (first item of ($fd) whose kind is \"Alias\")"; alerta alias-roto OK
+  # 5) Eject de un disco en uso: solo si este guion corre desde la memoria (así está en uso de
+  #    verdad: si no, el Eject funcionaría y la memoria se iría). Con un archivo suyo abierto en TextEdit.
+  case "$AQUI" in
+    /Volumes/*)
+      local vol; vol="$(echo "$AQUI" | cut -d/ -f1-3)"; ALERTAS_MEMORIA="$vol/extraer-alertas-prueba.txt"
+      printf 'en uso\n' > "$ALERTAS_MEMORIA"; open -a TextEdit "$ALERTAS_MEMORIA"; sleep 2
+      finder_activar
+      osa -e "tell application \"Finder\" to eject disk \"$(basename "$vol")\"" 2>>"$LOG" &
+      alerta eject-en-uso Cancel; wait 2>/dev/null
+      osa -e 'tell application "TextEdit" to quit saving no'; sleep 1; rm -f -- "$ALERTAS_MEMORIA"; ALERTAS_MEMORIA=""
+      ;;
+    *) fuera "F eject en uso" "el guion no corre desde la memoria: el Eject funcionaría y se la llevaría" ;;
+  esac
+  cerrar_finder; rm -rf -- "$ALERTAS_DIR"; ALERTAS_DIR=""
+}
+if seccion F; then
+  ocultar; CAP="$FCC"
+  for M in claro oscuro; do modo $([ $M = oscuro ] && echo true || echo false); fase_f; done
 fi
 
 # ======================================= el tamaño, para el tubo (<100 MB) o TRANSPORTE
