@@ -52,6 +52,26 @@ extern "C" {
     fn setsid() -> i32;
 }
 
+// --- Los avisos ----------------------------------------------------------------
+
+/// Que la app no se pudo abrir: una alerta, como en macOS, no una notificación
+/// que se pierde (en la prueba de José, Rechazo-script «no hizo nada»). No se
+/// espera a que se cierre. Sin zenity, la notificación de siempre.
+fn alertar(titulo: &str, cuerpo: &str) {
+    if !comun::en_path("zenity") {
+        avisar(QUIEN, titulo, cuerpo);
+        return;
+    }
+    eprintln!("{QUIEN}: {titulo}: {cuerpo}");
+    let _ = Command::new("zenity")
+        .args(["--warning", "--title=", "--icon-name=dialog-warning", "--ok-label=OK", "--width=420"])
+        .arg(format!("--text=<b>{}</b>\n\n{}", comun::marcado(titulo), comun::marcado(cuerpo)))
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn();
+}
+
 // --- La .app -------------------------------------------------------------------
 
 struct App {
@@ -61,6 +81,7 @@ struct App {
     nombre: String,
     id: String,
     minimo: Option<String>,
+    icono: Option<String>,
 }
 
 fn leer_app(ruta: &Path) -> Result<App, String> {
@@ -79,7 +100,15 @@ fn leer_app(ruta: &Path) -> Result<App, String> {
     let id = valor("CFBundleIdentifier")
         .filter(|i| i.chars().all(|c| c.is_ascii_alphanumeric() || ".-_".contains(c)))
         .unwrap_or_else(|| nombre_ejecutable.clone());
-    Ok(App { ruta: ruta.to_path_buf(), ejecutable, nombre_ejecutable, nombre, id, minimo: valor("LSMinimumSystemVersion") })
+    Ok(App {
+        ruta: ruta.to_path_buf(),
+        ejecutable,
+        nombre_ejecutable,
+        nombre,
+        id,
+        minimo: valor("LSMinimumSystemVersion"),
+        icono: valor("CFBundleIconFile"),
+    })
 }
 
 fn leer_con_tope(p: &Path, tope: u64) -> std::io::Result<Vec<u8>> {
@@ -256,7 +285,8 @@ fn hay_ventana(clase: &str) -> bool {
             });
         }
     }
-    salida(Command::new("xdotool").args(["search", "--class", &format!("^{}$", regex_literal(clase))])).is_some()
+    // --classname: res_name, que es el ejecutable (res_class es darling-<bundle id>).
+    salida(Command::new("xdotool").args(["search", "--classname", &format!("^{}$", regex_literal(clase))])).is_some()
 }
 
 fn regex_literal(s: &str) -> String {
@@ -273,7 +303,7 @@ fn vigilar(d: &Darling, app: &App, archivos: &[OsString]) -> i32 {
         let mut hijo = match arrancar(d, app, archivos, &registro) {
             Ok(h) => h,
             Err(e) => {
-                avisar(QUIEN, &titulo, &format!("Darling can't be started: {e}"));
+                alertar(&titulo, &format!("Darling can't be started: {e}"));
                 return 1;
             }
         };
@@ -291,7 +321,7 @@ fn vigilar(d: &Darling, app: &App, archivos: &[OsString]) -> i32 {
                     return 0;
                 }
                 let motivo = por_que(&texto).unwrap_or_else(|| "It quit unexpectedly.".into());
-                avisar(QUIEN, &titulo, &format!("{motivo}\nLog: {}", registro.display()));
+                alertar(&titulo, &format!("{motivo}\nLog: {}", registro.display()));
                 return 1;
             }
             if hay_ventana(&app.nombre_ejecutable) {
@@ -331,7 +361,7 @@ fn desprender(ruta: &Path, archivos: &[OsString]) -> i32 {
     match c.spawn() {
         Ok(_) => 0,
         Err(e) => {
-            avisar(QUIEN, &format!("“{}” can't be opened", nombre_visible(ruta)), &e.to_string());
+            alertar(&format!("“{}” can't be opened", nombre_visible(ruta)), &e.to_string());
             1
         }
     }
@@ -343,7 +373,7 @@ fn abrir(ruta: &Path, archivos: &[OsString]) -> i32 {
     let ruta = match fs::canonicalize(ruta) {
         Ok(r) if r.is_dir() => r,
         _ => {
-            avisar(QUIEN, &format!("“{}” can't be opened", nombre_visible(ruta)), "The application can't be found.");
+            alertar(&format!("“{}” can't be opened", nombre_visible(ruta)), "The application can't be found.");
             return 1;
         }
     };
@@ -351,30 +381,31 @@ fn abrir(ruta: &Path, archivos: &[OsString]) -> i32 {
     let app = match leer_app(&ruta) {
         Ok(a) => a,
         Err(e) => {
-            avisar(QUIEN, &titulo, &e);
+            alertar(&titulo, &e);
             return 1;
         }
     };
     let titulo = format!("“{}” can't be opened", app.nombre);
     if let Err(e) = revisar_macho(&app.ejecutable) {
-        avisar(QUIEN, &titulo, &e);
+        alertar(&titulo, &e);
         return 1;
     }
     let darling = darling();
     if !darling.binario.is_file() {
-        avisar(QUIEN, &titulo, "Darling is not installed.");
+        alertar(&titulo, "Darling is not installed.");
         return 1;
     }
     let sha = match sha256_de(&app.ejecutable) {
         Ok(s) => s,
         Err(e) => {
-            avisar(QUIEN, &titulo, &e.to_string());
+            alertar(&titulo, &e.to_string());
             return 1;
         }
     };
     let aprobadas = comun::estado().join("mac-aprobadas");
     if !comun::aprobada(&aprobadas, &sha) {
-        if !preguntar(&app.nombre, origen(&app.ruta).as_deref(), None, &app.ruta) {
+        let icono = icono_png(&app);
+        if !preguntar(&app.nombre, origen(&app.ruta).as_deref(), icono.as_deref(), &app.ruta) {
             return 0;
         }
         comun::aprobar(&aprobadas, &sha, &app.ruta);
@@ -386,6 +417,54 @@ fn abrir(ruta: &Path, archivos: &[OsString]) -> i32 {
         }
     }
     desprender(&app.ruta, archivos)
+}
+
+// --- El ícono ----------------------------------------------------------------
+
+/// El ícono de la app como PNG, para la ventana de Gatekeeper (sin él,
+/// mac-gatekeeper ponía uno genérico de ejecutable). Sale del .icns de
+/// CFBundleIconFile (o AppIcon.icns): las entradas grandes (ic07 en adelante)
+/// son PNG tal cual; se toma la más grande de hasta 512 px. Las viejas
+/// (is32, il32…) y las JPEG 2000 no se leen: sin PNG, None. Queda en
+/// ~/.cache/mint-macos/iconos-mac/<bundle id>-<tamaño del .icns>.png.
+fn icono_png(app: &App) -> Option<String> {
+    let recursos = app.ruta.join("Contents/Resources");
+    let nombre = app.icono.clone().unwrap_or_else(|| "AppIcon".into());
+    let icns = [recursos.join(&nombre), recursos.join(format!("{nombre}.icns"))].into_iter().find(|p| p.is_file())?;
+    let datos = leer_con_tope(&icns, 16 << 20).ok()?;
+    let png = png_de_icns(&datos)?;
+    let destino = xdg("XDG_CACHE_HOME", ".cache").join("mint-macos/iconos-mac").join(format!("{}-{}.png", app.id, datos.len()));
+    if !destino.is_file() {
+        fs::create_dir_all(destino.parent()?).ok()?;
+        fs::write(&destino, png).ok()?;
+    }
+    Some(destino.to_string_lossy().into_owned())
+}
+
+/// La entrada PNG más grande de hasta 512 px de un .icns.
+fn png_de_icns(datos: &[u8]) -> Option<&[u8]> {
+    if datos.get(..4)? != b"icns" {
+        return None;
+    }
+    let be = |o: usize| datos.get(o..o + 4).map(|b| u32::from_be_bytes(b.try_into().unwrap()) as usize);
+    let mut mejor: Option<(usize, &[u8])> = None;
+    let mut o = 8;
+    while o + 8 <= datos.len() {
+        let largo = be(o + 4)?;
+        if largo < 8 || o + largo > datos.len() {
+            break;
+        }
+        let cuerpo = &datos[o + 8..o + largo];
+        // PNG: firma y ancho en el IHDR (bytes 16..20).
+        if cuerpo.starts_with(b"\x89PNG\r\n\x1a\n") && cuerpo.len() > 24 {
+            let ancho = u32::from_be_bytes(cuerpo[16..20].try_into().unwrap()) as usize;
+            if ancho <= 512 && mejor.map_or(true, |(a, _)| ancho > a) {
+                mejor = Some((ancho, cuerpo));
+            }
+        }
+        o += largo;
+    }
+    mejor.map(|(_, p)| p)
 }
 
 /// user.xdg.origin.url, o el de com.apple.quarantine si vino de una Mac con él
@@ -573,6 +652,45 @@ mod pruebas {
     fn version_minima() {
         assert!(version("12.0") > MACOS_DE_DARLING);
         assert!(version("10.15.8") <= MACOS_DE_DARLING);
+    }
+
+    /// Un PNG mínimo con ese ancho en el IHDR (lo único que se lee).
+    fn png(ancho: u32) -> Vec<u8> {
+        let mut v = b"\x89PNG\r\n\x1a\n\0\0\0\x0dIHDR".to_vec();
+        v.extend_from_slice(&ancho.to_be_bytes());
+        v.extend_from_slice(&ancho.to_be_bytes());
+        v.extend_from_slice(&[0; 8]);
+        v
+    }
+
+    fn entrada(tipo: &[u8; 4], cuerpo: &[u8]) -> Vec<u8> {
+        let mut v = tipo.to_vec();
+        v.extend_from_slice(&((cuerpo.len() + 8) as u32).to_be_bytes());
+        v.extend_from_slice(cuerpo);
+        v
+    }
+
+    #[test]
+    fn icns_el_png_mas_grande_hasta_512() {
+        let mut cuerpo = entrada(b"is32", &[1, 2, 3]);
+        cuerpo.extend(entrada(b"ic07", &png(128)));
+        cuerpo.extend(entrada(b"ic10", &png(1024)));
+        cuerpo.extend(entrada(b"ic08", &png(256)));
+        let mut icns = b"icns".to_vec();
+        icns.extend_from_slice(&((cuerpo.len() + 8) as u32).to_be_bytes());
+        icns.extend(cuerpo);
+        assert_eq!(png_de_icns(&icns), Some(&png(256)[..]));
+        assert_eq!(png_de_icns(b"nada"), None);
+    }
+
+    /// Con el ícono de verdad de Calculator, si está en esta máquina.
+    #[test]
+    fn icns_de_calculator() {
+        let p = Path::new("/media/jmalena/Data/darling-prefijo/prueba-apple/Calculator.app/Contents/Resources/AppIcon.icns");
+        if let Ok(d) = fs::read(p) {
+            let png = png_de_icns(&d).expect("Calculator trae PNG en su .icns");
+            assert!(png.starts_with(b"\x89PNG"));
+        }
     }
 
     /// Lo de fuera de /Users, /Volumes y /Applications va por SystemRoot; lo
