@@ -7,7 +7,7 @@
 //! Los mensajes van a la ventana raíz como ClientMessage de 20 bytes:
 //! el primero _NET_STARTUP_INFO_BEGIN, los demás _NET_STARTUP_INFO, y el
 //! texto termina en NUL. El que manda tiene que ser una ventana, así que se
-//! crea una sin mapear y se bota al terminar, como hace libstartup-notification.
+//! crea una sin mapear que dura todo el arranque y se bota al terminar.
 //! Xlib se declara a mano: son seis funciones y no vale un crate por ellas.
 
 use std::ffi::{c_char, c_int, c_long, c_uint, c_ulong, c_void, CString};
@@ -89,40 +89,62 @@ fn trozos(m: &str) -> Vec<[u8; 20]> {
     }).collect()
 }
 
-/// Manda un mensaje. Sin DISPLAY (o sin X) no hace nada: es un adorno, no
-/// puede impedir que la app abra.
-fn mandar(m: &str) {
-    unsafe {
-        let d = XOpenDisplay(ptr::null());
-        if d.is_null() {
-            return;
+/// La conexión a X y la ventana que manda los mensajes. Es la misma del «new:»
+/// al «remove:»: el Muelle solo acepta el «remove:» de quien mandó el «new:»
+/// (Muffin manda el suyo desde otra ventana y ese no cuenta).
+struct Emisor {
+    d: *mut Display,
+    ventana: Window,
+    a_inicio: Atom,
+    a_resto: Atom,
+}
+
+impl Emisor {
+    /// Sin DISPLAY (o sin X), None: es un adorno, no puede impedir que la app abra.
+    fn abrir() -> Option<Emisor> {
+        unsafe {
+            let d = XOpenDisplay(ptr::null());
+            if d.is_null() {
+                return None;
+            }
+            let ventana = XCreateSimpleWindow(d, XDefaultRootWindow(d), -100, -100, 1, 1, 0, 0, 0);
+            let inicio = CString::new("_NET_STARTUP_INFO_BEGIN").unwrap();
+            let resto = CString::new("_NET_STARTUP_INFO").unwrap();
+            Some(Emisor { d, ventana, a_inicio: XInternAtom(d, inicio.as_ptr(), 0), a_resto: XInternAtom(d, resto.as_ptr(), 0) })
         }
-        let raiz = XDefaultRootWindow(d);
-        let emisor = XCreateSimpleWindow(d, raiz, -100, -100, 1, 1, 0, 0, 0);
-        let inicio = CString::new("_NET_STARTUP_INFO_BEGIN").unwrap();
-        let resto = CString::new("_NET_STARTUP_INFO").unwrap();
-        let a_inicio = XInternAtom(d, inicio.as_ptr(), 0);
-        let a_resto = XInternAtom(d, resto.as_ptr(), 0);
-        for (i, t) in trozos(m).iter().enumerate() {
-            let mut data = [0 as c_long; 5];
-            ptr::copy_nonoverlapping(t.as_ptr(), data.as_mut_ptr() as *mut u8, 20);
-            let mut e = XEvent {
-                xclient: XClientMessageEvent {
-                    tipo: CLIENT_MESSAGE,
-                    serial: 0,
-                    send_event: 1,
-                    display: d,
-                    window: emisor,
-                    message_type: if i == 0 { a_inicio } else { a_resto },
-                    format: 8,
-                    data,
-                },
-            };
-            XSendEvent(d, raiz, 0, PROPERTY_CHANGE_MASK, &mut e);
+    }
+
+    fn mandar(&self, m: &str) {
+        unsafe {
+            let raiz = XDefaultRootWindow(self.d);
+            for (i, t) in trozos(m).iter().enumerate() {
+                let mut data = [0 as c_long; 5];
+                ptr::copy_nonoverlapping(t.as_ptr(), data.as_mut_ptr() as *mut u8, 20);
+                let mut e = XEvent {
+                    xclient: XClientMessageEvent {
+                        tipo: CLIENT_MESSAGE,
+                        serial: 0,
+                        send_event: 1,
+                        display: self.d,
+                        window: self.ventana,
+                        message_type: if i == 0 { self.a_inicio } else { self.a_resto },
+                        format: 8,
+                        data,
+                    },
+                };
+                XSendEvent(self.d, raiz, 0, PROPERTY_CHANGE_MASK, &mut e);
+            }
+            XFlush(self.d);
         }
-        XDestroyWindow(d, emisor);
-        XFlush(d);
-        XCloseDisplay(d);
+    }
+}
+
+impl Drop for Emisor {
+    fn drop(&mut self) {
+        unsafe {
+            XDestroyWindow(self.d, self.ventana);
+            XCloseDisplay(self.d);
+        }
     }
 }
 
@@ -130,6 +152,7 @@ fn mandar(m: &str) {
 /// la que heredó de quien lo lanzó (DESKTOP_STARTUP_ID), para que el cursor de
 /// espera no se quede hasta que Muffin se canse.
 pub struct Arranque {
+    emisor: Option<Emisor>,
     ids: Vec<String>,
 }
 
@@ -143,21 +166,26 @@ impl Arranque {
         if let Some(i) = icono {
             campos.push(("ICON", i));
         }
-        mandar(&mensaje("new", &campos));
+        let emisor = Emisor::abrir();
+        if let Some(e) = &emisor {
+            e.mandar(&mensaje("new", &campos));
+        }
         let mut ids = vec![id];
         if let Ok(heredado) = std::env::var("DESKTOP_STARTUP_ID") {
             if !heredado.is_empty() {
                 ids.push(heredado);
             }
         }
-        Arranque { ids }
+        Arranque { emisor, ids }
     }
 }
 
 impl Drop for Arranque {
     fn drop(&mut self) {
-        for id in &self.ids {
-            mandar(&mensaje("remove", &[("ID", id)]));
+        if let Some(e) = &self.emisor {
+            for id in &self.ids {
+                e.mandar(&mensaje("remove", &[("ID", id)]));
+            }
         }
     }
 }
