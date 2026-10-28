@@ -605,7 +605,7 @@ fn aplicaciones(cfg: &Config, todas: &[App]) -> Vec<(T, usize, String, &'static 
         }
         // Las AppImages (mint-macos-appimages): el archivo mismo ya está en
         // /Applications; una copia de su lanzador sería un duplicado.
-        if a_utf8(&id).map(|s| s.starts_with("mint-macos-appimage-")).unwrap_or(false) {
+        if a_utf8(&id).map(|s| s.starts_with("mint-macos-appimage-") || s.starts_with("mint-macos-macapp-")).unwrap_or(false) {
             continue;
         }
         if app.terminal {
