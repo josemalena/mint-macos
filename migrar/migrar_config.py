@@ -247,9 +247,18 @@ class Deshacer:
             f.write("#!/bin/bash\n# Vuelta atrás de migrar-config.sh (en orden inverso).\nset -u\n" + "\n".join(self.lineas) + "\n")
 
 
+def binario_mint(nombre):
+    """Un binario de mint-macos (lib/destino.sh): el del usuario si está, si no el del sistema (la imagen)."""
+    for d in (os.path.join(os.path.expanduser("~"), ".local/lib/mint-macos"), "/usr/local/lib/mint-macos"):
+        r = os.path.join(d, nombre)
+        if os.access(r, os.X_OK):
+            return r
+    return os.path.join(os.path.expanduser("~"), ".local/lib/mint-macos", nombre)
+
+
 def apariencia_actual():
     """(apariencia, acento, resaltado) de Apariencia1, o None."""
-    r = correr([os.path.join(HOGAR, ".local/lib/mint-macos/mint-macos-apariencia"), "--estado"])
+    r = correr([binario_mint("mint-macos-apariencia"), "--estado"])
     try:
         j = json.loads(r.stdout)
         return (j["apariencia"], j["acento"], j["resaltado"])
@@ -282,7 +291,7 @@ def aplicar(m, p, dz, datos):
         elif acc[0] == "cmd":
             _, cmd, vuelta = acc
             if vuelta == "apariencia":
-                e = correr([os.path.join(os.path.expanduser("~"), ".local/lib/mint-macos/mint-macos-apariencia"), "--estado"])
+                e = correr([binario_mint("mint-macos-apariencia"), "--estado"])
                 try:
                     j = json.loads(e.stdout)
                     vuelta = ["gdbus", "call", "--session", "-d", "org.mintmacos.Apariencia1", "-o", "/org/mintmacos/Apariencia1",
