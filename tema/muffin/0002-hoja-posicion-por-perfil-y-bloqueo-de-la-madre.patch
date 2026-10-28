@@ -1,0 +1,120 @@
+diff --git a/src/core/constraints.c b/src/core/constraints.c
+index 420d878..fdb60a3 100644
+--- a/src/core/constraints.c
++++ b/src/core/constraints.c
+@@ -36,6 +36,7 @@
+ #include "core/place.h"
+ #include "core/workspace-private.h"
+ #include "meta/prefs.h"
++#include "meta/window.h"
+ 
+ #if 0
+  // This is the short and sweet version of how to hack on this file; see
+@@ -1093,6 +1094,44 @@ done:
+   return TRUE;
+ }
+ 
++/*
++ * mint-macos: la forma de la hoja de macOS depende de la versión del perfil (macos.json, «version»): hasta Catalina cuelga de la barra
++ * de título de su ventana madre (capturas de High Sierra 10.13.6, 27-10-2026); desde Monterey flota centrada sobre ella, sin subir del borde
++ * de abajo de la barra de título (informe de Open/Save en Monterey 12.7.6, 28-10-2026). Sin archivo se asume Catalina, el perfil por defecto.
++ */
++static gboolean
++mint_macos_sheet_hangs_from_title (void)
++{
++  const char *dirs[2] = { g_get_user_runtime_dir (), g_get_user_config_dir () };
++  int i;
++
++  for (i = 0; i < 2; i++)
++    {
++      g_autofree char *path = NULL;
++      g_autofree char *text = NULL;
++      const char *p;
++
++      if (!dirs[i])
++        continue;
++      path = g_build_filename (dirs[i], "mint-macos", "macos.json", NULL);
++      if (!g_file_get_contents (path, &text, NULL, NULL))
++        continue;
++      p = strstr (text, "\"version\"");
++      if (!p)
++        continue;
++      p = strchr (p + 9, '"');
++      if (!p)
++        continue;
++      p++;
++      return !(g_str_has_prefix (p, "monterey") || g_str_has_prefix (p, "sequoia") ||
++               g_str_has_prefix (p, "macos-27") || g_str_has_prefix (p, "tahoe") ||
++               g_str_has_prefix (p, "ventura") || g_str_has_prefix (p, "sonoma") ||
++               g_str_has_prefix (p, "big-sur") || g_str_has_prefix (p, "bigsur"));
++    }
++
++  return TRUE;
++}
++
+ static gboolean
+ constrain_modal_dialog (MetaWindow         *window,
+                         ConstraintInfo     *info,
+@@ -1121,6 +1160,14 @@ constrain_modal_dialog (MetaWindow         *window,
+ 
+   child_rect.x = parent_rect.x + (parent_rect.width / 2  - child_rect.width / 2);
+   child_rect.y = parent_rect.y + (parent_rect.height / 2 - child_rect.height / 2);
++  if (g_strcmp0 (window->role, "mint-macos-hoja") == 0)
++    {
++      MetaRectangle parent_client;
++
++      meta_window_frame_rect_to_client_rect (parent, &parent_rect, &parent_client);
++      if (mint_macos_sheet_hangs_from_title () || child_rect.y < parent_client.y)
++        child_rect.y = parent_client.y;     /* pegada a la barra de título (Catalina) o sin subir del borde de abajo de la barra (Monterey) */
++    }
+   x = child_rect.x;
+   y = child_rect.y;
+ 
+diff --git a/src/core/events.c b/src/core/events.c
+index 35839bd..cc3ceab 100644
+--- a/src/core/events.c
++++ b/src/core/events.c
+@@ -160,6 +160,32 @@ sequence_is_pointer_emulated (MetaDisplay        *display,
+   return FALSE;
+ }
+ 
++/*
++ * mint-macos: una ventana con una hoja de macOS abierta (un transient con WM_WINDOW_ROLE «mint-macos-hoja», aunque sea de otro proceso)
++ * no recibe clics en su contenido; la barra de título sí (se mueve) y el resto de la app queda libre (informe de Open/Save en Monterey,
++ * §5; igual desde Tiger según José, 28-10-2026).
++ */
++static gboolean
++window_has_sheet_cb (MetaWindow *transient,
++                     void       *data)
++{
++  if (!transient->unmanaging && g_strcmp0 (transient->role, "mint-macos-hoja") == 0)
++    {
++      *((gboolean *) data) = TRUE;
++      return FALSE;
++    }
++  return TRUE;
++}
++
++static gboolean
++window_has_sheet (MetaWindow *window)
++{
++  gboolean has = FALSE;
++
++  meta_window_foreach_transient (window, window_has_sheet_cb, &has);
++  return has;
++}
++
+ static void
+ maybe_unfreeze_pointer_events (MetaBackend          *backend,
+                                const ClutterEvent   *event,
+@@ -450,7 +476,9 @@ meta_display_handle_event (MetaDisplay        *display,
+         {
+           /* Only replay button press events, since that's where we
+            * have the synchronous grab. */
+-          maybe_unfreeze_pointer_events (backend, event, EVENTS_UNFREEZE_REPLAY);
++          maybe_unfreeze_pointer_events (backend, event,
++                                         window_has_sheet (window) ? EVENTS_UNFREEZE_SYNC
++                                                                   : EVENTS_UNFREEZE_REPLAY);
+ 
+           /* If the focus window has an active close dialog let clutter
+            * events go through, so fancy clutter dialogs can get to handle

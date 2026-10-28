@@ -19,3 +19,20 @@ Receta (en una carpeta de trabajo, fuera del repo):
     dch --local +semaforos "semáforos en hover a la vez"     # 6.6.3+zena → versión propia mayor que la de Mint
     dpkg-buildpackage -us -uc -b
     # instalar los .deb de libmuffin0 y muffin; apt-mark hold muffin libmuffin0 si Mint no debe pisarlo
+
+## 0002 — la hoja de macOS: posición por perfil y bloqueo de la madre
+
+`0002-hoja-posicion-por-perfil-y-bloqueo-de-la-madre.patch` toca `src/core/constraints.c` y `src/core/events.c` (sobre 0001 o sobre la etiqueta
+sola: no comparten archivos). Aplica a las ventanas DIALOG + MODAL + transient (attach-modal-dialogs en true) con `WM_WINDOW_ROLE`
+**«mint-macos-hoja»**, aunque sean de otro proceso:
+
+- **Posición** (`constrain_modal_dialog`): en X, centrada sobre el marco de la madre (como ya hace Muffin). En Y depende del perfil de
+  macos.json (`$XDG_RUNTIME_DIR` y después `$XDG_CONFIG_HOME` /mint-macos/macos.json, clave «version»): hasta Catalina **colgada del borde
+  de abajo de la barra de título** de la madre (High Sierra 10.13.6, capturas del 27-10-2026); desde Monterey (monterey, sequoia, macos-27…)
+  **centrada en Y sobre el marco completo**, sin subir de ese borde (informe de Open/Save en Monterey 12.7.6, 28-10-2026). Sin archivo: Catalina.
+- **Bloqueo** (`events.c`): un clic en el contenido de la madre con una hoja abierta no llega a la madre (`XISyncDevice` en vez de
+  `XIReplayDevice`); la barra de título sí responde (se mueve) y el resto de la app queda libre. Igual desde Tiger según José.
+
+**Probado** en Xvfb con la libmuffin compilada (caso 136: Catalina y Monterey, el control sin hoja y el clic bloqueado). **Falta**: el botón de
+cerrar de la madre apagado mientras la hoja está abierta (frames.c) y la animación ±32 pt con fundido (279 ms al entrar, 260 al salir; va por
+extensión de Cinnamon, no por Muffin). Instalar el .deb nuevo es con sudo y con el sí de José (versión sugerida 6.6.3+zena+semaforos2).
