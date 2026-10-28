@@ -157,6 +157,33 @@ namespace Launchpad {
         }
     }
 
+    /** Con una .app de Mac y un lanzador de Linux del mismo nombre («Calculator»), el de Linux sale aclarado: «Calculator (GNOME)» o «(Linux)». */
+    void aclarar_repetidas (List<App> arriba, List<App> util) {
+        var de_mac = new HashTable<string, bool> (str_hash, str_equal);
+        foreach (var a in arriba) {
+            if (a.ruta_mac != null) {
+                de_mac[a.clave] = true;
+            }
+        }
+        foreach (var a in util) {
+            if (a.ruta_mac != null) {
+                de_mac[a.clave] = true;
+            }
+        }
+        aclarar_lista (arriba, de_mac);
+        aclarar_lista (util, de_mac);
+    }
+
+    void aclarar_lista (List<App> lista, HashTable<string, bool> de_mac) {
+        foreach (var a in lista) {
+            if (a.ruta_mac == null && de_mac.contains (a.clave)) {
+                a.nombre = "%s (%s)".printf (a.nombre, a.id.has_prefix ("org.gnome.") ? "GNOME" : "Linux");
+                a.clave = a.nombre.casefold ();
+                a.palabras = separar_palabras (a.nombre);
+            }
+        }
+    }
+
     bool es_appimage (string nombre) {
         string m = nombre.down ();
         return m.has_suffix (".appimage");
@@ -316,6 +343,7 @@ namespace Launchpad {
         }
         var util = leer_carpeta (Path.build_filename (destino (), "Utilities"));
         leer_apps_mac (arriba, util);
+        aclarar_repetidas (arriba, util);
         arriba.sort ((a, b) => strcmp (a.clave, b.clave));
         util.sort ((a, b) => strcmp (a.clave, b.clave));
         elementos = new List<Elemento> ();
