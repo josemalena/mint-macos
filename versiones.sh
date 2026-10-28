@@ -63,6 +63,8 @@ SPOTLYTE_BASE=5ba6eb1ec507d0c90cae80a8b4c33df473ade7be
 # Lo que se compila de una versión publicada (requisitos.sh).
 KEYD_VERSION=v2.6.0
 LIBFSAPFS_VERSION=20260921
+# El sha256 del tar.gz de la versión (el «digest» que publica GitHub en la release, 27-10-2026).
+LIBFSAPFS_SHA256=e3466ff83f0cf79ce830070de506eb5661bd6ba254e146383da3cf1279d95b5a
 
 # Lo que se baja en una versión fija, sin fork.
 # Magic Lamp de klangman, el efecto genio (extensions/magiclamp.sh): el

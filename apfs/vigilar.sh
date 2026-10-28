@@ -14,8 +14,11 @@ set -eu
 case "${1:-}" in
   --instalar)
     AQUI="$(cd "$(dirname "$0")" && pwd)"
-    install -m 755 "$AQUI/vigilar.sh" /usr/local/sbin/fsapfs-vigilar
-    cat > /etc/systemd/system/fsapfs-vigilar.service <<'U'
+    # MINT_MACOS_RAIZ: instalarlo en otra raíz (la imagen, lib/destino.sh); ahí solo se habilita.
+    R="${MINT_MACOS_RAIZ:-}"
+    mkdir -p "$R/usr/local/sbin" "$R/etc/systemd/system"
+    install -m 755 "$AQUI/vigilar.sh" "$R/usr/local/sbin/fsapfs-vigilar"
+    cat > "$R/etc/systemd/system/fsapfs-vigilar.service" <<'U'
 [Unit]
 Description=Rehace los montajes APFS cuyo proceso FUSE murió (mint-macos)
 
@@ -24,7 +27,7 @@ Type=oneshot
 ExecStart=/usr/local/sbin/fsapfs-vigilar
 TimeoutStartSec=45
 U
-    cat > /etc/systemd/system/fsapfs-vigilar.timer <<'U'
+    cat > "$R/etc/systemd/system/fsapfs-vigilar.timer" <<'U'
 [Unit]
 Description=Revisa cada minuto los montajes APFS (mint-macos)
 
@@ -35,6 +38,11 @@ OnUnitActiveSec=1min
 [Install]
 WantedBy=timers.target
 U
+    if [ -n "$R" ] || [ "${MINT_MACOS_DESTINO:-}" = sistema ]; then
+      systemctl ${R:+--root="$R"} enable fsapfs-vigilar.timer >/dev/null 2>&1 \
+        || { mkdir -p "$R/etc/systemd/system/timers.target.wants"; ln -sf /etc/systemd/system/fsapfs-vigilar.timer "$R/etc/systemd/system/timers.target.wants/"; }
+      echo "listo: fsapfs-vigilar.timer habilitado en ${R:-la imagen}"; exit 0
+    fi
     systemctl daemon-reload
     systemctl enable --now fsapfs-vigilar.timer
     echo "listo: fsapfs-vigilar.timer activo"; exit 0 ;;

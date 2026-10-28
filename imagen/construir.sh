@@ -73,6 +73,10 @@ como() { sudo -u "$USUARIO" -H "$@"; }
 como bash -c "cd '$REPO/rust' && nice -n 19 cargo build --release --locked --quiet"
 NT="$TRABAJO/nativo"; rm -rf -- "${NT:?}"; mkdir -p "$NT"; chown "$USUARIO" "$NT"
 como "$REPO/nativo/compilar-desde-head.sh" "$NT"
+# libfsapfs (los discos APFS de la Mac) con su versión y sha256 de versiones.sh, a un DESTDIR:
+# en el chroot solo se copia, sin herramientas de compilación en la imagen.
+FS="$TRABAJO/fsapfs"; rm -rf -- "${FS:?}"; mkdir -p "$FS"; chown "$USUARIO" "$FS"
+como env FSAPFS_SOLO_COMPILAR="$FS" bash "$REPO/apfs/instalar-fsapfs.sh"
 fin_paso
 
 # ---- lo que entra al chroot ---------------------------------------------------------------
@@ -81,6 +85,7 @@ DENTRO="$RAIZ/tmp/mint-macos"; rm -rf -- "${DENTRO:?}"; mkdir -p "$DENTRO"
 como git -C "$REPO" archive HEAD | tar -x -C "$DENTRO"
 mkdir -p "$DENTRO/rust/target/release"; cp -a "$REPO/rust/target/release/mint-macos-"* "$DENTRO/rust/target/release/" 2>/dev/null || true
 cp -a "$NT" "$DENTRO/nativo-compilado"
+cp -a "$FS" "$DENTRO/fsapfs-compilado"
 if [ "$PERFIL" = personal ]; then
   cp -a "$MINT_MACOS_RECURSOS" "$DENTRO/recursos-apple"
   mkdir -p "$RAIZ/opt"; cp -a "$DARLING_PREFIJO" "$RAIZ/opt/darling"
