@@ -9,8 +9,10 @@
 # La interfaz: rust/monitor/DBUS.md. Su prueba: rust/monitor/prueba.sh.
 set -euo pipefail
 AQUI="$(cd "$(dirname "$0")" && pwd)"
-LIB="$HOME/.local/lib/mint-macos"
-SERVICIOS="${XDG_DATA_HOME:-$HOME/.local/share}/dbus-1/services"
+# Destino: MINT_MACOS_DESTINO=usuario (por omisión) o sistema, para la imagen (lib/destino.sh).
+source "$AQUI/../lib/destino.sh"
+LIB="$D_LIB"
+SERVICIOS="$D_DBUS"
 ARCHIVO="$SERVICIOS/org.mintmacos.Monitor1.service"
 
 parar() {
@@ -30,7 +32,7 @@ RUST="$AQUI/../rust/target/release/mint-macos-monitor"
 [ -x "$RUST" ] || { echo "✗ falta compilar $RUST (cd rust && cargo build --release -p mint-macos-monitor)"; exit 1; }
 mkdir -p "$LIB" "$SERVICIOS"
 install -m 755 "$RUST" "$LIB/mint-macos-monitor"
-printf '[D-BUS Service]\nName=org.mintmacos.Monitor1\nExec=%s\n' "$LIB/mint-macos-monitor" > "$ARCHIVO"
+printf '[D-BUS Service]\nName=org.mintmacos.Monitor1\nExec=%s\n' "$R_LIB/mint-macos-monitor" > "$ARCHIVO"
 # Si ya corría, que la próxima llamada arranque el binario nuevo.
-parar
+es_sistema || parar
 echo "  mint-macos-monitor: se arranca solo al primer uso ($ARCHIVO)"

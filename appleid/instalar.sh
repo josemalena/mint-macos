@@ -9,8 +9,10 @@
 # La interfaz: rust/appleid/DBUS.md. Sus pruebas: cargo test -p mint-macos-appleid y rust/appleid/prueba-llavero.sh.
 set -euo pipefail
 AQUI="$(cd "$(dirname "$0")" && pwd)"
-LIB="$HOME/.local/lib/mint-macos"
-SERVICIOS="${XDG_DATA_HOME:-$HOME/.local/share}/dbus-1/services"
+# Destino: MINT_MACOS_DESTINO=usuario (por omisión) o sistema, para la imagen (lib/destino.sh).
+source "$AQUI/../lib/destino.sh"
+LIB="$D_LIB"
+SERVICIOS="$D_DBUS"
 ARCHIVO="$SERVICIOS/org.mintmacos.AppleID1.service"
 
 parar() {
@@ -30,7 +32,7 @@ RUST="$AQUI/../rust/target/release/mint-macos-appleid"
 [ -x "$RUST" ] || { echo "✗ falta compilar $RUST (cd rust && cargo build --release -p mint-macos-appleid)"; exit 1; }
 mkdir -p "$LIB" "$SERVICIOS"
 install -m 755 "$RUST" "$LIB/mint-macos-appleid"
-printf '[D-BUS Service]\nName=org.mintmacos.AppleID1\nExec=%s\n' "$LIB/mint-macos-appleid" > "$ARCHIVO"
+printf '[D-BUS Service]\nName=org.mintmacos.AppleID1\nExec=%s\n' "$R_LIB/mint-macos-appleid" > "$ARCHIVO"
 # Si ya corría, que la próxima llamada arranque el binario nuevo.
-parar
+es_sistema || parar
 echo "  mint-macos-appleid: se arranca solo al primer uso ($ARCHIVO)"

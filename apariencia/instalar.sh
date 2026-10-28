@@ -9,8 +9,10 @@
 # La interfaz: rust/apariencia/DBUS.md. Su prueba: rust/apariencia/prueba.sh.
 set -euo pipefail
 AQUI="$(cd "$(dirname "$0")" && pwd)"
-LIB="$HOME/.local/lib/mint-macos"
-SERVICIOS="${XDG_DATA_HOME:-$HOME/.local/share}/dbus-1/services"
+# Destino: MINT_MACOS_DESTINO=usuario (por omisión) o sistema, para la imagen (lib/destino.sh).
+source "$AQUI/../lib/destino.sh"
+LIB="$D_LIB"
+SERVICIOS="$D_DBUS"
 ARCHIVO="$SERVICIOS/org.mintmacos.Apariencia1.service"
 
 parar() {
@@ -31,6 +33,6 @@ RUST="$AQUI/../rust/target/release/mint-macos-apariencia"
 [ -x "$RUST" ] || { echo "✗ falta compilar $RUST (cd rust && cargo build --release -p mint-macos-apariencia)"; exit 1; }
 mkdir -p "$LIB" "$SERVICIOS"
 install -m 755 "$RUST" "$LIB/mint-macos-apariencia"
-printf '[D-BUS Service]\nName=org.mintmacos.Apariencia1\nExec=%s\n' "$LIB/mint-macos-apariencia" > "$ARCHIVO"
-parar
+printf '[D-BUS Service]\nName=org.mintmacos.Apariencia1\nExec=%s\n' "$R_LIB/mint-macos-apariencia" > "$ARCHIVO"
+es_sistema || parar
 echo "  mint-macos-apariencia: se arranca solo al primer uso ($ARCHIVO)"
