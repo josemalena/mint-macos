@@ -31,6 +31,20 @@ seccion() { case " ${FASE:-A B C D E F} " in *" $1 "*) return 0;; esac; return 1
 fuera() { log "fase-c: NO SE HACE $1 — $2"; echo "$1: $2" >> "$FC/no-hecho.txt"; }
 : > "$FC/no-hecho.txt"
 SP="System Preferences"
+# Desde 13 es System Settings (app y proceso). Sus paneles se abren por URL: «set current pane»
+# da -10006 y -1728 en 27 (Mint-Macos, 28-10-2026). Los id de pane_url salieron de probarlos uno a uno en 27.0.1.
+[ "$AJUSTES" = "System Settings" ] && SP="System Settings"
+pane_url() { # pane [anchor] → el id para x-apple.systempreferences: en System Settings
+  case "$1${2:+?$2}" in
+    com.apple.preference.displays) echo com.apple.Displays-Settings.extension ;;
+    com.apple.preference.general) echo com.apple.Appearance-Settings.extension ;;
+    com.apple.preference.dock) echo com.apple.Desktop-Settings.extension ;;
+    com.apple.preference.keyboard*) echo com.apple.Keyboard-Settings.extension ;;
+    com.apple.preference.security*) echo com.apple.settings.PrivacySecurity.extension ;;
+    com.apple.preference.sound*) echo com.apple.Sound-Settings.extension ;;
+    com.apple.preference.universalaccess\?Seeing_Display) echo "com.apple.Accessibility-Settings.extension?Display" ;;
+    *) echo "$1" ;;
+  esac; }
 
 # ---- lo que se cambia, como estaba ---------------------------------------------
 FONDO_ORIG="$(osa -e 'tell application "System Events" to get picture of every desktop' | tr ',' '\n' | sed 's/^ *//' | head -1)"
@@ -61,6 +75,7 @@ pulsar() { se_despierto; $H ui "$1" pulsar "$2" "$3" "${4:-1}" >/dev/null 2>>"$L
 abrir_popup() { se_despierto; $H ui "$1" menu "$2" "$3" "${4:-1}" >/dev/null 2>>"$LOG"; }
 fuera_xy() { echo "$((W-60)) $((HH/2))"; }   # para soltar sin disparar nada (lejos de las esquinas activas)
 pref() { # pane [anchor]
+  if [ "$SP" = "System Settings" ]; then open "x-apple.systempreferences:$(pane_url "$1" "${2:-}")" 2>>"$LOG"; sleep 3; raton_fuera; return; fi
   osa -e "tell application \"$SP\" to activate"
   if [ -n "${2:-}" ]; then osa -e "tell application \"$SP\" to reveal anchor \"$2\" of pane id \"$1\""
   else osa -e "tell application \"$SP\" to set current pane to pane id \"$1\""; fi
@@ -179,9 +194,82 @@ fase_a() {
   fuera A12 "Monterey casi no usa NSSwitch; «Allow Notifications» es casilla"
   fuera A2 "el checkbox mixto: Keyboard ▸ Shortcuts ▸ Services ya sale en el bloque 08 (keyboard-shortcuts-N)"
 }
+# A en System Settings (13 en adelante). Los controles salieron del árbol de AX de cada panel en 27.0.1
+# (Mint-Macos, 28-10-2026). En 27 muchos botones no tienen nombre, título ni ayuda: esos no se buscan
+# por texto, y si no hay otra forma de encontrarlos quedan en «NO SE HACE».
+boton_antes_de_ayuda() { # → el n del AXButton a la izquierda de «Help» en su misma fila (de atrás para adelante)
+  local a n m; a="$(marco "$SP" AXButton '^Help$')"; [ -n "$a" ] || return 1; set -- $a; local hx=$1 hy=$2
+  n="$($H ui "$SP" contar AXButton 2>>"$LOG")"
+  while [ "${n:-0}" -gt 0 ]; do
+    m="$(marco "$SP" AXButton '' "$n")"; set -- $m
+    [ -n "$m" ] && [ "$2" = "$hy" ] && [ "$1" -lt "$hx" ] && { echo "$n"; return 0; }
+    n=$((n-1))
+  done; return 1; }
+fase_a27() {
+  # A4 botón normal: en Displays, el de al lado del «?» (sin nombre en AX; en la captura de 27.0.1 es «Night Shift…»). A11 Brightness.
+  pref com.apple.preference.displays
+  local b; b="$(boton_antes_de_ayuda)"
+  if [ -n "$b" ]; then estados boton-junto-a-ayuda "$SP" AXButton '' "$b"; log "fase-c A boton-junto-a-ayuda: AXButton n.º $b de Displays, sin nombre en AX (en 27.0.1 es «Night Shift…»)"
+  else fuera "A boton-night-shift" "en 27 el botón no tiene nombre en AX y no encontré el «?» para ubicarlo"; fi
+  estados slider-brillo "$SP" AXSlider '^Brightness$' 1 ventana_pref no-apretar || true
+  # A6 el «?»
+  estados boton-ayuda "$SP" AXButton '^Help$' || true
+  # A7 popups de Appearance (pane general → Appearance): Text highlight color, Folder color, Sidebar icon size
+  pref com.apple.preference.general
+  local i; for i in 1 2 3; do
+    local m; m="$(marco "$SP" AXPopUpButton '' $i)"; [ -n "$m" ] || break
+    set -- $m; local cx=$(( $1 + $3/2 )) cy=$(( $2 + $4/2 ))
+    cap_win "A-popup$i-cerrado-$M" "$(ventana_pref)"
+    $H raton apretar $cx $cy; sleep 1; cap_full "A-popup$i-abierto-$M"
+    $H raton arrastrar-a $cx $((cy+24)); sleep 0.6; cap_full "A-popup$i-fila-resaltada-$M"
+    $H raton soltar $(fuera_xy); sleep 0.6; esc; raton_fuera
+  done
+  # A3 radios: Light/Dark/Auto son AXButton sin nombre en 27; el radio con nombre es «Show scroll bars».
+  fuera "A radio-apariencia" "en 27 Light, Dark y Auto son AXButton sin nombre ni título; va el radio «Show scroll bars»"
+  estados radio-scroll-bars "$SP" AXRadioButton '^Show scroll bars$' 1 || true
+  # A14 el anillo de foco con Full Keyboard Access
+  FKA_TOCADO=true; defaults write -g AppleKeyboardUIMode -int 2
+  osa -e "tell application \"$SP\" to quit"; sleep 1.5; pref com.apple.preference.general
+  for i in 1 2 3 4 5 6; do tecla "$SP" 'key code 48'; sleep 0.6; cap_win "A-foco-tab$i-$M" "$(ventana_pref)"; done
+  poner_def -g AppleKeyboardUIMode "$FKA_ORIG" int; FKA_TOCADO=false
+  # A1 checkbox y A12 switch (Desktop & Dock): en 27 Magnification es un slider; la casilla es «Show items»
+  pref com.apple.preference.dock
+  estados checkbox-show-items "$SP" AXCheckBox '^Show items$' || true
+  estados switch-ocultar-dock "$SP" AXCheckBox '^Automatically hide and show the Dock$' || true
+  # A9 pestañas: Keyboard ya no tiene; las de Sound (Output e Input, AXTabButton). Y A11 Output volume.
+  pref com.apple.preference.sound output
+  estados pestana-output "$SP" AXRadioButton '^Output$' || true
+  inactiva pestanas-sound ventana_pref
+  estados slider-volumen "$SP" AXSlider '^Output volume$' 1 ventana_pref sitio || true
+  fuera "A9 candado cerrado" "en 27 Privacy & Security no tiene candado"
+  # A10, A13, A15 (Finder) y A5/A8 (Save de TextEdit) no dependen de System Settings: como en Monterey.
+  osa -e "tell application \"$SP\" to quit"; sleep 1
+  cerrar_finder; ventana_finder . icon $X1 $Y1 $X2 $Y2; finder_activar
+  estados segmentado-vistas Finder AXRadioButton 'list' 1 id_finder || estados segmentado-vistas Finder AXButton 'list' 1 id_finder || true
+  inactiva segmentado-vistas id_finder; finder_activar
+  local s; s="$(marco Finder AXTextField 'search')"
+  if [ -z "$s" ] && [ -n "$(marco Finder AXButton '^Search$')" ]; then
+    cap_win "A-busqueda-plegada-$M" "$(id_finder)"
+    pulsar Finder AXButton '^Search$'; sleep 1; s="$(marco Finder AXTextField 'search')"; fi
+  if [ -n "$s" ]; then set -- $s; cap_win "A-busqueda-reposo-$M" "$(id_finder)"
+    $H raton clic $(( $1 + $3/2 )) $(( $2 + $4/2 )); sleep 0.8; cap_win "A-busqueda-foco-$M" "$(id_finder)"
+    tecla Finder 'keystroke "Lago"'; sleep 1.2; cap_win "A-busqueda-texto-$M" "$(id_finder)"; esc; esc
+  else fuera "A13 búsqueda" "no encontré el campo de búsqueda del Finder"; fi
+  cap_win "A-barra-lateral-seleccion-activa-$M" "$(id_finder)"; inactiva barra-lateral-seleccion id_finder
+  cerrar_finder
+  osa -e 'tell application "TextEdit" to activate' -e 'tell application "TextEdit" to make new document'; sleep 1.5
+  tecla TextEdit 'keystroke "s" using command down'; sleep 1.5
+  estados boton-save TextEdit AXButton '^Save$' 1 id_textedit || true
+  estados disclosure-save TextEdit AXDisclosureTriangle '' 1 id_textedit || estados disclosure-save TextEdit AXButton 'expand|disclosure|show details' 1 id_textedit || true
+  inactiva hoja-save id_textedit
+  osa -e 'tell application "TextEdit" to activate'; tecla TextEdit 'key code 53'; sleep 0.8
+  osa -e 'tell application "TextEdit" to quit saving no'; sleep 1
+  fuera A2 "el checkbox mixto: Keyboard ▸ Shortcuts ▸ Services ya sale en el bloque 08 (keyboard-shortcuts-N)"
+}
 if seccion A; then
   ocultar; raton_fuera
-  for M in claro oscuro; do modo $([ $M = oscuro ] && echo true || echo false); CAP="$FCC"; fase_a; done
+  FA=fase_a; [ "$SP" = "System Settings" ] && FA=fase_a27
+  for M in claro oscuro; do modo $([ $M = oscuro ] && echo true || echo false); CAP="$FCC"; $FA; done
   # A15 con acento Graphite (el acento vuelve en devolver)
   ACENTO_TOCADO=true; poner_def -g AppleAccentColor -1 int; poner_def -g AppleAquaColorVariant 6 int
   $H avisar-colores >/dev/null 2>>"$LOG"; killall Finder; sleep 3
@@ -466,7 +554,8 @@ fi
     if [ "$(stat -f %z "$t")" -lt 100000000 ]; then echo "$t" >> tubo.txt; else echo "$t" >> transporte.txt; fi
   done )
 log "fase-c: lista; tubo: $(tr '\n' ' ' < "$FC/tubo.txt") · TRANSPORTE: $(tr '\n' ' ' < "$FC/transporte.txt")"
-if [ -s "$FC/transporte.txt" ] && [ -d "$AQUI" ]; then
+# Solo si el guion corre desde la memoria: en 27 corre desde el repo y la copia caía ahí (28-10-2026).
+if [ -s "$FC/transporte.txt" ] && case "$AQUI" in /Volumes/*) true ;; *) false ;; esac; then
   while read -r t; do cp "$FC/$t" "$FC/$t.sha256" "$AQUI/" && ( cd "$AQUI" && shasum -a 256 -c "$t.sha256" >>"$LOG" 2>&1 ) && log "fase-c: $t en $AQUI (verificado)"; done < "$FC/transporte.txt"
 fi
 aviso "Fase C lista: $FC"
