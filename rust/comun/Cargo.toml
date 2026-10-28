@@ -7,3 +7,8 @@ description = "Lo que comparten los abridores de mint-macos: la pregunta de la p
 
 [lib]
 path = "src/lib.rs"
+
+[dependencies]
+# flate2 1.1.10 (28-08-2026, MIT o Apache-2.0), la misma de la tienda: comprime los
+# PNG que se arman con los íconos viejos de un .icns (is32, il32, ih32, it32).
+flate2 = "1.1.10"

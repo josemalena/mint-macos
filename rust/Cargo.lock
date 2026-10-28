@@ -881,6 +881,9 @@ dependencies = [
 [[package]]
 name = "mint-macos-comun"
 version = "0.1.0"
+dependencies = [
+ "flate2",
+]
 
 [[package]]
 name = "mint-macos-equipo"

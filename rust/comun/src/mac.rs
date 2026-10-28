@@ -3,6 +3,7 @@
 //! Lo usan mint-macos-abrir-mac y el generador de lanzadores de /Applications
 //! (rust/appimages), para que los dos lean las apps igual.
 
+use std::borrow::Cow;
 use std::fs;
 use std::io::Read;
 use std::path::{Path, PathBuf};
@@ -89,9 +90,9 @@ pub fn version(v: &str) -> (u32, u32) {
 
 /// El ícono de la app como PNG en la carpeta dir. Sale del .icns de
 /// CFBundleIconFile (o AppIcon.icns): las entradas grandes (ic07 en adelante)
-/// son PNG tal cual; se toma la más grande de hasta 512 px. Las viejas
-/// (is32, il32…) y las JPEG 2000 no se leen: sin PNG, None. Queda en
-/// <dir>/<bundle id>-<tamaño del .icns>.png.
+/// son PNG tal cual, y las viejas (is32, il32, ih32, it32) se pasan a PNG; se
+/// toma la más grande de hasta 512 px. Las JPEG 2000 no se leen: sin ninguna
+/// de las otras, None. Queda en <dir>/<bundle id>-<tamaño del .icns>.png.
 pub fn icono_png(app: &App, dir: &Path) -> Option<PathBuf> {
     let icns = archivo_icns(app)?;
     let datos = leer_con_tope(&icns, 16 << 20).ok()?;
@@ -99,7 +100,7 @@ pub fn icono_png(app: &App, dir: &Path) -> Option<PathBuf> {
     let destino = dir.join(format!("{}-{}.png", app.id, datos.len()));
     if !destino.is_file() {
         fs::create_dir_all(destino.parent()?).ok()?;
-        fs::write(&destino, png).ok()?;
+        fs::write(&destino, &*png).ok()?;
     }
     Some(destino)
 }
@@ -111,15 +112,48 @@ pub fn archivo_icns(app: &App) -> Option<PathBuf> {
     [recursos.join(&nombre), recursos.join(format!("{nombre}.icns"))].into_iter().find(|p| p.is_file())
 }
 
-/// La entrada PNG más grande de hasta 512 px de un .icns.
-pub fn png_de_icns(datos: &[u8]) -> Option<&[u8]> {
+/// El PNG más grande de hasta 512 px de un .icns.
+pub fn png_de_icns(datos: &[u8]) -> Option<Cow<'_, [u8]>> {
     pngs_de_icns(datos).into_iter().filter(|(a, _)| *a <= 512).last().map(|(_, p)| p)
 }
 
-/// Todas las entradas PNG de un .icns, una por ancho, de menor a mayor. Si dos
-/// traen el mismo ancho (ic08 y ic13, 256 px) queda la primera.
-pub fn pngs_de_icns(datos: &[u8]) -> Vec<(u32, &[u8])> {
-    let mut v: Vec<(u32, &[u8])> = Vec::new();
+/// Los íconos de formato viejo: RGB en un tipo y la máscara de 8 bits en otro.
+const VIEJOS: [(&[u8; 4], &[u8; 4], u32); 4] =
+    [(b"is32", b"s8mk", 16), (b"il32", b"l8mk", 32), (b"ih32", b"h8mk", 48), (b"it32", b"t8mk", 128)];
+
+/// Un PNG por ancho, de menor a mayor. Las entradas PNG van tal cual; si dos
+/// traen el mismo ancho (ic08 y ic13, 256 px) queda la primera. Las viejas
+/// (is32 y compañía, como el Bounce.app de Catalina) se pasan a PNG solo
+/// para los anchos que no tengan ya uno.
+pub fn pngs_de_icns(datos: &[u8]) -> Vec<(u32, Cow<'_, [u8]>)> {
+    let mut v: Vec<(u32, Cow<'_, [u8]>)> = Vec::new();
+    let entradas = entradas_icns(datos);
+    for (_, cuerpo) in &entradas {
+        // PNG: firma y ancho en el IHDR (bytes 16..20).
+        if cuerpo.starts_with(b"\x89PNG\r\n\x1a\n") && cuerpo.len() > 24 {
+            let ancho = u32::from_be_bytes(cuerpo[16..20].try_into().unwrap());
+            if !v.iter().any(|(a, _)| *a == ancho) {
+                v.push((ancho, Cow::Borrowed(*cuerpo)));
+            }
+        }
+    }
+    for (tipo, tipo_mascara, ancho) in VIEJOS {
+        if v.iter().any(|(a, _)| *a == ancho) {
+            continue;
+        }
+        let Some((_, rgb)) = entradas.iter().find(|(t, _)| t == tipo) else { continue };
+        let mascara = entradas.iter().find(|(t, _)| t == tipo_mascara).map(|(_, m)| *m);
+        if let Some(png) = rgba_viejo(rgb, mascara, ancho).map(|p| png_rgba(ancho, &p)) {
+            v.push((ancho, Cow::Owned(png)));
+        }
+    }
+    v.sort_by_key(|(a, _)| *a);
+    v
+}
+
+/// Las entradas de un .icns: tipo y cuerpo, en el orden del archivo.
+fn entradas_icns(datos: &[u8]) -> Vec<(&[u8], &[u8])> {
+    let mut v = Vec::new();
     if datos.get(..4) != Some(b"icns") {
         return v;
     }
@@ -130,18 +164,93 @@ pub fn pngs_de_icns(datos: &[u8]) -> Vec<(u32, &[u8])> {
         if largo < 8 || o + largo > datos.len() {
             break;
         }
-        let cuerpo = &datos[o + 8..o + largo];
-        // PNG: firma y ancho en el IHDR (bytes 16..20).
-        if cuerpo.starts_with(b"\x89PNG\r\n\x1a\n") && cuerpo.len() > 24 {
-            let ancho = u32::from_be_bytes(cuerpo[16..20].try_into().unwrap());
-            if !v.iter().any(|(a, _)| *a == ancho) {
-                v.push((ancho, cuerpo));
-            }
-        }
+        v.push((&datos[o..o + 4], &datos[o + 8..o + largo]));
         o += largo;
     }
-    v.sort_by_key(|(a, _)| *a);
     v
+}
+
+/// RGBA de un ícono viejo. El RGB viene en tres planos (todo el rojo, luego el
+/// verde y luego el azul), cada uno en PackBits: un byte n < 128 copia los
+/// n + 1 que siguen, y uno n >= 128 repite el siguiente n − 125 veces. it32
+/// trae cuatro ceros delante. Si el cuerpo mide ancho² × 4 va sin comprimir,
+/// en ARGB. Sin máscara, opaco.
+fn rgba_viejo(rgb: &[u8], mascara: Option<&[u8]>, ancho: u32) -> Option<Vec<u8>> {
+    let n = (ancho * ancho) as usize;
+    let mut planos = Vec::with_capacity(n * 3);
+    if rgb.len() == n * 4 {
+        for p in rgb.chunks_exact(4) {
+            planos.extend_from_slice(&p[1..]);
+        }
+        // De píxeles a planos, como sale el comprimido.
+        let pix = planos.clone();
+        for c in 0..3 {
+            for i in 0..n {
+                planos[c * n + i] = pix[i * 3 + c];
+            }
+        }
+    } else {
+        let rgb = if ancho == 128 && rgb.starts_with(&[0, 0, 0, 0]) { &rgb[4..] } else { rgb };
+        let mut i = 0;
+        while planos.len() < n * 3 {
+            let b = *rgb.get(i)? as usize;
+            if b < 0x80 {
+                planos.extend_from_slice(rgb.get(i + 1..i + 2 + b)?);
+                i += 2 + b;
+            } else {
+                let x = *rgb.get(i + 1)?;
+                planos.extend(std::iter::repeat_n(x, b - 125));
+                i += 2;
+            }
+        }
+        planos.truncate(n * 3);
+    }
+    let alfa = mascara.filter(|m| m.len() >= n);
+    let mut v = Vec::with_capacity(n * 4);
+    for i in 0..n {
+        v.extend_from_slice(&[planos[i], planos[n + i], planos[2 * n + i], alfa.map_or(255, |m| m[i])]);
+    }
+    Some(v)
+}
+
+/// Un PNG RGBA de 8 bits, cuadrado, sin filtros.
+fn png_rgba(ancho: u32, rgba: &[u8]) -> Vec<u8> {
+    use flate2::{write::ZlibEncoder, Compression};
+    use std::io::Write;
+    let mut crudo = Vec::with_capacity(rgba.len() + ancho as usize);
+    for fila in rgba.chunks_exact(ancho as usize * 4) {
+        crudo.push(0);
+        crudo.extend_from_slice(fila);
+    }
+    let mut z = ZlibEncoder::new(Vec::new(), Compression::default());
+    let _ = z.write_all(&crudo);
+    let idat = z.finish().unwrap_or_default();
+    let mut ihdr = Vec::with_capacity(13);
+    ihdr.extend_from_slice(&ancho.to_be_bytes());
+    ihdr.extend_from_slice(&ancho.to_be_bytes());
+    ihdr.extend_from_slice(&[8, 6, 0, 0, 0]);
+    let mut png = b"\x89PNG\r\n\x1a\n".to_vec();
+    for (tipo, cuerpo) in [(b"IHDR", &ihdr[..]), (b"IDAT", &idat[..]), (b"IEND", &[][..])] {
+        png.extend_from_slice(&(cuerpo.len() as u32).to_be_bytes());
+        let inicio = png.len();
+        png.extend_from_slice(tipo);
+        png.extend_from_slice(cuerpo);
+        let crc = crc32(&png[inicio..]);
+        png.extend_from_slice(&crc.to_be_bytes());
+    }
+    png
+}
+
+/// El CRC-32 de los trozos PNG (polinomio 0xEDB88320).
+fn crc32(datos: &[u8]) -> u32 {
+    let mut c = !0u32;
+    for &b in datos {
+        c ^= b as u32;
+        for _ in 0..8 {
+            c = if c & 1 != 0 { 0xEDB8_8320 ^ (c >> 1) } else { c >> 1 };
+        }
+    }
+    !c
 }
 
 // --- Las abiertas fuera de /Applications -------------------------------------
@@ -347,10 +456,33 @@ mod pruebas {
         let mut icns = b"icns".to_vec();
         icns.extend_from_slice(&((cuerpo.len() + 8) as u32).to_be_bytes());
         icns.extend(cuerpo);
-        assert_eq!(png_de_icns(&icns), Some(&png(256)[..]));
+        assert_eq!(png_de_icns(&icns).as_deref(), Some(&png(256)[..]));
         assert_eq!(png_de_icns(b"nada"), None);
         let anchos: Vec<u32> = pngs_de_icns(&icns).iter().map(|(a, _)| *a).collect();
         assert_eq!(anchos, vec![128, 256, 1024]);
+    }
+
+    #[test]
+    fn icns_viejo_a_png() {
+        // 16 × 16: cada plano son 256 bytes, en dos tiradas (130 + 126).
+        let plano = |x: u8| vec![0xFF, x, 0xFB, x];
+        let mut rgb = plano(10);
+        rgb.extend(plano(20));
+        rgb.extend(plano(30));
+        let mut cuerpo = entrada(b"is32", &rgb);
+        cuerpo.extend(entrada(b"s8mk", &[0x80; 256]));
+        cuerpo.extend(entrada(b"ic07", &png(128)));
+        let mut icns = b"icns".to_vec();
+        icns.extend_from_slice(&((cuerpo.len() + 8) as u32).to_be_bytes());
+        icns.extend(cuerpo);
+        let v = pngs_de_icns(&icns);
+        assert_eq!(v.iter().map(|(a, _)| *a).collect::<Vec<_>>(), vec![16, 128]);
+        let p = &v[0].1;
+        assert!(p.starts_with(b"\x89PNG\r\n\x1a\n"));
+        assert_eq!(&p[16..24], &[0, 0, 0, 16, 0, 0, 0, 16]);
+        assert_eq!(rgba_viejo(&rgb, Some(&[0x80; 256]), 16).unwrap()[..4], [10, 20, 30, 0x80]);
+        // El CRC del IEND es fijo.
+        assert_eq!(&p[p.len() - 4..], &[0xAE, 0x42, 0x60, 0x82]);
     }
 
     #[test]
@@ -363,6 +495,22 @@ mod pruebas {
         assert_eq!(leer_abiertas(&a), vec![("com.dos".to_string(), PathBuf::from("/y/Dos dos.app")),
                                            ("com.uno.nuevo".to_string(), PathBuf::from("/x/Uno.app"))]);
         let _ = fs::remove_dir_all(&dir);
+    }
+
+    /// Con el Bounce.app del disco de Catalina, si está montado: solo trae
+    /// íconos viejos (is32, il32, ih32 e it32, con sus máscaras).
+    #[test]
+    fn icns_de_bounce() {
+        let p = Path::new("/media/jmalena/MacMini/Applications/Bounce.app/Contents/Resources/Bounce.icns");
+        if let Ok(d) = fs::read(p) {
+            let v = pngs_de_icns(&d);
+            assert_eq!(v.iter().map(|(a, _)| *a).collect::<Vec<_>>(), vec![16, 32, 48, 128]);
+            if let Some(dir) = std::env::var_os("ICNS_SALIDA") {
+                for (a, png) in &v {
+                    fs::write(Path::new(&dir).join(format!("bounce-{a}.png")), png).unwrap();
+                }
+            }
+        }
     }
 
     /// Con el ícono de verdad de Calculator, si está en esta máquina.

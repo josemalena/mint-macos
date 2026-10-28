@@ -136,8 +136,12 @@ fn mtime(p: &Path) -> String {
 }
 
 /// Lo que invalida los PNG: el Info.plist (puede cambiar de .icns) y el .icns.
+/// Sube cuando cambia lo que se saca de un .icns, para rehacer lo que ya
+/// está en caché: la 2 lee los íconos viejos (is32…), que la 1 dejaba vacíos.
+const VERSION_SELLO: u32 = 2;
+
 fn sello(app: &App, icns: &Path) -> String {
-    format!("{} {} {}", mtime(&app.ruta.join("Contents/Info.plist")), mtime(icns), icns.display())
+    format!("v{VERSION_SELLO} {} {} {}", mtime(&app.ruta.join("Contents/Info.plist")), mtime(icns), icns.display())
 }
 
 fn png(app: &App, px: u32) -> PathBuf {
@@ -172,7 +176,7 @@ fn generar(app: &App) -> HashMap<u32, String> {
     }
     for (a, cuerpo) in pngs_de_icns(&datos) {
         let p = png(app, a);
-        if fs::write(&p, cuerpo).is_ok() {
+        if fs::write(&p, &*cuerpo).is_ok() {
             m.insert(a, p.to_string_lossy().into_owned());
         }
     }
