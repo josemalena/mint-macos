@@ -418,6 +418,14 @@ class AppleMenuApplet extends Applet.IconApplet {
   _nombreDeApp(ventana) {
     if (!ventana) return "";
     try {
+      // App de Mac en Darling: sin .desktop, el nombre viene en _DARLING_APP_NAME (clase «darling-<bundle id>»)
+      if ((ventana.get_wm_class() || "").toLowerCase().startsWith("darling-")) {
+        let [ok, salida] = GLib.spawn_command_line_sync("xprop -id %d _DARLING_APP_NAME".format(ventana.get_xwindow()));
+        let m = ok ? /=\s*"(.*)"/.exec(imports.byteArray.toString(salida)) : null;
+        if (m && m[1]) return m[1];
+      }
+    } catch (e) {}
+    try {
       let app = Cinnamon.WindowTracker.get_default().get_window_app(ventana);
       if (app) {
         // «kitty» → «Kitty», como lo escribe el menú de la app.

@@ -394,6 +394,24 @@ function nombreCorto(app) {
   return corto || n;
 }
 
+// Las apps de Mac en Darling no traen .desktop: su nombre viene en la propiedad _DARLING_APP_NAME de la ventana
+// (la clase es «darling-<bundle id>»). Se lee una vez por ventana; si la app todavía no la puso, se reintenta unas veces.
+const nombresDarling = new Map();
+const intentosDarling = new Map();
+function nombreDarling(w) {
+  try {
+    if (!(w.get_wm_class() || "").toLowerCase().startsWith("darling-")) return null;
+    let id = w.get_id();
+    if (nombresDarling.has(id)) return nombresDarling.get(id);
+    let [ok, salida] = GLib.spawn_command_line_sync("xprop -id %d _DARLING_APP_NAME".format(w.get_xwindow()));
+    let m = ok ? /=\s*"(.*)"/.exec(imports.byteArray.toString(salida)) : null;
+    if (m && m[1]) { nombresDarling.set(id, m[1]); return m[1]; }
+    let n = (intentosDarling.get(id) || 0) + 1;
+    intentosDarling.set(id, n);
+    return null;
+  } catch (e) { return null; }
+}
+
 function mismaApp(a, b) {
   let x = appDe(a), y = appDe(b);
   if (x && y) return x === y;
@@ -755,6 +773,9 @@ class AppMenuApplet extends Applet.TextApplet {
     // El escritorio de Fynder se llama Fynder, no «Finder» (decisión de José,
     // 13-10-2026): es el nombre de la app, y así lo dicen About/Hide/Quit.
     if (norm === "nemo-desktop") return "Fynder";
+
+    let darling = nombreDarling(w);
+    if (darling) return darling;
 
     // El nombre de la app como lo conoce Cinnamon (su .desktop): «Microsoft
     // Edge», no la clase de la ventana, que en Chromium con otro perfil trae
