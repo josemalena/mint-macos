@@ -3,6 +3,8 @@
 //! bajado y su sha256. Salió de appimages/src/main.rs tal cual; ver
 //! aplicaciones/APPIMAGE.md («Cómo quedó») para la pregunta y lo que se guarda.
 
+pub mod mac;
+
 use std::ffi::{CStr, CString, OsString};
 use std::fs;
 use std::io::Read;
