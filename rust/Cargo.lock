@@ -852,6 +852,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "mint-macos-apps-mac"
+version = "0.1.0"
+dependencies = [
+ "mint-macos-comun",
+ "zbus",
+]
+
+[[package]]
 name = "mint-macos-avisos"
 version = "0.1.0"
 dependencies = [

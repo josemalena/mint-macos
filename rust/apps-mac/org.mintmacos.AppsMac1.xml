@@ -1,0 +1,72 @@
+<!DOCTYPE node PUBLIC "-//freedesktop//DTD D-BUS Object Introspection 1.0//EN"
+ "http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd">
+<!--
+  org.mintmacos.AppsMac1: las .app de Mac, sin .desktop (decisión de José,
+  27-10-2026). Lo usan las piezas que muestran apps que no están abiertas:
+  Launchpad, el Muelle fijo, Spotlyte y Fynder. Las ventanas que ya corren no
+  lo necesitan: traen _DARLING_APP_NAME y _NET_WM_ICON.
+
+  Servicio: mint-macos-apps-mac (rust/apps-mac, encima de comun::mac). Bus de
+  sesión, ruta /org/mintmacos/AppsMac1, activación por D-Bus. Vive mientras
+  siga en el bus alguien que lo llamó (lo ve con NameOwnerChanged); si no
+  queda nadie, se va al minuto sin llamadas. No hace falta llamarlo al
+  arrancar ni hay señal inicial.
+
+  Cada app es un a{sv} con estas claves:
+    ruta (s)        la .app, ruta del host (/Applications/TextEdit.app)
+    id (s)          CFBundleIdentifier (si falta, el ejecutable)
+    nombre (s)      CFBundleDisplayName, si no CFBundleName, si no la carpeta sin .app
+    clase (s)       la WM_CLASS de sus ventanas en Darling: «darling-» + id en minúsculas
+    ejecutable (s)  Contents/MacOS/<CFBundleExecutable>
+    iconos (a{us})  px → PNG en ~/.cache/mint-macos/apps-mac/<id>-<px>.png, todos los
+                    PNG del .icns (16 a 1024); cada pieza escoge el suyo. Vacío si
+                    el .icns no trae PNG (las piezas ponen el genérico)
+    puede_correr (b) Mach-O x86_64, lo que corre Darling
+    motivo (s)      si no puede correr, por qué (en inglés, como el aviso de abrir-mac)
+    version_minima (s) LSMinimumSystemVersion, o ""
+  Los PNG se cachean y se rehacen si la .app cambió (mtime de Info.plist o del .icns).
+  Ninguna llamada espera por los íconos: si no están hechos, «iconos» va vacío,
+  el servicio los hace aparte y avisa con IconosListos.
+
+  Las .app abiertas con mint-macos-abrir-mac fuera de esas carpetas quedan
+  anotadas en ~/.local/state/mint-macos/mac-abiertas, una línea «<id> <ruta>»
+  por app, sin duplicados (no es un lanzador). El servicio borra las que ya no
+  existan.
+-->
+<node>
+  <interface name="org.mintmacos.AppsMac1">
+    <!--
+      Resolver: una .app a partir de, en este orden,
+        1. su ruta (/Applications/TextEdit.app, o cualquier ruta del host);
+        2. la clase de sus ventanas (darling-com.apple.textedit) o su bundle id;
+        3. como último recurso, el nombre (TextEdit, el res_name de WM_CLASS):
+           si dos apps se llaman igual, vacío en vez de escoger una.
+      Busca en las carpetas de Listar() y en mac-abiertas.
+      Si no la encuentra devuelve un diccionario vacío.
+    -->
+    <method name="Resolver">
+      <arg name="clave" type="s" direction="in"/>
+      <arg name="app" type="a{sv}" direction="out"/>
+    </method>
+
+    <!-- ResolverVarias: lo mismo para varias claves de una vez, en el mismo orden; {} donde no la encuentra. -->
+    <method name="ResolverVarias">
+      <arg name="claves" type="as" direction="in"/>
+      <arg name="apps" type="aa{sv}" direction="out"/>
+    </method>
+
+    <!-- Listar: las .app de /Applications y ~/Applications (y sus subcarpetas, como Utilities), por nombre. -->
+    <method name="Listar">
+      <arg name="apps" type="aa{sv}" direction="out"/>
+    </method>
+
+    <!-- IconosListos: ya están los PNG de esa app (mismo a{us} que «iconos»). -->
+    <signal name="IconosListos">
+      <arg name="id" type="s"/>
+      <arg name="iconos" type="a{us}"/>
+    </signal>
+
+    <!-- AppsCambiaron: algo entró o salió de /Applications o ~/Applications; hay que volver a Listar. -->
+    <signal name="AppsCambiaron"/>
+  </interface>
+</node>

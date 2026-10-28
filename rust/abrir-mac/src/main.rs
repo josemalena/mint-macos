@@ -350,6 +350,11 @@ fn abrir(ruta: &Path, archivos: &[OsString]) -> i32 {
             avisar(QUIEN, &format!("“{}” may not work", app.nombre), &format!("It requires macOS {m} or later."));
         }
     }
+    // Las de fuera de las carpetas de apps quedan anotadas, para que
+    // org.mintmacos.AppsMac1 sepa de quién son sus ventanas.
+    if !app.ruta.starts_with("/Applications") && !app.ruta.starts_with(home().join("Applications")) {
+        let _ = comun::mac::anotar_abierta(&comun::mac::archivo_abiertas(), &app.id, &app.ruta);
+    }
     desprender(&app.ruta, archivos)
 }
 

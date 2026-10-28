@@ -9,6 +9,7 @@ use std::path::{Path, PathBuf};
 
 const CPU_X86_64: u32 = 0x0100_0007;
 
+#[derive(Clone)]
 pub struct App {
     pub ruta: PathBuf,
     pub ejecutable: PathBuf,
@@ -92,9 +93,7 @@ pub fn version(v: &str) -> (u32, u32) {
 /// (is32, il32…) y las JPEG 2000 no se leen: sin PNG, None. Queda en
 /// <dir>/<bundle id>-<tamaño del .icns>.png.
 pub fn icono_png(app: &App, dir: &Path) -> Option<PathBuf> {
-    let recursos = app.ruta.join("Contents/Resources");
-    let nombre = app.icono.clone().unwrap_or_else(|| "AppIcon".into());
-    let icns = [recursos.join(&nombre), recursos.join(format!("{nombre}.icns"))].into_iter().find(|p| p.is_file())?;
+    let icns = archivo_icns(app)?;
     let datos = leer_con_tope(&icns, 16 << 20).ok()?;
     let png = png_de_icns(&datos)?;
     let destino = dir.join(format!("{}-{}.png", app.id, datos.len()));
@@ -105,30 +104,77 @@ pub fn icono_png(app: &App, dir: &Path) -> Option<PathBuf> {
     Some(destino)
 }
 
+/// El .icns de CFBundleIconFile (con o sin la extensión), o AppIcon.icns.
+pub fn archivo_icns(app: &App) -> Option<PathBuf> {
+    let recursos = app.ruta.join("Contents/Resources");
+    let nombre = app.icono.clone().unwrap_or_else(|| "AppIcon".into());
+    [recursos.join(&nombre), recursos.join(format!("{nombre}.icns"))].into_iter().find(|p| p.is_file())
+}
+
 /// La entrada PNG más grande de hasta 512 px de un .icns.
 pub fn png_de_icns(datos: &[u8]) -> Option<&[u8]> {
-    if datos.get(..4)? != b"icns" {
-        return None;
+    pngs_de_icns(datos).into_iter().filter(|(a, _)| *a <= 512).last().map(|(_, p)| p)
+}
+
+/// Todas las entradas PNG de un .icns, una por ancho, de menor a mayor. Si dos
+/// traen el mismo ancho (ic08 y ic13, 256 px) queda la primera.
+pub fn pngs_de_icns(datos: &[u8]) -> Vec<(u32, &[u8])> {
+    let mut v: Vec<(u32, &[u8])> = Vec::new();
+    if datos.get(..4) != Some(b"icns") {
+        return v;
     }
     let be = |o: usize| datos.get(o..o + 4).map(|b| u32::from_be_bytes(b.try_into().unwrap()) as usize);
-    let mut mejor: Option<(usize, &[u8])> = None;
     let mut o = 8;
     while o + 8 <= datos.len() {
-        let largo = be(o + 4)?;
+        let Some(largo) = be(o + 4) else { break };
         if largo < 8 || o + largo > datos.len() {
             break;
         }
         let cuerpo = &datos[o + 8..o + largo];
         // PNG: firma y ancho en el IHDR (bytes 16..20).
         if cuerpo.starts_with(b"\x89PNG\r\n\x1a\n") && cuerpo.len() > 24 {
-            let ancho = u32::from_be_bytes(cuerpo[16..20].try_into().unwrap()) as usize;
-            if ancho <= 512 && mejor.map_or(true, |(a, _)| ancho > a) {
-                mejor = Some((ancho, cuerpo));
+            let ancho = u32::from_be_bytes(cuerpo[16..20].try_into().unwrap());
+            if !v.iter().any(|(a, _)| *a == ancho) {
+                v.push((ancho, cuerpo));
             }
         }
         o += largo;
     }
-    mejor.map(|(_, p)| p)
+    v.sort_by_key(|(a, _)| *a);
+    v
+}
+
+// --- Las abiertas fuera de /Applications -------------------------------------
+
+/// $XDG_STATE_HOME/mint-macos/mac-abiertas: las .app abiertas con abrir-mac
+/// fuera de /Applications y ~/Applications, «<id> <ruta>» por línea, sin
+/// duplicados. Las lee org.mintmacos.AppsMac1 para resolver sus ventanas.
+pub fn archivo_abiertas() -> PathBuf {
+    crate::estado().join("mac-abiertas")
+}
+
+pub fn leer_abiertas(archivo: &Path) -> Vec<(String, PathBuf)> {
+    fs::read_to_string(archivo).unwrap_or_default().lines()
+        .filter_map(|l| l.split_once(' ').map(|(i, r)| (i.to_string(), PathBuf::from(r))))
+        .collect()
+}
+
+/// Anota una app (si ya estaba esa ruta, cambia su id). Escribe a un temporal
+/// y lo renombra, para que el servicio nunca lea el archivo a medias.
+pub fn anotar_abierta(archivo: &Path, id: &str, ruta: &Path) -> std::io::Result<()> {
+    let mut v: Vec<(String, PathBuf)> = leer_abiertas(archivo).into_iter().filter(|(_, r)| r != ruta).collect();
+    v.push((id.to_string(), ruta.to_path_buf()));
+    escribir_abiertas(archivo, &v)
+}
+
+pub fn escribir_abiertas(archivo: &Path, v: &[(String, PathBuf)]) -> std::io::Result<()> {
+    if let Some(d) = archivo.parent() {
+        fs::create_dir_all(d)?;
+    }
+    let texto: String = v.iter().map(|(i, r)| format!("{i} {}\n", r.display())).collect();
+    let tmp = archivo.with_extension(format!("tmp{}", std::process::id()));
+    fs::write(&tmp, texto)?;
+    fs::rename(&tmp, archivo)
 }
 
 /// Las claves de texto del diccionario de arriba de un Info.plist, XML o binario
@@ -303,6 +349,20 @@ mod pruebas {
         icns.extend(cuerpo);
         assert_eq!(png_de_icns(&icns), Some(&png(256)[..]));
         assert_eq!(png_de_icns(b"nada"), None);
+        let anchos: Vec<u32> = pngs_de_icns(&icns).iter().map(|(a, _)| *a).collect();
+        assert_eq!(anchos, vec![128, 256, 1024]);
+    }
+
+    #[test]
+    fn abiertas_sin_duplicados() {
+        let dir = std::env::temp_dir().join(format!("mint-macos-abiertas-{}", std::process::id()));
+        let a = dir.join("mac-abiertas");
+        anotar_abierta(&a, "com.uno", Path::new("/x/Uno.app")).unwrap();
+        anotar_abierta(&a, "com.dos", Path::new("/y/Dos dos.app")).unwrap();
+        anotar_abierta(&a, "com.uno.nuevo", Path::new("/x/Uno.app")).unwrap();
+        assert_eq!(leer_abiertas(&a), vec![("com.dos".to_string(), PathBuf::from("/y/Dos dos.app")),
+                                           ("com.uno.nuevo".to_string(), PathBuf::from("/x/Uno.app"))]);
+        let _ = fs::remove_dir_all(&dir);
     }
 
     /// Con el ícono de verdad de Calculator, si está en esta máquina.
