@@ -24,6 +24,7 @@ case "$MINT_MACOS_DESTINO" in
     R_BIN="$HOME/.local/bin"; R_LIB="$HOME/.local/lib/mint-macos"; R_DATOS="$_datos"; R_CONF="$_conf"
     R_AUTOARRANQUE="$_conf/autostart"; R_SYSTEMD_USUARIO="$_conf/systemd/user"; R_DBUS="$_datos/dbus-1/services"
     R_APPS="$_datos/applications"; R_ICONOS="$_datos/icons"; R_TEMAS="$_datos/themes"
+    R_CINNAMON="$_datos/cinnamon"
     RAIZ=""; COMO_ROOT="sudo"
     ;;
   sistema)
@@ -33,12 +34,14 @@ case "$MINT_MACOS_DESTINO" in
     R_AUTOARRANQUE="/etc/xdg/autostart"; R_SYSTEMD_USUARIO="/usr/local/lib/systemd/user"
     R_DBUS="/usr/local/share/dbus-1/services"; R_APPS="/usr/local/share/applications"
     R_ICONOS="/usr/share/icons"; R_TEMAS="/usr/share/themes"
+    # Cinnamon busca applets, extensiones y desklets solo en /usr/share/cinnamon y en el home.
+    R_CINNAMON="/usr/share/cinnamon"
     RAIZ="${MINT_MACOS_RAIZ:-}"; COMO_ROOT=""
     [ "$(id -u)" = 0 ] || [ -n "$RAIZ" ] || { echo "✗ MINT_MACOS_DESTINO=sistema sin raíz: corre como root (dentro del chroot)" >&2; exit 1; }
     ;;
   *) echo "✗ MINT_MACOS_DESTINO=$MINT_MACOS_DESTINO: usuario o sistema" >&2; exit 1 ;;
 esac
-for _v in BIN LIB DATOS CONF AUTOARRANQUE SYSTEMD_USUARIO DBUS APPS ICONOS TEMAS; do
+for _v in BIN LIB DATOS CONF AUTOARRANQUE SYSTEMD_USUARIO DBUS APPS ICONOS TEMAS CINNAMON; do
   eval "D_$_v=\"\$RAIZ\$R_$_v\""
 done
 unset _v _datos _conf

@@ -19,6 +19,7 @@ herramienta.py (capturas/), que se cargan desde donde las instala cada uno, así
 import importlib.machinery
 import importlib.util
 import os
+import shutil
 import sys
 import traceback
 
@@ -29,11 +30,23 @@ from gi.repository import Gio, GLib, Gtk  # noqa: E402
 
 APP_ID = "io.github.josemalena.MintMacosAyudante"
 HOME = os.path.expanduser("~")
+
+def primera(*rutas):
+    """La primera que exista: lo del usuario gana a lo del sistema (la imagen instala en /usr)."""
+    for r in rutas:
+        if r and os.path.exists(r):
+            return r
+    return rutas[-1] if rutas else None
+
+
 # AYUDANTE_FORCEKILL y AYUDANTE_HERRAMIENTA cambian la ruta (para probar sin instalar).
 FUENTES = {
     "forcekill": os.environ.get("AYUDANTE_FORCEKILL")
-    or os.path.join(HOME, ".local/share/cinnamon/applets/applemenu@macos/forcekill.py"),
-    "herramienta": os.environ.get("AYUDANTE_HERRAMIENTA") or os.path.join(HOME, ".local/bin/mac-captura-herramienta"),
+    or primera(os.path.join(HOME, ".local/share/cinnamon/applets/applemenu@macos/forcekill.py"),
+               "/usr/share/cinnamon/applets/applemenu@macos/forcekill.py"),
+    "herramienta": os.environ.get("AYUDANTE_HERRAMIENTA")
+    or primera(os.path.join(HOME, ".local/bin/mac-captura-herramienta"),
+               shutil.which("mac-captura-herramienta") or "/usr/local/bin/mac-captura-herramienta"),
 }
 
 

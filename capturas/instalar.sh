@@ -9,11 +9,13 @@
 # atajos quedan apuntando a nada y no hacen nada).
 set -euo pipefail
 AQUI="$(cd "$(dirname "$0")" && pwd)"
-mkdir -p "$HOME/.local/bin"
-install -m 755 "$AQUI/captura.sh" "$HOME/.local/bin/mac-captura"
-install -m 755 "$AQUI/emojis.py" "$HOME/.local/bin/mac-emojis"
-install -m 755 "$AQUI/herramienta.py" "$HOME/.local/bin/mac-captura-herramienta"
+# Destino: ~/.local/bin, o /usr/local/bin para la imagen (MINT_MACOS_DESTINO=sistema, lib/destino.sh).
+source "$AQUI/../lib/destino.sh"
+mkdir -p "$D_BIN"
+install -m 755 "$AQUI/captura.sh" "$D_BIN/mac-captura"
+install -m 755 "$AQUI/emojis.py" "$D_BIN/mac-emojis"
+install -m 755 "$AQUI/herramienta.py" "$D_BIN/mac-captura-herramienta"
 for p in gnome-screenshot xdotool xdg-user-dir import ffmpeg; do
   command -v "$p" >/dev/null || echo "Falta $p (sudo apt install $( [ $p = xdg-user-dir ] && echo xdg-user-dirs || { [ $p = import ] && echo imagemagick || echo $p; } ))"
 done
-echo "Capturas y emojis instalados en ~/.local/bin."
+echo "Capturas y emojis instalados en $D_BIN."
