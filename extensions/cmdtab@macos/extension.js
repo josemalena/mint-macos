@@ -64,7 +64,32 @@ function appsMRU() {
   return [...porClave.values()];
 }
 
+// Las apps de Mac que corren en Darling no tienen .desktop (decisión de José, 27-10-2026): su ventana trae el nombre en _DARLING_APP_NAME
+// (UTF8_STRING, acordado con Darling; no es el título) y WM_CLASS = («ejecutable», «darling-<bundle id>»). Cinnamon las nombraría
+// «Darling com.apple.textedit». El .desktop con ese StartupWMClass, si existe, manda; el ícono ya sale de _NET_WM_ICON.
+let nombresDarling = new Map();
+function nombreDarling(w) {
+  let clase = w.get_wm_class() || '';
+  if (!clase.toLowerCase().startsWith('darling-')) return null;
+  let id = w.get_id();
+  if (nombresDarling.has(id)) return nombresDarling.get(id);
+  let nombre = null;
+  try {
+    let [ok, salida] = GLib.spawn_command_line_sync('xprop -id %d _DARLING_APP_NAME'.format(w.get_xwindow()));
+    let m = ok ? /=\s*"(.*)"/.exec(imports.byteArray.toString(salida)) : null;
+    if (m && m[1]) nombre = m[1];
+  } catch (e) {}
+  nombre = nombre || w.get_wm_class_instance() || null;
+  nombresDarling.set(id, nombre);
+  return nombre;
+}
+
 function nombreDe(e) {
+  let appInfo = e.app ? e.app.get_app_info() : null;
+  if (!appInfo) {
+    let d = nombreDarling(e.ventanas[0]);
+    if (d) return d;
+  }
   if (e.app) return e.app.get_name();
   return e.ventanas[0].get_wm_class() || e.ventanas[0].get_title() || '';
 }
