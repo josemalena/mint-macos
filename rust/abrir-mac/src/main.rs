@@ -139,10 +139,22 @@ fn darling() -> Darling {
     }
 }
 
-/// Un archivo del host como lo ve Darling. Con el bind del home y de
-/// /Applications (fork de darlingserver) esto dejará de hacer falta.
+/// Las rutas de macOS que el fork de darlingserver monta en el prefijo desde
+/// el host (las crea requisitos.sh: /Users → /home, /Volumes → /media/<usuario>).
+const RUTAS_MAC: [&str; 3] = ["/Users", "/Volumes", "/Applications"];
+
+/// Un archivo del host como lo ve Darling: con su ruta de Mac si cae bajo
+/// /Users, /Volumes o /Applications (lo que apuntan en el host), y si no por
+/// /Volumes/SystemRoot, la salida de Darling a la raíz del host.
 fn ruta_en_darling(p: &Path) -> OsString {
     let real = fs::canonicalize(p).unwrap_or_else(|_| p.to_path_buf());
+    for mac in RUTAS_MAC {
+        if let Ok(destino) = fs::canonicalize(mac) {
+            if let Ok(resto) = real.strip_prefix(&destino) {
+                return Path::new(mac).join(resto).into_os_string();
+            }
+        }
+    }
     let mut s = OsString::from(SALIDA_SISTEMA);
     s.push(real.as_os_str());
     s
@@ -561,5 +573,19 @@ mod pruebas {
     fn version_minima() {
         assert!(version("12.0") > MACOS_DE_DARLING);
         assert!(version("10.15.8") <= MACOS_DE_DARLING);
+    }
+
+    /// Lo de fuera de /Users, /Volumes y /Applications va por SystemRoot; lo
+    /// del HOME, por /Users si el host tiene ese enlace (requisitos.sh).
+    #[test]
+    fn rutas_en_darling() {
+        assert_eq!(ruta_en_darling(Path::new("/etc")), OsString::from("/Volumes/SystemRoot/etc"));
+        if let Ok(usuarios) = fs::canonicalize("/Users") {
+            let casa = home();
+            if casa.starts_with(&usuarios) {
+                let esperado = Path::new("/Users").join(casa.strip_prefix(&usuarios).unwrap());
+                assert_eq!(ruta_en_darling(&casa), esperado.into_os_string());
+            }
+        }
     }
 }
