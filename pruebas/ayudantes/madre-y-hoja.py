@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""madre-y-hoja.py madre REGISTRO | hoja XID_MADRE [ROL] — para el caso 136 (hojas de macOS en Muffin).
-madre: una ventana que anota en REGISTRO cada clic que recibe en su contenido.
+"""madre-y-hoja.py madre REGISTRO | hoja XID_MADRE [ROL [ANCHOxALTO]] — para el caso 136 (hojas de macOS en Muffin).
+madre: una ventana que anota en REGISTRO cada clic («clic») y cada tecla («tecla») que recibe.
 hoja: una ventana DIALOG + MODAL, transient de la ventana XID_MADRE (que puede ser de otro proceso) y con WM_WINDOW_ROLE «mint-macos-hoja»,
 como la que arma el selector Open/Save de Fynder."""
 import sys
@@ -25,6 +25,11 @@ if modo == "madre":
             f.write("clic\n")
         return True
     caja.connect("button-press-event", clic)
+    def tecla(*_):
+        with open(registro, "a") as f:
+            f.write("tecla\n")
+        return True
+    w.connect("key-press-event", tecla)
     w.add(caja)
 else:
     xid = int(sys.argv[2])
@@ -35,7 +40,8 @@ else:
     w.set_role(sys.argv[3] if len(sys.argv) > 3 else "mint-macos-hoja")
     w.set_decorated(False)     # la hoja no lleva barra de título propia
     w.set_skip_taskbar_hint(True)
-    w.set_default_size(420, 120)
+    ancho, alto = (int(n) for n in (sys.argv[4] if len(sys.argv) > 4 else "420x120").split("x"))
+    w.set_default_size(ancho, alto)
     w.add(Gtk.Label(label="hoja"))
     w.realize()
     display = GdkX11.X11Display.get_default() if hasattr(GdkX11.X11Display, "get_default") else Gdk.Display.get_default()

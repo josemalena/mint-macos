@@ -19,6 +19,8 @@ prueba() {
   # control: sin hoja, un clic en el contenido llega a la madre
   xdotool mousemove $((PX + 60)) $((PY + 60)) click 1; sleep 0.5
   [ -s "$reg" ] || falla "control: sin hoja, la madre no recibió el clic"
+  xdotool key a; sleep 0.4
+  grep -q tecla "$reg" || falla "control: sin hoja, la madre no recibió la tecla"
   : > "$reg"
   local perfil
   for perfil in catalina-10.15 monterey-12.7.6; do
@@ -61,4 +63,22 @@ prueba() {
   : > "$reg"; xdotool mousemove $((PX + 30)) $((PY + PH - 30)) click 1; sleep 0.7
   [ ! -s "$reg" ] || falla "la madre recibió un clic con la alerta abierta"
   paso "la alerta conserva MODAL y la madre no recibe clics"
+  xdotool windowclose "$a" 2>/dev/null
+  for p in $(pgrep -f "madre-y-hoja.py hoja"); do grep -qz "^HOME=$HOME\$" "/proc/$p/environ" 2>/dev/null && kill "$p"; done
+  sleep 0.7
+  # hoja compacta (el Save sin detalles, 328x167) en Catalina: cuelga de la barra aunque la madre sea mucho más alta; y la primera tecla no llega a la madre
+  poner_perfil catalina-10.15
+  xdotool mousemove $((PX + 60)) $((PY + 60)) click 1; sleep 0.5      # la madre con el foco, como cuando se pide abrir el Save
+  : > "$reg"
+  lanzar python3 -I "$aqui/ayudantes/madre-y-hoja.py" hoja "$m" mint-macos-hoja 328x167
+  local c; c="$(esperar_ventana '^hoja-de-prueba$' 20)"
+  xdotool key a b c                                                  # sin esperar: la primera tecla tras aparecer la hoja
+  sleep 1.2
+  read -r HX HY HW HH < <(geometria "$c")
+  paso "catalina compacta: hoja ${HW}x${HH}+$HX+$HY (contenido de la madre +$PX+$PY)"
+  captura "hoja-compacta-catalina"
+  [ "$(( HY - PY ))" -le 4 ] && [ "$(( HY - PY ))" -ge -4 ] || falla "catalina: la hoja compacta no cuelga de la barra de título (a $(( HY - PY )) px)"
+  [ "$(xdotool getwindowfocus)" = "$c" ] || falla "catalina: la hoja compacta no tomó el foco (lo tiene $(xdotool getwindowfocus getwindowname))"
+  [ ! -s "$reg" ] || falla "catalina: la madre recibió teclas con la hoja abierta ($(tr '\n' ' ' < "$reg"))"
+  paso "la hoja compacta cuelga de la barra y la madre no recibe ni la primera tecla"
 }
