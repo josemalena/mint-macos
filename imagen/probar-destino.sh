@@ -23,7 +23,8 @@ while IFS= read -r f; do
   printf '#user_allow_other\n' > "$T/etc/fuse.conf"
   # Lo que construir.sh compila en el host: un árbol de mentira con el mismo dibujo.
   C="$(mktemp -d)"; mkdir -p "$C/usr/local/bin" "$C/usr/local/lib"; : > "$C/usr/local/bin/fsapfsmount"; : > "$C/usr/local/lib/libfsapfs.so.1"
-  if ! out="$(MINT_MACOS_DESTINO=sistema MINT_MACOS_RAIZ="$T" FSAPFS_COMPILADO="$C" bash "$REPO/$f" 2>&1)"; then
+  printf '#!/bin/sh\necho rclone de mentira\n' > "$C/rclone"; chmod +x "$C/rclone"
+  if ! out="$(MINT_MACOS_DESTINO=sistema MINT_MACOS_RAIZ="$T" FSAPFS_COMPILADO="$C" RCLONE_BINARIO="$C/rclone" bash "$REPO/$f" 2>&1)"; then
     echo "✗ $f falló:"; echo "$out" | tail -3 | sed 's/^/    /'; mal=$((mal+1))
   elif g="$(grep -rlF "$T" "$T" 2>/dev/null)" && [ -n "$g" ]; then
     echo "✗ $f: la raíz falsa quedó escrita en:"; echo "$g" | sed "s|$T||; s/^/    /"; mal=$((mal+1))

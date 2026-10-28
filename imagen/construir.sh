@@ -77,6 +77,12 @@ como "$REPO/nativo/compilar-desde-head.sh" "$NT"
 # en el chroot solo se copia, sin herramientas de compilación en la imagen.
 FS="$TRABAJO/fsapfs"; rm -rf -- "${FS:?}"; mkdir -p "$FS"; chown "$USUARIO" "$FS"
 como env FSAPFS_SOLO_COMPILAR="$FS" bash "$REPO/apfs/instalar-fsapfs.sh"
+# rclone oficial (versiones.sh: versión y sha256 del zip); el de apt en noble no tiene iclouddrive.
+source "$REPO/versiones.sh"
+RC="$TRABAJO/rclone"; rm -rf -- "${RC:?}"; mkdir -p "$RC"
+curl -fsSL -o "$RC/r.zip" "https://downloads.rclone.org/$RCLONE_VERSION/rclone-$RCLONE_VERSION-linux-amd64.zip"
+echo "${RCLONE_SHA256[amd64]}  $RC/r.zip" | sha256sum -c --quiet || { echo "✗ el sha256 de rclone no cuadra"; exit 1; }
+unzip -q -j "$RC/r.zip" "rclone-$RCLONE_VERSION-linux-amd64/rclone" -d "$RC"
 fin_paso
 
 # ---- lo que entra al chroot ---------------------------------------------------------------
@@ -86,6 +92,7 @@ como git -C "$REPO" archive HEAD | tar -x -C "$DENTRO"
 mkdir -p "$DENTRO/rust/target/release"; cp -a "$REPO/rust/target/release/mint-macos-"* "$DENTRO/rust/target/release/" 2>/dev/null || true
 cp -a "$NT" "$DENTRO/nativo-compilado"
 cp -a "$FS" "$DENTRO/fsapfs-compilado"
+install -m 755 "$RC/rclone" "$DENTRO/rclone-binario"
 if [ "$PERFIL" = personal ]; then
   cp -a "$MINT_MACOS_RECURSOS" "$DENTRO/recursos-apple"
   mkdir -p "$RAIZ/opt"; cp -a "$DARLING_PREFIJO" "$RAIZ/opt/darling"
@@ -105,6 +112,9 @@ rm -rf -- "${DENTRO:?}"; : > "$RAIZ/etc/resolv.conf"
 fin_paso
 
 # ---- empacar ----------------------------------------------------------------------------
+# Candado: ni rclone.conf ni llaveros ni claves de nadie entran en la imagen, tampoco en la personal.
+SECRETOS="$(find "$RAIZ" \( -name rclone.conf -o -path '*/keyrings/*' -o -name '*.keyring' -o -path '*/.ssh/id_*' \) -not -path "$RAIZ/proc/*" 2>/dev/null | head -5)"
+[ -z "$SECRETOS" ] || { echo "✗ hay secretos en la raíz de la imagen; no se empaca:"; echo "$SECRETOS" | sed "s|$RAIZ||; s/^/    /"; exit 1; }
 paso "mksquashfs"
 chroot "$RAIZ" dpkg-query -W --showformat='${Package} ${Version}\n' > "$ISOD/filesystem.manifest"
 du -sx --block-size=1 "$RAIZ" | cut -f1 > "$ISOD/filesystem.size"

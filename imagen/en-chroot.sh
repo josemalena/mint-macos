@@ -7,7 +7,7 @@ set -euo pipefail
 M=/tmp/mint-macos
 export MINT_MACOS_DESTINO=sistema MINT_MACOS_RAIZ=""
 # Lo que construir.sh compiló en el host para los instaladores que lo necesitan.
-export FSAPFS_COMPILADO="$M/fsapfs-compilado"
+export FSAPFS_COMPILADO="$M/fsapfs-compilado" RCLONE_BINARIO="$M/rclone-binario"
 PERFIL="${PERFIL:-personal}"
 paso() { printf '\n▸ (chroot) %s\n' "$*"; }
 

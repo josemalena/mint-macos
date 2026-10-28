@@ -9,6 +9,12 @@
 #                                                  o OneDrive "$HOME/OneDrive"
 #   ./nube.sh quitar REMOTO [SERVICIO]             la vuelta atrás: para y borra el servicio
 #   ./nube.sh estado [REMOTO]                      qué remotos hay y qué servicios corren
+#   ./nube.sh activar REMOTO [SERVICIO]            en una máquina instalada con la imagen: pone la
+#                                                  marca del remoto y arranca su unidad global
+#   MINT_MACOS_DESTINO=sistema ./nube.sh plantilla REMOTO "CARPETA en el home" [SERVICIO]
+#                                                  la imagen (lib/destino.sh): una unidad global en
+#                                                  /usr/local/lib/systemd/user, con %h, que solo arranca
+#                                                  si existe ~/.config/mint-macos/nubes/REMOTO
 #
 # SERVICIO por omisión: rclone-<remoto en minúsculas> (GDrive → rclone-gdrive).
 # Solo monta si el remoto existe en el rclone.conf del usuario; si no, no hace nada.
@@ -16,9 +22,14 @@
 #
 # Variables para probar: NUBE_UNIDADES (~/.config/systemd/user), NUBE_SIN_SYSTEMCTL=1.
 set -euo pipefail
+source "$(cd "$(dirname "$0")/.." && pwd)/lib/destino.sh"
 
-BIN="$HOME/.local/bin/rclone"
+# El envoltorio de rclone: el del usuario si lo instaló él, si no el de la imagen.
+BIN="$HOME/.local/bin/rclone"; [ -x "$BIN" ] || BIN="/usr/local/bin/rclone"
 UNIDADES="${NUBE_UNIDADES:-$HOME/.config/systemd/user}"
+# La marca de que el usuario conectó ese remoto: sin ella, la unidad global de la imagen no arranca.
+# Así no hay que leer rclone.conf (va cifrado y su clave está en el llavero, que no viaja).
+MARCAS="${XDG_CONFIG_HOME:-$HOME/.config}/mint-macos/nubes"
 CACHE_MAX="${NUBE_CACHE_MAX:-10G}"
 # Google Drive y OneDrive avisan sus cambios (ChangeNotify) y rclone pregunta cada
 # --poll-interval: la caché de directorios puede durar una semana sin perder nada de
@@ -41,24 +52,15 @@ tipo_de() { "$BIN" listremotes --long 2>/dev/null | awk -v r="$1:" '$1==r {print
 # NUBE_EXCLUIR (patrones de filtro de rclone, separados por «|») lo cambia; vacío = nada.
 excluir_de() { if [ -n "${NUBE_EXCLUIR+x}" ]; then echo "$NUBE_EXCLUIR"; elif [ "$(tipo_de "$1")" = onedrive ]; then echo "/Personal Vault/**"; fi; }
 
-montar() {
-  local remoto="${1:?falta REMOTO}" carpeta="${2:?falta CARPETA}" servicio; servicio="$(servicio_de "$1" "${3:-}")"
-  case "$carpeta" in /*) ;; *) echo "✗ CARPETA tiene que ser una ruta absoluta"; exit 1 ;; esac
-  [ -x "$BIN" ] || { echo "✗ falta el rclone de mint-macos: corre antes ./icloud.sh instalar"; exit 1; }
-  if ! hay_remoto "$remoto"; then
-    echo "  no hay remoto «$remoto» en rclone.conf: no se monta nada (dalo de alta con «rclone config»)"
-    return 0
-  fi
-  paso "$remoto en $carpeta ($servicio)"
-  local filtros="" f; while IFS= read -r f; do [ -n "$f" ] && filtros="$filtros --exclude \"$f\""; done < <(excluir_de "$remoto" | tr '|' '\n')
-  [ -n "$filtros" ] && echo "  no se lista:$filtros"
-  mkdir -p "$UNIDADES"
+unidad_texto() { # remoto carpeta servicio filtros bin [condición]
+  local remoto="$1" carpeta="$2" servicio="$3" filtros="$4" BIN="$5" cond="${6:-}"
   # La misma unidad que la de iCloud (icloud.sh, unidad_montaje): ver allí el porqué de cada opción.
-  cat > "$UNIDADES/$servicio.service" <<EOF
+  cat <<EOF
 [Unit]
 Description=$remoto montado en $carpeta (rclone, mint-macos)
 After=network-online.target
-
+${cond:+$cond
+}
 [Service]
 Type=notify
 ${RCLONE_CONFIG:+Environment=RCLONE_CONFIG=$RCLONE_CONFIG}
@@ -76,6 +78,22 @@ RestartSec=30
 [Install]
 WantedBy=default.target
 EOF
+}
+
+montar() {
+  local remoto="${1:?falta REMOTO}" carpeta="${2:?falta CARPETA}" servicio; servicio="$(servicio_de "$1" "${3:-}")"
+  case "$carpeta" in /*) ;; *) echo "✗ CARPETA tiene que ser una ruta absoluta"; exit 1 ;; esac
+  [ -x "$BIN" ] || { echo "✗ falta el rclone de mint-macos: corre antes ./icloud.sh instalar"; exit 1; }
+  if ! hay_remoto "$remoto"; then
+    echo "  no hay remoto «$remoto» en rclone.conf: no se monta nada (dalo de alta con «rclone config»)"
+    return 0
+  fi
+  paso "$remoto en $carpeta ($servicio)"
+  local filtros="" f; while IFS= read -r f; do [ -n "$f" ] && filtros="$filtros --exclude \"$f\""; done < <(excluir_de "$remoto" | tr '|' '\n')
+  [ -n "$filtros" ] && echo "  no se lista:$filtros"
+  mkdir -p "$UNIDADES" "$MARCAS"
+  unidad_texto "$remoto" "$carpeta" "$servicio" "$filtros" "$BIN" > "$UNIDADES/$servicio.service"
+  : > "$MARCAS/$remoto"
   ctl daemon-reload
   ctl enable --now "$servicio.service"
   # enable --now no reinicia una unidad que ya corre: una regenerada seguiría con las opciones viejas.
@@ -98,6 +116,25 @@ quitar() {
   echo "  listo. Quedan: el remoto en rclone.conf («rclone config delete $remoto» lo borra) y la caché en ~/.cache/rclone/$servicio."
 }
 
+# La imagen: unidad global con %h (cada usuario la ve con su home) y la condición de la marca.
+plantilla() {
+  es_sistema || { echo "✗ plantilla es para la imagen: MINT_MACOS_DESTINO=sistema"; exit 1; }
+  local remoto="${1:?falta REMOTO}" rel="${2:?falta CARPETA (dentro del home)}" servicio; servicio="$(servicio_de "$1" "${3:-}")"
+  local filtros="" f; while IFS= read -r f; do [ -n "$f" ] && filtros="$filtros --exclude \"$f\""; done < <(echo "${NUBE_EXCLUIR:-}" | tr '|' '\n')
+  mkdir -p "$D_SYSTEMD_USUARIO"
+  unidad_texto "$remoto" "%h/$rel" "$servicio" "$filtros" "$R_BIN/rclone" "ConditionPathExists=%E/mint-macos/nubes/$remoto" > "$D_SYSTEMD_USUARIO/$servicio.service"
+  unidad_usuario enable "$servicio.service" >/dev/null 2>&1 || true
+  echo "  plantilla: $R_SYSTEMD_USUARIO/$servicio.service (arranca si existe ~/.config/mint-macos/nubes/$remoto)"
+}
+
+activar() {
+  local remoto="${1:?falta REMOTO}" servicio; servicio="$(servicio_de "$1" "${2:-}")"
+  hay_remoto "$remoto" || { echo "  no hay remoto «$remoto» en rclone.conf: dalo de alta antes con «rclone config»"; exit 1; }
+  mkdir -p "$MARCAS"; : > "$MARCAS/$remoto"
+  ctl daemon-reload; ctl start "$servicio.service"
+  echo "  $remoto activado ($servicio)"
+}
+
 estado() {
   echo "remotos: $("$BIN" listremotes 2>/dev/null | tr '\n' ' ')"
   for u in "$UNIDADES"/rclone-*.service; do
@@ -112,5 +149,7 @@ case "${1:-}" in
   montar) shift; montar "$@" ;;
   quitar) shift; quitar "$@" ;;
   estado) shift; estado "$@" ;;
-  *) sed -n '2,17p' "$0"; exit 2 ;;
+  plantilla) shift; plantilla "$@" ;;
+  activar) shift; activar "$@" ;;
+  *) sed -n '2,23p' "$0"; exit 2 ;;
 esac

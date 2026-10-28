@@ -52,20 +52,23 @@ paso() { printf '\n▸ %s\n' "$*"; }
 
 arquitectura() { case "$(uname -m)" in x86_64) echo amd64 ;; aarch64) echo arm64 ;; *) echo "✗ arquitectura $(uname -m) sin binario fijado" >&2; exit 1 ;; esac; }
 
-envoltorio() {
+envoltorio() { # [ruta] (por omisión ~/.local/bin/rclone; la imagen lo pone en /usr/local/bin)
+  local dest="${1:-$BIN}"
   # Un rclone de antes (el binario mismo en ~/.local/bin) pasa a su sitio.
-  if [ -f "$BIN" ] && ! grep -q 'mint-macos-appleid' "$BIN" 2>/dev/null; then
+  if [ -z "${1:-}" ] && [ -f "$BIN" ] && ! grep -q 'mint-macos-appleid' "$BIN" 2>/dev/null; then
     install -D -m 755 "$BIN" "$REAL"
   fi
-  install -D -m 755 /dev/stdin "$BIN" <<'EOF'
+  install -D -m 755 /dev/stdin "$dest" <<'EOF'
 #!/bin/sh
 # rclone de mint-macos (lo pone icloud/icloud.sh): rclone.conf va cifrado y su clave
 # la da el llavero, por mint-macos-appleid --clave-config. Sin el ayudante, rclone a secas.
-A="$HOME/.local/lib/mint-macos/mint-macos-appleid"
+# Lo del usuario si está; si no, lo de la imagen (/usr/local, lib/destino.sh).
+A="$HOME/.local/lib/mint-macos/mint-macos-appleid"; [ -x "$A" ] || A=/usr/local/lib/mint-macos/mint-macos-appleid
+R="$HOME/.local/lib/mint-macos/rclone/rclone"; [ -x "$R" ] || R=/usr/local/lib/mint-macos/rclone/rclone
 if [ -z "${RCLONE_PASSWORD_COMMAND:-}" ] && [ -x "$A" ]; then
   RCLONE_PASSWORD_COMMAND="$A --clave-config"; export RCLONE_PASSWORD_COMMAND
 fi
-exec "$HOME/.local/lib/mint-macos/rclone/rclone" "$@"
+exec "$R" "$@"
 EOF
 }
 
@@ -326,6 +329,7 @@ deshacer() {
 
 case "${1:-}" in
   instalar) instalar ;; alta) alta ;; montar) montar ;; fotos) fotos ;;
+  envoltorio) envoltorio "${2:?falta la ruta}" ;;   # lo usa icloud/instalar.sh para la imagen
   estado) estado ;; renovar) renovar ;; deshacer) deshacer ;;
   cifrar) cifrar ;; descifrar) descifrar ;;
   *) sed -n '2,29p' "$0"; exit 2 ;;
