@@ -35,6 +35,11 @@ ctl() { [ -n "${NUBE_SIN_SYSTEMCTL:-}" ] && { echo "  (systemctl --user $*)"; re
 
 servicio_de() { echo "${2:-rclone-$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9-' '-')}"; }
 hay_remoto() { "$BIN" listremotes 2>/dev/null | grep -qx "$1:"; }
+tipo_de() { "$BIN" listremotes --long 2>/dev/null | awk -v r="$1:" '$1==r {print $2}'; }
+# Lo que no se lista. En OneDrive, la bóveda («Personal Vault») pide autenticación aparte
+# y en Linux siempre da Input/output error: por omisión no se monta (José, 27-10-2026).
+# NUBE_EXCLUIR (patrones de filtro de rclone, separados por «|») lo cambia; vacío = nada.
+excluir_de() { if [ -n "${NUBE_EXCLUIR+x}" ]; then echo "$NUBE_EXCLUIR"; elif [ "$(tipo_de "$1")" = onedrive ]; then echo "/Personal Vault/**"; fi; }
 
 montar() {
   local remoto="${1:?falta REMOTO}" carpeta="${2:?falta CARPETA}" servicio; servicio="$(servicio_de "$1" "${3:-}")"
@@ -45,6 +50,8 @@ montar() {
     return 0
   fi
   paso "$remoto en $carpeta ($servicio)"
+  local filtros="" f; while IFS= read -r f; do [ -n "$f" ] && filtros="$filtros --exclude \"$f\""; done < <(excluir_de "$remoto" | tr '|' '\n')
+  [ -n "$filtros" ] && echo "  no se lista:$filtros"
   mkdir -p "$UNIDADES"
   # La misma unidad que la de iCloud (icloud.sh, unidad_montaje): ver allí el porqué de cada opción.
   cat > "$UNIDADES/$servicio.service" <<EOF
@@ -60,7 +67,7 @@ ${RCLONE_CONFIG:+Environment=RCLONE_CONFIG=$RCLONE_CONFIG}
 Environment=RCLONE_ASK_PASSWORD=false
 ExecStartPre=-/bin/rm -f %t/$servicio.sock
 ExecStartPre=/bin/mkdir -p "$carpeta"
-ExecStart=$BIN mount "$remoto:" "$carpeta" --vfs-cache-mode full --vfs-cache-max-size $CACHE_MAX --cache-dir "%h/.cache/rclone/$servicio" --dir-cache-time $DIR_CACHE --poll-interval 1m --rc --rc-addr "unix://%t/$servicio.sock" --rc-no-auth
+ExecStart=$BIN mount "$remoto:" "$carpeta" --vfs-cache-mode full --vfs-cache-max-size $CACHE_MAX --cache-dir "%h/.cache/rclone/$servicio" --dir-cache-time $DIR_CACHE --poll-interval 1m$filtros --rc --rc-addr "unix://%t/$servicio.sock" --rc-no-auth
 $( [ "$CALENTAR" -gt 0 ] && printf '%s\n' "ExecStartPost=-/bin/sh -c \"nice -n 19 ionice -c3 find '$carpeta' -mindepth 1 -maxdepth $CALENTAR >/dev/null 2>&1 &\"" )
 ExecStop=/bin/fusermount -uz "$carpeta"
 Restart=on-failure
