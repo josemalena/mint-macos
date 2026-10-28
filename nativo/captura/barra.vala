@@ -108,6 +108,10 @@ namespace Captura {
             accion.clicked.connect (() => ejecutar ());
             fila.pack_start (accion, false, false, 0);
 
+            // Esc (o cerrar) con el marco puesto: la porción queda recordada para la próxima vez.
+            destroy.connect (() => {
+                if (marco != null && cfg.recordar) UltimaRegion.guardar (get_display (), marco.get_rect ());
+            });
             elegir (cfg.modo, false);
             show_all ();
             centrar ();
@@ -145,6 +149,8 @@ namespace Captura {
             if (!arrastrando) return base.button_release_event (e);
             arrastrando = false;
             get_display ().get_default_seat ().ungrab ();
+            if (marco != null) marco.agarrar_teclado ();      // el ungrab soltó también el teclado de las capas
+            if (selector != null) selector.agarrar_teclado ();
             return true;
         }
 
@@ -178,6 +184,7 @@ namespace Captura {
         void soltar_armado () {
             if (marco != null) {
                 rect = marco.get_rect ();
+                if (cfg.recordar) UltimaRegion.guardar (get_display (), rect);
                 marco.destroy ();
                 marco = null;
             }
@@ -194,6 +201,9 @@ namespace Captura {
         void armar () {
             soltar_armado ();
             if (cfg.modo == "porcion" || cfg.modo == "grabar-porcion") {
+                if (rect == null && cfg.recordar) {
+                    rect = UltimaRegion.cargar (get_display (), get_display ().get_primary_monitor () ?? get_display ().get_monitor (0));
+                }
                 if (rect == null) {
                     var pant = get_screen ();
                     int ancho = pant.get_width () / 2, alto = pant.get_height () / 2;
@@ -324,6 +334,8 @@ namespace Captura {
 
         // ── hacer la captura o la grabación ────────────────────────────────
         /** El botón Capture (o Record) hace la captura ya, con el modo escogido y el temporizador de Options. */
+        public void capturar () { ejecutar (); }
+
         void ejecutar () {
             var modo = cfg.modo;
             if (modo == "ventana") return;           // la ventana se elige con un clic, no con Capture

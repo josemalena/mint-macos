@@ -71,6 +71,15 @@ namespace Captura {
             gw.focus (Gdk.CURRENT_TIME);
             Gdk.Rectangle hueco;
             dejar_pasar_a_la_barra (this, barra, out hueco);
+            agarrar_teclado ();
+            destroy.connect (() => { get_display ().get_default_seat ().ungrab (); });
+        }
+
+        /** Sin gestor nadie le da el foco: se agarra el teclado para que Esc llegue aquí (ver Marco.agarrar_teclado). */
+        public void agarrar_teclado () {
+            var gw = get_window ();
+            if (gw == null || !gw.is_visible ()) return;
+            get_display ().get_default_seat ().grab (gw, Gdk.SeatCapabilities.KEYBOARD, false, null, null, null);
         }
 
         /** La barra se movió: el hueco por donde pasan los clics la sigue. */
@@ -207,6 +216,18 @@ namespace Captura {
             dejar_pasar_a_la_barra (this, barra, out hueco_barra);
             hay_hueco = hueco_barra.width > 0;
             get_window ().focus (Gdk.CURRENT_TIME);
+            agarrar_teclado ();
+            destroy.connect (() => { get_display ().get_default_seat ().ungrab (); });
+        }
+
+        /**
+         * El marco es una ventana sin gestor (POPUP) y nadie le da el foco: sin un grab, Esc y Return caen en la ventana de debajo
+         * (el 27-10-2026 Esc no cancelaba). Se agarra el teclado; la barra lo vuelve a pedir tras arrastrarse (su ungrab suelta todo).
+         */
+        public void agarrar_teclado () {
+            var gw = get_window ();
+            if (gw == null || !gw.is_visible ()) return;
+            get_display ().get_default_seat ().grab (gw, Gdk.SeatCapabilities.KEYBOARD, false, null, null, null);
         }
 
         /** La barra se movió: el hueco sin atenuar y por donde pasan los clics la sigue. */
@@ -219,6 +240,10 @@ namespace Captura {
         public override bool key_press_event (Gdk.EventKey e) {
             if (e.keyval == Gdk.Key.Escape) {
                 barra.destroy ();
+                return true;
+            }
+            if (e.keyval == Gdk.Key.Return || e.keyval == Gdk.Key.KP_Enter) {
+                ((Barra) barra).capturar ();
                 return true;
             }
             return false;
