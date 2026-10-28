@@ -20,6 +20,16 @@ set -euo pipefail
 BIN="$HOME/.local/bin/rclone"
 UNIDADES="${NUBE_UNIDADES:-$HOME/.config/systemd/user}"
 CACHE_MAX="${NUBE_CACHE_MAX:-10G}"
+# Google Drive y OneDrive avisan sus cambios (ChangeNotify) y rclone pregunta cada
+# --poll-interval: la caché de directorios puede durar una semana sin perder nada de
+# otro aparato. Con 1h (lo de iCloud, que no avisa) cada carpeta no abierta en la
+# última hora volvía al remoto: medido el 27-10-2026, 4 niveles de OneDrive en frío
+# 7.5 s contra 0.19 s caliente; 8 niveles, 270 s contra 1 s.
+DIR_CACHE="${NUBE_DIR_CACHE:-168h}"
+# Al montar se recorren en segundo plano estos niveles, con prioridad baja, para que
+# lo de arriba ya esté caliente cuando Fynder lo abra (vfs/refresh no sirve: solo
+# refresca lo que ya está en caché). 0 = no se recorre.
+CALENTAR="${NUBE_CALENTAR:-4}"
 paso() { printf '\n▸ %s\n' "$*"; }
 ctl() { [ -n "${NUBE_SIN_SYSTEMCTL:-}" ] && { echo "  (systemctl --user $*)"; return 0; }; systemctl --user "$@"; }
 
@@ -50,7 +60,8 @@ ${RCLONE_CONFIG:+Environment=RCLONE_CONFIG=$RCLONE_CONFIG}
 Environment=RCLONE_ASK_PASSWORD=false
 ExecStartPre=-/bin/rm -f %t/$servicio.sock
 ExecStartPre=/bin/mkdir -p "$carpeta"
-ExecStart=$BIN mount "$remoto:" "$carpeta" --vfs-cache-mode full --vfs-cache-max-size $CACHE_MAX --cache-dir "%h/.cache/rclone/$servicio" --dir-cache-time 1h --rc --rc-addr "unix://%t/$servicio.sock" --rc-no-auth
+ExecStart=$BIN mount "$remoto:" "$carpeta" --vfs-cache-mode full --vfs-cache-max-size $CACHE_MAX --cache-dir "%h/.cache/rclone/$servicio" --dir-cache-time $DIR_CACHE --poll-interval 1m --rc --rc-addr "unix://%t/$servicio.sock" --rc-no-auth
+$( [ "$CALENTAR" -gt 0 ] && printf '%s\n' "ExecStartPost=-/bin/sh -c \"nice -n 19 ionice -c3 find '$carpeta' -mindepth 1 -maxdepth $CALENTAR >/dev/null 2>&1 &\"" )
 ExecStop=/bin/fusermount -uz "$carpeta"
 Restart=on-failure
 RestartSec=30
