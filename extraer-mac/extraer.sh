@@ -190,7 +190,7 @@ if quiere recursos; then
         System/Applications) find "$d/System Settings.app/Contents/MacOS" -type f -print 2>/dev/null ;;
       esac ) \
       | sort -u > "$STAGE/$nombre.lista"
-    ( cd / && tar -cf - -T "$STAGE/$nombre.lista" 2>>"$LOG" ) | split -b 3900m - "$REC/sistema/$nombre.tar."
+    ( cd / && COPYFILE_DISABLE=1 tar --no-xattrs -cf - -T "$STAGE/$nombre.lista" 2>>"$LOG" ) | split -b 3900m - "$REC/sistema/$nombre.tar."
     partes=$(ls "$REC/sistema/$nombre.tar."* 2>/dev/null | wc -l | tr -d ' ')
     [ "$partes" = 1 ] && mv "$REC/sistema/$nombre.tar.aa" "$REC/sistema/$nombre.tar"
     log "  $d: $(wc -l < "$STAGE/$nombre.lista" | tr -d ' ') archivos, $partes parte/s"
@@ -227,10 +227,10 @@ if quiere recursos; then
     log "  no hay assetutil: sin inventario de los .car"
   fi
   CUR=/System/Library/Frameworks/ApplicationServices.framework/Versions/A/Frameworks/HIServices.framework/Versions/A/Resources/cursors
-  [ -d "$CUR" ] && ( cd "$CUR" && tar -cf - . ) | ( cd "$REC/cursores" && tar -xf - 2>/dev/null )
+  [ -d "$CUR" ] && ( cd "$CUR" && COPYFILE_DISABLE=1 tar --no-xattrs -cf - . ) | ( cd "$REC/cursores" && tar -xf - 2>/dev/null )
   cp /System/Library/Sounds/*.aiff "$REC/sonidos/sistema/" 2>>"$LOG"
   SS=/System/Library/Components/CoreAudio.component/Contents/SharedSupport/SystemSounds
-  [ -d "$SS" ] && ( cd "$SS" && tar -cf - . ) | ( cd "$REC/sonidos/interfaz" && tar -xf - 2>/dev/null )
+  [ -d "$SS" ] && ( cd "$SS" && COPYFILE_DISABLE=1 tar --no-xattrs -cf - . ) | ( cd "$REC/sonidos/interfaz" && tar -xf - 2>/dev/null )
   # 3. Fondos: los de fábrica de esta versión y el que tiene puesto el usuario.
   for f in "/System/Library/Desktop Pictures/"*.heic "/Library/Desktop Pictures/"*.heic; do
     [ -f "$f" ] && cp "$f" "$REC/fondos/" 2>>"$LOG"
@@ -1351,7 +1351,7 @@ if quiere entregar; then
   # completa del mismo día (antes los dos se llamaban igual).
   PAQ="$(dirname "$SAL")/$(basename "$SAL" | sed "s/^macos$VERSION-/macos$VERSION-$NOMBRE-/").tar.gz"
   rm -f "$PAQ" "$PAQ.sha256" "$PAQ".parte-*
-  if ( cd "$(dirname "$SAL")" && tar -cf - "$(basename "$SAL")" | gzip -1 > "$PAQ" ) && gzip -t "$PAQ" 2>>"$LOG"; then
+  if ( cd "$(dirname "$SAL")" && COPYFILE_DISABLE=1 tar --no-xattrs -cf - "$(basename "$SAL")" | gzip -1 > "$PAQ" ) && gzip -t "$PAQ" 2>>"$LOG"; then
     ( cd "$(dirname "$PAQ")" && shasum -a 256 "$(basename "$PAQ")" > "$PAQ.sha256" )
     log "paquete: $PAQ ($(du -h "$PAQ" | cut -f1)) · $(cat "$PAQ.sha256")"
     DEST="$AQUI"; TAM=$(stat -f %z "$PAQ")

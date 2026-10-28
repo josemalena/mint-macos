@@ -293,7 +293,10 @@ fi
 
 # ======================================================== D (System Preferences)
 filas() { # prefijo: selecciona cada fila de la primera tabla o lista y la captura
-  local i=1 n; se_despierto; n="$($H ui "$SP" fila 1 2>>"$LOG")"; [ -n "$n" ] || { fuera "D $1" "sin tabla"; return; }
+  local i=1 n= t; se_despierto
+  # La tabla tarda en aparecer después de cambiar de panel: hasta tres intentos.
+  for t in 1 2 3; do n="$($H ui "$SP" fila 1 2>>"$LOG")"; [ -n "$n" ] && break; sleep 1.5; done
+  [ -n "$n" ] || { fuera "D $1" "sin tabla"; return; }
   while [ $i -le "$n" ] && [ $i -le 30 ]; do $H ui "$SP" fila $i >/dev/null 2>>"$LOG"; sleep 1.2; capsp "D-$1-fila$i-$M"; i=$((i+1)); done; }
 pestanas() { # prefijo: cada pestaña (AXRadioButton del tab group) de la ventana o la hoja de adelante
   local i=1 n; se_despierto; n="$($H ui "$SP" contar AXRadioButton 2>>"$LOG")"
@@ -371,16 +374,25 @@ fi
 # ========================================================= F (alertas del Finder)
 # Cada alerta se captura como esté: si es una hoja, sale con la ventana del Finder; si es un panel
 # suelto, se busca la ventana de la alerta. La bitácora dice cuál fue («hoja=true|false»).
+ventana_ax1() { # proceso → id de CG de su window 1 de AX (la de adelante): la de mismo dueño y marco (los AXDialog no son capa 0)
+  local m; m="$(osa -e "tell application \"System Events\" to tell process \"$1\" to get {position, size} of window 1" 2>/dev/null | tr -d ',')"
+  [ -n "$m" ] && $H ventanas | awk -F'\t' -v d="$1" -v m="$m" '$3 == d && $5 == m { print $1; exit }'; }
 alerta() { # nombre: captura, anota si es hoja y la cierra con el botón que no hace nada
   local nom="$1" cierre="$2" hoja
   sleep 1.5; raton_fuera
   hoja="$(osa -e 'tell application "System Events" to tell process "Finder" to exists sheet 1 of window 1')"
+  # En Monterey no son hojas: el conflicto es una ventana «Copy» (AXStandardWindow, botones dentro de
+  # scroll area 1) y Delete Immediately un AXDialog. Las dos quedan como window 1 del Finder; se captura
+  # la ventana de CG con su mismo marco (ventana_alerta daba la de la carpeta).
+  local tipo id; tipo="$(osa -e 'tell application "System Events" to tell process "Finder" to get {subrole, name} of window 1' 2>/dev/null)"
   if [ "$hoja" = true ]; then cap_win "F-$nom-hoja-$M" "$(id_finder)"
-  else cap_win "F-$nom-panel-$M" "$(ventana_alerta 'Finder|CoreServicesUIAgent')"; fi
-  log "fase-c F $nom: hoja=$hoja"
+  else id="$(ventana_ax1 Finder)"; [ -n "$id" ] || id="$(ventana_alerta 'Finder|CoreServicesUIAgent')"
+    cap_win "F-$nom-panel-$M" "$id"; fi
+  log "fase-c F $nom: hoja=$hoja, window 1 = $tipo"
   # Solo botones que no cambian nada: Stop, Cancel, OK, Keep .txt. Si no está, Esc.
   osa -e "tell application \"System Events\" to tell process \"Finder\" to click button \"$cierre\" of (sheet 1 of window 1)" 2>/dev/null \
-    || osa -e "tell application \"System Events\" to tell process \"Finder\" to click button \"$cierre\" of window 1" 2>/dev/null || esc
+    || osa -e "tell application \"System Events\" to tell process \"Finder\" to click button \"$cierre\" of window 1" 2>/dev/null \
+    || osa -e "tell application \"System Events\" to tell process \"Finder\" to click (first button of scroll area 1 of window 1 whose title is \"$cierre\")" 2>/dev/null || esc
   sleep 1
 }
 fase_f() {
@@ -408,16 +420,28 @@ fase_f() {
   osa -e "tell application \"Finder\" to make new alias file to file \"original.txt\" of ($fo) at ($fd)"; sleep 1
   rm -f -- "$ALERTAS_DIR/origen/original.txt"; sleep 1
   osa -e 'tell application "Finder"' -e "set target of Finder window 1 to ($fd)" -e 'end tell'; sleep 1
-  osa -e "tell application \"Finder\" to open (first item of ($fd) whose kind is \"Alias\")"; alerta alias-roto OK
+  # Con «open» de AppleScript el alias roto no avisa nada; con ⌘O sí (AXDialog: OK, Fix Alias…, Delete Alias).
+  osa -e "tell application \"Finder\" to select (first item of ($fd) whose kind is \"Alias\")"; sleep 0.8
+  tecla Finder 'keystroke "o" using command down'; alerta alias-roto OK
   # 5) Eject de un disco en uso: solo si este guion corre desde la memoria (así está en uso de
   #    verdad: si no, el Eject funcionaría y la memoria se iría). Con un archivo suyo abierto en TextEdit.
   case "$AQUI" in
     /Volumes/*)
       local vol; vol="$(echo "$AQUI" | cut -d/ -f1-3)"; ALERTAS_MEMORIA="$vol/extraer-alertas-prueba.txt"
       printf 'en uso\n' > "$ALERTAS_MEMORIA"; open -a TextEdit "$ALERTAS_MEMORIA"; sleep 2
+      # TextEdit no deja el archivo abierto: el 28-10-2026 el Eject se llevó la memoria. Un proceso lo
+      # tiene abierto de verdad hasta el Cancel; si lsof no lo ve, no se expulsa nada.
+      ( exec 9<"$ALERTAS_MEMORIA"; exec sleep 60 ) & local ocupa=$!; sleep 0.5
+      if ! lsof -p "$ocupa" 2>/dev/null | grep -qF "$ALERTAS_MEMORIA"; then
+        kill "$ocupa" 2>/dev/null; wait "$ocupa" 2>/dev/null
+        osa -e 'tell application "TextEdit" to quit saving no'; sleep 1; rm -f -- "$ALERTAS_MEMORIA"; ALERTAS_MEMORIA=""
+        fuera "F eject en uso" "no pude dejar la memoria ocupada (lsof); sin eso el Eject se la llevaría"
+        cerrar_finder; rm -rf -- "$ALERTAS_DIR"; ALERTAS_DIR=""; return
+      fi
       finder_activar
       osa -e "tell application \"Finder\" to eject disk \"$(basename "$vol")\"" 2>>"$LOG" &
-      alerta eject-en-uso Cancel; wait 2>/dev/null
+      # Solo este Eject: un «wait» sin PID espera también el caffeinate -w $$ de extraer.sh y no vuelve nunca.
+      local ej=$!; alerta eject-en-uso Cancel; wait "$ej" 2>/dev/null; kill "$ocupa" 2>/dev/null; wait "$ocupa" 2>/dev/null
       osa -e 'tell application "TextEdit" to quit saving no'; sleep 1; rm -f -- "$ALERTAS_MEMORIA"; ALERTAS_MEMORIA=""
       ;;
     *) fuera "F eject en uso" "el guion no corre desde la memoria: el Eject funcionaría y se la llevaría" ;;
@@ -432,9 +456,10 @@ fi
 # ======================================= el tamaño, para el tubo (<100 MB) o TRANSPORTE
 # Regla de José: por scp solo pasa lo que mide menos de 100 MB. Un tar por sección;
 # tubo.txt y transporte.txt dicen qué va por dónde.
+# Sin ._* (AppleDouble) para la Mac mini: COPYFILE_DISABLE y --no-xattrs.
 ( cd "$FC" && for d in capturas videos datos; do
     [ -d "$d" ] || continue
-    tar -cf - "$d" | gzip -1 > "fase-c-$d.tar.gz"; shasum -a 256 "fase-c-$d.tar.gz" > "fase-c-$d.tar.gz.sha256"
+    COPYFILE_DISABLE=1 tar --no-xattrs -cf - "$d" | gzip -1 > "fase-c-$d.tar.gz"; shasum -a 256 "fase-c-$d.tar.gz" > "fase-c-$d.tar.gz.sha256"
   done
   : > tubo.txt; : > transporte.txt
   for t in fase-c-*.tar.gz; do

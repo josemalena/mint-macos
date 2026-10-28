@@ -78,7 +78,7 @@ function sistemaEventos() {
 function uiElementos(proc, rol, regex) {
   const se = sistemaEventos();
   const p = se.processes.byName(proc);
-  if (!p.exists() || p.windows.length === 0) return [];
+  if (!p.exists()) return [];
   const re = new RegExp(regex || '.', 'i');
   const texto = (e) => {
     const t = [];
@@ -88,7 +88,7 @@ function uiElementos(proc, rol, regex) {
   };
   // Primero la barra de herramientas (en una ventana del Finder, entireContents de la ventana
   // entera trae cada ícono y se pasa del tiempo: -1712); si ahí no está, la ventana.
-  const w = p.windows[0];
+  const w = p.windows.length > 0 ? p.windows[0] : null;
   const buscar = (lista) => {
     const r = [];
     for (const e of lista) {
@@ -98,6 +98,8 @@ function uiElementos(proc, rol, regex) {
     }
     return r;
   };
+  // El Dock (y otros sin ventanas) cuelga sus elementos del proceso: list 1 ▸ AXDockItem.
+  if (p.windows.length === 0) { try { return p.lists.length > 0 ? buscar(p.lists[0].uiElements()) : []; } catch (x) { return []; } }
   let r = [];
   try { if (w.toolbars.length > 0) r = buscar(w.toolbars[0].entireContents()); } catch (x) {}
   return r.length > 0 ? r : buscar(w.entireContents());
