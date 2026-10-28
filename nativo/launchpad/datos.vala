@@ -14,7 +14,9 @@ namespace Launchpad {
 
     public class App : Elemento {
         public string id;                   // el archivo del lanzador: con él se guarda el orden y las carpetas
-        public DesktopAppInfo info;
+        public DesktopAppInfo? info = null;     // null en las .app de Mac (Darling): no tienen .desktop
+        public string? ruta_mac = null;         // la .app, de org.mintmacos.AppsMac1.Listar()
+        public HashTable<uint, string>? iconos_mac = null;      // px → PNG
         public string[] palabras;
         public Cairo.ImageSurface? icono = null;
         public bool icono_intentado = false;
@@ -30,7 +32,25 @@ namespace Launchpad {
             palabras = separar_palabras (nombre);
         }
 
+        /** Una .app de Mac que lista org.mintmacos.AppsMac1: se abre con mint-macos-abrir-mac. */
+        public App.mac (string nombre, string id_bundle, string ruta, owned HashTable<uint, string> iconos) {
+            id = "mac:" + id_bundle;
+            ruta_mac = ruta;
+            iconos_mac = (owned) iconos;
+            this.nombre = nombre;
+            clave = nombre.casefold ();
+            palabras = separar_palabras (nombre);
+        }
+
         public void lanzar () {
+            if (ruta_mac != null) {
+                try {
+                    Process.spawn_async (null, { "mint-macos-abrir-mac", ruta_mac }, null, SpawnFlags.SEARCH_PATH, null, null);
+                } catch (Error e) {
+                    stderr.printf ("No se pudo abrir %s: %s\n", nombre, e.message);
+                }
+                return;
+            }
             try {
                 info.launch (null, Gdk.Display.get_default ().get_app_launch_context ());
             } catch (Error e) {
@@ -99,6 +119,42 @@ namespace Launchpad {
         }
         apps.sort ((a, b) => strcmp (a.clave, b.clave));
         return apps;
+    }
+
+    /** Las .app de Mac que lista el servicio org.mintmacos.AppsMac1 (se activa por D-Bus); sin servicio, ninguna. Las de Utilities van aparte. */
+    void leer_apps_mac (List<App> arriba, List<App> util) {
+        try {
+            var bus = Bus.get_sync (BusType.SESSION);
+            var r = bus.call_sync ("org.mintmacos.AppsMac1", "/org/mintmacos/AppsMac1", "org.mintmacos.AppsMac1", "Listar",
+                                   null, new VariantType ("(aa{sv})"), DBusCallFlags.NONE, 3000);
+            var lista = r.get_child_value (0);
+            string utilities = Path.build_filename (destino (), "Utilities") + "/";
+            for (size_t i = 0; i < lista.n_children (); i++) {
+                var d = lista.get_child_value (i);
+                var vr = d.lookup_value ("ruta", VariantType.STRING);
+                var vn = d.lookup_value ("nombre", VariantType.STRING);
+                var vi = d.lookup_value ("id", VariantType.STRING);
+                if (vr == null || vn == null || vi == null) {
+                    continue;
+                }
+                var iconos = new HashTable<uint, string> (direct_hash, direct_equal);
+                var vic = d.lookup_value ("iconos", null);
+                if (vic != null) {
+                    for (size_t k = 0; k < vic.n_children (); k++) {
+                        var par = vic.get_child_value (k);
+                        iconos[par.get_child_value (0).get_uint32 ()] = par.get_child_value (1).get_string ();
+                    }
+                }
+                var a = new App.mac (vn.get_string (), vi.get_string (), vr.get_string (), (owned) iconos);
+                if (vr.get_string ().has_prefix (utilities)) {
+                    util.append (a);
+                } else {
+                    arriba.append (a);
+                }
+            }
+        } catch (Error e) {
+            // el servicio no está: el Launchpad sigue con los lanzadores
+        }
     }
 
     bool es_appimage (string nombre) {
@@ -258,8 +314,10 @@ namespace Launchpad {
                 arriba.append (a);
             }
         }
-        arriba.sort ((a, b) => strcmp (a.clave, b.clave));
         var util = leer_carpeta (Path.build_filename (destino (), "Utilities"));
+        leer_apps_mac (arriba, util);
+        arriba.sort ((a, b) => strcmp (a.clave, b.clave));
+        util.sort ((a, b) => strcmp (a.clave, b.clave));
         elementos = new List<Elemento> ();
         todas = new List<App> ();
         var por_id = new HashTable<string, App> (str_hash, str_equal);
@@ -384,6 +442,14 @@ namespace Launchpad {
             } catch (FileError e) {
             }
         }
+        // Las .app de Mac: las carpetas de org.mintmacos.AppsMac1 (/Applications, ~/Applications) y el caché de íconos que va haciendo el servicio.
+        foreach (var d in new string[] { "/Applications", Path.build_filename (Environment.get_home_dir (), "Applications"),
+                                         Path.build_filename (Environment.get_user_cache_dir (), "mint-macos", "apps-mac") }) {
+            Posix.Stat st;
+            if (Posix.stat (d, out st) == 0) {
+                sb.append ("%s|%ld|%ld;".printf (d, (long) st.st_mtim.tv_sec, (long) st.st_mtim.tv_nsec));
+            }
+        }
         foreach (var d in new string[] { destino (), Path.build_filename (destino (), "Utilities") }) {
             try {
                 var dir = Dir.open (d);
@@ -416,8 +482,36 @@ namespace Launchpad {
         return sup;
     }
 
+    /** El PNG del .icns más chico que cubra `lado`; si ninguno lo cubre, el más grande. */
+    string? png_de_mac (App app, int lado) {
+        string? mejor = null;
+        uint px_mejor = 0;
+        var it = HashTableIter<uint, string> (app.iconos_mac);
+        uint px;
+        string ruta;
+        while (it.next (out px, out ruta)) {
+            bool cubre = px >= lado;
+            bool mejor_cubre = px_mejor >= lado;
+            if (mejor == null || (cubre && (!mejor_cubre || px < px_mejor)) || (!cubre && !mejor_cubre && px > px_mejor)) {
+                mejor = ruta;
+                px_mejor = px;
+            }
+        }
+        return mejor;
+    }
+
     public Cairo.ImageSurface? icono_de (App app, int lado) {
         var tema = Gtk.IconTheme.get_default ();
+        if (app.ruta_mac != null) {
+            string? png = png_de_mac (app, lado);
+            try {
+                var pb = png != null ? new Gdk.Pixbuf.from_file_at_size (png, lado, lado)
+                                     : tema.load_icon ("application-x-executable", lado, Gtk.IconLookupFlags.FORCE_SIZE);
+                return pb != null ? superficie_de (pb) : null;
+            } catch (Error e) {
+                return null;
+            }
+        }
         var ic = app.info.get_icon ();
         Gdk.Pixbuf? pb = null;
         try {
