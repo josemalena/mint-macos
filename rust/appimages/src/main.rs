@@ -38,6 +38,10 @@ const MARCA: &str = "X-mint-macos-AppImage=true";
 const TOPE_DESKTOP: u64 = 64 * 1024;
 const TOPE_ICONO: u64 = 4 * 1024 * 1024;
 const SALTOS: usize = 8;
+// Las .app de Mac (corren con Darling, por mint-macos-abrir-mac): su propio prefijo y su marca,
+// para que la limpieza solo toque lo suyo.
+const PREFIJO_MAC: &str = "mint-macos-macapp-";
+const MARCA_MAC: &str = "X-mint-macos-MacApp=true";
 
 // --- GLib, GIO y libc ---------------------------------------------------------
 
@@ -84,6 +88,7 @@ struct Lugares {
     destinos: Vec<PathBuf>,
     apps: PathBuf,
     iconos: PathBuf,
+    iconos_mac: PathBuf,
     estado: PathBuf,
     yo: PathBuf,
 }
@@ -95,6 +100,7 @@ impl Lugares {
             destinos,
             apps: datos.join("applications"),
             iconos: datos.join("mint-macos/appimages"),
+            iconos_mac: datos.join("mint-macos/apps-mac"),
             estado: comun::estado(),
             yo: std::env::current_exe().unwrap_or_else(|_| PathBuf::from("mint-macos-appimages")),
         }
@@ -549,11 +555,169 @@ fn escanear(l: &Lugares, quitar: bool) -> i32 {
             }
         }
     }
+    let (c_mac, e_mac) = escanear_mac(l, quitar);
+    cambios += c_mac;
+    errores += e_mac;
     if cambios > 0 && l.apps.is_dir() {
         // «Open With»: la caché de tipos de archivo de los lanzadores del usuario.
         let _ = Command::new("update-desktop-database").arg(&l.apps).stderr(Stdio::null()).status();
     }
     if errores > 0 { 1 } else { 0 }
+}
+
+// --- Las .app de Mac ---------------------------------------------------------
+//
+// Fynder, el Launchpad y el Muelle las ven como cualquier app: un .desktop con el nombre del
+// Info.plist, el ícono del .icns y Exec por mint-macos-abrir-mac (rust/abrir-mac), que las abre
+// con Darling y pregunta la primera vez. StartupWMClass es la WM_CLASS que les pone el Cocotron
+// de mint-macos (darling-<CFBundleIdentifier en minúsculas>): así el Muelle junta la ventana con
+// su ícono y Alt+Tab y Force Quit enseñan el nombre. Se lee con comun::mac, el mismo código que
+// usa abrir-mac.
+
+/// Las carpetas .app de cada destino y de sus subcarpetas de primer nivel (no enlaces).
+fn buscar_apps(destinos: &[PathBuf]) -> Vec<PathBuf> {
+    let es_app = |e: &fs::DirEntry| {
+        let n = e.file_name();
+        let b = n.as_bytes();
+        b.len() > 4 && b[b.len() - 4..].eq_ignore_ascii_case(b".app") && b[0] != b'.'
+            && e.file_type().map(|t| t.is_dir()).unwrap_or(false)
+    };
+    let mut v = Vec::new();
+    for d in destinos {
+        let mut carpetas = vec![d.clone()];
+        if let Ok(it) = fs::read_dir(d) {
+            for e in it.flatten() {
+                if e.file_type().map(|t| t.is_dir()).unwrap_or(false) && !e.file_name().as_bytes().starts_with(b".") && !es_app(&e) {
+                    carpetas.push(e.path());
+                }
+            }
+        }
+        for c in carpetas {
+            if let Ok(it) = fs::read_dir(&c) {
+                for e in it.flatten() {
+                    if es_app(&e) {
+                        v.push(e.path());
+                    }
+                }
+            }
+        }
+    }
+    v.sort();
+    v
+}
+
+/// Lo que cambia si la app cambia: el Info.plist y el ejecutable.
+fn sello_app(ruta: &Path, app: &comun::mac::App) -> String {
+    let m = |p: &Path| fs::metadata(p).map(|m| sello(&m)).unwrap_or_default();
+    format!("{}+{}", m(&ruta.join("Contents/Info.plist")), m(&app.ejecutable))
+}
+
+fn armar_lanzador_mac(ruta_s: &str, app: &comun::mac::App, icono: Option<&Path>, sello: &str) -> String {
+    let mut s = String::from("[Desktop Entry]\n");
+    s.push_str("# Lo escribió mint-macos-appimages: la .app de Mac de X-mint-macos-MacApp-Path, que se\n");
+    s.push_str("# abre con Darling. Si se saca de /Applications, este lanzador se borra solo.\n");
+    s.push_str("Type=Application\n");
+    s.push_str(&format!("Name={}\n", escapar_valor(&app.nombre)));
+    s.push_str(&format!(
+        "Exec={}\n",
+        escapar_valor(&format!("mint-macos-abrir-mac {} %F", citar_exec(ruta_s)))
+    ));
+    s.push_str("TryExec=mint-macos-abrir-mac\n");
+    s.push_str(&format!(
+        "Icon={}\n",
+        escapar_valor(&icono.map(|i| i.to_string_lossy().into_owned()).unwrap_or_else(|| "application-x-executable".into()))
+    ));
+    s.push_str(&format!("StartupWMClass=darling-{}\n", app.id.to_lowercase()));
+    s.push_str("StartupNotify=false\n");
+    s.push_str(&format!("X-mint-macos-MacApp-Path={}\n", escapar_valor(ruta_s)));
+    s.push_str(&format!("X-mint-macos-Sello={sello}\n"));
+    s.push_str(MARCA_MAC);
+    s.push('\n');
+    s
+}
+
+fn es_nuestro_mac(p: &Path) -> bool {
+    p.file_name().map(|n| n.as_bytes().starts_with(PREFIJO_MAC.as_bytes())).unwrap_or(false)
+        && fs::read_to_string(p).map(|t| t.lines().any(|l| l == MARCA_MAC)).unwrap_or(false)
+}
+
+/// (cambios, errores). Con «quitar», solo borra lo suyo.
+fn escanear_mac(l: &Lugares, quitar: bool) -> (i32, i32) {
+    let encontradas = if quitar { Vec::new() } else { buscar_apps(&l.destinos) };
+    let mut quedan: HashSet<String> = HashSet::new();
+    let (mut cambios, mut errores) = (0, 0);
+    for ruta in &encontradas {
+        let Some(ruta_s) = ruta.to_str() else { continue };
+        let md5 = md5_de(ruta);
+        let lanz = l.apps.join(format!("{PREFIJO_MAC}{md5}.desktop"));
+        // Solo las que Darling puede correr: Info.plist legible y ejecutable Mach-O x86_64.
+        let app = match comun::mac::leer_app(ruta) {
+            Ok(a) => a,
+            Err(e) => {
+                eprintln!("appimages: {ruta_s}: no se integra ({e})");
+                continue;
+            }
+        };
+        if let Err(e) = comun::mac::revisar_macho(&app.ejecutable) {
+            eprintln!("appimages: {ruta_s}: no se integra ({e})");
+            continue;
+        }
+        let s = sello_app(ruta, &app);
+        if let Ok(t) = fs::read_to_string(&lanz) {
+            if t.lines().any(|x| x == MARCA_MAC) && clave(&t, "X-mint-macos-Sello").as_deref() == Some(s.as_str()) {
+                quedan.insert(md5);
+                continue;
+            }
+        }
+        let icono = comun::mac::icono_png(&app, &l.iconos_mac);
+        let texto = armar_lanzador_mac(ruta_s, &app, icono.as_deref(), &s);
+        match escribir(&lanz, texto.as_bytes(), 0o644) {
+            Ok(true) => {
+                cambios += 1;
+                eprintln!("appimages: integrada la app de Mac {ruta_s} → {}", lanz.display());
+            }
+            Ok(false) => {}
+            Err(e) => {
+                eprintln!("appimages: {}: {e}", lanz.display());
+                errores += 1;
+                continue;
+            }
+        }
+        quedan.insert(md5);
+    }
+    if let Ok(it) = fs::read_dir(&l.apps) {
+        for e in it.flatten() {
+            let p = e.path();
+            let n = e.file_name();
+            let Some(md5) = n.to_str().and_then(|n| n.strip_prefix(PREFIJO_MAC)).and_then(|n| n.strip_suffix(".desktop")) else { continue };
+            if quedan.contains(md5) || !es_nuestro_mac(&p) {
+                continue;
+            }
+            if fs::remove_file(&p).is_ok() {
+                cambios += 1;
+                eprintln!("appimages: quitada {}", p.display());
+            }
+        }
+    }
+    // Los íconos que ya no usa ningún lanzador nuestro.
+    let mut usados: HashSet<PathBuf> = HashSet::new();
+    if let Ok(it) = fs::read_dir(&l.apps) {
+        for e in it.flatten() {
+            if es_nuestro_mac(&e.path()) {
+                if let Some(i) = fs::read_to_string(e.path()).ok().and_then(|t| clave(&t, "Icon")) {
+                    usados.insert(PathBuf::from(i));
+                }
+            }
+        }
+    }
+    if let Ok(it) = fs::read_dir(&l.iconos_mac) {
+        for e in it.flatten() {
+            if e.path().extension().map(|x| x == "png").unwrap_or(false) && !usados.contains(&e.path()) {
+                let _ = fs::remove_file(e.path());
+            }
+        }
+    }
+    (cambios, errores)
 }
 
 // --- Abrir (la pregunta de la primera vez) ------------------------------------
