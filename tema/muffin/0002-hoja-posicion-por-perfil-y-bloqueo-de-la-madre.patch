@@ -71,10 +71,10 @@ index 420d878..fdb60a3 100644
    y = child_rect.y;
  
 diff --git a/src/core/events.c b/src/core/events.c
-index 35839bd..cc3ceab 100644
+index 35839bd..030a19f 100644
 --- a/src/core/events.c
 +++ b/src/core/events.c
-@@ -160,6 +160,32 @@ sequence_is_pointer_emulated (MetaDisplay        *display,
+@@ -160,6 +160,34 @@ sequence_is_pointer_emulated (MetaDisplay        *display,
    return FALSE;
  }
  
@@ -87,7 +87,9 @@ index 35839bd..cc3ceab 100644
 +window_has_sheet_cb (MetaWindow *transient,
 +                     void       *data)
 +{
-+  if (!transient->unmanaging && g_strcmp0 (transient->role, "mint-macos-hoja") == 0)
++  if (!transient->unmanaging &&
++      (g_strcmp0 (transient->role, "mint-macos-hoja") == 0 ||
++       g_strcmp0 (transient->role, "mint-macos-alerta") == 0))
 +    {
 +      *((gboolean *) data) = TRUE;
 +      return FALSE;
@@ -107,7 +109,7 @@ index 35839bd..cc3ceab 100644
  static void
  maybe_unfreeze_pointer_events (MetaBackend          *backend,
                                 const ClutterEvent   *event,
-@@ -450,7 +476,9 @@ meta_display_handle_event (MetaDisplay        *display,
+@@ -450,7 +478,9 @@ meta_display_handle_event (MetaDisplay        *display,
          {
            /* Only replay button press events, since that's where we
             * have the synchronous grab. */

@@ -51,4 +51,14 @@ prueba() {
   : > "$reg"; xdotool mousemove $((PX + 30)) $((PY + PH - 30)) click 1; sleep 0.5
   [ -s "$reg" ] || falla "con la hoja cerrada la madre sigue sin recibir clics"
   paso "sin hoja, la madre vuelve a recibir clics"
+  # la alerta (panel de confirmación, rol «mint-macos-alerta», la que pone Cocotron/Fynder): conserva MODAL y también bloquea a la madre
+  poner_perfil monterey-12.7.6
+  lanzar python3 -I "$aqui/ayudantes/madre-y-hoja.py" hoja "$m" mint-macos-alerta
+  local a; a="$(esperar_ventana '^hoja-de-prueba$' 20)"
+  sleep 1.5
+  paso "alerta: _NET_WM_STATE = $(xprop -id "$a" _NET_WM_STATE | cut -d= -f2)"
+  xprop -id "$a" _NET_WM_STATE | grep -q MODAL || falla "la alerta perdió _NET_WM_STATE_MODAL"
+  : > "$reg"; xdotool mousemove $((PX + 30)) $((PY + PH - 30)) click 1; sleep 0.7
+  [ ! -s "$reg" ] || falla "la madre recibió un clic con la alerta abierta"
+  paso "la alerta conserva MODAL y la madre no recibe clics"
 }

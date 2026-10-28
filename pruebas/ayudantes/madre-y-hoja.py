@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""madre-y-hoja.py madre REGISTRO | hoja XID_MADRE — para el caso 136 (hojas de macOS en Muffin).
+"""madre-y-hoja.py madre REGISTRO | hoja XID_MADRE [ROL] — para el caso 136 (hojas de macOS en Muffin).
 madre: una ventana que anota en REGISTRO cada clic que recibe en su contenido.
 hoja: una ventana DIALOG + MODAL, transient de la ventana XID_MADRE (que puede ser de otro proceso) y con WM_WINDOW_ROLE «mint-macos-hoja»,
 como la que arma el selector Open/Save de Fynder."""
@@ -32,7 +32,7 @@ else:
     w.set_wmclass("hoja-de-prueba", "hoja-de-prueba")
     w.set_type_hint(Gdk.WindowTypeHint.DIALOG)
     w.set_modal(True)
-    w.set_role("mint-macos-hoja")
+    w.set_role(sys.argv[3] if len(sys.argv) > 3 else "mint-macos-hoja")
     w.set_decorated(False)     # la hoja no lleva barra de título propia
     w.set_skip_taskbar_hint(True)
     w.set_default_size(420, 120)

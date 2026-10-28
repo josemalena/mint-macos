@@ -30,7 +30,7 @@ sola: no comparten archivos). Aplica a las ventanas DIALOG + MODAL + transient (
   macos.json (`$XDG_RUNTIME_DIR` y después `$XDG_CONFIG_HOME` /mint-macos/macos.json, clave «version»): hasta Catalina **colgada del borde
   de abajo de la barra de título** de la madre (High Sierra 10.13.6, capturas del 27-10-2026); desde Monterey (monterey, sequoia, macos-27…)
   **centrada en Y sobre el marco completo**, sin subir de ese borde (informe de Open/Save en Monterey 12.7.6, 28-10-2026). Sin archivo: Catalina.
-- **Bloqueo** (`events.c`): un clic en el contenido de la madre con una hoja abierta no llega a la madre (`XISyncDevice` en vez de
+- **Bloqueo** (`events.c`; también con el rol **«mint-macos-alerta»**, el panel de confirmación): un clic en el contenido de la madre con una hoja abierta no llega a la madre (`XISyncDevice` en vez de
   `XIReplayDevice`); la barra de título sí responde (se mueve) y el resto de la app queda libre. Igual desde Tiger según José.
 
 **Probado** en Xvfb con la libmuffin compilada (caso 136: Catalina y Monterey, el control sin hoja y el clic bloqueado). **Falta**: el botón de
