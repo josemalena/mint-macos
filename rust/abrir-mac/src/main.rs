@@ -21,6 +21,10 @@
 //!    que falta (framework, símbolo, clase) leído del registro. Solo lee
 //!    ventanas: nunca manda teclas ni clics.
 //!
+//! 5. Mientras vigila, el ícono rebota en el Muelle y el cursor es el de espera:
+//!    notificación de arranque de freedesktop con WMCLASS «darling-<id>»
+//!    (arranque.rs).
+//!
 //! El registro de cada arranque queda en
 //! ~/Library/Logs/mint-macos-darling/<CFBundleIdentifier>-<fecha>.log (los 10
 //! últimos por app). La salida de darlingserver nunca va a un pipe: si el
@@ -33,6 +37,8 @@ use std::path::{Path, PathBuf};
 use std::process::{exit, Command, Stdio};
 use std::thread::sleep;
 use std::time::{Duration, Instant};
+
+mod arranque;
 
 use comun::mac::{leer_app, nombre_visible, revisar_macho, version, App};
 use comun::{avisar, home, origen_de, preguntar, sha256_de, xattr, xdg};
@@ -220,6 +226,11 @@ fn regex_literal(s: &str) -> String {
 fn vigilar(d: &Darling, app: &App, archivos: &[OsString]) -> i32 {
     let registro = nuevo_registro(app);
     let titulo = format!("“{}” can't be opened", app.nombre);
+    // El ícono saltando en el Muelle y el cursor de espera, hasta que salga la
+    // ventana o falle; se quitan al soltarlo (en cualquier return).
+    let clase = format!("darling-{}", app.id.to_lowercase());
+    let mut arranque = Some(arranque::Arranque::empezar(&app.nombre, &clase, icono_png(app).as_deref(),
+                                                        &app.nombre_ejecutable));
     let mut reintento = true;
     loop {
         let mut hijo = match arrancar(d, app, archivos, &registro) {
@@ -251,6 +262,7 @@ fn vigilar(d: &Darling, app: &App, archivos: &[OsString]) -> i32 {
             }
             if inicio.elapsed() > ESPERA_VENTANA {
                 // No se mata: puede ser una app sin ventana, o lenta.
+                arranque.take();
                 avisar(QUIEN, &format!("“{}” is still running", app.nombre), &format!("It hasn't shown a window yet.\nLog: {}", registro.display()));
                 let _ = hijo.wait();
                 return 0;
