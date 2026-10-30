@@ -380,11 +380,17 @@ if seccion C; then
 fi
 
 # ======================================================== D (System Preferences)
-filas() { # prefijo: selecciona cada fila de la primera tabla o lista y la captura
+filas() { # prefijo [pane [anchor]]: selecciona cada fila de la primera tabla o lista y la captura
   local i=1 n= t; se_despierto
   # La tabla tarda en aparecer después de cambiar de panel: hasta tres intentos.
   for t in 1 2 3; do n="$($H ui "$SP" fila 1 2>>"$LOG")"; [ -n "$n" ] && break; sleep 1.5; done
-  [ -n "$n" ] || { fuera "D $1" "sin tabla"; return; }
+  # En oscuro, security-privacy, extensions y sharing seguían sin tabla con los reintentos (30-10-2026):
+  # se vuelve a escoger el panel (y su pestaña) y se espera hasta 6 s a que la tabla tenga filas en AX.
+  if [ -z "$n" ] && [ -n "${2:-}" ]; then
+    pref "$2" "${3:-}"; for t in 1 2 3 4; do n="$($H ui "$SP" fila 1 2>>"$LOG")"; [ -n "$n" ] && break; sleep 1.5; done
+    [ -n "$n" ] && log "fase-c D $1: la tabla salió al volver a escoger el panel"
+  fi
+  [ -n "$n" ] || { fuera "D $1" "sin tabla${2:+, ni al volver a escoger el panel (H: no es cosa de tiempo)}"; return; }
   while [ $i -le "$n" ] && [ $i -le 30 ]; do $H ui "$SP" fila $i >/dev/null 2>>"$LOG"; sleep 1.2; capsp "D-$1-fila$i-$M"; i=$((i+1)); done; }
 pestanas() { # prefijo: cada pestaña (AXRadioButton del tab group) de la ventana o la hoja de adelante
   local i=1 n; se_despierto; n="$($H ui "$SP" contar AXRadioButton 2>>"$LOG")"
@@ -440,11 +446,11 @@ fase_d() {
   pref com.apple.preferences.users; capsp "D-users-$M"
   hoja users-login-options '^Login Options' || true
   pref com.apple.preference.security; pestanas security
-  pref com.apple.preference.security Privacy; filas security-privacy
+  pref com.apple.preference.security Privacy; filas security-privacy com.apple.preference.security Privacy
   pref com.apple.preferences.internetaccounts; capsp "D-internet-accounts-$M"
-  pref com.apple.preferences.extensions; capsp "D-extensions-$M"; filas extensions
+  pref com.apple.preferences.extensions; capsp "D-extensions-$M"; filas extensions com.apple.preferences.extensions
   # D15 Sharing: se selecciona cada servicio (sin marcar su casilla: nada se enciende)
-  pref com.apple.preferences.sharing; filas sharing-servicio
+  pref com.apple.preferences.sharing; filas sharing-servicio com.apple.preferences.sharing
   fuera "D15 encender servicios" "solo se selecciona la fila"
   pref com.apple.preferences.Bluetooth; capsp "D-bluetooth-$M"; hoja bluetooth-advanced '^Advanced' && cancelar_hoja
   fuera "D16 Connect" "conectar un aparato"
@@ -527,9 +533,24 @@ fase_f() {
         cerrar_finder; rm -rf -- "$ALERTAS_DIR"; ALERTAS_DIR=""; return
       fi
       finder_activar
-      osa -e "tell application \"Finder\" to eject disk \"$(basename "$vol")\"" 2>>"$LOG" &
-      # Solo este Eject: un «wait» sin PID espera también el caffeinate -w $$ de extraer.sh y no vuelve nunca.
-      local ej=$!; alerta eject-en-uso Cancel; wait "$ej" 2>/dev/null; kill "$ocupa" 2>/dev/null; wait "$ocupa" 2>/dev/null
+      # El Eject va por el botón de la barra lateral (AXPress), no por AppleScript. La alerta de disco en
+      # uso no es del Finder: la abre UnmountAssistantAgent (capa 8), con OK solo, y el 30-10-2026 salió
+      # después de los 1.5 s de alerta(); abierta, deja al Finder sin contestar (-600). Se espera hasta 3 s.
+      # Solo si hay UN botón Eject (el de la memoria): con otro disco se podría expulsar el que no es.
+      if [ "$($H ui Finder contar AXButton '^Eject$' 2>>"$LOG")" != 1 ]; then
+        fuera "F eject en uso" "la barra lateral no tiene un solo botón Eject"
+      else
+        pulsar Finder AXButton '^Eject$' &
+        local ej=$! t id=; for t in 1 2 3 4 5 6; do sleep 0.5; id="$($H ventanas UnmountAssistantAgent | awk -F'\t' '{print $1; exit}')"; [ -n "$id" ] && break; done
+        if [ -n "$id" ]; then cap_win "F-eject-en-uso-panel-$M" "$id"; log "fase-c F eject-en-uso: alerta de UnmountAssistantAgent (ventana $id)"
+          osa -e 'tell application "System Events" to tell process "UnmountAssistantAgent" to click button "OK" of window 1'; sleep 1
+        else fuera "F eject en uso" "en 3 s no salió la alerta de UnmountAssistantAgent"; fi
+        # Solo este PID: un «wait» sin PID espera también el caffeinate -w $$ de extraer.sh y no vuelve nunca.
+        wait "$ej" 2>/dev/null
+        # Si salió tarde, no se deja abierta.
+        sleep 2; [ -n "$($H ventanas UnmountAssistantAgent)" ] && osa -e 'tell application "System Events" to tell process "UnmountAssistantAgent" to click button "OK" of window 1'
+      fi
+      kill "$ocupa" 2>/dev/null; wait "$ocupa" 2>/dev/null
       osa -e 'tell application "TextEdit" to quit saving no'; sleep 1; rm -f -- "$ALERTAS_MEMORIA"; ALERTAS_MEMORIA=""
       ;;
     *) fuera "F eject en uso" "el guion no corre desde la memoria: el Eject funcionaría y se la llevaría" ;;
