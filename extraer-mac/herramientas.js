@@ -56,6 +56,7 @@ function run(argv) {
   if (cmd === 'escuchar-colores') return escucharColores(Number(argv[1]) || 30);
   if (cmd === 'ui') return ui(argv[1] || '', argv[2] || '', argv.slice(3));
   if (cmd === 'liso') return liso(argv.slice(1));
+  if (cmd === 'extra') return extra(argv[1] || '');
   return 'uso: pantalla | ventanas [dueño] | raton … | medidas | permisos [pedir] | acento [claro.png oscuro.png] | avisar-colores | escuchar-colores [seg] | ui PROCESO buscar|pulsar|menu|contar|fila … | liso R G B ruta.png';
 }
 
@@ -138,6 +139,25 @@ function liso(a) {
   const rep = $.NSBitmapImageRep.imageRepWithData(img.TIFFRepresentation);
   rep.representationUsingTypeProperties($.NSBitmapImageFileTypePNG, $()).writeToFileAtomically(ruta, true);
   return ruta;
+}
+
+// Un ítem de la barra de menú (menu extra) por su AXIdentifier o descripción, y AXPress: «ok» o nada.
+// En 27 Control Center y el reloj son de MenuBarAgent, que no los publica en su menu bar ni en
+// AXExtrasMenuBar (sin valor); solo los da AXUIElementCopyElementAtPosition sobre la barra.
+// Se recorre la barra de derecha a izquierda preguntando qué hay en cada punto (Mint-Macos, 28-10-2026).
+function extra(clave) {
+  const txt = (e, n) => { const r = Ref(); if ($.AXUIElementCopyAttributeValue(e, $(n), r) !== 0 || !r[0]) return ''; try { return String(ObjC.unwrap(ObjC.castRefToObject(r[0]))); } catch (x) { return ''; } };
+  const s = $.NSScreen.mainScreen, f = s.frame, v = s.visibleFrame;
+  const y = Math.max(2, Math.round(((f.origin.y + f.size.height) - (v.origin.y + v.size.height)) / 2));
+  const sw = $.AXUIElementCreateSystemWide();
+  for (let x = Math.round(f.size.width) - 4; x > f.size.width / 3; x -= 6) {
+    const r = Ref(); if ($.AXUIElementCopyElementAtPosition(sw, x, y, r) !== 0) continue;
+    const e = r[0];
+    if (txt(e, 'AXRole') !== 'AXMenuBarItem') continue;
+    if (txt(e, 'AXIdentifier') !== clave && txt(e, 'AXDescription') !== clave) continue;
+    return $.AXUIElementPerformAction(e, $('AXPress')) === 0 ? 'ok' : '';
+  }
+  return '';
 }
 
 function pantalla() {

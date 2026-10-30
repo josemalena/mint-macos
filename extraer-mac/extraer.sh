@@ -510,6 +510,8 @@ item_barra() { # ítem de la barra: "Control Center" o "Clock" (Monterey+) / "No
   # Catalina y anteriores: no hay ControlCenter; el reloj y Notification Center viven en SystemUIServer
   local nom="$1"; [ "$nom" = "Clock" ] && nom="Notification Center"
   if osa -e "tell application \"System Events\" to tell process \"SystemUIServer\" to click (first menu bar item of menu bar 1 whose description contains \"$nom\")" 2>/dev/null; then return 0; fi
+  # 27: los ítems son de MenuBarAgent y solo salen preguntando a AX qué hay en cada punto de la barra.
+  [ "$($H extra "$1" 2>>"$LOG")" = ok ] && { log "item_barra $1 por AX (MenuBarAgent)"; return 0; }
   # respaldo por coordenadas: la ventana del ítem en la barra (Control Center = BentoBox)
   nom="$1"; [ "$nom" = "Control Center" ] && nom=BentoBox
   local b; b=$($H ventanas "Control Center" | awk -F'\t' -v n="$nom" '$4==n {print $5; exit}')
