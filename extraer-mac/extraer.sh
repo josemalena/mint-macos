@@ -991,7 +991,9 @@ tanda() { # claro | oscuro
   cap_win 12-about-this-mac-overview-$M "$(ventana_de 'System Information')"
   osa -e 'tell application "System Events" to tell process "System Information" to get name of every UI element of toolbar 1 of window 1' >> "$LOG"
   for tab in Displays Storage Memory Support Service Resources; do
-    osa -e "tell application \"System Events\" to tell process \"System Information\" to click radio button \"$tab\" of radio group 1 of toolbar 1 of window 1" \
+    # En 12.7.6 la radio group va dentro de group 1 de la toolbar (AX volcado en cvrpc0187, 30-10-2026).
+    osa -e "tell application \"System Events\" to tell process \"System Information\" to click radio button \"$tab\" of radio group 1 of group 1 of toolbar 1 of window 1" \
+      || osa -e "tell application \"System Events\" to tell process \"System Information\" to click radio button \"$tab\" of radio group 1 of toolbar 1 of window 1" \
       || osa -e "tell application \"System Events\" to tell process \"System Information\" to click button \"$tab\" of toolbar 1 of window 1" || continue
     sleep 2; cap_win 12-about-this-mac-$(echo $tab | tr A-Z a-z)-$M "$(ventana_de 'System Information')"
   done
