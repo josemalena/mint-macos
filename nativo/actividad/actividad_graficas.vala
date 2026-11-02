@@ -145,4 +145,60 @@ namespace Actividad {
             return true;
         }
     }
+
+    /**
+     * Un texto que cambia en cada muestra (los valores del resumen y las leyendas de Resources). Un Gtk.Label pide
+     * queue_resize en cada set_label, y eso hace que la ventana vuelva a repartir el tamaño y reescriba
+     * _GTK_FRAME_EXTENTS una vez por muestra aunque nada cambió. Este solo se redibuja; pide más espacio únicamente
+     * cuando el texto nuevo no cabe en el mayor que ya tuvo.
+     */
+    public class Texto : Gtk.DrawingArea {
+        public float xalign = 0;
+        string _texto = "";
+        int ancho = 0;
+        int alto = 0;
+
+        public Texto (string texto = "") {
+            draw.connect (dibujar);
+            style_updated.connect (() => { ancho = 0; alto = 0; medir (); queue_resize (); });
+            label = texto;
+        }
+
+        public string label {
+            get { return _texto; }
+            set {
+                if (value == _texto) return;
+                _texto = value;
+                if (medir ()) queue_resize ();
+                else queue_draw ();
+            }
+        }
+
+        /** true si el texto ya no cabe en el tamaño pedido (que solo crece). */
+        bool medir () {
+            int w, h;
+            create_pango_layout (_texto).get_pixel_size (out w, out h);
+            bool crece = w > ancho || h > alto;
+            if (w > ancho) ancho = w;
+            if (h > alto) alto = h;
+            return crece;
+        }
+
+        public override void get_preferred_width (out int minimo, out int natural) {
+            minimo = natural = ancho;
+        }
+
+        public override void get_preferred_height (out int minimo, out int natural) {
+            minimo = natural = alto;
+        }
+
+        bool dibujar (Cairo.Context cr) {
+            var capa = create_pango_layout (_texto);
+            int w, h;
+            capa.get_pixel_size (out w, out h);
+            double x = (get_allocated_width () - w) * xalign;
+            get_style_context ().render_layout (cr, x, (get_allocated_height () - h) / 2.0, capa);
+            return true;
+        }
+    }
 }

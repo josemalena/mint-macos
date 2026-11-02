@@ -53,9 +53,9 @@ button.act-redondo:disabled { opacity: 0.55; }
         Gtk.SearchEntry busqueda;
         Gtk.HeaderBar cabecera;
         HashTable<string, Gtk.ToggleButton> botones = new HashTable<string, Gtk.ToggleButton> (str_hash, str_equal);
-        HashTable<string, Gtk.Label> valores = new HashTable<string, Gtk.Label> (str_hash, str_equal);
+        HashTable<string, Texto> valores = new HashTable<string, Texto> (str_hash, str_equal);
         HashTable<string, Area> graficas = new HashTable<string, Area> (str_hash, str_equal);
-        HashTable<string, Gtk.Label> leyendas = new HashTable<string, Gtk.Label> (str_hash, str_equal);
+        HashTable<string, Texto> leyendas = new HashTable<string, Texto> (str_hash, str_equal);
         Gtk.ComboBoxText? selector_disco = null;
         Gtk.ComboBoxText? selector_red = null;
         string pestana = "";
@@ -484,8 +484,8 @@ button.act-redondo:disabled { opacity: 0.55; }
 
         async void actualizar () {
             try {
-                var procs = yield motor.procesos (columnas_pedidas ());
-                aplicar_procesos (procs);
+                // En Resources la tabla no se ve: llenarla igual hacía que cada proceso que entra o sale reacomodara la ventana.
+                if (pestana != "resources") aplicar_procesos (yield motor.procesos (columnas_pedidas ()));
                 var r = yield motor.resumen ();
                 aplicar_resumen (r);
                 yield aplicar_series ();
@@ -604,7 +604,7 @@ button.act-redondo:disabled { opacity: 0.55; }
                 k.xalign = 0;
                 k.get_style_context ().add_class ("act-clave");
                 g.attach (k, 0, i, 1, 1);
-                var v = new Gtk.Label ("");
+                var v = new Texto ("");
                 v.xalign = 1;
                 v.hexpand = true;
                 v.get_style_context ().add_class ("act-valor");
@@ -823,7 +823,7 @@ button.act-redondo:disabled { opacity: 0.55; }
                 var s = a.agregar ("cpu.%d".printf (i), 0.20, 0.45, 0.85);
                 s.r = 0.17 + 0.1 * (i % 3);
                 graficas.replace ("rec_cpu_%d".printf (i), a);
-                var l = new Gtk.Label ("CPU%d".printf (i + 1));
+                var l = new Texto ("CPU%d".printf (i + 1));
                 l.xalign = 0;
                 l.get_style_context ().add_class ("act-leyenda");
                 leyendas.replace ("rec_cpu_%d".printf (i), l);
@@ -842,7 +842,7 @@ button.act-redondo:disabled { opacity: 0.55; }
             m.agregar ("mem.usada", 0.20, 0.45, 0.85);
             m.agregar ("swap.usada", 0.85, 0.30, 0.20);
             graficas.replace ("rec_mem", m);
-            var lm = new Gtk.Label ("");
+            var lm = new Texto ("");
             lm.xalign = 0;
             lm.get_style_context ().add_class ("act-leyenda");
             leyendas.replace ("rec_mem", lm);
@@ -857,7 +857,7 @@ button.act-redondo:disabled { opacity: 0.55; }
             r.agregar ("red.rx", 0.20, 0.65, 0.30);
             r.agregar ("red.tx", 0.85, 0.30, 0.20);
             graficas.replace ("rec_red", r);
-            var lr = new Gtk.Label ("");
+            var lr = new Texto ("");
             lr.xalign = 0;
             lr.get_style_context ().add_class ("act-leyenda");
             leyendas.replace ("rec_red", lr);
