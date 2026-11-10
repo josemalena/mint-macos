@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# imagen/en-chroot.sh — corre DENTRO del chroot de la imagen, como root (lo llama construir.sh).
+# install-sapos/imagen/en-chroot.sh — corre DENTRO del chroot de la imagen, como root (lo llama construir.sh).
 # El repo está en /tmp/mint-macos, con rust/target/release y nativo-compilado ya hechos en el host.
 # Instala cada pieza en modo sistema (lib/destino.sh): /usr/local, /etc/xdg, /etc/skel, esquemas.
 # SIN PROBAR (27-10-2026).
@@ -17,7 +17,7 @@ paso "piezas de mint-macos"
 LISTOS=(); PENDIENTES=()
 while IFS= read -r f; do
   if grep -q 'lib/destino.sh' "$M/$f"; then LISTOS+=("$f"); else PENDIENTES+=("$f"); fi
-done < <(cd "$M" && find . -name 'instalar*.sh' -not -path './imagen/*' -not -path './paquete/*' | sed 's|^\./||' | sort)
+done < <(cd "$M" && find . -name 'instalar*.sh' -not -path './install-sapos/*' -not -path './paquete/*' | sed 's|^\./||' | sort)
 for f in "${LISTOS[@]}"; do echo "  · $f"; bash "$M/$f"; done
 printf '  pendientes de modo sistema (%d):\n' "${#PENDIENTES[@]}"; printf '    %s\n' "${PENDIENTES[@]}"
 

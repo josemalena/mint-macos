@@ -8,7 +8,7 @@
 #   FSAPFS_SOLO_COMPILAR=/carpeta ./instalar-fsapfs.sh
 #                                                solo compila, sin root ni apt, y deja el árbol
 #                                                instalado en esa carpeta (make install DESTDIR=…):
-#                                                así lo hace imagen/construir.sh en el host
+#                                                así lo hace install-sapos/imagen/construir.sh en el host
 #   MINT_MACOS_DESTINO=sistema FSAPFS_COMPILADO=/carpeta ./instalar-fsapfs.sh
 #                                                la imagen (lib/destino.sh): copia ese árbol, el
 #                                                ayudante de mount, fuse.conf, el vigilante y el

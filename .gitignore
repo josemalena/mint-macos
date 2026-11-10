@@ -15,3 +15,9 @@ tema/**/*.png
 rust/target/
 
 nativo/build/
+
+# install-sapos: lo que lleva la manzana, lo que sale de bless y lo viejo, solo local
+install-sapos/*.png
+install-sapos/.disk_label*
+install-sapos/*.zip
+install-sapos/viejos/

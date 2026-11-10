@@ -5,7 +5,7 @@
 #   MINT_MACOS_DESTINO=sistema RCLONE_BINARIO=/ruta/rclone ./instalar.sh
 #
 # Pone el rclone oficial (v1.75.1 de versiones.sh: el de apt en noble es 1.60.1 y no tiene
-# iclouddrive, que existe desde 1.69), ya bajado y verificado por imagen/construir.sh con su
+# iclouddrive, que existe desde 1.69), ya bajado y verificado por install-sapos/imagen/construir.sh con su
 # sha256; el envoltorio en /usr/local/bin/rclone (la clave de rclone.conf sale del llavero de
 # cada usuario), y una unidad global por nube, con %h, que solo arranca si el usuario conectó
 # ese remoto (~/.config/mint-macos/nubes/REMOTO, que pone «nube.sh activar» o el asistente).
@@ -19,7 +19,7 @@ source "$AQUI/../lib/destino.sh"
 if ! es_sistema; then
   echo "En esta máquina: ./icloud.sh instalar (y alta, montar) y ./nube.sh montar REMOTO CARPETA."; exit 0
 fi
-[ -x "${RCLONE_BINARIO:-}" ] || { echo "✗ falta RCLONE_BINARIO=… (el rclone oficial que baja imagen/construir.sh)"; exit 1; }
+[ -x "${RCLONE_BINARIO:-}" ] || { echo "✗ falta RCLONE_BINARIO=… (el rclone oficial que baja install-sapos/imagen/construir.sh)"; exit 1; }
 
 install -D -m 755 "$RCLONE_BINARIO" "$D_LIB/rclone/rclone"
 bash "$AQUI/icloud.sh" envoltorio "$D_BIN/rclone"

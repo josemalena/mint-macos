@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# imagen/instalador-ubiquity.sh — lo del instalador, aislado: Mint 22.x usa Ubiquity; Mint 23
+# install-sapos/imagen/instalador-ubiquity.sh — lo del instalador, aislado: Mint 22.x usa Ubiquity; Mint 23
 # (hipótesis: Navidad de 2026) pasaría al live-installer de LMDE, y esto se reemplaza entero.
 # Corre dentro del chroot, después de en-chroot.sh. SIN PROBAR (27-10-2026).
 #   instalador-ubiquity.sh personal|publica

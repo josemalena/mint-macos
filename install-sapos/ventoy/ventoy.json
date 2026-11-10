@@ -1,0 +1,14 @@
+{
+    "control": [
+        { "VTOY_DEFAULT_IMAGE": "/linuxmint-22.3-cinnamon-64bit.vtgrub2.iso" },
+        { "VTOY_MENU_TIMEOUT": "0" },
+        { "VTOY_SECONDARY_BOOT_MENU": "0" }
+    ],
+    "conf_replace": [
+        {
+            "iso": "/linuxmint-22.3-cinnamon-64bit.vtgrub2.iso",
+            "org": "/boot/grub/grub.cfg",
+            "new": "/ventoy/grub.cfg"
+        }
+    ]
+}

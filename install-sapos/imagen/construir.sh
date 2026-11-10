@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# imagen/construir.sh — la ISO de mint-macos, remasterizando la oficial de Linux Mint 22.3 Cinnamon.
+# install-sapos/imagen/construir.sh — la ISO de mint-macos, remasterizando la oficial de Linux Mint 22.3 Cinnamon.
 # SIN PROBAR (27-10-2026): José pidió el guion listo; la ISO, xorriso y qemu se bajan cuando él diga.
 #
-#   sudo ISO=/ruta/linuxmint-22.3-cinnamon-64bit.iso ./imagen/construir.sh [personal|publica]
+#   sudo ISO=/ruta/linuxmint-22.3-cinnamon-64bit.iso ./install-sapos/imagen/construir.sh [personal|publica]
 #
 # Entrada (todo lo que decide el resultado, y nada más):
 #   ISO + ISO_SHA256        la oficial; se para si el sha256 no coincide
@@ -14,13 +14,13 @@
 #   mint-macos-<perfil>-<versión de Mint>-<commit>.iso, su .sha256 y medidas.txt (disco y tiempo por paso)
 #
 # «publica» no lleva nada de Apple ni Darling: lo de Apple llega en el primer arranque (asistente,
-# pendiente). El paso del instalador vive aparte (imagen/instalador-ubiquity.sh), para cambiarlo
+# pendiente). El paso del instalador vive aparte (install-sapos/imagen/instalador-ubiquity.sh), para cambiarlo
 # cuando Mint 23 deje Ubiquity.
 set -euo pipefail
 
 PERFIL="${1:-personal}"
 case "$PERFIL" in personal|publica) ;; *) echo "✗ perfil: personal o publica"; exit 2 ;; esac
-AQUI="$(cd "$(dirname "$0")" && pwd)"; REPO="$(cd "$AQUI/.." && pwd)"
+AQUI="$(cd "$(dirname "$0")" && pwd)"; REPO="$(cd "$AQUI/../.." && pwd)"
 ISO="${ISO:?falta ISO=…/linuxmint-22.3-cinnamon-64bit.iso}"
 # El de los mirrors el 08-01-2026 (lecrabeinfo.net, a confirmar con sha256sum.txt de linuxmint.com).
 ISO_SHA256="${ISO_SHA256:-a081ab202cfda17f6924128dbd2de8b63518ac0531bcfe3f1a1b88097c459bd4}"
@@ -105,8 +105,8 @@ mount --bind /proc "$RAIZ/proc"; mount --bind /sys "$RAIZ/sys"; mount --bind /de
 mount --bind /dev/pts "$RAIZ/dev/pts"; mount -t tmpfs tmpfs "$RAIZ/run"
 cp --remove-destination /etc/resolv.conf "$RAIZ/etc/resolv.conf"
 chroot "$RAIZ" env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin HOME=/root LANG=C.UTF-8 PERFIL="$PERFIL" \
-  bash /tmp/mint-macos/imagen/en-chroot.sh
-chroot "$RAIZ" bash /tmp/mint-macos/imagen/instalador-ubiquity.sh "$PERFIL"
+  bash /tmp/mint-macos/install-sapos/imagen/en-chroot.sh
+chroot "$RAIZ" bash /tmp/mint-macos/install-sapos/imagen/instalador-ubiquity.sh "$PERFIL"
 desmontar
 rm -rf -- "${DENTRO:?}"; : > "$RAIZ/etc/resolv.conf"
 fin_paso
