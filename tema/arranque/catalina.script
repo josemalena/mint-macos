@@ -33,12 +33,26 @@ lleno.sprite = Sprite();
 lleno.sprite.SetPosition(pista.x, pista.y, 2);
 lleno.hecho = 0;
 
-# La manzana y la barra son solo del arranque. Al apagar o reiniciar la Mac
-# no enseña nada: la pantalla queda negra (José, 14-10-2026).
+# La manzana y la barra son solo del arranque.
 solo_negro = Plymouth.GetMode() != "boot";
 if (solo_negro) {
   manzana.sprite.SetOpacity(0);
   pista.sprite.SetOpacity(0);
+}
+
+# Al apagar o reiniciar: el fondo de pantalla del usuario (José, 10-11-2026; del
+# 14-10 hasta entonces la pantalla quedaba negra). Lo deja listo mac-fondo-apagado
+# (tema/arranque/fondo-apagado.sh) a la medida de la pantalla, en
+# /var/lib/mint-macos/apagado/fondo.png, enlazado aquí como fondo-apagado.png por
+# silencio.sh. Si no está (o no carga), negro como antes. En el initramfs el enlace
+# queda roto a propósito: al arrancar no se usa.
+apagando = Plymouth.GetMode() == "shutdown" || Plymouth.GetMode() == "reboot";
+if (apagando) {
+  fondo.imagen = Image("fondo-apagado.png");
+  if (fondo.imagen) {
+    fondo.sprite = Sprite(fondo.imagen.Scale(ancho, alto));
+    fondo.sprite.SetPosition(Window.GetX(), Window.GetY(), 0);
+  }
 }
 
 # Plymouth avisa el avance (0 a 1); la barra nunca retrocede.
