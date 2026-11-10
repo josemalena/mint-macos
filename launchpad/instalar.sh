@@ -122,4 +122,6 @@ poner_atajo
 echo "Instalado: $BIN"
 echo "Atajo:     ⌥⌘L (Cinnamon: $ATAJO)"
 echo "Lanzador:  $LANZADOR (el Dock lo usa)"
-[ -f "$RESPALDO" ] && echo "El anterior quedó en $RESPALDO; ./instalar.sh --quitar lo devuelve."
+# Con if y no con &&: como última línea, sin respaldo (una máquina nueva) el guion
+# salía con 1 y paraba a quien lo llama con set -e (MacBook5,1, 09-11-2026).
+if [ -f "$RESPALDO" ]; then echo "El anterior quedó en $RESPALDO; ./instalar.sh --quitar lo devuelve."; fi
