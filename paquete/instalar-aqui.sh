@@ -188,6 +188,10 @@ p_mint_macos() {
 paso "5. mint-macos"
 export MAC_SISTEMA="$MAC"
 "$REPO/instalar.sh" --sin-compilar
+# Los lanzadores de los programas en Vala que vienen en nativo-binarios.tar.gz: el App
+# Store y el Activity Monitor. Sin ellos, el ícono del App Store del Dock abría el
+# Software Manager de Mint (MacBook5,1, 09-11-2026). El Dock se reordena al final.
+if [ -x "$HOME/.local/bin/mac-tienda" ]; then "$REPO/nativo/instalar.sh" --sin-compilar; fi
 "$REPO/settings/desde-mac.sh"
 "$REPO/settings/instalar.sh"
 "$REPO/launchpad/instalar.sh"

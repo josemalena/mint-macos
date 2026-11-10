@@ -3,10 +3,33 @@
 #   ./instalar.sh            compila e instala; los atajos y el applet usan el binario
 #   ./instalar.sh --reiniciar   además reinicia los residentes (mac-ventanas, mac-preferencias) para que atiendan con lo nuevo
 #   ./instalar.sh --python   vuelta atrás: quita el binario y todo vuelve a applemenu.py
+#   ./instalar.sh --sin-compilar   los binarios ya están en ~/.local/bin (el paquete, instalar-aqui.sh):
+#                                  solo los lanzadores (App Store, Activity Monitor) y el de los emojis
 # El lanzador (mac-sesion-lanzar) decide solo: con el binario puesto lo usa, sin él cae a Python.
 set -euo pipefail
 AQUI="$(cd "$(dirname "$0")" && pwd)"
+
+# Lo que va después de tener los binarios, se compilen aquí o vengan en el paquete.
+lanzadores() {
+    # ⌃⌘Espacio llama a ~/.local/bin/mac-emojis: pasa a ser el lanzador (residente → binario → Python, que queda copiado).
+    install -D -m 755 "$AQUI/../capturas/emojis.py" "$HOME/.local/share/mint-macos/emojis.py"
+    install -m 755 "$HOME/.local/bin/mac-emojis-lanzar" "$HOME/.local/bin/mac-emojis"
+    # El App Store: lanzador en el menú de aplicaciones; el servicio de /Applications (aplicaciones.path) lo copia para
+    # Launchpad. El Dock (tema/plank/configurar.sh, en el lugar de mintinstall) y el menú Apple (applemenu) apuntan a él.
+    install -D -m 755 "$AQUI/mac-tienda.desktop" "$HOME/.local/share/applications/mac-tienda.desktop"
+    install -D -m 755 "$AQUI/mac-actividad.desktop" "$HOME/.local/share/applications/mac-actividad.desktop"
+    mkdir -p "$HOME/.config/mint-macos"
+    grep -qs '^arriba mac-tienda.desktop' "$HOME/.config/mint-macos/aplicaciones.conf" \
+      || echo 'arriba mac-tienda.desktop' >> "$HOME/.config/mint-macos/aplicaciones.conf"
+}
+
 case "${1:-}" in
+  --sin-compilar)
+    for b in mac-tienda mac-actividad mac-emojis-lanzar; do
+      [ -x "$HOME/.local/bin/$b" ] || { echo "✗ falta ~/.local/bin/$b: corre ./instalar.sh (compila) o instala el paquete" >&2; exit 1; }
+    done
+    lanzadores
+    echo "lanzadores del App Store y del Activity Monitor puestos (los binarios ya estaban)" ;;
   --python)
     rm -f "$HOME/.local/bin/mac-sesion" "$HOME/.local/bin/mac-gatekeeper" "$HOME/.local/bin/mac-polkit" "$HOME/.local/bin/mac-forcequit" "$HOME/.local/bin/mac-launchpad-vala" "$HOME/.config/mint-macos/launchpad-vala.activo" \
       "$HOME/.local/bin/mac-captura-herramienta-vala" "$HOME/.config/mint-macos/captura-vala.activo" \
@@ -17,16 +40,7 @@ case "${1:-}" in
   ""|--reiniciar)
     "$AQUI/compilar-desde-head.sh" "$HOME"
     echo "instalado en ~/.local/bin (mac-sesion, mac-forcequit, mac-launchpad-vala, mac-captura-herramienta-vala, mac-ventanas, mac-preferencias, mac-sesion-lanzar y, si hay headers de polkit, mac-polkit)"
-    # ⌃⌘Espacio llama a ~/.local/bin/mac-emojis: pasa a ser el lanzador (residente → binario → Python, que queda copiado).
-    install -D -m 755 "$AQUI/../capturas/emojis.py" "$HOME/.local/share/mint-macos/emojis.py"
-    install -m 755 "$HOME/.local/bin/mac-emojis-lanzar" "$HOME/.local/bin/mac-emojis"
-    # El App Store: lanzador en el menú de aplicaciones; el servicio de /Applications (aplicaciones.path) lo copia para
-    # Launchpad. El Dock (mac-tienda.dockitem) y el menú Apple (applemenu) apuntan a él.
-    install -D -m 755 "$AQUI/mac-tienda.desktop" "$HOME/.local/share/applications/mac-tienda.desktop"
-    install -D -m 755 "$AQUI/mac-actividad.desktop" "$HOME/.local/share/applications/mac-actividad.desktop"
-    mkdir -p "$HOME/.config/mint-macos"
-    grep -qs '^arriba mac-tienda.desktop' "$HOME/.config/mint-macos/aplicaciones.conf" \
-      || echo 'arriba mac-tienda.desktop' >> "$HOME/.config/mint-macos/aplicaciones.conf"
+    lanzadores
     # Un residente sigue con el código viejo en memoria y es el que atiende los atajos (⇧⌘5, Force Quit, los
     # diálogos de sesión, System Preferences): con el binario nuevo en disco no basta. Se compara la hora de
     # arranque del proceso con la del binario, y se avisa o, con --reiniciar, se reinicia.

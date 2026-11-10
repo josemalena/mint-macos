@@ -75,6 +75,14 @@ if [ -f "$APPS/mint-macos-settings.desktop" ]; then
   rm -f "$LANZADORES/cinnamon-settings.dockitem"
 fi
 
+# El App Store de mint-macos (nativo/tienda, mac-tienda), si está instalado: ocupa el
+# lugar de mintinstall (el Software Manager de Mint). Sin esto, en una máquina nueva
+# el ícono del App Store abría el de Mint (MacBook5,1, 09-11-2026); en la de José se
+# había cambiado a mano. El nombre del lanzador se queda «mintinstall» por el orden.
+if [ -f "$APPS/mac-tienda.desktop" ]; then
+  escribir_lanzador mintinstall "file://$APPS/mac-tienda.desktop"
+fi
+
 if [ -f "$DOCKLETS/libdocklet-separator.so" ] && [ -f "$DOCKLETS/libdocklet-stacks.so" ]; then
   escribir_lanzador separator docklet://separator
   # El segundo separador, como el Dock de la Mac: apps fijas | apps abiertas sin fijar | Downloads y Trash.
