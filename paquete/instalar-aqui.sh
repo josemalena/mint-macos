@@ -31,14 +31,36 @@
 # root se los pide a asistente-root.sh (una sola clave, por pkexec):
 #   ./instalar-aqui.sh --lista          los pasos, en orden, con «root» los de root
 #   ./instalar-aqui.sh --paso <nombre>  uno solo de los pasos de usuario
-set -euo pipefail
+#
+# En la terminal deja todo lo que dice en ~/.cache/mint-macos/instalar-aqui-<fecha>.log.
+# Si algo falla, dice en qué paso, en qué línea y con qué comando, en vez de
+# cerrarse callado (09-11-2026: en la MacBook5,1 se cerró sin decir nada a mitad
+# del paso 3, y no había forma de saber dónde).
+set -eEuo pipefail
 
 AQUI="$(cd "$(dirname "$0")" && pwd)"
 REPO="$HOME/mint-macos"
 MAC="$HOME/.cache/mint-macos/mac-sistema"
+PASO_ACTUAL="el arranque"
+T0=$SECONDS
+EN_TERMINAL=0; [ -t 1 ] && EN_TERMINAL=1
+LOG=""
 
-paso() { printf '\n■ %s\n' "$*"; printf '@@paso %s\n' "$*"; }
+transcurrido() { printf '%d:%02d' $(((SECONDS - T0) / 60)) $(((SECONDS - T0) % 60)); }
+paso() { PASO_ACTUAL="$*"; printf '\n■ %s  (%s)\n' "$*" "$(transcurrido)"; printf '@@paso %s\n' "$*"; }
 leer() { sed -n "s/^$1=//p" "$AQUI/origen.txt"; }
+
+# El comando que falló, dónde y cómo seguir. Con -E la trampa vale también dentro
+# de las funciones y de los $(…); solo se avisa una vez.
+fallo() {
+  local rc=$? linea=$1 cmd=$2
+  [ -z "${YA_AVISO:-}" ] || return 0
+  YA_AVISO=1
+  printf '\n✗ Se paró en «%s» (línea %s, salió con %s):\n    %s\n' "$PASO_ACTUAL" "$linea" "$rc" "$cmd" >&2
+  [ -z "$LOG" ] || printf '  Todo lo que dijo está en %s\n' "$LOG" >&2
+  printf '  Arregla lo que diga arriba y vuelve a correr ./instalar-aqui.sh: lo que ya está hecho se salta.\n' >&2
+}
+trap 'fallo "$LINENO" "$BASH_COMMAND"' ERR
 
 p_verificar() {
 paso "1. ¿Es la misma clase de computadora?"
@@ -64,7 +86,8 @@ if [ -e "$REPO" ]; then
 fi
 tar -xzf "$AQUI/mint-macos.tar.gz" -C "$HOME"
 # Los ayudantes de root en Rust, ya compilados (los instala settings/instalar-root.sh, en el paso 6).
-[ -f "$AQUI/rust-binarios.tar.gz" ] && tar -xzf "$AQUI/rust-binarios.tar.gz" -C "$REPO"
+# Con if y no con &&: como última línea, un && sin el archivo hace que la función devuelva 1.
+if [ -f "$AQUI/rust-binarios.tar.gz" ]; then tar -xzf "$AQUI/rust-binarios.tar.gz" -C "$REPO"; fi
 }
 
 p_binarios() {
@@ -79,9 +102,12 @@ echo "  $(tar -tzf "$AQUI/binarios.tar.gz" | wc -l) archivos en ~/.local"
 # Open/Save de todo el sistema con el selector de Fynder (portal y módulo de GTK; toma efecto al
 # volver a entrar). Vuelta atrás: sh fynder-selector.sh --quitar. Y las hojas pegadas a su ventana,
 # como en la Mac (vuelta atrás: gsettings set org.cinnamon.muffin attach-modal-dialogs false).
-MOD="$(ls "$HOME"/.local/lib/*/gtk-3.0/modules/libfynder-chooser-module.so 2>/dev/null | head -1)"
+# Sin el módulo (no siempre viene en el paquete), el ls falla: con pipefail, eso cerraba el guion.
+MOD="$(ls "$HOME"/.local/lib/*/gtk-3.0/modules/libfynder-chooser-module.so 2>/dev/null | head -1 || true)"
 if [ -f "$AQUI/fynder-selector.sh" ] && [ -n "$MOD" ]; then
   MODULO_COMPILADO="$MOD" sh "$AQUI/fynder-selector.sh" && echo "  selector de Open/Save: Fynder"
+else
+  echo "  selector de Open/Save: el de GTK (el paquete no trae el módulo de Fynder)"
 fi
 gsettings set org.cinnamon.muffin attach-modal-dialogs true 2>/dev/null || true
 }
@@ -90,8 +116,24 @@ p_apple() {
 paso "4. Lo de Apple"
 rm -rf "${MAC:?}"; mkdir -p "$MAC"
 # Entero, o partido en trozos (.parte-00, -01…) cuando pasa de 4 GB (FAT32).
+# Son unos 4 GB y tardan: en la terminal se ve cuánto lleva. El avance va directo
+# a la terminal (/dev/tty), así que no ensucia el registro.
+TOTAL="$(du -cb "$AQUI"/mac-sistema.tar* | tail -1 | cut -f1)"
+echo "  $(numfmt --to=iec "$TOTAL") para descomprimir; tarda unos minutos"
+AV=""
+if [ "$EN_TERMINAL" = 1 ]; then
+  # Cada 2 s, lo escrito contra el total. Sin la trampa ni -e: un sleep cortado al
+  # final no es un fallo de la instalación.
+  ( trap - ERR; set +e
+    while sleep 2; do
+      n="$(du -sb "$MAC" 2>/dev/null | cut -f1)"; p=$((n * 100 / TOTAL)); [ "$p" -le 99 ] || p=99
+      printf '\r  %3d %%  (%s de %s)' "$p" "$(numfmt --to=iec "$n")" "$(numfmt --to=iec "$TOTAL")" > /dev/tty
+    done ) &
+  AV=$!
+fi
 if [ -f "$AQUI/mac-sistema.tar" ]; then tar -xf "$AQUI/mac-sistema.tar" -C "$MAC"
 else cat "$AQUI"/mac-sistema.tar.parte-* | tar -xf - -C "$MAC"; fi
+if [ -n "$AV" ]; then kill "$AV" 2>/dev/null || true; wait "$AV" 2>/dev/null || true; printf '\r  100 %%%*s\n' 30 '' > /dev/tty; fi
 [ -f "$AQUI/apple-extra.tar.gz" ] && tar -xzf "$AQUI/apple-extra.tar.gz" -C "$HOME"
 # La base de los cursores, antes del tema (la flecha, la I y la espera).
 if [ -f "$AQUI/cursores-base.tar.gz" ]; then
@@ -210,7 +252,12 @@ case "${1:-}" in
   *) echo "uso: $0 [--lista | --paso <nombre>]" >&2; exit 2 ;;
 esac
 
-# En la terminal: todo seguido, con una sola clave de sudo.
+# En la terminal: todo seguido, con una sola clave de sudo, y todo lo que dice
+# también va al registro. sudo pide la clave por /dev/tty, así que no pasa por él.
+LOG="$HOME/.cache/mint-macos/instalar-aqui-$(date +%Y%m%d-%H%M%S).log"
+mkdir -p "$(dirname "$LOG")"
+exec > >(tee -a "$LOG") 2>&1
+echo "Registro de esta corrida: $LOG"
 p_verificar
 p_repo
 paso "2. Requisitos (sudo; baja paquetes de internet)"
@@ -243,3 +290,4 @@ else
   echo "  sin discos APFS en fstab: el vigilante de montajes no hace falta"
 fi
 p_lo_que_queda
+printf '\n✓ Terminó sin errores en %s. El registro está en %s\n' "$(transcurrido)" "$LOG"
