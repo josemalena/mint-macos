@@ -114,6 +114,12 @@ gsettings set org.cinnamon.muffin attach-modal-dialogs true 2>/dev/null || true
 
 p_apple() {
 paso "4. Lo de Apple"
+# Si una corrida anterior ya lo descomprimió entero (la marca .completo se pone
+# al final), no se repiten los 4 GB: volver a correr el instalador después de un
+# tropiezo no cuesta otra vez esos minutos. REHACER_APPLE=1 lo fuerza.
+if [ -f "$MAC/.completo" ] && [ -z "${REHACER_APPLE:-}" ]; then
+  echo "  ya está, de una corrida anterior (REHACER_APPLE=1 ./instalar-aqui.sh lo repite)"
+else
 rm -rf "${MAC:?}"; mkdir -p "$MAC"
 # Entero, o partido en trozos (.parte-00, -01…) cuando pasa de 4 GB (FAT32).
 # Son unos 4 GB y tardan: en la terminal se ve cuánto lleva. El avance va directo
@@ -134,6 +140,8 @@ fi
 if [ -f "$AQUI/mac-sistema.tar" ]; then tar -xf "$AQUI/mac-sistema.tar" -C "$MAC"
 else cat "$AQUI"/mac-sistema.tar.parte-* | tar -xf - -C "$MAC"; fi
 if [ -n "$AV" ]; then kill "$AV" 2>/dev/null || true; wait "$AV" 2>/dev/null || true; printf '\r  100 %%%*s\n' 30 '' > /dev/tty; fi
+touch "$MAC/.completo"
+fi
 [ -f "$AQUI/apple-extra.tar.gz" ] && tar -xzf "$AQUI/apple-extra.tar.gz" -C "$HOME"
 # La base de los cursores, antes del tema (la flecha, la I y la espera).
 if [ -f "$AQUI/cursores-base.tar.gz" ]; then
