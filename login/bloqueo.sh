@@ -134,6 +134,21 @@ fi
 
 quitar_vigilante
 command -v dm-tool >/dev/null || { echo "  ✗ falta dm-tool (paquete lightdm)"; exit 1; }
+# Por SSH, o desde la Terminal de Mint (que arranca por D-Bus), no llegan las
+# variables de la sesión gráfica aunque la haya abierto LightDM: se toman del
+# proceso de Cinnamon de este usuario (MacBook5,1, 09-11-2026). Solo las que falten.
+if [ -z "${XDG_SEAT_PATH:-}" ]; then
+  P_CINNAMON="$(pgrep -u "$USER" -x cinnamon | head -1 || true)"
+  if [ -n "$P_CINNAMON" ] && [ -r "/proc/$P_CINNAMON/environ" ]; then
+    while IFS='=' read -r k v; do
+      case "$k" in
+        DISPLAY|XAUTHORITY|XDG_SEAT_PATH|XDG_SESSION_PATH|DBUS_SESSION_BUS_ADDRESS)
+          [ -n "${!k:-}" ] || export "$k=$v" ;;
+      esac
+    done < <(tr '\0' '\n' < "/proc/$P_CINNAMON/environ")
+    [ -z "${XDG_SEAT_PATH:-}" ] || echo "  las variables de la sesión se tomaron de Cinnamon (pid $P_CINNAMON)"
+  fi
+fi
 [ -n "${XDG_SEAT_PATH:-}" ] || { echo "  ✗ esta sesión no la abrió LightDM (sin XDG_SEAT_PATH): dm-tool lock no serviría"; exit 1; }
 
 # Los dos caminos pasan por bloquear.sh: dm-tool lock suelto se repite solo
