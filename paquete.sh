@@ -85,9 +85,11 @@ for d in fynder-muelle/usr/local/bin/fynder fynder-muelle/usr/local/bin/muelle k
   [ -e "$SISTEMA/$d" ] || { echo "  ✗ falta $SISTEMA/$d: paquete/compilar-sistema.sh $SISTEMA"; exit 1; }
 done
 # Sin lo de desarrollo (cabeceras, pkg-config, vapi): en la otra computadora no se compila nada.
+# La S del transform deja quieto el destino de los enlaces: sin ella, libplank.so.1 apuntaba a
+# «compilado/libplank.so.1.0.0» y Muelle cargaba la libplank de Mint.
 tar_fijo -cf - -C "$SISTEMA" --exclude='usr/local/include' --exclude='usr/local/lib/*/pkgconfig' \
   --exclude='usr/local/lib/pkgconfig' --exclude='usr/local/share/vala' --exclude='*.la' --exclude='*.a' \
-  --transform 's,^,compilado/,' VERSIONES fynder-muelle keyd fsapfs | gzip -n > "$DEST/compilado.tar.gz"
+  --transform 's,^,compilado/,S' VERSIONES fynder-muelle keyd fsapfs | gzip -n > "$DEST/compilado.tar.gz"
 echo "  $(tr '\n' ' ' < "$SISTEMA/VERSIONES")"
 echo "  $(du -h "$DEST/compilado.tar.gz" | cut -f1)"
 
