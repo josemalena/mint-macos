@@ -212,15 +212,19 @@ else
   echo "  sin valac o meson: el paquete va sin mac-sesion (los diálogos usan applemenu.py)"
 fi
 
-# El selector de Open/Save de Fynder (portal + módulo de GTK): su instalador viaja aparte;
-# el módulo, si el Fynder compilado lo trae, va en compilado.tar.gz con el resto de Fynder.
+# El selector de Open/Save de Fynder (portal + módulo de GTK): su instalador viaja aparte, del
+# mismo commit que el Fynder compilado; el módulo va en compilado.tar.gz con el resto de Fynder
+# (/usr/local/lib/<arch>/gtk-3.0/modules) y instalar-aqui.sh se lo pasa con MODULO_COMPILADO.
+FH="$(sed -n 's/^fynder=//p' "$SISTEMA/VERSIONES")"
 FF=""
 for f in "${FYNDER_FUENTE:-}" "$(dirname "$REPO")/$FYNDER_LOCAL"; do
-  [ -n "$f" ] && [ -f "$f/portal/instalar-selector.sh" ] && { FF="$f"; break; }
+  [ -n "$f" ] && git -C "$f" cat-file -e "$FH:portal/instalar-selector.sh" 2>/dev/null && { FF="$f"; break; }
 done
 if [ -n "$FF" ]; then
-  install -m 755 "$FF/portal/instalar-selector.sh" "$DEST/fynder-selector.sh"
-  echo "  selector de Fynder: fynder-selector.sh"
+  git -C "$FF" show "$FH:portal/instalar-selector.sh" > "$DEST/fynder-selector.sh"; chmod 755 "$DEST/fynder-selector.sh"
+  echo "  selector de Fynder: fynder-selector.sh (${FH:0:7})"
+  ls "$SISTEMA"/fynder-muelle/usr/local/lib/*/gtk-3.0/modules/libfynder-chooser-module.so >/dev/null 2>&1 \
+    || echo "  ⚠ el Fynder compilado no trae el módulo de GTK: el selector no se instalará"
 else
   echo "  ⚠ sin portal/instalar-selector.sh de Fynder: el paquete va sin el selector de Open/Save"
 fi

@@ -123,6 +123,10 @@ if $HAY_COMPILADO; then
   for b in fynder fynder-desktop muelle; do
     [ -e "$HOGAR_USUARIO/.local/bin/$b" ] && echo "  ⚠ $HOGAR_USUARIO/.local/bin/$b es de una instalación anterior y tapa la de /usr/local: quítalo cuando quieras usar la nueva"
   done
+  # El esquema del home también le gana al de /usr/local: con uno más viejo, el Fynder nuevo se cae
+  # al leer una clave que ese no tiene.
+  ESQ_VIEJO="$HOGAR_USUARIO/.local/share/glib-2.0/schemas/io.github.josemalena.fynder.gschema.xml"
+  [ -e "$ESQ_VIEJO" ] && echo "  ⚠ $ESQ_VIEJO también es de antes y le gana al de /usr/local: quítalo con los binarios (y glib-compile-schemas en esa carpeta)"
 fi
 
 paso "Un navegador Chromium para las apps web de iCloud"

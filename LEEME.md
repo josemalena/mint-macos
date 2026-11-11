@@ -222,8 +222,13 @@ El paquete sirve **a cualquier usuario** y la otra computadora **no compila
 nada** (10-11-2026): Fynder, Muelle, keyd, libfsapfs y slick-greeter-mac van ya
 compilados con prefijo `/usr/local` (`paquete/compilar-sistema.sh`, en
 `compilado.tar.gz` y `greeter.tar.gz`), y `requisitos.sh` los copia y de apt
-instala solo lo de ejecución (`EJECUCION` y `EJECUCION_COMPILADO`). Las
-etiquetas de Fynder de quien arma el paquete van solo a jmalena o con
+instala solo lo de ejecución (`EJECUCION` y `EJECUCION_COMPILADO`). Fynder y
+Muelle salen del HEAD commiteado de `../fynder` y `../plank-reloaded`, los
+mismos de `fynder/instalar-fynder.sh` (con `armar.sh`, de los hashes de
+`versiones.sh`), nunca de `~/.cache/mint-macos/src`, que se quedó atrás:
+`fynder --version` da la misma versión que el Fynder instalado aquí del mismo
+commit, y el módulo del selector de Open/Save va con él. Las etiquetas de
+Fynder de quien arma el paquete van solo a jmalena o con
 `MINT_MACOS_ETIQUETAS=propias`; a otro usuario le van las de fábrica de macOS.
 
 Fynder y Spotlyte están en repos privados: para clonarlos, `armar.sh` necesita

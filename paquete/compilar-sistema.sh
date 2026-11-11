@@ -4,7 +4,8 @@
 # el usuario jmalena). Cada pieza queda como un árbol de DESTDIR con prefijo /usr/local, que la
 # otra computadora copia a / como root (requisitos.sh y login/instalar.sh):
 #
-#   SALIDA/fynder-muelle/usr/local/…   Fynder (fork de Nemo) y Muelle (fork de plank-reloaded)
+#   SALIDA/fynder-muelle/usr/local/…   Fynder (fork de Nemo), con el módulo de GTK del selector de
+#                                      Open/Save si lo trae, y Muelle (fork de plank-reloaded)
 #   SALIDA/keyd/usr/local/…            keyd $KEYD_VERSION
 #   SALIDA/fsapfs/usr/local/…          libfsapfs $LIBFSAPFS_VERSION (fsapfsinfo, fsapfsmount)
 #   SALIDA/greeter/slick-greeter-mac   la pantalla de inicio, del GREETER_HASH (prefijo /usr/local)
@@ -12,10 +13,13 @@
 #
 #   paquete/compilar-sistema.sh SALIDA [fynder muelle greeter keyd fsapfs]   (sin piezas: todas)
 #
-# Las fuentes:
-#   Fynder y Muelle  el HEAD commiteado de los repos de donde salen los builds de aquí
-#                    (FYNDER_FUENTE y MUELLE_FUENTE; por defecto ~/.cache/mint-macos/src/…),
-#                    con las mismas opciones de meson, pero en release
+# Las fuentes (cada paso dice de qué carpeta y commit sale):
+#   Fynder y Muelle  el HEAD commiteado de los repos de al lado de mint-macos, los mismos de
+#                    paquete.sh (FYNDER_LOCAL y PLANK_LOCAL: repos/fynder y repos/plank-reloaded),
+#                    o FYNDER_FUENTE y MUELLE_FUENTE. Nunca ~/.cache/mint-macos/src, que se quedó
+#                    atrás (10-11-2026: un paquete salió con un Fynder 173 commits más viejo que el de
+#                    José). Las opciones de meson son las de fynder/instalar-fynder.sh (las de
+#                    meson_options.txt y el perfil de macOS), pero en release
 #   greeter          el GREETER_HASH de versiones.sh, del repo local que lo tenga (GREETER_FUENTE)
 #   keyd             la etiqueta $KEYD_VERSION de github.com/rvaiya/keyd
 #   libfsapfs        la versión publicada, con el sha256 del manifiesto (apfs/instalar-fsapfs.sh)
@@ -46,55 +50,88 @@ fuente_head() { # repo destino
   rm -rf -- "${2:?}"; mkdir -p "$2"
   git -C "$1" archive HEAD | tar -x -C "$2"
 }
-meson_sistema() { # fuente build destdir opciones…
+meson_sistema() { # fuente build destdir opciones…  (el destdir se vacía antes)
   local src="$1" build="$2" dest="$3"; shift 3
-  rm -rf -- "${build:?}"
+  rm -rf -- "${build:?}" "${dest:?}"
   meson setup "$build" "$src" --prefix=/usr/local --buildtype=release "$@" >/dev/null
   esperar_ninja
   bajo ninja -j2 -C "$build" >/dev/null
   DESTDIR="$dest" meson install -C "$build" --no-rebuild --quiet
 }
+# Fynder y Muelle se instalan cada uno en su destdir (así no quedan restos de una fuente anterior)
+# y SALIDA/fynder-muelle es la unión de los dos. Si falta uno (una SALIDA de antes, cuando los dos
+# iban directo ahí), se copia encima y no se borra lo que había.
+unir_fynder_muelle() {
+  if [ -d "$TRABAJO/dest-fynder" ] && [ -d "$TRABAJO/dest-muelle" ]; then rm -rf -- "${SALIDA:?}/fynder-muelle"; fi
+  mkdir -p "$SALIDA/fynder-muelle"
+  local d
+  for d in "$TRABAJO/dest-fynder" "$TRABAJO/dest-muelle"; do
+    [ -d "$d" ] && cp -a "$d/." "$SALIDA/fynder-muelle/"
+  done
+  return 0
+}
+# De dónde sale una pieza: la carpeta, el commit y su fecha, y si hay cambios sin commitear.
+contar_fuente() { # nombre repo
+  paso "$1 $(git -C "$2" log -1 --format='%h del %cd' --date=format:'%d-%m-%Y %H:%M' HEAD)"
+  echo "  de $2: $(git -C "$2" log -1 --format=%s HEAD | cut -c1-90)"
+  [ -z "$(git -C "$2" status --porcelain --untracked-files=no)" ] \
+    || echo "  ojo: $2 tiene cambios sin commitear; va solo el HEAD"
+}
 
 for pieza in "${PIEZAS[@]}"; do
   case "$pieza" in
     fynder)
-      F="${FYNDER_FUENTE:-$HOME/.cache/mint-macos/src/fynder}"
+      F="${FYNDER_FUENTE:-$(dirname "$REPO")/$FYNDER_LOCAL}"
       [ -d "$F/.git" ] || { echo "✗ no está el repo de Fynder en $F (FYNDER_FUENTE)"; exit 1; }
       H="$(git -C "$F" rev-parse HEAD)"
-      paso "Fynder ${H:0:7} (de $F)"
+      contar_fuente Fynder "$F"
       fuente_head "$F" "$TRABAJO/fynder-src"
-      # El número de build y la versión del About, como armar.sh: un contador propio que arranca
-      # en los parches del fork sobre Nemo, y no el de ~/.local/state/fynder de José (que sube
-      # con cada compilación suya; 10-11-2026 se movió uno y se devolvió).
+      # La versión del About es la de fynder/instalar-fynder.sh: 1.0.<commits desde el fork de Nemo>,
+      # la misma que el Fynder de José del mismo commit. El número de build es esa misma cuenta
+      # (FYNDER_BUILD_NUMBER), nunca el contador de ~/.local/state/fynder de José, que sube con cada
+      # compilación suya (10-11-2026 se movió uno y se devolvió); un Fynder viejo, sin
+      # FYNDER_BUILD_NUMBER, sube un contador propio en vez del de José.
       N="$(git -C "$F" rev-list --count --no-merges "$FYNDER_BASE..HEAD")"
       echo "$N" > "$TRABAJO/fynder-build-number"
-      # Las opciones de los builds de aquí (~/.cache/mint-macos/build/fynder), sin tracker ni selinux.
-      ( export FYNDER_BUILD_COUNTER="$TRABAJO/fynder-build-number" FYNDER_VERSION="1.0.$N"
+      # El perfil de macOS (perfiles/ESQUEMA.md), del HEAD de mint-macos, si el Fynder tiene la opción.
+      PERFIL=()
+      if grep -q perfil_macos "$TRABAJO/fynder-src/meson_options.txt"; then
+        git -C "$REPO" show HEAD:perfiles/vala/perfil-macos.vala > "$TRABAJO/perfil-macos.vala"
+        PERFIL=(-Dperfil_macos="$TRABAJO/perfil-macos.vala")
+      fi
+      ( export FYNDER_BUILD_NUMBER="$N" FYNDER_BUILD_COUNTER="$TRABAJO/fynder-build-number" FYNDER_VERSION="1.0.$N"
         export SOURCE_DATE_EPOCH="$(git -C "$F" log -1 --format=%ct HEAD)"
-        meson_sistema "$TRABAJO/fynder-src" "$TRABAJO/fynder-build" "$SALIDA/fynder-muelle" \
+        meson_sistema "$TRABAJO/fynder-src" "$TRABAJO/fynder-build" "$TRABAJO/dest-fynder" \
           -Ddeprecated_warnings=false -Dempty_view=false -Dexif=true -Dgtk_doc=false \
-          -Dgtk_layer_shell=false -Dselinux=false -Dtracker=false -Dxmp=true )
+          -Dgtk_layer_shell=false -Dselinux=false -Dtracker=false -Dxmp=true "${PERFIL[@]}" )
+      unir_fynder_muelle
       anotar fynder "$H"
+      anotar fynder-version "1.0.$N"
+      anotar fynder-fuente "$(basename "$F")"
+      MOD="$(cd "$TRABAJO/dest-fynder" && ls usr/local/lib/*/gtk-3.0/modules/libfynder-chooser-module.so 2>/dev/null || true)"
+      echo "  1.0.$N (build $N); módulo del selector de Open/Save: ${MOD:-no lo trae}"
       echo "  en $SALIDA/fynder-muelle/usr/local"
       ;;
     muelle)
-      M="${MUELLE_FUENTE:-$HOME/.cache/mint-macos/src/plank-reloaded}"
+      M="${MUELLE_FUENTE:-$(dirname "$REPO")/$PLANK_LOCAL}"
       [ -d "$M/.git" ] || { echo "✗ no está el repo de Muelle en $M (MUELLE_FUENTE)"; exit 1; }
       H="$(git -C "$M" rev-parse HEAD)"
-      paso "Muelle ${H:0:7} (de $M)"
+      contar_fuente Muelle "$M"
       fuente_head "$M" "$TRABAJO/muelle-src"
       # Con el rpath, Muelle y sus docklets cargan la libplank del fork aunque la computadora
       # tenga el plank de Mint (su libplank.so.1 en /lib); lo mismo hace armar.sh.
       LDFLAGS="-Wl,-rpath,/usr/local/lib/$(gcc -print-multiarch)" \
-      meson_sistema "$TRABAJO/muelle-src" "$TRABAJO/muelle-build" "$SALIDA/fynder-muelle" \
+      meson_sistema "$TRABAJO/muelle-src" "$TRABAJO/muelle-build" "$TRABAJO/dest-muelle" \
         -Denable-apport=false -Denable-docs=false -Denable-benchmark=false \
         -Denable-gmock=false -Denable-headless-tests=false -Dproduction-release=false
+      unir_fynder_muelle
       anotar muelle "$H"
+      anotar muelle-fuente "$(basename "$M")"
       echo "  en $SALIDA/fynder-muelle/usr/local"
       ;;
     greeter)
       G=""
-      for g in "${GREETER_FUENTE:-}" "$(dirname "$REPO")/$GREETER_LOCAL" "$HOME/.cache/mint-macos/src/mint-macos-greeter"; do
+      for g in "${GREETER_FUENTE:-}" "$(dirname "$REPO")/$GREETER_LOCAL"; do
         [ -n "$g" ] && git -C "$g" cat-file -e "$GREETER_HASH^{commit}" 2>/dev/null && { G="$g"; break; }
       done
       [ -n "$G" ] || { echo "✗ ningún repo local tiene el greeter $GREETER_HASH (GREETER_FUENTE)"; exit 1; }
