@@ -294,14 +294,14 @@ button.fq-boton:disabled label { color: rgba(0, 0, 0, 0.35); }
                 }
                 if (relanzar) {
                     try {
-                        Process.spawn_command_line_async (Environment.get_home_dir () + "/.local/bin/fynder");
+                        Process.spawn_command_line_async ("fynder");
                     } catch (Error e) {
                         warning ("no pude relanzar Fynder: %s", e.message);
                     }
                     // El autostart solo corre al entrar a la sesión: el escritorio se levanta aquí.
                     if (con_escritorio) {
                         try {
-                            Process.spawn_command_line_async (Environment.get_home_dir () + "/.local/bin/fynder-desktop");
+                            Process.spawn_command_line_async ("fynder-desktop");
                         } catch (Error e) {
                             warning ("no pude relanzar el escritorio de Fynder: %s", e.message);
                         }

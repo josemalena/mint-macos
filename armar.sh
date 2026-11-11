@@ -20,8 +20,10 @@
 #      de cada archivo dentro de sus .tar.gz, para comparar dos corridas
 #
 # Necesita los paquetes de requisitos.sh, cargo, Xephyr y el disco de la Mac
-# (paquete.sh lo lee). Los binarios llevan compilado el ~/.local de este
-# usuario, igual que con paquete.sh.
+# (paquete.sh lo lee). Las pruebas usan Fynder y el Dock compilados con el
+# ~/.local de este usuario; el paquete los lleva compilados aparte, con prefijo
+# /usr/local (paquete/compilar-sistema.sh, desde los mismos forks), para que sirva
+# cualquier usuario y la otra computadora no compile nada (10-11-2026).
 #
 # Trabaja en ~/.cache/mint-macos/armar (ARMAR_TRABAJO=<carpeta> la cambia; se
 # borra al empezar) y la borra al terminar, salvo con ARMAR_GUARDAR=1.
@@ -264,8 +266,10 @@ PRUEBAS_RUST="$T/build/rust/debug" "$M/pruebas/correr.sh" --prefijo "$RAIZ$PREFI
 $SIN_PAQUETE && { paso "Listo (sin paquete)"; exit 0; }
 
 paso "El paquete (paquete.sh, sobre lo compilado aquí)"
-BUILD_FYNDER="$T/build/fynder" BUILD_DOCK="$T/build/plank" BINARIOS_DESDE="$RAIZ$HOME" \
-  GREETER_FUENTE="$S_GREETER" SPOTLYTE_FUENTE="$S_SPOTLYTE" FYNDER_FUENTE="$S_FYNDER" \
+# Lo del paquete para /usr/local, de los mismos forks en sus hashes (paquete.sh lo compila en
+# SISTEMA_DESDE si no está).
+SISTEMA_DESDE="$T/sistema" FYNDER_FUENTE="$S_FYNDER" MUELLE_FUENTE="$S_PLANK" \
+  GREETER_FUENTE="$S_GREETER" SPOTLYTE_FUENTE="$S_SPOTLYTE" \
   "$M/paquete.sh" "$DEST"
 
 cat >> "$DEST/origen.txt" <<EOF

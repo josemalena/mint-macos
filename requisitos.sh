@@ -14,6 +14,10 @@
 #   - keyd (⌘ y ⌥ como en macOS), compilado: no está en Mint 22;
 #   - fsapfsinfo y fsapfsmount (leer el disco de la Mac), compilados: la
 #     versión de apt (libfsapfs-utils 2020) no lee los APFS de hoy;
+#   - con el paquete (instalar-aqui.sh deja en el repo la carpeta compilado/, de
+#     paquete/compilar-sistema.sh): Fynder, Muelle, keyd y libfsapfs ya compilados,
+#     copiados a /usr/local, y de apt solo lo de ejecución. Nada se compila aquí
+#     y sirve cualquier usuario (José, 10-11-2026);
 #   - /etc/keyd/default.conf, el grupo keyd para el usuario y
 #     user_allow_other en /etc/fuse.conf (montar el disco de la Mac desde Nemo);
 #   - las rutas de macOS como enlaces: /Users → /home y /Volumes → la carpeta
@@ -82,14 +86,43 @@ fi
 # libfsapfs están en el manifiesto.
 source "$REPO/versiones.sh"
 
-paso "Paquetes de apt (${#COMPILAR[@]} para compilar, ${#EJECUCION[@]} en ejecución)"
+# Lo ya compilado que trae el paquete (paquete/compilar-sistema.sh; instalar-aqui.sh lo desempaca
+# en el repo). Con eso no se compila nada aquí, y de apt va solo lo de ejecución.
+COMPILADO="${MINT_MACOS_COMPILADO:-$REPO/compilado}"
+HAY_COMPILADO=false; [ -f "$COMPILADO/VERSIONES" ] && HAY_COMPILADO=true
+if $HAY_COMPILADO; then APT=("${EJECUCION[@]}" "${EJECUCION_COMPILADO[@]}"); QUE="ya compilado: solo lo de ejecución"
+else APT=("${COMPILAR[@]}" "${EJECUCION[@]}"); QUE="${#COMPILAR[@]} para compilar, ${#EJECUCION[@]} en ejecución"; fi
+
+paso "Paquetes de apt ($QUE)"
 if $SIMULAR; then
-  apt-get -s install "${COMPILAR[@]}" "${EJECUCION[@]}" 2>&1 | grep -E '^(Inst|E:)' | sed 's/^/  /' | head -60 || true
-  echo "  (simulado: $(apt-get -s install "${COMPILAR[@]}" "${EJECUCION[@]}" 2>/dev/null | grep -c '^Inst') paquetes nuevos)"
+  apt-get -s install "${APT[@]}" 2>&1 | grep -E '^(Inst|E:)' | sed 's/^/  /' | head -60 || true
+  echo "  (simulado: $(apt-get -s install "${APT[@]}" 2>/dev/null | grep -c '^Inst') paquetes nuevos)"
 else
   [ "$(id -u)" = 0 ] || { echo "  ✗ corre esto con sudo (o con --simular)"; exit 1; }
   apt-get update -q
-  apt-get install -y "${COMPILAR[@]}" "${EJECUCION[@]}"
+  apt-get install -y "${APT[@]}"
+fi
+
+paso "Fynder y Muelle"
+HOGAR_USUARIO="$(getent passwd "$USUARIO" | cut -d: -f6)"
+if [ ! -d "$COMPILADO/fynder-muelle/usr/local" ]; then
+  echo "  el paquete no los trae: instalar.sh los compila en el home (sin --sin-compilar)"
+elif $SIMULAR; then
+  echo "  se copiarían a /usr/local, ya compilados: $(ls "$COMPILADO/fynder-muelle/usr/local/bin" | tr '\n' ' ')"
+else
+  # Sin conservar el dueño: lo desempacó el usuario, y en /usr/local todo es de root.
+  cp -dR --preserve=mode,timestamps "$COMPILADO/fynder-muelle/usr/local/." /usr/local/
+  ldconfig
+  [ -d /usr/local/share/glib-2.0/schemas ] && glib-compile-schemas /usr/local/share/glib-2.0/schemas
+  [ -d /usr/local/share/applications ] && { update-desktop-database /usr/local/share/applications 2>/dev/null || true; }
+  echo "  en /usr/local, ya compilados ($(grep -E '^(fynder|muelle)=' "$COMPILADO/VERSIONES" | cut -c1-14 | tr '\n' ' '))"
+fi
+# Una instalación de antes en el home (paquetes de antes del 10-11-2026, o instalar.sh sin
+# --sin-compilar) va primero en el PATH y tapa la de /usr/local. No se borra nada: se avisa.
+if $HAY_COMPILADO; then
+  for b in fynder fynder-desktop muelle; do
+    [ -e "$HOGAR_USUARIO/.local/bin/$b" ] && echo "  ⚠ $HOGAR_USUARIO/.local/bin/$b es de una instalación anterior y tapa la de /usr/local: quítalo cuando quieras usar la nueva"
+  done
 fi
 
 paso "Un navegador Chromium para las apps web de iCloud"
@@ -126,6 +159,13 @@ fi
 paso "keyd $KEYD_VERSION"
 if command -v keyd >/dev/null && keyd --version 2>/dev/null | grep -q "$KEYD_VERSION"; then
   echo "  ya está"
+elif [ -x "$COMPILADO/keyd/usr/local/bin/keyd" ]; then
+  if $SIMULAR; then echo "  se copiaría el keyd del paquete ($KEYD_VERSION, ya compilado) a /usr/local"
+  else
+    cp -dR --preserve=mode,timestamps "$COMPILADO/keyd/usr/local/." /usr/local/
+    [ -d /run/systemd/system ] && systemctl daemon-reload
+    echo "  el del paquete, ya compilado, en /usr/local"
+  fi
 elif $SIMULAR; then
   echo "  se compilaría desde github.com/rvaiya/keyd ($KEYD_VERSION) y se instalaría en /usr/local"
 else
@@ -151,7 +191,11 @@ paso "fsapfsinfo y fsapfsmount (leer el disco APFS de la Mac)"
 if command -v fsapfsmount >/dev/null; then
   echo "  ya están: $(command -v fsapfsmount)"
 elif $SIMULAR; then
-  echo "  se compilaría libfsapfs con apfs/instalar-fsapfs.sh (en /usr/local)"
+  if [ -d "$COMPILADO/fsapfs/usr/local" ]; then echo "  se copiaría la libfsapfs del paquete (ya compilada) a /usr/local"
+  else echo "  se compilaría libfsapfs con apfs/instalar-fsapfs.sh (en /usr/local)"; fi
+elif [ -d "$COMPILADO/fsapfs/usr/local" ]; then
+  # La del paquete: instalar-fsapfs.sh la copia y pone lo demás (mount.fsapfs, fuse.conf).
+  FSAPFS_COMPILADO="$COMPILADO/fsapfs" bash "$REPO/apfs/instalar-fsapfs.sh"
 else
   # instalar-fsapfs.sh usa sudo por dentro; como root no pide clave.
   bash "$REPO/apfs/instalar-fsapfs.sh"

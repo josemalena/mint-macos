@@ -218,6 +218,14 @@ el HEAD y cada fork en su hash, compila, corre las pruebas y arma el paquete
 con `paquete.sh`. Dos corridas del mismo HEAD tienen que dar los mismos
 archivos (`SUMAS.sha256` en la carpeta del paquete).
 
+El paquete sirve **a cualquier usuario** y la otra computadora **no compila
+nada** (10-11-2026): Fynder, Muelle, keyd, libfsapfs y slick-greeter-mac van ya
+compilados con prefijo `/usr/local` (`paquete/compilar-sistema.sh`, en
+`compilado.tar.gz` y `greeter.tar.gz`), y `requisitos.sh` los copia y de apt
+instala solo lo de ejecución (`EJECUCION` y `EJECUCION_COMPILADO`). Las
+etiquetas de Fynder de quien arma el paquete van solo a jmalena o con
+`MINT_MACOS_ETIQUETAS=propias`; a otro usuario le van las de fábrica de macOS.
+
 Fynder y Spotlyte están en repos privados: para clonarlos, `armar.sh` necesita
 credenciales de GitHub (`gh auth login`, que deja a `gh` de ayudante de git).
 Sin ellas cae al repo local de al lado, si tiene el hash, y lo avisa con ⚠. La

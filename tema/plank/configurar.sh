@@ -34,7 +34,10 @@ set -euo pipefail
 source "$(cd "$(dirname "$0")/.." && pwd)/dock.sh"
 CLAVES="$DOCK_DCONF/docks/dock1"
 LANZADORES="$DOCK_CONFIG/dock1/launchers"
+# Los docklets: los del ~/.local (Muelle compilado en el home) o los de /usr/local (el paquete
+# lo trae ya compilado; 10-11-2026).
 DOCKLETS="$HOME/.local/lib/x86_64-linux-gnu/plank/docklets"
+[ -d "$DOCKLETS" ] || DOCKLETS="/usr/local/lib/x86_64-linux-gnu/plank/docklets"
 
 # El orden del Dock de la Mac (c17): Finder, Siri, Launchpad, Spark, Calendar…
 # App Store, System Preferences, Console, Terminal… Edge, Chrome, Safari y VS
@@ -57,9 +60,11 @@ escribir_lanzador() { # nombre uri
 APPS="$HOME/.local/share/applications"
 if [ -z "${PLANK_FINDER:-}" ]; then
   PLANK_FINDER=nemo-mac
-  [ -f "$APPS/fynder.desktop" ] && PLANK_FINDER=fynder
+  { [ -f "$APPS/fynder.desktop" ] || [ -f /usr/local/share/applications/fynder.desktop ]; } && PLANK_FINDER=fynder
 fi
 FINDER_DESKTOP="$APPS/$PLANK_FINDER.desktop"
+# El de Fynder ya compilado del paquete está en /usr/local (10-11-2026).
+[ -f "$FINDER_DESKTOP" ] || [ ! -f "/usr/local/share/applications/$PLANK_FINDER.desktop" ] || FINDER_DESKTOP="/usr/local/share/applications/$PLANK_FINDER.desktop"
 [ -f "$FINDER_DESKTOP" ] || FINDER_DESKTOP="$APPS/nemo-mac.desktop"
 [ -f "$FINDER_DESKTOP" ] || FINDER_DESKTOP=/usr/share/applications/nemo.desktop
 escribir_lanzador finder "file://$FINDER_DESKTOP"

@@ -87,7 +87,7 @@ else
   apt-get install -y xss-lock >/dev/null && echo "  instalado"
 fi
 
-paso "Compilar slick-greeter-mac (como $USUARIO)"
+paso "slick-greeter-mac (se compila como $USUARIO si no viene ya compilado)"
 if [ -z "$FUENTE" ]; then
   FUENTE="$HOGAR/.cache/mint-macos/src/mint-macos-greeter"
   [ -d "$FUENTE/.git" ] || sudo -u "$USUARIO" git clone -q --filter=blob:none "$GREETER_REPO" "$FUENTE"
@@ -96,10 +96,16 @@ if [ -z "$FUENTE" ]; then
   [ "$(sudo -u "$USUARIO" git -C "$FUENTE" rev-parse HEAD)" = "$GREETER_HASH" ] || { echo "  ✗ no quedó en $GREETER_HASH" >&2; exit 1; }
 fi
 [ -f "$FUENTE/src/login-mac.vala" ] || { echo "  ✗ $FUENTE no es el fork (falta src/login-mac.vala); usa --fuente" >&2; exit 1; }
-if [ ! -d "$FUENTE/build" ]; then
-  sudo -u "$USUARIO" meson setup "$FUENTE/build" "$FUENTE" --prefix=/usr/local >/dev/null
+# El del paquete trae el binario ya compilado (paquete/compilar-sistema.sh) y ningún build de
+# meson: entonces no se compila aquí (José, 10-11-2026). Con un build de meson, se compila.
+if [ -x "$FUENTE/build/src/slick-greeter-mac" ] && [ ! -f "$FUENTE/build/build.ninja" ]; then
+  echo "  ya compilado, del paquete"
+else
+  if [ ! -d "$FUENTE/build" ]; then
+    sudo -u "$USUARIO" meson setup "$FUENTE/build" "$FUENTE" --prefix=/usr/local >/dev/null
+  fi
+  sudo -u "$USUARIO" ninja -C "$FUENTE/build" >/dev/null
 fi
-sudo -u "$USUARIO" ninja -C "$FUENTE/build" >/dev/null
 # El del paquete viene sin .git (git archive): entonces, el hash del manifiesto.
 if [ -d "$FUENTE/.git" ]; then echo "  $(sudo -u "$USUARIO" git -C "$FUENTE" log --oneline -1)"
 else echo "  $FUENTE (sin .git; el paquete trae ${GREETER_HASH:0:7})"; fi

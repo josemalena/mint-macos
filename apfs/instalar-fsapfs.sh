@@ -13,6 +13,11 @@
 #                                                la imagen (lib/destino.sh): copia ese árbol, el
 #                                                ayudante de mount, fuse.conf, el vigilante y el
 #                                                grupo disk para los usuarios nuevos; nada se compila
+#   FSAPFS_COMPILADO=/carpeta ./instalar-fsapfs.sh
+#                                                en esta máquina, con el árbol ya compilado que trae
+#                                                el paquete (paquete/compilar-sistema.sh): lo copia
+#                                                a /usr/local y sigue igual, sin apt de compilación
+#   FSAPFS_HILOS=2                               los hilos de make (por omisión, todos)
 set -euo pipefail
 
 REPO="$(cd "$(dirname "$0")" && pwd)"
@@ -34,7 +39,7 @@ compilar() { # destdir (vacío: make install de verdad, con sudo)
   tar xzf "$TMP/libfsapfs.tar.gz" -C "$TMP"
   cd "$TMP/libfsapfs-$VERSION"
   ./configure --prefix=/usr/local --enable-python=no
-  make -j"$(nproc)"
+  make -j"${FSAPFS_HILOS:-$(nproc)}"
   # Sin libfuse3-dev, configure sigue adelante pero no construye fsapfsmount.
   test -x fsapfstools/fsapfsmount || { echo "  ✗ no se construyó fsapfsmount: falta FUSE 3"; exit 1; }
   if [ -n "$1" ]; then make install DESTDIR="$1"; else sudo make install; sudo ldconfig; fi
@@ -55,6 +60,13 @@ if es_sistema; then
     ldconfig -p | grep -q 'libfuse3.so.3' || apt-get install -y fuse3
     ldconfig
   fi
+elif [ -d "${FSAPFS_COMPILADO:-}/usr/local" ]; then
+  # El del paquete (José, 10-11-2026: instalar sin compilar). En ejecución solo hace falta FUSE 3.
+  echo "▸ libfsapfs $VERSION (ya compilado, del paquete)"
+  # Sin conservar el dueño (lo desempacó el usuario): en /usr/local, de root.
+  $COMO_ROOT cp -dR --preserve=mode,timestamps "$FSAPFS_COMPILADO/usr/local/." /usr/local/
+  ldconfig -p | grep -q 'libfuse3.so.3' || $COMO_ROOT apt-get install -y fuse3
+  $COMO_ROOT ldconfig
 else
   echo "▸ Requisitos de compilación y FUSE 3"
   sudo apt install -y build-essential autoconf automake autopoint libtool \

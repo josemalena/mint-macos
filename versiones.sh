@@ -135,3 +135,24 @@ EJECUCION=(
   # 24.04 se llama libfuse2t64); ver aplicaciones/APPIMAGE.md
   libfuse2t64
 )
+# Lo que necesitan en ejecución las piezas que el paquete trae ya compiladas
+# (paquete/compilar-sistema.sh: Fynder, Muelle, slick-greeter-mac, keyd y
+# libfsapfs). Con el paquete, requisitos.sh instala esto y EJECUCION, no
+# COMPILAR: sin estas, las librerías llegaban con los -dev. Sale de las NEEDED
+# de sus ELF (objdump -p | dpkg -S) en Mint 22.3 (10-11-2026); casi todas ya
+# vienen en Mint, y nombrarlas no cuesta nada.
+EJECUCION_COMPILADO=(
+  # Fynder
+  libcinnamon-desktop4 libxapp1 libexempi8 libexif12 libgail-3-0t64 libjson-glib-1.0-0
+  libnemo-extension1 libxfixes3 libxi6
+  # Muelle
+  libbamf3-2t64 libgee-0.8-2 libwnck-3-0 libgnome-menu-3-0 libcanberra0t64
+  libdbusmenu-glib4 libdbusmenu-gtk3-4
+  # slick-greeter-mac
+  liblightdm-gobject-1-0 libxext6
+  # keyd-application-mapper (python) y libfsapfs (FUSE 3)
+  python3-xlib libfuse3-3 fuse3
+  # lo que COMPILAR traía y los guiones usan: git (los temas que se bajan en un
+  # commit fijo) y curl (rclone, libfsapfs)
+  git curl
+)

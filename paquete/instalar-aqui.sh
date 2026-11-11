@@ -8,15 +8,18 @@
 #   ./instalar-aqui.sh
 #   MINT_MACOS_TECLADO="us,es" ./instalar-aqui.sh   escoge las distribuciones de
 #                                    teclado (sin esto se queda la de la instalación de Mint)
+#   MINT_MACOS_ETIQUETAS=propias ./instalar-aqui.sh  las etiquetas de Fynder de quien armó
+#                                    el paquete aunque instale otro usuario (ver p_binarios)
 #
-# Necesita internet para los paquetes de apt, para compilar keyd y fsapfs
-# (requisitos.sh). Todo lo demás viene en el paquete, también el fork de la
-# pantalla de inicio (greeter.tar.gz).
+# Sirve cualquier usuario y nada se compila aquí (José, 10-11-2026): Fynder, Muelle, keyd,
+# libfsapfs y la pantalla de inicio vienen ya compilados (compilado.tar.gz y greeter.tar.gz,
+# de paquete/compilar-sistema.sh) y van a /usr/local. Internet hace falta solo para los
+# paquetes de apt de ejecución (requisitos.sh).
 #
 # Pasos:
-#   1. revisa que el usuario y la versión de Mint sean los del paquete
-#   2. pide la clave y sudo requisitos.sh
-#   3. Fynder y el Dock a ~/.local (ya compilados)
+#   1. revisa la versión de Mint (avisa si no es la del paquete)
+#   2. pide la clave y sudo requisitos.sh (también copia lo ya compilado a /usr/local)
+#   3. los ajustes de Fynder y el Dock (como el usuario: dconf y gsettings nunca como root)
 #   4. lo de Apple a ~/.cache/mint-macos/mac-sistema, que hace de disco de la Mac
 #   5. instalar.sh --sin-compilar, Settings.app, Launchpad, el ayudante
 #      (Force Quit y ⇧⌘5) y las apps web de Apple
@@ -65,9 +68,11 @@ trap 'fallo "$LINENO" "$BASH_COMMAND"' ERR
 p_verificar() {
 paso "1. ¿Es la misma clase de computadora?"
 [ "$(id -u)" != 0 ] || { echo "  ✗ córrelo como tu usuario, sin sudo"; exit 1; }
-if [ "$HOME" != "$(leer home)" ]; then
-  echo "  ✗ el paquete se armó para $(leer home) y aquí es $HOME."
-  echo "    Fynder y el Dock llevan esa ruta compilada: entra con el usuario $(leer usuario)."
+# Cualquier usuario sirve: lo compilado va a /usr/local, sin rutas del home de nadie (10-11-2026).
+# Un paquete de antes (con binarios.tar.gz en el ~/.local de quien lo armó) sí exige el mismo home.
+if [ ! -f "$AQUI/compilado.tar.gz" ] && [ -f "$AQUI/binarios.tar.gz" ] && [ "$HOME" != "$(leer home)" ]; then
+  echo "  ✗ este paquete es de antes del 10-11-2026: se armó para $(leer home) y aquí es $HOME."
+  echo "    Fynder y el Dock llevan esa ruta compilada: entra con el usuario $(leer usuario), o arma uno nuevo."
   exit 1
 fi
 MINT_AQUI="$(. /etc/os-release && echo "$VERSION_ID")"
@@ -85,25 +90,54 @@ if [ -e "$REPO" ]; then
   echo "  el que había quedó al lado, con fecha"
 fi
 tar -xzf "$AQUI/mint-macos.tar.gz" -C "$HOME"
+# Fynder, Muelle, keyd y libfsapfs ya compilados (paquete/compilar-sistema.sh), en $REPO/compilado:
+# requisitos.sh, que corre como root, los copia de ahí a /usr/local.
+if [ -f "$AQUI/compilado.tar.gz" ]; then tar -xzf "$AQUI/compilado.tar.gz" -C "$REPO"; fi
 # Los ayudantes de root en Rust, ya compilados (los instala settings/instalar-root.sh, en el paso 6).
 # Con if y no con &&: como última línea, un && sin el archivo hace que la función devuelva 1.
 if [ -f "$AQUI/rust-binarios.tar.gz" ]; then tar -xzf "$AQUI/rust-binarios.tar.gz" -C "$REPO"; fi
 }
 
+# Las etiquetas de Fynder de fábrica de macOS, con los colores que usa Fynder para cada una
+# (formato de finder-tags: nombre, color, visible).
+ETIQUETAS_FABRICA="[('Red', 6, true), ('Orange', 7, true), ('Yellow', 5, true), ('Green', 2, true), ('Blue', 4, true), ('Purple', 3, true), ('Gray', 1, true), ('Work', 0, true), ('Home', 0, true), ('Important', 0, true)]"
+
 p_binarios() {
 paso "3. Fynder y el Dock"
-tar -xzf "$AQUI/binarios.tar.gz" -C "$HOME"
-glib-compile-schemas "$HOME/.local/share/glib-2.0/schemas"
-# Los ajustes de Fynder de la otra computadora (etiquetas, menú global…).
+# Todo lo de este paso corre como el usuario: dconf y gsettings como root irían al dconf de root.
+if [ -f "$AQUI/compilado.tar.gz" ]; then
+  # Ya están en /usr/local (los copió requisitos.sh en el paso 2).
+  for b in fynder muelle; do command -v "$b" >/dev/null || { echo "  ✗ no está $b: corre antes el paso de root «requisitos»"; exit 1; }; done
+  echo "  en /usr/local: $(command -v fynder), $(command -v muelle)"
+else
+  # Un paquete de antes: Fynder y el Dock compilados con el ~/.local de quien lo armó.
+  tar -xzf "$AQUI/binarios.tar.gz" -C "$HOME"
+  glib-compile-schemas "$HOME/.local/share/glib-2.0/schemas"
+  echo "  $(tar -tzf "$AQUI/binarios.tar.gz" | wc -l) archivos en ~/.local"
+fi
+# Los ajustes de Fynder de quien armó el paquete (la barra de ruta, el menú global, la barra
+# de herramientas…), para todos.
 [ -f "$AQUI/fynder-ajustes.dconf" ] && dconf load /io/github/josemalena/fynder/ < "$AQUI/fynder-ajustes.dconf"
-echo "  $(tar -tzf "$AQUI/binarios.tar.gz" | wc -l) archivos en ~/.local"
+# Las etiquetas (José, 10-11-2026): las suyas si instala jmalena o con MINT_MACOS_ETIQUETAS=propias;
+# a cualquier otro usuario, las de fábrica de macOS, y solo si no tiene unas propias ya.
+if [ -f "$AQUI/fynder-etiquetas-propias.dconf" ] && { [ "$USER" = jmalena ] || [ "${MINT_MACOS_ETIQUETAS:-}" = propias ]; }; then
+  dconf load /io/github/josemalena/fynder/ < "$AQUI/fynder-etiquetas-propias.dconf"
+  echo "  etiquetas: las del paquete"
+elif [ -z "$(dconf read /io/github/josemalena/fynder/preferences/finder-tags)" ]; then
+  dconf write /io/github/josemalena/fynder/preferences/finder-tags "$ETIQUETAS_FABRICA"
+  echo "  etiquetas: las de fábrica de macOS"
+else
+  echo "  etiquetas: las que ya tenías"
+fi
 # Los diálogos de sesión en Vala (el lanzador cae a applemenu.py si faltan).
 [ -f "$AQUI/nativo-binarios.tar.gz" ] && tar -xzf "$AQUI/nativo-binarios.tar.gz" -C "$HOME"
 # Open/Save de todo el sistema con el selector de Fynder (portal y módulo de GTK; toma efecto al
 # volver a entrar). Vuelta atrás: sh fynder-selector.sh --quitar. Y las hojas pegadas a su ventana,
 # como en la Mac (vuelta atrás: gsettings set org.cinnamon.muffin attach-modal-dialogs false).
-# Sin el módulo (no siempre viene en el paquete), el ls falla: con pipefail, eso cerraba el guion.
-MOD="$(ls "$HOME"/.local/lib/*/gtk-3.0/modules/libfynder-chooser-module.so 2>/dev/null | head -1 || true)"
+# El módulo: el de /usr/local (compilado.tar.gz) o el del ~/.local de un paquete de antes. Sin
+# módulo (no siempre viene), el ls falla: con pipefail, eso cerraba el guion.
+MOD="$(ls /usr/local/lib/*/gtk-3.0/modules/libfynder-chooser-module.so /usr/local/lib/fynder/libfynder-chooser-module.so \
+          "$HOME"/.local/lib/*/gtk-3.0/modules/libfynder-chooser-module.so 2>/dev/null | head -1 || true)"
 if [ -f "$AQUI/fynder-selector.sh" ] && [ -n "$MOD" ]; then
   MODULO_COMPILADO="$MOD" sh "$AQUI/fynder-selector.sh" && echo "  selector de Open/Save: Fynder"
 else
@@ -177,9 +211,17 @@ Terminal=false
 Type=Application
 X-GNOME-Autostart-enabled=true
 EOF
-# La configuración solo si no hay una (la del usuario no se toca).
+# La configuración solo si no hay una (la del usuario no se toca). El tema trae la ruta del
+# caché de quien armó el paquete: se pasa al $HOME de aquí.
 if [ -f "$AQUI/spotlyte-config.tar.gz" ] && [ ! -e "$HOME/.config/ulauncher/settings.json" ]; then
   tar -xzf "$AQUI/spotlyte-config.tar.gz" -C "$HOME"
+  ORIGEN_HOME="$(leer home)"
+  if [ -n "$ORIGEN_HOME" ] && [ "$ORIGEN_HOME" != "$HOME" ] && [ -d "$HOME/.config/ulauncher/user-themes" ]; then
+    # Con || true: sin coincidencias, grep devuelve 1 y con pipefail eso cerraría el guion.
+    { grep -rlF "$ORIGEN_HOME/" "$HOME/.config/ulauncher/user-themes" 2>/dev/null || true; } | while IFS= read -r f; do
+      sed -i "s#$ORIGEN_HOME/#$HOME/#g" "$f"
+    done
+  fi
 fi
 echo "  en $SPOT/app; arranca al entrar (⌘Espacio)"
 }

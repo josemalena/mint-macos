@@ -7,8 +7,8 @@
 #
 # Qué lleva:
 #   mint-macos.tar.gz   el repo tal como está commiteado (git archive HEAD)
-#   binarios.tar.gz     Fynder y el Dock tal como están instalados aquí en
-#                       ~/.local (los archivos que dicen sus builds de meson)
+#   compilado.tar.gz    Fynder, Muelle, keyd y libfsapfs ya compilados con prefijo /usr/local
+#                       (paquete/compilar-sistema.sh): la otra computadora no compila nada
 #   mac-sistema.tar     lo que el tema lee del disco de la Mac: íconos,
 #                       Assets.car, PDFs, plists, fuentes, cursores y el fondo
 #                       de Catalina. Sin binarios ni idiomas que no son inglés.
@@ -16,30 +16,49 @@
 #                       y lo de la pantalla de inicio (constanza/login)
 #   cursores-base.tar.gz  McMojave-cursors, la base de los cursores de Constanza
 #   spotlyte.tar.gz     Spotlyte (el Spotlight), y spotlyte-config.tar.gz su configuración
-#   fynder-ajustes.dconf  los ajustes de Fynder del usuario (etiquetas, menú global…)
+#   fynder-ajustes.dconf  los ajustes de Fynder del usuario (barra de ruta, menú global…), para todos
+#   fynder-etiquetas-propias.dconf  sus etiquetas: solo para jmalena o con MINT_MACOS_ETIQUETAS=propias
+#                       (a otro usuario le van las de fábrica de macOS; instalar-aqui.sh)
 #   perfiles.tar.gz    los perfiles de versión de macOS ya generados aquí (perfiles/ESQUEMA.md):
 #                       la otra computadora no tiene las referencias de Monterey ni de Sequoia
 #   nativo-binarios.tar.gz  mac-sesion y su lanzador (nativo/, Vala), a ~/.local/bin
 #   rust-binarios.tar.gz  los ayudantes de root en Rust (rust/target/release)
-#   greeter.tar.gz      el fork de la pantalla de inicio, en el hash de versiones.sh
+#   greeter.tar.gz      el fork de la pantalla de inicio, en el hash de versiones.sh, con su
+#                       binario ya compilado (build/src/slick-greeter-mac)
 #   instalar-aqui.sh    el que se corre en la otra computadora
+#   instalar-todo.sh    sapOS de un solo paso (install-sapos/): drivers de la Mac e instalar-aqui.sh
 #   asistente-root.sh   la parte de root del asistente gráfico (pkexec, una clave)
 #
 # Lo de Apple es para las máquinas de quien tiene la Mac: el paquete no se
 # publica ni va a ningún repo.
 #
-# Los binarios llevan compilada la ruta ~/.local de ESTE usuario: en la otra
-# computadora hay que entrar con el mismo nombre de usuario y la misma versión
-# de Mint. instalar-aqui.sh lo revisa.
+# Sirve cualquier usuario (José, 10-11-2026): lo compilado va a /usr/local, sin rutas del home
+# de nadie. La versión de Mint sí tiene que ser la misma; instalar-aqui.sh lo revisa.
+#
+#   SISTEMA_DESDE=carpeta   lo ya compilado (paquete/compilar-sistema.sh). Si no tiene VERSIONES,
+#                           se compila ahí; por omisión ~/.cache/mint-macos/build-sistema
+#   PAQUETE_PREVIO=carpeta  un paquete anterior: lo que no cambia se toma de ahí (enlace duro) en
+#                           vez de rehacerlo: lo de Apple (mac-sistema, apple-extra), los perfiles,
+#                           los binarios de Rust si rust/ no cambió, y drivers/ e icono-disco.png
 set -euo pipefail
 
 REPO="$(cd "$(dirname "$0")" && pwd)"
 source "$REPO/versiones.sh"
 DEST="${1:-$HOME/.local/share/mint-macos/paquetes/$(date +%Y%m%d)}"
-# Los builds de meson de donde salen los binarios instalados.
-BUILD_FYNDER="${BUILD_FYNDER:-$HOME/.cache/mint-macos/build/fynder}"
-BUILD_DOCK="${BUILD_DOCK:-$HOME/.cache/mint-macos/build/plank-reloaded}"
-[ -f "$BUILD_DOCK/build.ninja" ] || BUILD_DOCK="$(dirname "$REPO")/plank-reloaded/build"
+SISTEMA="${SISTEMA_DESDE:-$HOME/.cache/mint-macos/build-sistema}"
+PREVIO="${PAQUETE_PREVIO:-}"
+[ -z "$PREVIO" ] || [ -d "$PREVIO" ] || { echo "✗ no existe PAQUETE_PREVIO=$PREVIO"; exit 1; }
+# Lo de un paquete anterior, con enlace duro si se puede (el mismo disco) y copia si no.
+del_previo() { # archivo… (relativos al paquete)
+  local f
+  for f in "$@"; do
+    [ -e "$PREVIO/$f" ] || return 1
+  done
+  for f in "$@"; do
+    mkdir -p "$(dirname "$DEST/$f")"; rm -rf -- "${DEST:?}/$f"
+    cp -al "$PREVIO/$f" "$DEST/$f" 2>/dev/null || cp -a "$PREVIO/$f" "$DEST/$f"
+  done
+}
 
 paso() { printf '\n▸ %s\n' "$*"; }
 mkdir -p "$DEST"
@@ -55,10 +74,26 @@ paso "mint-macos (HEAD $(git -C "$REPO" rev-parse --short HEAD))"
 git -C "$REPO" archive --prefix=mint-macos/ HEAD | gzip -n > "$DEST/mint-macos.tar.gz"
 echo "  $(du -h "$DEST/mint-macos.tar.gz" | cut -f1)"
 
-# La pantalla de inicio se compila en la otra computadora, del fork en el hash
-# que fija versiones.sh. Va en el paquete porque ese hash puede no estar
-# en GitHub todavía (en la iMac, 15-10-2026, «not our ref»), y así no hace
-# falta internet para eso.
+# Lo ya compilado para /usr/local: Fynder, Muelle, keyd, libfsapfs y el greeter.
+paso "Lo ya compilado (para /usr/local, de $SISTEMA)"
+if [ ! -f "$SISTEMA/VERSIONES" ]; then
+  echo "  no está: se compila ahora (tarda; una pieza a la vez y con la menor prioridad)"
+  "$REPO/paquete/compilar-sistema.sh" "$SISTEMA"
+fi
+for d in fynder-muelle/usr/local/bin/fynder fynder-muelle/usr/local/bin/muelle keyd/usr/local/bin/keyd \
+         fsapfs/usr/local/bin/fsapfsmount greeter/slick-greeter-mac; do
+  [ -e "$SISTEMA/$d" ] || { echo "  ✗ falta $SISTEMA/$d: paquete/compilar-sistema.sh $SISTEMA"; exit 1; }
+done
+# Sin lo de desarrollo (cabeceras, pkg-config, vapi): en la otra computadora no se compila nada.
+tar_fijo -cf - -C "$SISTEMA" --exclude='usr/local/include' --exclude='usr/local/lib/*/pkgconfig' \
+  --exclude='usr/local/lib/pkgconfig' --exclude='usr/local/share/vala' --exclude='*.la' --exclude='*.a' \
+  --transform 's,^,compilado/,' VERSIONES fynder-muelle keyd fsapfs | gzip -n > "$DEST/compilado.tar.gz"
+echo "  $(tr '\n' ' ' < "$SISTEMA/VERSIONES")"
+echo "  $(du -h "$DEST/compilado.tar.gz" | cut -f1)"
+
+# La pantalla de inicio: el fork en el hash que fija versiones.sh, con su binario ya compilado.
+# Va en el paquete porque ese hash puede no estar en GitHub todavía (en la iMac, 15-10-2026,
+# «not our ref»); login/instalar.sh ve el binario sin build de meson y no compila.
 paso "La pantalla de inicio (mint-macos-greeter)"
 GH="$GREETER_HASH"
 GF=""
@@ -68,8 +103,12 @@ done
 [ -n "$GF" ] || { echo "  ✗ ningún repo local tiene $GH (GREETER_FUENTE=<repo del fork>)"; exit 1; }
 # Solo el árbol del commit (git archive), sin .git: el índice y los logs de un
 # clon llevan fechas y rutas, y en la otra computadora no hace falta.
-git -C "$GF" archive --prefix=mint-macos-greeter/ "$GH" | gzip -n > "$DEST/greeter.tar.gz"
-echo "  ${GH:0:7} de $GF, $(du -h "$DEST/greeter.tar.gz" | cut -f1)"
+GT="$(mktemp -d)"
+git -C "$GF" archive --prefix=mint-macos-greeter/ "$GH" | tar -x -C "$GT"
+install -D -m 755 "$SISTEMA/greeter/slick-greeter-mac" "$GT/mint-macos-greeter/build/src/slick-greeter-mac"
+tar_fijo -cf - -C "$GT" mint-macos-greeter | gzip -n > "$DEST/greeter.tar.gz"
+rm -rf "$GT"
+echo "  ${GH:0:7} de $GF, con su binario; $(du -h "$DEST/greeter.tar.gz" | cut -f1)"
 
 # El tema base de los cursores (McMojave-cursors, de vinceliuice, GPL): de
 # él salen la flecha, la I de texto y la espera, que Catalina no trae como
@@ -97,15 +136,19 @@ for f in .config/ulauncher/settings.json .config/ulauncher/user-themes; do [ -e 
 [ ${#UL_CONF[@]} -gt 0 ] && tar_fijo -cf - -C "$HOME" "${UL_CONF[@]}" | gzip -n > "$DEST/spotlyte-config.tar.gz"
 echo "  $(git -C "$SPOT" rev-parse --short "$SPOT_REV"), $(du -h "$DEST/spotlyte.tar.gz" | cut -f1)"
 
-# Los ajustes de Fynder de este usuario (las etiquetas, la barra de ruta, dónde
-# abre una ventana nueva, la letra del escritorio, el menú global), sin
-# tamaños de ventana ni pestañas guardadas.
+# Los ajustes de Fynder de este usuario (la barra de ruta, dónde abre una ventana nueva, la letra
+# del escritorio, el menú global), sin tamaños de ventana ni pestañas guardadas. Las etiquetas van
+# aparte (José, 10-11-2026): son las de quien arma el paquete, y a otro usuario le van las de
+# fábrica de macOS (instalar-aqui.sh).
 paso "Ajustes de Fynder"
-dconf dump /io/github/josemalena/fynder/ | python3 -c '
+fynder_dconf() { # salida grupo:clave…
+  local salida="$1"; shift
+  dconf dump /io/github/josemalena/fynder/ | python3 -c '
 import sys
-quiero = {"preferences": {"finder-new-window-location", "finder-show-path-bar", "toolbar-finder-layout",
-                          "show-hidden-files", "finder-tags", "global-menu"},
-          "desktop": {"font", "finder-desktop-optical-disks"}}
+quiero = {}
+for g in sys.argv[1:]:
+    grupo, clave = g.split(":")
+    quiero.setdefault(grupo, set()).add(clave)
 grupo = None
 for l in sys.stdin:
     l = l.rstrip("\n")
@@ -113,30 +156,37 @@ for l in sys.stdin:
         grupo = l.strip("[]"); print(l) if grupo in quiero else None; continue
     if grupo in quiero and l.split("=", 1)[0] in quiero[grupo]:
         print(l)
-' > "$DEST/fynder-ajustes.dconf"
-echo "  $(grep -c = "$DEST/fynder-ajustes.dconf") ajustes"
+' "$@" > "$salida"
+}
+fynder_dconf "$DEST/fynder-ajustes.dconf" preferences:finder-new-window-location preferences:finder-show-path-bar \
+  preferences:toolbar-finder-layout preferences:show-hidden-files preferences:global-menu desktop:font \
+  desktop:finder-desktop-optical-disks
+fynder_dconf "$DEST/fynder-etiquetas-propias.dconf" preferences:finder-tags
+echo "  $(grep -c = "$DEST/fynder-ajustes.dconf") ajustes; $(grep -c = "$DEST/fynder-etiquetas-propias.dconf") de etiquetas, aparte"
 
 paso "Perfiles de versión de macOS"
 PERFILES="$HOME/.local/share/mint-macos/macos"
-if [ -d "$PERFILES" ]; then
+if [ -n "$PREVIO" ] && del_previo perfiles.tar.gz; then
+  echo "  del paquete anterior ($PREVIO)"
+elif [ -d "$PERFILES" ]; then
   tar_fijo -cf - -C "$PERFILES" . | gzip -n > "$DEST/perfiles.tar.gz"
   echo "  $(ls "$PERFILES" | tr '\n' ' ')"
 else
   echo "  ⚠ sin perfiles (perfiles/instalar.sh no se ha corrido aquí): la otra computadora queda en Catalina"
 fi
 
-# BINARIOS_DESDE: un «home» de montaje (meson install --destdir) con Fynder y el
-# Dock compilados del HEAD commiteado, para no llevar lo que haya instalado aquí
-# a medias (16-10-2026). Por defecto, lo instalado en este ~/.local.
-ORIGEN_BIN="${BINARIOS_DESDE:-$HOME}"
 # Los binarios de Rust (rust/: los ayudantes de root), compilados del HEAD
 # commiteado en una carpeta aparte; van a ~/mint-macos/rust/target/release, donde
 # los buscan los instalar-root.sh. En la otra computadora no hace falta Rust.
 paso "Binarios de Rust"
-if command -v cargo >/dev/null && [ -f "$REPO/rust/Cargo.toml" ]; then
+PREVIO_REPO="$( [ -n "$PREVIO" ] && sed -n 's/^repo=//p' "$PREVIO/origen.txt" 2>/dev/null || true)"
+if [ -n "$PREVIO_REPO" ] && git -C "$REPO" diff --quiet "$PREVIO_REPO" HEAD -- rust 2>/dev/null && del_previo rust-binarios.tar.gz; then
+  echo "  del paquete anterior: rust/ no cambió desde ${PREVIO_REPO:0:7}"
+elif command -v cargo >/dev/null && [ -f "$REPO/rust/Cargo.toml" ]; then
   RT="$(mktemp -d)"
   git -C "$REPO" archive HEAD rust | tar -x -C "$RT"
-  ( cd "$RT/rust" && CARGO_TARGET_DIR="$RT/rust/target" cargo build --release --locked --quiet )
+  # Con la menor prioridad y dos hilos (regla de José, 18-10-2026).
+  ( cd "$RT/rust" && CARGO_TARGET_DIR="$RT/rust/target" nice -n 19 ionice -c3 cargo build --release --locked --quiet -j 2 )
   # El registrador del menú global en Rust va solo con REGISTRADOR_RUST=1: hasta
   # que José lo pruebe en pantalla (Chrome, VS Code), la otra computadora se
   # queda con el de Python. Sin el binario, menu-global/instalar.sh usa el Python.
@@ -161,7 +211,7 @@ else
 fi
 
 # El selector de Open/Save de Fynder (portal + módulo de GTK): su instalador viaja aparte;
-# el módulo va en binarios.tar.gz con el resto de Fynder.
+# el módulo, si el Fynder compilado lo trae, va en compilado.tar.gz con el resto de Fynder.
 FF=""
 for f in "${FYNDER_FUENTE:-}" "$(dirname "$REPO")/$FYNDER_LOCAL"; do
   [ -n "$f" ] && [ -f "$f/portal/instalar-selector.sh" ] && { FF="$f"; break; }
@@ -173,25 +223,12 @@ else
   echo "  ⚠ sin portal/instalar-selector.sh de Fynder: el paquete va sin el selector de Open/Save"
 fi
 
-paso "Fynder y el Dock instalados${BINARIOS_DESDE:+ (de $BINARIOS_DESDE)}"
-LISTA="$(mktemp)"
-for b in "$BUILD_FYNDER" "$BUILD_DOCK"; do
-  [ -f "$b/build.ninja" ] || { echo "  ✗ no hay build de meson en $b (BUILD_FYNDER / BUILD_DOCK)"; exit 1; }
-  meson introspect --installed "$b" | python3 -c '
-import json, os, sys
-home = os.path.expanduser("~") + "/"
-origen = sys.argv[1].rstrip("/") + "/"
-for destino in json.load(sys.stdin).values():
-    if not destino.startswith(home + ".local/"):
-        sys.exit(f"  ✗ {destino} no está en ~/.local")
-    if os.path.lexists(origen + destino[len(home):]):
-        print(destino[len(home):])
-' "$ORIGEN_BIN" >> "$LISTA"
-done
-tar_fijo -cf - -C "$ORIGEN_BIN" -T "$LISTA" | gzip -n > "$DEST/binarios.tar.gz"
-echo "  $(wc -l < "$LISTA") archivos, $(du -h "$DEST/binarios.tar.gz" | cut -f1)"
-rm -f "$LISTA"
 
+PARTES_PREVIO="$( [ -n "$PREVIO" ] && cd "$PREVIO" && ls -d mac-sistema.tar mac-sistema.tar.parte-* 2>/dev/null || true)"
+if [ -n "$PARTES_PREVIO" ] && del_previo $PARTES_PREVIO; then
+  paso "Lo de Apple, del paquete anterior ($PREVIO)"
+  echo "  $(cd "$DEST" && ls -d mac-sistema.tar* | tr '\n' ' ')"
+else
 paso "Lo de Apple, del disco de la Mac (solo lectura)"
 source "$REPO/tema/comun.sh"
 trap desmontar_mac EXIT
@@ -229,8 +266,10 @@ if [ "$(stat -c %s "$DEST/mac-sistema.tar")" -gt 3900000000 ]; then
   rm -f "$DEST/mac-sistema.tar"
   echo "  partido para FAT32: $(ls "$DEST"/mac-sistema.tar.parte-* | xargs -n1 basename | tr '\n' ' ')"
 fi
+fi
 
 paso "Lo de Apple sacado en la Mac misma"
+if [ -n "$PREVIO" ] && del_previo apple-extra.tar.gz; then echo "  del paquete anterior"; else
 EXTRA=()
 [ -d "$HOME/.local/share/constanza/glifos-finder" ] && EXTRA+=(.local/share/constanza/glifos-finder)
 # La pantalla de inicio: fondos, foto de la cuenta y botones (login/desde-mac.sh
@@ -241,9 +280,18 @@ if [ ${#EXTRA[@]} -gt 0 ]; then
 else
   echo "  nada (no hay glifos-finder)"
 fi
+fi
 
-cp "$REPO/paquete/instalar-aqui.sh" "$REPO/paquete/asistente-root.sh" "$DEST/"
-chmod +x "$DEST/instalar-aqui.sh" "$DEST/asistente-root.sh"
+# Los instaladores, del HEAD commiteado (lo mismo que va en mint-macos.tar.gz).
+for f in paquete/instalar-aqui.sh paquete/asistente-root.sh install-sapos/instalar-todo.sh; do
+  git -C "$REPO" show "HEAD:$f" > "$DEST/$(basename "$f")"; chmod +x "$DEST/$(basename "$f")"
+done
+# Lo de sapOS que no va al repo: el .deb de mbpfan y la imagen del ícono del disco.
+if [ -n "$PREVIO" ]; then
+  del_previo drivers 2>/dev/null && echo "  drivers/ del paquete anterior"
+  del_previo icono-disco.png 2>/dev/null && echo "  icono-disco.png del paquete anterior"
+fi
+# home y usuario solo dicen quién lo armó (instalar-aqui.sh ya no exige que sea el mismo).
 cat > "$DEST/origen.txt" <<EOF
 usuario=$USER
 home=$HOME
@@ -251,6 +299,8 @@ mint=$(. /etc/os-release && echo "$VERSION_ID")
 repo=$(git -C "$REPO" rev-parse HEAD)
 fecha=$(date -Iseconds)
 EOF
+sed 's/^/compilado-/' "$SISTEMA/VERSIONES" >> "$DEST/origen.txt"
+( cd "$DEST" && find . -type f ! -name SHA256SUMS -printf '%P\n' | sort | xargs -d '\n' sha256sum > SHA256SUMS )
 
 paso "Listo: $DEST ($(du -sh "$DEST" | cut -f1))"
-echo "  En la otra computadora, entrando como $USER:  ./instalar-aqui.sh"
+echo "  En la otra computadora, con cualquier usuario (Mint $(. /etc/os-release && echo "$VERSION_ID")):  ./instalar-aqui.sh"

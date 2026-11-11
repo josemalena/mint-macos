@@ -95,7 +95,9 @@ for c in fsapfsmount keyd sassc convert rsync git $($SIN_COMPILAR || echo meson 
 if $SIN_COMPILAR; then
   paso "1. Fynder y Muelle: ya instalados (--sin-compilar)"
   source "$REPO/tema/dock.sh"
-  for b in fynder "$DOCK_BIN"; do [ -x "$HOME/.local/bin/$b" ] || { echo "  ✗ falta ~/.local/bin/$b"; exit 1; }; done
+  # En ~/.local (instalar.sh sin --sin-compilar, o un paquete de antes) o en /usr/local (el
+  # paquete los trae ya compilados y requisitos.sh los copia; 10-11-2026): por el PATH.
+  for b in fynder "$DOCK_BIN"; do command -v "$b" >/dev/null || { echo "  ✗ falta $b (ni en ~/.local/bin ni en /usr/local/bin)"; exit 1; }; done
 else
   paso "1. Compilar Fynder y Muelle";  "$REPO/construir.sh"
 fi
@@ -135,14 +137,15 @@ echo "  carpetas: $(xdg-mime query default inode/directory)"
 # mano; en la iMac salía el de Mint, con su menú y sin las etiquetas (15-10-2026).
 # Si ya apunta a fynder-desktop (también con esperar-icloud delante), no se toca.
 AUTO_ESC="$HOME/.local/share/applications/nemo-autostart.desktop"
-if [ -x "$HOME/.local/bin/fynder-desktop" ] && ! grep -q '^Exec=.*fynder-desktop$' "$AUTO_ESC" 2>/dev/null; then
+FYNDER_DESKTOP="$(command -v fynder-desktop || true)"
+if [ -n "$FYNDER_DESKTOP" ] && ! grep -q '^Exec=.*fynder-desktop$' "$AUTO_ESC" 2>/dev/null; then
   if [ -f "$AUTO_ESC" ]; then cp -a "$AUTO_ESC" "$R/"; else touch "$R/sin-nemo-autostart"; fi
   cat > "$AUTO_ESC" <<EOF
 [Desktop Entry]
 Type=Application
 Name=Fynder Desktop
 Comment=El escritorio de Fynder (mint-macos) en lugar del de Nemo
-Exec=$HOME/.local/bin/fynder-desktop
+Exec=$FYNDER_DESKTOP
 OnlyShowIn=X-Cinnamon;
 AutostartCondition=GSettings io.github.josemalena.fynder.desktop show-desktop-icons
 X-GNOME-AutoRestart=true
@@ -161,15 +164,16 @@ if [ -f "$HOME/.config/autostart/plank.desktop" ]; then cp -a "$HOME/.config/aut
 [ -f "$HOME/.config/autostart/muelle.desktop" ] || touch "$R/sin-autostart-muelle"
 [ "$DOCK" = muelle ] && rm -f "$HOME/.config/autostart/plank.desktop"
 NOMBRE_DOCK=Plank; [ "$DOCK" = muelle ] && NOMBRE_DOCK=Muelle
+DOCK_RUTA="$(command -v "$DOCK_BIN" || echo "$HOME/.local/bin/$DOCK_BIN")"
 cat > "$HOME/.config/autostart/$DOCK_BIN.desktop" <<EOF
 [Desktop Entry]
 Type=Application
 Name=$NOMBRE_DOCK
 Comment=El Dock (Muelle)
-Exec=$HOME/.local/bin/$DOCK_BIN
+Exec=$DOCK_RUTA
 X-GNOME-Autostart-enabled=true
 EOF
-echo "  dock: $HOME/.local/bin/$DOCK_BIN al entrar"
+echo "  dock: $DOCK_RUTA al entrar"
 
 if $LOGIN; then
   paso "7. Pantalla de inicio"
